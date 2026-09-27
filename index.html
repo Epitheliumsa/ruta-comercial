@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Ruta Comercial Epithelium</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="visitas.css">
+    <link rel="stylesheet" href="styles.css?v=202609270006">
+    <link rel="stylesheet" href="visitas.css?v=202609270006">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -74,6 +74,7 @@
                 </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
+                <p class="version-app">Versión 27/09/2026 00:06</p>
             </div>
         </div>
 
@@ -207,6 +208,7 @@
                 <div id="modalContenido"></div>
             </div>
         </div>
+        <div id="avisoVersion" class="aviso-version"><span>Hay una versión nueva de la app</span><button onclick="actualizarApp()">Actualizar</button></div>
         <div id="toast" class="toast"></div>
         <div id="tooltip" class="tooltip" role="status"></div>
         <div id="avisoCita" class="aviso-cita" role="alert">
@@ -216,6 +218,6 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=202609270006"></script>
 </body>
 </html>

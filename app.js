@@ -1,6 +1,8 @@
 // CONFIGURACIÓN
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
+// Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
+const APP_VERSION = '202609270006';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos del CRM (todo lo que programe queda como proyecto)
@@ -365,6 +367,25 @@ function pintarInicio() {
     $('homeActTxt').textContent = acts.length ? `${hechas} de ${acts.length} realizadas este mes` : 'Sin actividades programadas este mes';
     pintarEstadoSync();
 }
+
+// ---------- ACTUALIZACIÓN DE LA APP ----------
+// Revisa si hay una versión nueva publicada y ofrece recargar (evita quedarse con la versión guardada en el celular)
+async function revisarVersion() {
+    try {
+        const resp = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+        if (!resp.ok) return;
+        const publicada = (await resp.text()).trim();
+        if (publicada && publicada !== APP_VERSION) $('avisoVersion').classList.add('visible');
+    } catch (e) { /* sin conexión: se revisa después */ }
+}
+
+function actualizarApp() {
+    if (pendientes.size && API_URL) sincronizar();
+    location.replace(location.pathname + '?v=' + Date.now());
+}
+
+document.addEventListener('DOMContentLoaded', revisarVersion);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) revisarVersion(); });
 
 // ---------- AVISO DE CITAS (15 minutos antes) ----------
 const MINUTOS_AVISO = 15;

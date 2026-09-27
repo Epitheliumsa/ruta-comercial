@@ -675,3 +675,10 @@
 @media (min-width: 900px) { .filters.filtros-panel { position: static; box-shadow: none; } }
 
 .aviso-zona { margin: 12px 15px 0; padding: 10px 12px; border-radius: 8px; background: #fffaf3; border: 1px dashed #e8b27a; color: #6b4a2a; font-size: 13px; font-weight: 600; }
+
+.version-app { grid-column: 1 / -1; text-align: center; font-size: 11px; color: #a3b1ac; margin-top: -8px; }
+.aviso-version { position: fixed; left: 12px; right: 12px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 2150; max-width: 520px; margin: 0 auto;
+    display: none; align-items: center; justify-content: space-between; gap: 10px; background: #15302a; color: white; border-radius: 12px; padding: 12px 12px 12px 16px;
+    font-size: 14px; font-weight: 600; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
+.aviso-version.visible { display: flex; }
+.aviso-version button { background: #3fa83a; color: white; border: 0; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-weight: 700; cursor: pointer; }
