@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609270006';
+const APP_VERSION = '202609270030';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos del CRM (todo lo que programe queda como proyecto)
@@ -28,6 +28,14 @@ const TIPOS_VISITA = {
 // y no cuenta en los indicadores de visitas
 const TRABAJO_INTERNO = ['Trabajo Administrativo Oficina', 'Trabajo Administrativo Fuera de la Oficina', 'Planeación Mes'];
 const esTrabajoInterno = tipo => TRABAJO_INTERNO.includes(tipo);
+// Novedades del vendedor: días en que no trabaja o trabaja parcial. No son visitas ni cuentan en los indicadores
+const NOVEDADES = ['Vacaciones', 'Incapacidad', 'Permiso', 'Cumpleaños'];
+const NOVEDAD_RANGO = ['Vacaciones', 'Incapacidad', 'Permiso'];   // se pueden programar por varios días
+const esNovedad = tipo => NOVEDADES.includes(tipo);
+const novedadesDe = (vendedor, fecha) => visibles().filter(r => r.clase === 'novedad' && r.vendedor === vendedor
+    && r.fecha <= fecha && (r.hasta || r.fecha) >= fecha);
+const rangoNovedad = n => n.hasta && n.hasta !== n.fecha ? `${fechaCorta(n.fecha)} al ${fechaCorta(n.hasta)}` : fechaCorta(n.fecha);
+const CORTO_NOVEDAD = { Vacaciones: 'Vacac.', Incapacidad: 'Incap.', Permiso: 'Permiso', 'Cumpleaños': 'Cumple' };
 const MODALIDADES = { presencial: 'Presencial', virtual: 'Virtual' };
 // Las visitas se programan antes de esta hora (Colombia, UTC-5) del día de la visita;
 // las que se crean después quedan como NO programadas
@@ -98,17 +106,33 @@ function pascua(y) {
 }
 const alLunes = f => sumarDias(f, (8 - deIso(f).getDay()) % 7);
 const cacheFestivos = {};
-// Festivos de Colombia (Ley Emiliani: varios se corren al lunes)
+// Calendario oficial de festivos de Colombia (Ley 51 de 1983, Ley Emiliani: varios se corren al lunes)
 function festivos(y) {
     if (cacheFestivos[y]) return cacheFestivos[y];
     const f = md => `${y}-${md}`;
     const p = pascua(y);
-    return cacheFestivos[y] = new Set([
-        f('01-01'), f('05-01'), f('07-20'), f('08-07'), f('12-08'), f('12-25'),
-        ...['01-06', '03-19', '06-29', '08-15', '10-12', '11-01', '11-11'].map(md => alLunes(f(md))),
-        sumarDias(p, -3), sumarDias(p, -2), sumarDias(p, 43), sumarDias(p, 64), sumarDias(p, 71)
+    return cacheFestivos[y] = new Map([
+        [f('01-01'), 'Año Nuevo'],
+        [alLunes(f('01-06')), 'Día de los Reyes Magos'],
+        [alLunes(f('03-19')), 'Día de San José'],
+        [sumarDias(p, -3), 'Jueves Santo'],
+        [sumarDias(p, -2), 'Viernes Santo'],
+        [f('05-01'), 'Día del Trabajo'],
+        [sumarDias(p, 43), 'Ascensión del Señor'],
+        [sumarDias(p, 64), 'Corpus Christi'],
+        [sumarDias(p, 71), 'Sagrado Corazón de Jesús'],
+        [alLunes(f('06-29')), 'San Pedro y San Pablo'],
+        [f('07-20'), 'Día de la Independencia'],
+        [f('08-07'), 'Batalla de Boyacá'],
+        [alLunes(f('08-15')), 'Asunción de la Virgen'],
+        [alLunes(f('10-12')), 'Día de la Raza'],
+        [alLunes(f('11-01')), 'Día de Todos los Santos'],
+        [alLunes(f('11-11')), 'Independencia de Cartagena'],
+        [f('12-08'), 'Día de la Inmaculada Concepción'],
+        [f('12-25'), 'Navidad']
     ]);
 }
+const nombreFestivo = f => festivos(+f.slice(0, 4)).get(f) || '';
 const esHabil = f => { const w = deIso(f).getDay(); return w !== 0 && w !== 6 && !festivos(+f.slice(0, 4)).has(f); };
 function siguienteHabil(f) { let d = sumarDias(f, 1); while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 const diaCierre = v => siguienteHabil(v.fecha);
@@ -484,6 +508,13 @@ function opcionesContacto(zona) {
         + proyectosDeZona(zona).map(p => `<option value="${esc(p.nombre)}" label="${esc(['Proyecto', p.tipo, p.ciudad].filter(Boolean).join(' · '))}">`).join('');
 }
 
+// El nombre de contacto es obligatorio para clientes y puntos de venta; en un médico el contacto es el mismo médico
+function etiquetaPersonaProyecto() {
+    const obligatorio = $('pTipo').value !== 'Médico';
+    $('lblPersona').textContent = obligatorio ? 'Nombre de contacto' : 'Nombre de contacto (opcional)';
+    $('pPersona').placeholder = obligatorio ? 'Persona con quien se habla (ej: administradora)' : 'Ej: asistente o secretaria';
+}
+
 function mostrarNuevoProyecto(abrir) {
     $('cajaProyecto').hidden = !abrir;
     $('lnkProyecto').hidden = abrir;
@@ -500,7 +531,7 @@ function abrirProyectos() {
         <p class="sub">Contactos que aún no están en el CRM. Cuando se creen allá, vincúlalos para que sus visitas queden a nombre del contacto del CRM.</p>
         ${lista.length ? lista.map(p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
             <strong>${esc(p.nombre)}</strong>
-            <small>${esc([p.tipo, p.ciudad, p.telefono].filter(Boolean).join(' · '))}${esJefe() ? ' · ' + esc(nombreVendedor(p.vendedor)) : ''} · ${visitas(p.id)} ${visitas(p.id) === 1 ? 'visita' : 'visitas'}</small>
+            <small>${esc([p.tipo, p.persona, p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}${esJefe() ? ' · ' + esc(nombreVendedor(p.vendedor)) : ''} · ${visitas(p.id)} ${visitas(p.id) === 1 ? 'visita' : 'visitas'}</small>
             ${p.estado === 'vinculado'
                 ? `<p><span class="chip ok">Vinculado</span> al CRM como <b>${esc(p.vinculadoA)}</b></p>`
                 : `<div class="vincular" id="vin-${p.id}" hidden>
@@ -578,6 +609,44 @@ function elegirFecha(f) {
     if (mesDe(f) !== mesAntes) sincronizar(mesDe(f));
 }
 
+// Calendario del mes con festivos oficiales, novedades y número de visitas
+let mesCalendario = null;
+function abrirCalendario(mes) {
+    mesCalendario = mes || mesDe(agenda.fecha);
+    const v = agenda.vendedor, t = hoy();
+    const primero = mesCalendario + '-01';
+    const inicio = lunesDe(primero);
+    const ultimo = finDeMes(mesCalendario);
+    let celdas = '';
+    for (let d = inicio; d <= ultimo || deIso(d).getDay() !== 1; d = sumarDias(d, 1)) {
+        const fuera = mesDe(d) !== mesCalendario;
+        const fest = nombreFestivo(d);
+        const nov = novedadesDe(v, d)[0];
+        const n = visitasDe(v, d).filter(x => !x.interno).length;
+        celdas += `<button class="cal-dia${fuera ? ' fuera' : ''}${fest ? ' festivo' : ''}${d === t ? ' hoy' : ''}${d === agenda.fecha ? ' sel' : ''}${deIso(d).getDay() === 0 ? ' domingo' : ''}" onclick="irDelCalendario('${d}')">
+            <b>${deIso(d).getDate()}</b>
+            ${fest ? `<small class="cal-fest">${esc(fest)}</small>` : ''}
+            ${nov ? `<small class="cal-nov" title="${esc(nov.tipo)}"><span class="largo">${esc(nov.tipo)}</span><span class="corto">${esc(CORTO_NOVEDAD[nov.tipo])}</span></small>` : ''}
+            ${n ? `<span class="cal-n">${n} ${n === 1 ? 'visita' : 'visitas'}</span>` : ''}
+        </button>`;
+    }
+    const festMes = [...festivos(+mesCalendario.slice(0, 4))].filter(([f]) => mesDe(f) === mesCalendario).sort();
+    abrirModal(`<div class="form-rc calendario">
+        <div class="nav-fecha">
+            <button class="btn-nav" onclick="abrirCalendario(sumarMes(mesCalendario, -1))" aria-label="Mes anterior">&lsaquo;</button>
+            <div class="nav-titulo"><strong>${esc(mayuscula(nombreMes(mesCalendario)))}</strong><small>${esc(nombreVendedor(v))}</small></div>
+            <button class="btn-nav" onclick="abrirCalendario(sumarMes(mesCalendario, 1))" aria-label="Mes siguiente">&rsaquo;</button>
+        </div>
+        <div class="cal-grid">${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(x => `<span class="cal-cab">${x}</span>`).join('')}${celdas}</div>
+        <div class="cal-festivos">${festMes.length ? '<b>Festivos del mes</b>' + festMes.map(([f, nom]) => `<span>${esc(fechaCorta(f))} · ${esc(nom)}</span>`).join('') : '<span>Este mes no tiene festivos.</span>'}</div>
+    </div>`);
+}
+
+function irDelCalendario(d) {
+    cerrarModal();
+    elegirFecha(d);
+}
+
 const moverDia = n => elegirFecha(sumarDias(agenda.fecha, n));
 const irHoy = () => elegirFecha(hoy());
 
@@ -594,10 +663,17 @@ function pintarAgenda() {
         const d = sumarDias(lunes, i);
         const puntos = visitasDe(v, d).slice(0, 5)
             .map(x => `<i class="${x.estado === 'visitado' ? 'ok' : x.estado === 'no_visitado' ? 'no' : ''}"></i>`).join('');
-        return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}" onclick="elegirFecha('${d}')"><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span><span class="puntos">${puntos}</span></button>`;
+        const fest = nombreFestivo(d);
+        const nov = novedadesDe(v, d)[0];
+        const marca = nov ? `<em>${CORTO_NOVEDAD[nov.tipo]}</em>` : fest ? '<em>Festivo</em>' : '';
+        return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}${fest ? ' festivo' : ''}${nov ? ' con-novedad' : ''}" onclick="elegirFecha('${d}')" title="${esc(fest || nov?.tipo || '')}"><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span>${marca}<span class="puntos">${puntos}</span></button>`;
     }).join('');
 
     $('agAvisoZona').hidden = comercial(v)?.zona !== ZONA_POR_ASIGNAR;
+    const fest = nombreFestivo(f);
+    $('agFestivo').hidden = !fest;
+    $('agFestivo').textContent = fest ? `Festivo · ${fest}` : '';
+    const novs = novedadesDe(v, f);
     const lista = visitasDe(v, f);
     const k = cuentaVisitas(lista);
     const internos = lista.filter(x => x.interno).length;
@@ -606,11 +682,11 @@ function pintarAgenda() {
         : '';
 
     const cont = $('agLista');
-    if (!lista.length) {
-        cont.innerHTML = '<div class="no-results">No hay visitas programadas para este día.<br><button class="btn-nuevo" style="margin-top:15px" onclick="abrirProgramar()">+ Programar</button></div>';
+    if (!lista.length && !novs.length) {
+        cont.innerHTML = `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo" style="margin-top:15px" onclick="abrirProgramar()">+ Programar</button></div>`;
         return;
     }
-    cont.innerHTML = lista.map(tarjetaVisita).join('');
+    cont.innerHTML = novs.map(tarjetaNovedad).join('') + lista.map(tarjetaVisita).join('');
 }
 
 function tarjetaVisita(v) {
@@ -713,10 +789,10 @@ function enviarSolicitud(e, id) {
 // Formulario para programar (o editar) una visita o un trabajo interno
 function abrirProgramar(id) {
     const v = id ? registros[id] : null;
-    if (v && v.estado !== 'pendiente') return toast('Esta visita ya se cerró y no se puede modificar');
+    if (v && v.clase === 'visita' && v.estado !== 'pendiente') return toast('Esta visita ya se cerró y no se puede modificar');
     const zona = comercial(agenda.vendedor)?.zona;
     const lista = contactos[zona] || [];
-    const opcion = t => `<option ${t === v?.tipoVisita ? 'selected' : ''}>${esc(t)}</option>`;
+    const opcion = t => `<option ${t === (v?.tipoVisita || v?.tipo) ? 'selected' : ''}>${esc(t)}</option>`;
     abrirModal(`<form class="form-rc" onsubmit="guardarProgramada(event, '${id || ''}')">
         <h2>${v ? 'Editar programación' : 'Programar'}</h2>
         <p class="sub">${esc(nombreVendedor(agenda.vendedor))} · ${esc(zona || '')}</p>
@@ -725,6 +801,7 @@ function abrirProgramar(id) {
             <option value="">Elige una opción</option>
             <optgroup label="Visitas">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
             <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
+            <optgroup label="Novedades">${NOVEDADES.map(opcion).join('')}</optgroup>
         </select>
         <div id="cajaContacto">
             <label for="fContacto">Contacto</label>
@@ -734,19 +811,24 @@ function abrirProgramar(id) {
             <div class="caja-proyecto" id="cajaProyecto" hidden>
                 <p><span class="chip proy">Proyecto</span> Contacto nuevo que aún no está en el CRM. Escribe su nombre arriba.</p>
                 <div class="dos">
-                    <div><label for="pTipo">Tipo</label><select id="pTipo">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
+                    <div><label for="pTipo">Tipo</label><select id="pTipo" onchange="etiquetaPersonaProyecto()">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
                     <div><label for="pCiudad">Ciudad</label><input id="pCiudad" placeholder="Ej: Bogotá"></div>
                 </div>
+                <label for="pPersona" id="lblPersona">Nombre de contacto (opcional)</label>
+                <input id="pPersona" placeholder="Persona con quien se habla">
+                <label for="pDir">Dirección (opcional)</label>
+                <input id="pDir" placeholder="Ej: Cra 15 # 93-60, consultorio 402">
                 <label for="pTel">Teléfono (opcional)</label>
                 <input id="pTel" type="tel" inputmode="tel">
                 <button type="button" class="link-mini" onclick="mostrarNuevoProyecto(false)">Cancelar contacto nuevo</button>
             </div>
         </div>
         <div class="fila-fecha">
-            <div><label for="fFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
-            <div><label for="fHora">Cita fija</label><input id="fHora" type="time" value="${esc(v?.hora)}"></div>
+            <div><label for="fFecha" id="lblFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
+            <div id="cajaHora"><label for="fHora">Cita fija</label><input id="fHora" type="time" value="${esc(v?.hora)}"></div>
+            <div id="cajaHasta" hidden><label for="fHasta">Hasta</label><input id="fHasta" type="date" value="${esc(v?.hasta)}"></div>
         </div>
-        <p class="ayuda">La hora es opcional: úsala solo si tienes una cita acordada. Te avisamos 15 minutos antes.</p>
+        <p class="ayuda" id="ayudaHora">La hora es opcional: úsala solo si tienes una cita acordada. Te avisamos 15 minutos antes.</p>
         <div id="cajaModalidad">
             <label>Modalidad</label>
             ${botonesModalidad(v?.modalidad)}
@@ -756,29 +838,35 @@ function abrirProgramar(id) {
             <div class="checks" id="fObjetivos"></div>
         </div>
         <label for="fObjetivo" id="lblNotas">Notas (opcional)</label>
-        <textarea id="fObjetivo" placeholder="Ej: llevar lista de precios nueva">${esc(v?.objetivo)}</textarea>
+        <textarea id="fObjetivo" placeholder="Ej: llevar lista de precios nueva">${esc(v?.clase === 'novedad' ? v.nota : v?.objetivo)}</textarea>
         <p class="aviso-hora" id="fAviso" hidden></p>
         <div class="form-botones">
-            ${v ? accionEliminar(v, 'btn-secundario btn-peligro') : ''}
+            ${v && v.clase === 'visita' ? accionEliminar(v, 'btn-secundario btn-peligro') : ''}
             <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
             <button class="btn-primario">${v ? 'Guardar cambios' : 'Programar'}</button>
         </div>
     </form>`);
     cambiarTipoProgramacion(v?.objetivos || []);
+    if (v && v.clase === 'visita') avisoProgramacion(v);
     $('fContacto').addEventListener('change', sugerirTipo);
-    $('fFecha').addEventListener('change', () => avisoProgramacion(v));
-    avisoProgramacion(v);
+    $('fFecha').addEventListener('change', () => avisoProgramacion(v && v.clase === 'visita' ? v : null));
 }
 
-// Muestra u oculta los campos según sea una visita o un trabajo interno
+// Muestra u oculta los campos según sea una visita, un trabajo interno o una novedad
 function cambiarTipoProgramacion(marcados) {
     const tipo = $('fTipo').value;
     const interno = esTrabajoInterno(tipo);
-    $('cajaContacto').hidden = interno;
-    $('cajaModalidad').hidden = interno;
-    $('lblNotas').textContent = interno ? '¿Qué vas a hacer? (opcional)' : 'Notas (opcional)';
-    $('fObjetivo').placeholder = interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
+    const novedad = esNovedad(tipo);
+    $('cajaContacto').hidden = interno || novedad;
+    $('cajaModalidad').hidden = interno || novedad;
+    $('cajaHora').hidden = novedad;
+    $('ayudaHora').hidden = novedad;
+    $('cajaHasta').hidden = !NOVEDAD_RANGO.includes(tipo);
+    $('lblFecha').textContent = NOVEDAD_RANGO.includes(tipo) ? 'Desde' : 'Fecha';
+    $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : interno ? '¿Qué vas a hacer? (opcional)' : 'Notas (opcional)';
+    $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, permiso por cita médica' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
     pintarObjetivos(marcados);
+    avisoProgramacion(null);
 }
 
 function botonesModalidad(actual = 'presencial') {
@@ -816,6 +904,7 @@ function sugerirTipo() {
 function avisoProgramacion(v) {
     const fecha = $('fFecha').value;
     const aviso = $('fAviso');
+    if (esNovedad($('fTipo').value)) { aviso.hidden = true; return; }
     const mismaFecha = v && v.fecha === fecha;
     const quedaNoProgramada = mismaFecha ? !esProgramada(v) : fecha && Date.now() >= limiteProgramacion(fecha);
     aviso.hidden = !quedaNoProgramada;
@@ -827,11 +916,19 @@ function avisoProgramacion(v) {
 function guardarProgramada(e, id) {
     e.preventDefault();
     const tipo = $('fTipo').value;
+    if (esNovedad(tipo)) return guardarNovedad(id, tipo);
     const interno = esTrabajoInterno(tipo);
     const nombre = $('fContacto').value.trim();
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
     const objetivos = interno ? [] : [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
     if (!interno && !objetivos.length) { toast('Escoge al menos un objetivo de la visita'); return; }
+    // Confirmación si el día es festivo o el vendedor tiene una novedad (vacaciones, incapacidad…)
+    const fechaElegida = $('fFecha').value;
+    const cambiaDia = !id || registros[id].fecha !== fechaElegida;
+    const festivo = nombreFestivo(fechaElegida);
+    if (cambiaDia && festivo && !confirm(`El ${fechaCorta(fechaElegida)} es festivo: ${festivo}.\n¿Seguro quieres programar ese día?`)) return;
+    const nov = novedadesDe(agenda.vendedor, fechaElegida)[0];
+    if (cambiaDia && nov && !confirm(`${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Seguro quieres programar?`)) return;
     const zona = comercial(agenda.vendedor)?.zona;
     let c = interno ? {} : buscarCRM(zona, nombre) || {};
     let proyecto = null;
@@ -842,10 +939,16 @@ function guardarProgramada(e, id) {
             toast('Ese contacto no está en el CRM: complétalo como contacto proyecto');
             return;
         }
+        if (!proyecto && $('pTipo').value !== 'Médico' && !$('pPersona').value.trim()) {
+            $('pPersona').focus();
+            toast('Escribe el nombre de contacto del cliente o punto de venta');
+            return;
+        }
         if (!proyecto) {
             proyecto = {
                 id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre, tipo: $('pTipo').value,
                 ciudad: $('pCiudad').value.trim(), telefono: $('pTel').value.trim(),
+                persona: $('pPersona').value.trim(), direccion: $('pDir').value.trim(),
                 zona, vendedor: agenda.vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id
             };
             guardarRegistro(proyecto);
@@ -871,6 +974,34 @@ function guardarProgramada(e, id) {
     cerrarModal();
     toast(id ? 'Programación actualizada' : `${v.contacto}: ${v.programada ? 'programado' : 'registrado como NO programado'}`);
     if (v.fecha !== agenda.fecha) elegirFecha(v.fecha); else pintarAgenda();
+}
+
+function guardarNovedad(id, tipo) {
+    const desde = $('fFecha').value;
+    const hasta = NOVEDAD_RANGO.includes(tipo) && $('fHasta').value ? $('fHasta').value : desde;
+    if (hasta < desde) return toast('La fecha "Hasta" no puede ser antes de "Desde"');
+    const n = id ? { ...registros[id] } : { id: nuevoId(), clase: 'novedad', vendedor: agenda.vendedor, creado: new Date().toISOString(), creadoPor: sesion.id };
+    Object.assign(n, { tipo, fecha: desde, hasta, nota: $('fObjetivo').value.trim() });
+    guardarRegistro(n);
+    cerrarModal();
+    toast(`${tipo} registrado: ${rangoNovedad(n)}`);
+    if (!(agenda.fecha >= desde && agenda.fecha <= hasta)) elegirFecha(desde); else pintarAgenda();
+}
+
+function eliminarNovedad(id) {
+    if (!confirm('¿Eliminar esta novedad?')) return;
+    borrarRegistro({ ...registros[id] });
+    toast('Novedad eliminada');
+    pintarAgenda();
+}
+
+function tarjetaNovedad(n) {
+    return `<div class="producto-card novedad-card">
+        <div class="visita-cab"><div><h3>${esc(n.tipo)}</h3></div><span class="chip gris">Novedad</span></div>
+        <p class="meta">${esc(rangoNovedad(n))}</p>
+        ${n.nota ? `<p>${esc(n.nota)}</p>` : ''}
+        <div class="acciones"><button class="link-mini" onclick="abrirProgramar('${n.id}')">Editar</button><button class="link-mini" onclick="eliminarNovedad('${n.id}')">Eliminar</button></div>
+    </div>`;
 }
 
 function eliminarVisita(id) {
@@ -1242,11 +1373,12 @@ function pintarPanel() {
     // Indicador del día: lo programado antes de las 8:00 a. m. frente a lo que se agregó después
     const t = hoy();
     const deHoy = visibles().filter(x => x.clase === 'visita' && x.fecha === t).filter(pasaFiltro);
-    $('panHoyTxt').textContent = mayuscula(fechaLarga(t));
+    $('panHoyTxt').textContent = mayuscula(fechaLarga(t)) + (nombreFestivo(t) ? ` · Festivo: ${nombreFestivo(t)}` : '');
     $('panHoy').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">Visit.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Trab. interno</th></tr></thead><tbody>`
         + vendedores.map(v => {
             const k = cuentaVisitas(deHoy.filter(x => x.vendedor === v.id));
-            return `<tr><td><b>${esc(v.nombre)}</b><small>${esc(v.zona)}</small></td>
+            const nov = novedadesDe(v.id, t)[0];
+            return `<tr><td><b>${esc(v.nombre)}</b><small>${esc(v.zona)}</small>${nov ? `<span class="chip gris">${esc(nov.tipo)}</span>` : ''}</td>
                 <td class="n">${k.prog}</td><td class="n${k.noProg ? ' alerta' : ''}">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.p}</td><td class="n">${k.internos}</td></tr>`;
         }).join('') + '</tbody>';
 
@@ -1558,15 +1690,26 @@ function armarLibro(mes, vend) {
         horaCol(new Date(limiteCierre(v)).toISOString())
     ]));
 
+    // Novedades (vacaciones, incapacidades, permisos, cumpleaños) que tocan el mes
+    const hn = hoja('Novedades');
+    const colsN = [{ t: 'Vendedor', w: 22 }, { t: 'Novedad', w: 16 }, { t: 'Desde', w: 12, f: 'dd/mm/yyyy' }, { t: 'Hasta', w: 12, f: 'dd/mm/yyyy' },
+        { t: 'Días', w: 8 }, { t: 'Detalle', w: 40, wrap: true }];
+    const iniMes = mes + '-01', finMes = finDeMes(mes);
+    const listaN = visibles().filter(n => n.clase === 'novedad' && (!vend || n.vendedor === vend) && n.fecha <= finMes && (n.hasta || n.fecha) >= iniMes)
+        .sort((x, y) => x.fecha.localeCompare(y.fecha));
+    tabla(hn, 'TablaNovedades', colsN, listaN.map(n => [nombreVendedor(n.vendedor), n.tipo, fecha(n.fecha), fecha(n.hasta || n.fecha),
+        Math.round((deIso(n.hasta || n.fecha) - deIso(n.fecha)) / 86400000) + 1, n.nota || '']));
+
     // Contactos proyecto
     const hp = hoja('Proyectos');
     const colsP = [
-        { t: 'Contacto', w: 32 }, { t: 'Tipo', w: 16 }, { t: 'Ciudad', w: 16 }, { t: 'Teléfono', w: 14 }, { t: 'Vendedor', w: 20 },
+        { t: 'Contacto', w: 32 }, { t: 'Tipo', w: 16 }, { t: 'Nombre de contacto', w: 24 }, { t: 'Dirección', w: 30 },
+        { t: 'Ciudad', w: 16 }, { t: 'Teléfono', w: 14 }, { t: 'Vendedor', w: 20 },
         { t: 'Creado', w: 12, f: 'dd/mm/yyyy' }, { t: 'Visitas', w: 9 }, { t: 'Estado', w: 12 }, { t: 'Vinculado a (CRM)', w: 32 }
     ];
     const listaP = proyectos().filter(p => !vend || p.vendedor === vend).sort((x, y) => x.nombre.localeCompare(y.nombre));
     tabla(hp, 'TablaProyectos', colsP, listaP.map(p => [
-        p.nombre, p.tipo, p.ciudad || '', p.telefono || '', nombreVendedor(p.vendedor), fecha(p.fecha),
+        p.nombre, p.tipo, p.persona || '', p.direccion || '', p.ciudad || '', p.telefono || '', nombreVendedor(p.vendedor), fecha(p.fecha),
         visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === p.id).length,
         p.estado === 'vinculado' ? 'Vinculado' : 'Proyecto', p.vinculadoA || ''
     ]));

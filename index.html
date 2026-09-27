@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Ruta Comercial Epithelium</title>
-    <link rel="stylesheet" href="styles.css?v=202609270006">
-    <link rel="stylesheet" href="visitas.css?v=202609270006">
+    <link rel="stylesheet" href="styles.css?v=202609270030">
+    <link rel="stylesheet" href="visitas.css?v=202609270030">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -74,7 +74,7 @@
                 </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 27/09/2026 00:06</p>
+                <p class="version-app">Versión 27/09/2026 00:30</p>
             </div>
         </div>
 
@@ -99,10 +99,12 @@
                 <div class="fila-botones">
                     <button class="btn-nuevo" onclick="irHoy()">Hoy</button>
                     <input type="date" id="agFechaPick" onchange="elegirFecha(this.value)" aria-label="Elegir fecha">
+                    <button class="btn-nuevo" onclick="abrirCalendario()" aria-label="Ver el mes">Mes</button>
                     <button class="btn-nuevo active" onclick="abrirProgramar()">+ Programar</button>
                 </div>
             </div>
 
+            <p class="aviso-festivo" id="agFestivo" hidden></p>
             <p class="aviso-zona" id="agAvisoZona" hidden>Zona por asignar: todavía no hay contactos del CRM para este vendedor. Los contactos que programe quedan como contacto proyecto.</p>
             <div class="resumen-dia" id="agResumen"></div>
             <div id="agLista" class="resultados"></div>
@@ -218,6 +220,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=202609270006"></script>
+    <script src="app.js?v=202609270030"></script>
 </body>
 </html>

@@ -682,3 +682,36 @@
     font-size: 14px; font-weight: 600; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
 .aviso-version.visible { display: flex; }
 .aviso-version button { background: #3fa83a; color: white; border: 0; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-weight: 700; cursor: pointer; }
+
+/* Festivos (gris claro) y novedades */
+.sd.festivo { background: #eceeed; border-color: #dcdfdd; }
+.sd.festivo span { color: #8a9490; }
+.sd em { font-style: normal; font-size: 9px; font-weight: 700; color: #7c8783; line-height: 1; }
+.sd.con-novedad em { color: #1552a8; }
+.aviso-festivo { margin: 12px 15px 0; padding: 10px 12px; border-radius: 8px; background: #eceeed; color: #5f6a66; font-size: 14px; font-weight: 700; }
+.novedad-card { border-left-color: #8fa8c9; background: linear-gradient(135deg, #ffffff 70%, #eef3fa 100%); cursor: default; }
+.novedad-card h3 { color: #3b5b86; }
+
+/* Calendario del mes */
+.calendario .nav-fecha { margin-bottom: 12px; padding-right: 26px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-cab { text-align: center; font-size: 11px; font-weight: 700; color: #7a8a84; text-transform: uppercase; padding-bottom: 2px; }
+.cal-dia { min-height: 64px; border: 1px solid #e3ebe7; background: white; border-radius: 8px; padding: 4px; text-align: left;
+    display: flex; flex-direction: column; gap: 2px; font-family: inherit; cursor: pointer; min-width: 0; overflow: hidden; }
+.cal-dia b { font-size: 13px; color: #333; }
+.cal-dia.fuera { opacity: .45; }
+.cal-dia.domingo b { color: #8a9490; }
+.cal-dia.festivo { background: #eceeed; border-color: #dcdfdd; }
+.cal-dia.festivo b { color: #8a9490; }
+.cal-dia.hoy { border-color: #009460; }
+.cal-dia.sel { box-shadow: inset 0 0 0 2px #009460; }
+.cal-fest { font-size: 9.5px; line-height: 1.15; color: #6f7a76; font-weight: 600; overflow-wrap: anywhere; }
+.cal-nov { font-size: 9.5px; line-height: 1.15; color: #1552a8; font-weight: 700; }
+.cal-n { margin-top: auto; font-size: 9.5px; font-weight: 700; color: #006b4f; }
+.cal-festivos { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #5f6a66; }
+.cal-festivos b { color: #006b4f; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.tabla-w td .chip { margin-top: 3px; }
+@media (max-width: 480px) { .cal-dia { min-height: 56px; padding: 3px; } .cal-fest, .cal-nov, .cal-n { font-size: 8.5px; } }
+
+.cal-nov .corto { display: none; }
+@media (max-width: 480px) { .cal-nov .largo { display: none; } .cal-nov .corto { display: inline; } }
