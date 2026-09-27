@@ -723,3 +723,17 @@
 .modalidad.origen button[data-origen="nuevo"].on { background: #d9822b; border-color: #d9822b; color: white; }
 .nota-sol { font-size: 13px; color: #6b4a2a; }
 .solicitud .visita-cab { align-items: center; }
+
+/* Diálogo de confirmación propio */
+.dialogo { position: fixed; inset: 0; z-index: 2300; background: rgba(0, 0, 0, .45); display: none; align-items: center; justify-content: center; padding: 16px; }
+.dialogo.visible { display: flex; }
+.dialogo-caja { background: white; border-radius: 14px; border-top: 5px solid #009460; padding: 20px; width: 100%; max-width: 380px; box-shadow: 0 14px 40px rgba(0, 40, 30, .3); text-align: center; }
+.dialogo-caja h3 { color: #006b4f; font-size: 19px; margin-bottom: 8px; text-wrap: balance; }
+.dialogo-caja p { color: #444; font-size: 15px; line-height: 1.45; }
+.dialogo-caja textarea { width: 100%; margin-top: 12px; min-height: 70px; padding: 10px; border: 1px solid #d5e6dc; border-radius: 8px; font-family: inherit; font-size: 15px; }
+.dialogo-caja .form-botones { justify-content: center; }
+.dialogo-icono { font-size: 40px; line-height: 1; margin-bottom: 8px; }
+.dialogo.aviso .dialogo-caja { border-top-color: #9aa39f; }
+.dialogo.aviso .dialogo-caja h3 { color: #4c5a55; }
+.dialogo.fiesta .dialogo-caja { border-top-color: #d9822b; }
+.dialogo.fiesta .dialogo-caja h3 { color: #9a4b0c; }

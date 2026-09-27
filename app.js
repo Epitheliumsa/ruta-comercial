@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609270036';
+const APP_VERSION = '202609270042';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -323,9 +323,9 @@ async function ingresar() {
     entrarApp();
 }
 
-function cerrarSesion() {
-    if (!confirm('¿Cerrar sesión?')) return;
-    if (pendientes.size && API_URL && !confirm(`Hay ${pendientes.size} cambios sin subir al servidor. Si sales ahora se quedan en este dispositivo. ¿Salir de todas formas?`)) return;
+async function cerrarSesion() {
+    if (!await dialogo({ titulo: '¿Cerrar sesión?', aceptar: 'Cerrar sesión' })) return;
+    if (pendientes.size && API_URL && !await dialogo({ titulo: 'Hay cambios sin subir', texto: `Hay ${pendientes.size} cambios sin subir al servidor. Si sales ahora se quedan en este dispositivo.`, aceptar: 'Salir de todas formas' })) return;
     localStorage.removeItem('rc_sesion');
     sesion = null;
     $('accessUser').value = '';
@@ -617,9 +617,9 @@ function enviarSolicitudCreacion(e, id) {
     pintarInicio();
 }
 
-function rechazarCreacion(id) {
+async function rechazarCreacion(id) {
     if (!esJefe()) return;
-    const motivo = prompt('¿Por qué se rechaza la solicitud? (opcional)');
+    const motivo = await dialogo({ titulo: 'Rechazar solicitud de creación', texto: '¿Por qué se rechaza? (opcional)', campo: 'Ej: faltan datos de facturación', aceptar: 'Rechazar' });
     if (motivo === null) return;
     guardarRegistro({ ...registros[id], estado: 'proyecto', rechazo: { motivo: motivo.trim(), por: sesion.id, fecha: new Date().toISOString() } });
     toast('Solicitud rechazada: el contacto sigue como contacto nuevo');
@@ -870,6 +870,7 @@ function enviarSolicitud(e, id) {
 
 // Formulario para programar (o editar) una visita o un trabajo interno
 function abrirProgramar(id) {
+    advertenciaAceptada = '';
     const v = id ? registros[id] : null;
     if (v && v.clase === 'visita' && v.estado !== 'pendiente') return toast('Esta visita ya se cerró y no se puede modificar');
     const zona = comercial(agenda.vendedor)?.zona;
@@ -1000,10 +1001,23 @@ function avisoProgramacion(v) {
         : `Ya pasaron las ${HORA_LIMITE} a. m. (hora Colombia) de ese día: la visita queda como NO programada.`;
 }
 
-function guardarProgramada(e, id) {
+// Fecha cuya advertencia (festivo o novedad) ya se aceptó en este formulario
+let advertenciaAceptada = '';
+
+async function guardarProgramada(e, id) {
     e.preventDefault();
     const tipo = $('fTipo').value;
     if (esNovedad(tipo)) return guardarNovedad(id, tipo);
+    // Advertencia antes de programar en un festivo o en un día con novedad (vacaciones, incapacidad…)
+    const fechaElegida = $('fFecha').value;
+    const cambiaDia = !id || registros[id].fecha !== fechaElegida;
+    if (tipo && fechaElegida && cambiaDia && advertenciaAceptada !== fechaElegida) {
+        const festivo = nombreFestivo(fechaElegida);
+        const nov = novedadesDe(agenda.vendedor, fechaElegida)[0];
+        if (festivo && !await dialogo({ tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fechaElegida)} es festivo: ${festivo}.\n¿Seguro quieres programar ese día?`, aceptar: 'Sí, programar', cancelar: 'No' })) return;
+        if (nov && !await dialogo({ tono: 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Seguro quieres programar?`, aceptar: 'Sí, programar', cancelar: 'No' })) return;
+        advertenciaAceptada = fechaElegida;
+    }
     const interno = esTrabajoInterno(tipo);
     const nombre = $('fContacto').value.trim();
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
@@ -1026,13 +1040,6 @@ function guardarProgramada(e, id) {
         toast('Escribe el nombre de contacto del cliente o punto de venta');
         return;
     }
-    // Confirmación si el día es festivo o el vendedor tiene una novedad (vacaciones, incapacidad…)
-    const fechaElegida = $('fFecha').value;
-    const cambiaDia = !id || registros[id].fecha !== fechaElegida;
-    const festivo = nombreFestivo(fechaElegida);
-    if (cambiaDia && festivo && !confirm(`El ${fechaCorta(fechaElegida)} es festivo: ${festivo}.\n¿Seguro quieres programar ese día?`)) return;
-    const nov = novedadesDe(agenda.vendedor, fechaElegida)[0];
-    if (cambiaDia && nov && !confirm(`${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Seguro quieres programar?`)) return;
     if (nuevo) {
         if (!proyecto) {
             proyecto = {
@@ -1074,12 +1081,15 @@ function guardarNovedad(id, tipo) {
     Object.assign(n, { tipo, fecha: desde, hasta, nota: $('fObjetivo').value.trim() });
     guardarRegistro(n);
     cerrarModal();
-    toast(`${tipo} registrado: ${rangoNovedad(n)}`);
     if (!(agenda.fecha >= desde && agenda.fecha <= hasta)) elegirFecha(desde); else pintarAgenda();
+    const nombre = nombreVendedor(n.vendedor);
+    if (tipo === 'Cumpleaños') dialogo({ tono: 'fiesta', titulo: `¡Disfruta tu día, ${nombre}!`, texto: `Cumpleaños registrado para el ${fechaLarga(desde)}.`, aceptar: 'Gracias', cancelar: '' });
+    else if (tipo === 'Incapacidad') dialogo({ tono: 'salud', titulo: `Recupérate pronto, ${nombre}`, texto: `Incapacidad registrada: ${rangoNovedad(n)}.`, aceptar: 'Gracias', cancelar: '' });
+    else toast(`${tipo} registrado: ${rangoNovedad(n)}`);
 }
 
-function eliminarNovedad(id) {
-    if (!confirm('¿Eliminar esta novedad?')) return;
+async function eliminarNovedad(id) {
+    if (!await dialogo({ titulo: '¿Eliminar esta novedad?', aceptar: 'Eliminar' })) return;
     borrarRegistro({ ...registros[id] });
     toast('Novedad eliminada');
     pintarAgenda();
@@ -1094,8 +1104,8 @@ function tarjetaNovedad(n) {
     </div>`;
 }
 
-function eliminarVisita(id) {
-    if (!esAdmin() || !confirm('¿Eliminar esta visita?')) return;
+async function eliminarVisita(id) {
+    if (!esAdmin() || !await dialogo({ titulo: '¿Eliminar esta visita?', texto: 'La visita se borra para todo el equipo.', aceptar: 'Eliminar' })) return;
     const v = registros[id];
     borrarRegistro({ ...v, solicitudEliminar: { ...(v.solicitudEliminar || {}), estado: 'aprobada', resueltaPor: sesion.id, resuelta: new Date().toISOString() } });
     cerrarModal();
@@ -1346,8 +1356,8 @@ function guardarActividad(e, id) {
     pintarActividades();
 }
 
-function eliminarActividad(id) {
-    if (!confirm('¿Eliminar esta actividad?')) return;
+async function eliminarActividad(id) {
+    if (!await dialogo({ titulo: '¿Eliminar esta actividad?', aceptar: 'Eliminar' })) return;
     borrarRegistro({ ...registros[id] });
     cerrarModal();
     toast('Actividad eliminada');
@@ -1817,6 +1827,36 @@ function armarLibro(mes, vend) {
         x.hecha ? 'Realizada' : 'Por hacer', fecha(x.fechaRealizada), x.resultado || ''
     ]));
     return libro;
+}
+
+// ---------- DIÁLOGOS ----------
+// Ventana de confirmación propia: confirm() y prompt() no salen en algunos celulares o apps
+// Devuelve true/false (o el texto escrito si se pide un campo, null si se cancela)
+function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Cancelar', campo = '', tono = '' }) {
+    return new Promise(resolve => {
+        const d = $('dialogo');
+        d.className = 'dialogo visible ' + tono;
+        d.innerHTML = `<div class="dialogo-caja" role="alertdialog" aria-modal="true" aria-labelledby="dialogoTitulo">
+            ${tono === 'fiesta' ? '<div class="dialogo-icono">🎂</div>' : tono === 'salud' ? '<div class="dialogo-icono">💚</div>' : tono === 'aviso' ? '<div class="dialogo-icono">📅</div>' : ''}
+            ${titulo ? `<h3 id="dialogoTitulo">${esc(titulo)}</h3>` : ''}
+            ${texto ? `<p>${esc(texto).replace(/\n/g, '<br>')}</p>` : ''}
+            ${campo ? `<textarea id="dialogoCampo" placeholder="${esc(campo)}"></textarea>` : ''}
+            <div class="form-botones">
+                ${cancelar ? `<button type="button" class="btn-secundario" data-r="0">${esc(cancelar)}</button>` : ''}
+                <button type="button" class="btn-primario" data-r="1">${esc(aceptar)}</button>
+            </div>
+        </div>`;
+        d.onclick = e => {
+            const b = e.target.closest('[data-r]');
+            if (!b) return;
+            const ok = b.dataset.r === '1';
+            const valor = campo ? $('dialogoCampo').value : null;
+            d.className = 'dialogo';
+            d.innerHTML = '';
+            resolve(campo ? (ok ? valor : null) : ok);
+        };
+        (d.querySelector('textarea') || d.querySelector('[data-r="1"]')).focus();
+    });
 }
 
 // ---------- MODAL ----------
