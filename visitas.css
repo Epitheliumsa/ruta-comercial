@@ -737,3 +737,6 @@
 .dialogo.aviso .dialogo-caja h3 { color: #4c5a55; }
 .dialogo.fiesta .dialogo-caja { border-top-color: #d9822b; }
 .dialogo.fiesta .dialogo-caja h3 { color: #9a4b0c; }
+
+.dialogo.playa .dialogo-caja { border-top-color: #1e8fc4; }
+.dialogo.playa .dialogo-caja h3 { color: #136a94; }
