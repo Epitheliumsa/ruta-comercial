@@ -747,3 +747,5 @@
 .form-rc .check.dia-completo { margin-top: 12px; }
 .dialogo.permiso .dialogo-caja { border-top-color: #1e63c4; }
 .dialogo.permiso .dialogo-caja h3 { color: #1552a8; }
+
+.aviso-festivo.en-form { margin: 12px 0 0; }

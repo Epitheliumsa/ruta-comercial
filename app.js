@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609270102';
+const APP_VERSION = '202609270105';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -892,7 +892,7 @@ function abrirProgramar(id) {
     const actual = v?.tipoVisita || v?.tipo;
     const opcion = t => `<option ${t === actual && !v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
     const opcionNuevo = t => `<option ${t === actual && v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
-    abrirModal(`<form class="form-rc" onsubmit="guardarProgramada(event, '${id || ''}')">
+    abrirModal(`<form class="form-rc" novalidate onsubmit="guardarProgramada(event, '${id || ''}')">
         <h2>${v ? 'Editar programación' : 'Programar'}</h2>
         <p class="sub">${esc(nombreVendedor(agenda.vendedor))} · ${esc(zona || '')}</p>
         <label for="fTipo">¿Qué vas a programar?</label>
@@ -929,6 +929,7 @@ function abrirProgramar(id) {
                 <input id="pTel" type="tel" inputmode="tel">
             </div>
         </div>
+        <p class="aviso-festivo en-form" id="fFestivo" hidden></p>
         <div class="fila-fecha">
             <div><label for="fFecha" id="lblFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
             <div id="cajaHora"><label for="fHora">Cita fija</label><input id="fHora" type="time" value="${esc(v?.hora)}"></div>
@@ -1027,6 +1028,9 @@ function sugerirTipo() {
 
 function avisoProgramacion(v) {
     const fecha = $('fFecha').value;
+    const fest = fecha && nombreFestivo(fecha);
+    $('fFestivo').hidden = !fest;
+    $('fFestivo').textContent = fest ? `Festivo · ${fest}` : '';
     const aviso = $('fAviso');
     if (esNovedad(tipoBase())) { aviso.hidden = true; return; }
     const mismaFecha = v && v.fecha === fecha;
@@ -1043,18 +1047,21 @@ let advertenciaAceptada = '';
 async function guardarProgramada(e, id) {
     e.preventDefault();
     const tipo = tipoBase();
-    if (esNovedad(tipo)) return guardarNovedad(id, tipo);
-    if (origenElegido() === 'nuevo' && !tipo) { toast('Elige el tipo de visita del contacto nuevo'); $('fTipoNuevo').focus(); return; }
-    // Advertencia antes de programar en un festivo o en un día con novedad (vacaciones, incapacidad…)
+    // Advertencia antes de programar en un festivo o en un día con novedad (vacaciones, incapacidad…):
+    // es lo primero que sale al tocar Programar
     const fechaElegida = $('fFecha').value;
     const cambiaDia = !id || registros[id].fecha !== fechaElegida;
-    if (tipo && fechaElegida && cambiaDia && advertenciaAceptada !== fechaElegida) {
+    if (!esNovedad(tipo) && fechaElegida && cambiaDia && advertenciaAceptada !== fechaElegida) {
         const festivo = nombreFestivo(fechaElegida);
         const nov = novedadesDe(agenda.vendedor, fechaElegida)[0];
         if (festivo && !await dialogo({ tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fechaElegida)} es festivo: ${festivo}.\n¿Seguro quieres programar ese día?`, aceptar: 'Sí, programar', cancelar: 'No' })) return;
         if (nov && !await dialogo({ tono: 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Seguro quieres programar?`, aceptar: 'Sí, programar', cancelar: 'No' })) return;
         advertenciaAceptada = fechaElegida;
     }
+    if (!$('fTipo').value) { toast('Elige qué vas a programar'); $('fTipo').focus(); return; }
+    if (!fechaElegida) { toast('Elige la fecha'); $('fFecha').focus(); return; }
+    if (esNovedad(tipo)) return guardarNovedad(id, tipo);
+    if (origenElegido() === 'nuevo' && !tipo) { toast('Elige el tipo de visita del contacto nuevo'); $('fTipoNuevo').focus(); return; }
     const interno = esTrabajoInterno(tipo);
     const nombre = $('fContacto').value.trim();
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
