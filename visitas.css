@@ -625,3 +625,51 @@
 .solicitud small { color: #7a8a84; }
 .solicitud p { margin: 8px 0 0; font-size: 14px; color: #444; }
 .solicitud .form-botones { margin-top: 10px; }
+
+/* Objetivos cumplidos */
+.objetivos span.cumplido { background: #0a6647; color: white; }
+.objetivos span.no-cumplido { background: #f1f3f2; color: #8a9a94; text-decoration: line-through; }
+.producto-card p.objetivos small { color: #7a8a84; font-size: 12px; font-weight: 600; }
+
+/* Contactos proyecto */
+.chip.proy { background: #fde9d2; color: #9a4b0c; }
+.link-proyecto { margin-top: 6px; color: #009460; padding-left: 0; }
+.link-proyecto:hover { color: #006b4f; }
+.caja-proyecto { margin-top: 10px; padding: 12px; border: 1px dashed #e8b27a; border-radius: 10px; background: #fffaf3; }
+.caja-proyecto p { font-size: 13px; color: #6b4a2a; }
+.solicitud.proyecto { border-color: #f1d3b0; }
+.solicitud.vinculado { border-color: #cfe7db; background: #f6fbf8; }
+.vincular label { margin-top: 10px; }
+.home-btn.home-btn-proy { border-left-color: #d9822b; background: linear-gradient(135deg, #ffffff 60%, #fdf0e1 100%); }
+.home-btn.home-btn-proy svg { background: linear-gradient(135deg, #8a4a0e, #e39b4c); }
+.home-btn.home-btn-proy .home-btn-text strong { color: #9a4b0c; }
+
+/* Panel: filtros, gráficas y detalle */
+.filters.filtros-panel { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding-top: 0; }
+.panel-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grafica svg { width: 100%; height: auto; display: block; overflow: visible; }
+.g-grid { stroke: #e6ece9; stroke-width: 1; }
+.g-eje { fill: #8a9a94; font-size: 11px; }
+.g-etq { fill: #4c615b; font-size: 12px; font-weight: 600; }
+.g-valor { fill: #333; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.g-sub { font-size: 12px; color: #7a8a84; margin: -6px 0 8px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #4c615b; margin: -4px 0 8px; }
+.leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.panel-bloque h2 small { font-size: 12px; color: #7a8a84; font-weight: 600; }
+.tooltip { position: fixed; z-index: 2200; pointer-events: none; background: #15302a; color: white; font-size: 12px; font-weight: 600; padding: 7px 10px; border-radius: 8px; max-width: 260px; display: none; }
+.tooltip.visible { display: block; }
+.lista-det { display: flex; flex-direction: column; }
+.fila-det { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border: 0; border-bottom: 1px solid #eef3f0; background: none; text-align: left; font-family: inherit; cursor: pointer; width: 100%; }
+.fila-det:hover { background: #f4faf7; }
+.fd-fecha { width: 64px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: #006b4f; font-variant-numeric: tabular-nums; }
+.fd-fecha small, .fd-cuerpo small { display: block; font-weight: 500; color: #7a8a84; font-size: 12px; }
+.fd-cuerpo { flex: 1; min-width: 0; font-size: 14px; color: #333; }
+.ficha > strong { display: block; margin-top: 14px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #006b4f; }
+.ficha > p { margin-top: 3px; font-size: 14px; color: #444; }
+.ficha .objetivos { display: flex; flex-wrap: wrap; gap: 5px; }
+
+@media (max-width: 760px) {
+    .panel-dos { grid-template-columns: 1fr; }
+    .filters.filtros-panel { grid-template-columns: 1fr; }
+}
+@media (min-width: 900px) { .filters.filtros-panel { position: static; box-shadow: none; } }

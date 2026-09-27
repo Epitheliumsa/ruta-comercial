@@ -7,9 +7,9 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFh
 const USUARIOS = [
     { usuario: 'L.Ramos',     huella: 'afecd958a07662fa1c466a63fa799f91873a1371f878dc6e4bd6c35ffce87617', tipo: 'comercial', id: 'lramos',     nombre: 'Lizeth Ramos',      zona: 'Zona Norte' },
     { usuario: 'Y.Caballero', huella: 'df5769c03aec2c0300cd912335962a57617271fa86e0ef852d5d959895c6ecab', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur' },
-    { usuario: 'J.Herrera',   huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales' },
-    { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'jefe',      id: 'mcastro',    nombre: 'M. Castro' },
-    { usuario: 'H.Reyes',     huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', admin: true }
+    { usuario: 'J.Herrera',   huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', jefe: true, cargo: 'Jefe comercial' },
+    { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'jefe',      id: 'mcastro',    nombre: 'M. Castro', cargo: 'Equipo Epithelium' },
+    { usuario: 'H.Reyes',     huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', admin: true, cargo: 'Administrador' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
 
@@ -57,7 +57,10 @@ const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const normalizar = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const $ = id => document.getElementById(id);
-const esJefe = () => sesion && sesion.tipo === 'jefe';
+// Ven a todo el equipo: los jefes (Hernán Reyes, M. Castro) y la jefe comercial (Jennifer Herrera),
+// que además tiene su propia agenda como vendedora
+const esJefe = () => !!(sesion && (sesion.tipo === 'jefe' || sesion.jefe));
+const esComercial = () => !!(sesion && sesion.tipo === 'comercial');
 // El administrador (Hernán Reyes) es el único que autoriza eliminar visitas
 const esAdmin = () => !!(sesion && sesion.admin);
 const ADMIN = USUARIOS.find(u => u.admin);
@@ -71,6 +74,7 @@ function tipoSugerido(etiqueta) {
     if (!e) return '';
     if (e.includes('punto de venta')) return 'Punto de Venta';
     if (e.includes('medico')) return 'Visita Médica';
+    if (e.includes('cliente')) return 'Visita Comercial';
     return 'Visita Comercial';
 }
 const horaBonita = h => { const [H, M] = h.split(':').map(Number); return `${H % 12 || 12}:${String(M).padStart(2, '0')} ${H < 12 ? 'a. m.' : 'p. m.'}`; };
@@ -298,14 +302,14 @@ function cerrarSesion() {
 }
 
 function entrarApp() {
-    agenda.vendedor = esJefe() ? COMERCIALES[0].id : sesion.id;
+    agenda.vendedor = esComercial() ? sesion.id : COMERCIALES[0].id;
     const intro = $('homeIntro');
     intro.innerHTML = '';
     const saludo = document.createElement('span');
     saludo.className = 'home-saludo';
     saludo.textContent = `Hola, ${sesion.nombre}`;
     const detalle = document.createElement('small');
-    detalle.textContent = esJefe() ? 'Jefe comercial · todo el equipo' : sesion.zona;
+    detalle.textContent = [sesion.cargo, sesion.zona || (esJefe() ? 'todo el equipo' : '')].filter(Boolean).join(' · ');
     saludo.appendChild(detalle);
     intro.appendChild(saludo);
     $('btnPanel').style.display = esJefe() ? '' : 'none';
@@ -342,14 +346,16 @@ function irInicio() {
 }
 
 function pintarInicio() {
-    const vend = esJefe() ? null : sesion.id;
+    const vend = esComercial() ? sesion.id : null;
     const deHoy = visibles().filter(r => r.clase === 'visita' && !r.interno && r.fecha === hoy() && (!vend || r.vendedor === vend));
     const pend = deHoy.filter(v => v.estado === 'pendiente').length;
     $('homeAgendaTxt').textContent = deHoy.length
         ? `Hoy: ${deHoy.length} ${deHoy.length === 1 ? 'visita' : 'visitas'}${pend ? ` · ${pend} por registrar` : ' · todas registradas'}`
-        : esJefe() ? 'Hoy el equipo no tiene visitas programadas' : 'Hoy no tienes visitas programadas';
+        : esComercial() ? 'Hoy no tienes visitas programadas' : 'Hoy el equipo no tiene visitas programadas';
     const acts = actividadesMes(mesDe(hoy()), vend);
     const hechas = acts.filter(a => a.hecha).length;
+    const proys = proyectos().filter(p => p.estado !== 'vinculado' && (esJefe() || p.vendedor === sesion.id)).length;
+    $('proyectosTxt').textContent = proys ? `${proys} por vincular al CRM` : 'Contactos nuevos que aún no están en el CRM';
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     $('solicitudesTxt').textContent = sols.length ? `${sols.length} por revisar` : 'No hay solicitudes pendientes';
@@ -377,7 +383,7 @@ function avisados() {
 function programarAvisos() {
     temporizadores.forEach(clearTimeout);
     temporizadores = [];
-    if (!sesion || esJefe()) return;
+    if (!esComercial()) return;
     const ahora = Date.now();
     const ya = avisados();
     visibles()
@@ -423,7 +429,7 @@ function cerrarAvisoCita() {
 function pintarBotonAvisos() {
     const b = $('btnAvisos');
     if (!b) return;
-    b.hidden = esJefe() || !('Notification' in window) || Notification.permission !== 'default';
+    b.hidden = !esComercial() || !('Notification' in window) || Notification.permission !== 'default';
 }
 
 async function activarAvisos() {
@@ -439,6 +445,63 @@ document.addEventListener('visibilitychange', () => {
     if (cerrarVencidas()) { repintarPantallaActiva(); sincronizar(); }
     programarAvisos();
 });
+
+// ---------- CONTACTOS PROYECTO ----------
+// Contactos que todavía no están en el CRM. Se usan en las visitas marcados como "Proyecto"
+// y, cuando se crean en el CRM, se vinculan a ese contacto (sus visitas pasan al nombre del CRM).
+const TIPOS_PROYECTO = ['Médico', 'Cliente', 'Punto de Venta'];
+const proyectos = () => visibles().filter(r => r.clase === 'proyecto');
+const proyectosDeZona = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado');
+const buscarCRM = (zona, nombre) => (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre));
+
+// Contactos para el buscador de la visita: los del CRM y los proyectos de la zona
+function opcionesContacto(zona) {
+    return (contactos[zona] || []).map(c => `<option value="${esc(c.n)}" label="${esc([c.e, c.c].filter(Boolean).join(' · '))}">`).join('')
+        + proyectosDeZona(zona).map(p => `<option value="${esc(p.nombre)}" label="${esc(['Proyecto', p.tipo, p.ciudad].filter(Boolean).join(' · '))}">`).join('');
+}
+
+function mostrarNuevoProyecto(abrir) {
+    $('cajaProyecto').hidden = !abrir;
+    $('lnkProyecto').hidden = abrir;
+    if (abrir && !$('fContacto').value.trim()) $('fContacto').focus();
+}
+
+function abrirProyectos() {
+    const lista = proyectos()
+        .filter(p => esJefe() || p.vendedor === sesion.id)
+        .sort((a, b) => (a.estado === 'vinculado') - (b.estado === 'vinculado') || a.nombre.localeCompare(b.nombre));
+    const visitas = id => visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id).length;
+    abrirModal(`<div class="form-rc">
+        <h2>Contactos proyecto</h2>
+        <p class="sub">Contactos que aún no están en el CRM. Cuando se creen allá, vincúlalos para que sus visitas queden a nombre del contacto del CRM.</p>
+        ${lista.length ? lista.map(p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
+            <strong>${esc(p.nombre)}</strong>
+            <small>${esc([p.tipo, p.ciudad, p.telefono].filter(Boolean).join(' · '))}${esJefe() ? ' · ' + esc(nombreVendedor(p.vendedor)) : ''} · ${visitas(p.id)} ${visitas(p.id) === 1 ? 'visita' : 'visitas'}</small>
+            ${p.estado === 'vinculado'
+                ? `<p><span class="chip ok">Vinculado</span> al CRM como <b>${esc(p.vinculadoA)}</b></p>`
+                : `<div class="vincular" id="vin-${p.id}" hidden>
+                    <label for="vinInput-${p.id}">Contacto creado en el CRM</label>
+                    <input id="vinInput-${p.id}" list="dlCRM-${p.id}" autocomplete="off" placeholder="Busca el contacto del CRM">
+                    <datalist id="dlCRM-${p.id}">${(contactos[p.zona] || []).map(c => `<option value="${esc(c.n)}" label="${esc([c.e, c.c].filter(Boolean).join(' · '))}">`).join('')}</datalist>
+                    <div class="form-botones"><button class="btn-secundario" onclick="$('vin-${p.id}').hidden=true">Cancelar</button><button class="btn-primario" onclick="vincularProyecto('${p.id}')">Vincular</button></div>
+                </div>
+                <div class="form-botones" id="vinBtn-${p.id}"><button class="btn-primario" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular al CRM</button></div>`}
+        </div>`).join('') : '<p class="no-results">No hay contactos proyecto. Se crean al programar una visita a alguien que no está en el CRM.</p>'}
+    </div>`);
+}
+
+function vincularProyecto(id) {
+    const p = registros[id];
+    const c = buscarCRM(p.zona, $('vinInput-' + id).value);
+    if (!c) return toast('Ese contacto no está en la lista del CRM de la app. Pide que se actualice la lista de contactos.');
+    guardarRegistro({ ...p, estado: 'vinculado', vinculadoA: c.n, vinculadoEl: new Date().toISOString(), vinculadoPor: sesion.id });
+    // Las visitas del proyecto pasan al contacto del CRM (se conserva que fueron proyecto)
+    visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id).forEach(v =>
+        guardarRegistro({ ...v, contacto: c.n, tipoContacto: c.e || '', ciudad: c.c || v.ciudad, esProyecto: false, eraProyecto: true }));
+    toast(`${p.nombre} quedó vinculado a ${c.n}`);
+    abrirProyectos();
+    repintarPantallaActiva();
+}
 
 // ---------- SOLICITUDES DE ELIMINACIÓN (administrador) ----------
 const solicitudesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.solicitudEliminar?.estado === 'pendiente');
@@ -532,11 +595,13 @@ function tarjetaVisita(v) {
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
         : '<span class="chip p">Pendiente</span>';
     const meta = [v.tipoContacto, v.ciudad].filter(Boolean).map(esc).join(' · ');
+    const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
+    const marcaObj = o => !cumplidos ? '' : cumplidos.includes(o) ? ' class="cumplido"' : ' class="no-cumplido"';
     let objetivos = v.tipoVisita
-        ? `<p class="objetivos"><b>${esc(v.tipoVisita)}</b>${(v.objetivos || []).map(o => `<span>${esc(o)}</span>`).join('')}</p>` : '';
+        ? `<p class="objetivos"><b>${esc(v.tipoVisita)}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidos.length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
-        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>${noProgTxt}`;
+        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${noProgTxt}`;
     if (v.interno) objetivos = '';
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
@@ -639,7 +704,18 @@ function abrirProgramar(id) {
         <div id="cajaContacto">
             <label for="fContacto">Contacto</label>
             <input id="fContacto" list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
-            <datalist id="dlContactos">${lista.map(c => `<option value="${esc(c.n)}" label="${esc([c.e, c.c].filter(Boolean).join(' · '))}">`).join('')}</datalist>
+            <datalist id="dlContactos">${opcionesContacto(zona)}</datalist>
+            <button type="button" class="link-mini link-proyecto" id="lnkProyecto" onclick="mostrarNuevoProyecto(true)">¿No está en el CRM? Crear contacto proyecto</button>
+            <div class="caja-proyecto" id="cajaProyecto" hidden>
+                <p><span class="chip proy">Proyecto</span> Contacto nuevo que aún no está en el CRM. Escribe su nombre arriba.</p>
+                <div class="dos">
+                    <div><label for="pTipo">Tipo</label><select id="pTipo">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
+                    <div><label for="pCiudad">Ciudad</label><input id="pCiudad" placeholder="Ej: Bogotá"></div>
+                </div>
+                <label for="pTel">Teléfono (opcional)</label>
+                <input id="pTel" type="tel" inputmode="tel">
+                <button type="button" class="link-mini" onclick="mostrarNuevoProyecto(false)">Cancelar contacto nuevo</button>
+            </div>
         </div>
         <div class="fila-fecha">
             <div><label for="fFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
@@ -705,8 +781,10 @@ function pintarObjetivos(marcados) {
 function sugerirTipo() {
     if ($('fTipo').value) return;
     const zona = comercial(agenda.vendedor)?.zona;
-    const c = (contactos[zona] || []).find(x => normalizar(x.n) === normalizar($('fContacto').value));
-    const tipo = tipoSugerido(c?.e);
+    const nombre = $('fContacto').value;
+    const c = buscarCRM(zona, nombre);
+    const p = !c && proyectosDeZona(zona).find(x => normalizar(x.nombre) === normalizar(nombre));
+    const tipo = tipoSugerido(c ? c.e : p ? p.tipo : '');
     if (tipo) { $('fTipo').value = tipo; pintarObjetivos(); }
 }
 
@@ -730,7 +808,25 @@ function guardarProgramada(e, id) {
     const objetivos = interno ? [] : [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
     if (!interno && !objetivos.length) { toast('Escoge al menos un objetivo de la visita'); return; }
     const zona = comercial(agenda.vendedor)?.zona;
-    const c = interno ? {} : (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre)) || {};
+    let c = interno ? {} : buscarCRM(zona, nombre) || {};
+    let proyecto = null;
+    if (!interno && !c.n) {
+        proyecto = proyectosDeZona(zona).find(p => normalizar(p.nombre) === normalizar(nombre));
+        if (!proyecto && $('cajaProyecto').hidden) {
+            mostrarNuevoProyecto(true);
+            toast('Ese contacto no está en el CRM: complétalo como contacto proyecto');
+            return;
+        }
+        if (!proyecto) {
+            proyecto = {
+                id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre, tipo: $('pTipo').value,
+                ciudad: $('pCiudad').value.trim(), telefono: $('pTel').value.trim(),
+                zona, vendedor: agenda.vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id
+            };
+            guardarRegistro(proyecto);
+        }
+        c = { n: proyecto.nombre, e: 'Proyecto · ' + proyecto.tipo, c: proyecto.ciudad };
+    }
     const antes = id ? registros[id] : null;
     const fecha = $('fFecha').value;
     const v = antes ? { ...antes } : {
@@ -740,6 +836,7 @@ function guardarProgramada(e, id) {
     Object.assign(v, {
         interno,
         contacto: interno ? tipo : (c.n || nombre), tipoContacto: c.e || '', ciudad: c.c || '',
+        esProyecto: !!proyecto, contactoProyecto: proyecto ? proyecto.id : '',
         fecha, hora: $('fHora').value, objetivo: $('fObjetivo').value.trim(),
         modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipo, objetivos,
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
@@ -783,6 +880,8 @@ function abrirRegistro(id, tipo) {
             <h2>Registrar visita</h2>${cab}
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
+            ${v.objetivos?.length ? `<label>Objetivos cumplidos <small>(marca los que lograste)</small></label>
+            <div class="checks" id="rCumplidos">${v.objetivos.map(o => `<label class="check"><input type="checkbox" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div>` : ''}
             <div class="dos">
                 <div><label for="rGestion">¿Qué se hizo?</label><select id="rGestion">${opciones(GESTIONES, v.gestion)}</select></div>
                 <div><label for="rAtendio">¿Quién atendió?</label><input id="rAtendio" value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo"></div>
@@ -847,6 +946,7 @@ function guardarVisitado(e, id) {
         ...registros[id], ...LIMPIAR_NO_VISITADO,
         estado: 'visitado',
         modalidad: modalidadElegida(),
+        objetivosCumplidos: [...document.querySelectorAll('#rCumplidos input:checked')].map(i => i.value),
         gestion: $('rGestion').value,
         atendio: $('rAtendio').value.trim(),
         productos: $('rProductos').value.trim(),
@@ -905,6 +1005,8 @@ function guardarNoVisitado(e, id) {
 // ---------- ACTIVIDADES DEL MES ----------
 function abrirActividades() {
     if (!esJefe()) $('actVendedor').value = sesion.id;
+    else if (esComercial() && !abrirActividades.yaAbrio) $('actVendedor').value = sesion.id;
+    abrirActividades.yaAbrio = true;
     pintarActividades();
     mostrarPantalla('actScreen');
 }
@@ -1037,8 +1139,8 @@ function guardarRealizada(e, id) {
 
 // ---------- PANEL DEL EQUIPO (jefe) ----------
 function abrirPanel() {
-    pintarPanel();
     mostrarPantalla('panelScreen');
+    pintarPanel();
 }
 
 function moverMesPanel(n) {
@@ -1065,11 +1167,34 @@ function cuentaVisitas(todas) {
 }
 const pct = (k) => k.prog ? Math.round(k.cumpl * 100) + '%' : '—';
 
+// Filtros del panel: vendedor, tipo de visita y estado (el estado solo filtra el detalle)
+const filtroPanel = { vendedor: '', tipo: '', estado: '' };
+
+function iniciarFiltrosPanel() {
+    const sel = $('panVend');
+    if (sel.options.length) return;
+    sel.innerHTML = '<option value="">Todos los vendedores</option>' + COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+    $('panTipo').innerHTML = '<option value="">Todos los tipos</option>'
+        + Object.keys(TIPOS_VISITA).map(t => `<option>${esc(t)}</option>`).join('')
+        + '<option value="__interno">Trabajo interno</option>';
+}
+
+function filtrarPanel() {
+    filtroPanel.vendedor = $('panVend').value;
+    filtroPanel.tipo = $('panTipo').value;
+    filtroPanel.estado = $('panEstado').value;
+    pintarPanel();
+}
+
+const pasaFiltro = v => (!filtroPanel.vendedor || v.vendedor === filtroPanel.vendedor)
+    && (!filtroPanel.tipo || (filtroPanel.tipo === '__interno' ? v.interno : v.tipoVisita === filtroPanel.tipo));
+
 function pintarPanel() {
+    iniciarFiltrosPanel();
     $('panMesTxt').textContent = mayuscula(nombreMes(mesPanel));
     $('panMesSub').textContent = API_URL ? 'Datos de todo el equipo' : 'Solo los datos guardados en este dispositivo';
-    const vis = visitasMes(mesPanel);
-    const acts = actividadesMes(mesPanel);
+    const vis = visitasMes(mesPanel).filter(pasaFiltro);
+    const acts = actividadesMes(mesPanel, filtroPanel.vendedor);
     const c = cuentaVisitas(vis);
     const actHechas = acts.filter(a => a.hecha).length;
     $('panKpis').innerHTML = `
@@ -1082,21 +1207,26 @@ function pintarPanel() {
         <div class="kpi azul"><small>Virtuales</small><b>${c.virtual}</b></div>
         <div class="kpi azul"><small>Actividades</small><b>${actHechas}/${acts.length}</b></div>`;
 
+    pintarGraficaDias(vis);
+    pintarGraficaTipos(vis);
+    pintarGraficaObjetivos(vis);
+
     const barra = k => `<div class="celda-barra"><span class="barra"><i class="ok" style="width:${k.prog ? k.okProg / k.prog * 100 : 0}%"></i></span><b>${pct(k)}</b></div>`;
+    const vendedores = COMERCIALES.filter(v => !filtroPanel.vendedor || v.id === filtroPanel.vendedor);
 
     // Indicador del día: lo programado antes de las 8:00 a. m. frente a lo que se agregó después
     const t = hoy();
-    const deHoy = visibles().filter(x => x.clase === 'visita' && x.fecha === t);
+    const deHoy = visibles().filter(x => x.clase === 'visita' && x.fecha === t).filter(pasaFiltro);
     $('panHoyTxt').textContent = mayuscula(fechaLarga(t));
     $('panHoy').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">Visit.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Trab. interno</th></tr></thead><tbody>`
-        + COMERCIALES.map(v => {
+        + vendedores.map(v => {
             const k = cuentaVisitas(deHoy.filter(x => x.vendedor === v.id));
             return `<tr><td><b>${esc(v.nombre)}</b><small>${esc(v.zona)}</small></td>
                 <td class="n">${k.prog}</td><td class="n${k.noProg ? ' alerta' : ''}">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.p}</td><td class="n">${k.internos}</td></tr>`;
         }).join('') + '</tbody>';
 
     $('panTabla').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">Visit.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Virtual</th><th class="n">Pedidos</th><th>Cumplimiento</th><th class="n">Actividades</th></tr></thead><tbody>`
-        + COMERCIALES.map(v => {
+        + vendedores.map(v => {
             const k = cuentaVisitas(vis.filter(x => x.vendedor === v.id));
             const a = acts.filter(x => x.vendedor === v.id);
             return `<tr><td><b>${esc(v.nombre)}</b><small>${esc(v.zona)}</small></td>
@@ -1110,6 +1240,156 @@ function pintarPanel() {
     $('panMotivos').innerHTML = orden.length
         ? orden.map(([m, n]) => `<div class="motivo"><span>${esc(m)}</span><b>${n}</b></div>`).join('')
         : '<p class="no-results" style="padding:10px">Sin visitas fallidas este mes.</p>';
+
+    // Detalle de cada visita (más recientes primero)
+    const det = vis.filter(v => !filtroPanel.estado || v.estado === filtroPanel.estado)
+        .sort((a, b) => b.fecha.localeCompare(a.fecha) || ordenCita(a, b));
+    $('panDetTxt').textContent = `${det.length} ${det.length === 1 ? 'registro' : 'registros'}`;
+    $('panDetalle').innerHTML = det.length ? det.map(v => {
+        const est = v.estado === 'visitado' ? `<span class="chip ok">${v.interno ? 'Realizado' : 'Visitado'}</span>`
+            : v.estado === 'no_visitado' ? `<span class="chip no">${v.interno ? 'No realizado' : 'No visitado'}</span>` : '<span class="chip p">Pendiente</span>';
+        const cumpl = v.estado === 'visitado' && v.objetivos?.length ? ` · ${(v.objetivosCumplidos || []).length}/${v.objetivos.length} objetivos` : '';
+        return `<button class="fila-det" onclick="verDetalleVisita('${v.id}')">
+            <span class="fd-fecha">${esc(fechaCorta(v.fecha))}${v.hora ? `<small>${esc(horaBonita(v.hora))}</small>` : ''}</span>
+            <span class="fd-cuerpo"><b>${esc(v.contacto)}</b><small>${esc(nombreVendedor(v.vendedor))} · ${esc(v.interno ? 'Trabajo interno' : v.tipoVisita || '')}${cumpl}${esProgramada(v) ? '' : ' · No programada'}${v.esProyecto ? ' · Proyecto' : ''}</small></span>
+            ${est}
+        </button>`;
+    }).join('') : '<p class="no-results" style="padding:10px">No hay visitas con estos filtros.</p>';
+}
+
+// ---------- GRÁFICAS DEL PANEL (SVG) ----------
+// Estados: verde = visitado, rojo = no visitado, gris = pendiente (validados para daltonismo con separación de 2px y leyenda)
+const COLOR = { ok: '#0a6647', no: '#e66a5f', p: '#b9c4bf', obj: '#9fd3bd', objOk: '#0a6647', tipo: '#009460' };
+
+function pintarGraficaDias(vis) {
+    const dias = Number(finDeMes(mesPanel).slice(8));
+    const datos = [];
+    for (let d = 1; d <= dias; d++) {
+        const f = `${mesPanel}-${String(d).padStart(2, '0')}`;
+        const k = cuentaVisitas(vis.filter(v => v.fecha === f));
+        datos.push({ f, d, ok: k.ok, no: k.no, p: k.p });
+    }
+    const max = Math.max(4, ...datos.map(x => x.ok + x.no + x.p));
+    const paso = max <= 6 ? 2 : max <= 12 ? 3 : Math.ceil(max / 4);
+    const tope = Math.ceil(max / paso) * paso;
+    const W = anchoGrafica('grafDias'), H = 220, izq = 30, der = 8, arr = 12, abj = 26;
+    const ancho = (W - izq - der) / dias;
+    const barra = Math.min(16, ancho - 4);
+    const y = v => arr + (H - arr - abj) * (1 - v / tope);
+    let svg = '';
+    for (let v = 0; v <= tope; v += paso) {
+        svg += `<line x1="${izq}" x2="${W - der}" y1="${y(v)}" y2="${y(v)}" class="g-grid"/><text x="${izq - 6}" y="${y(v) + 4}" class="g-eje" text-anchor="end">${v}</text>`;
+    }
+    datos.forEach((x, i) => {
+        const cx = izq + ancho * i + (ancho - barra) / 2;
+        let base = y(0);
+        const tramos = [['ok', x.ok], ['no', x.no], ['p', x.p]].filter(t => t[1] > 0);
+        tramos.forEach(([clave, n], j) => {
+            const alto = y(0) - y(n);
+            const ultimo = j === tramos.length - 1;
+            const hueco = j > 0 ? 2 : 0;
+            svg += ultimo ? rectRedondo(cx, base - alto + hueco, barra, alto - hueco, COLOR[clave]) : `<rect x="${cx}" y="${base - alto + hueco}" width="${barra}" height="${Math.max(0, alto - hueco)}" fill="${COLOR[clave]}"/>`;
+            base -= alto;
+        });
+        const tip = `${fechaCorta(x.f)}: ${x.ok} visitadas · ${x.no} no visitadas · ${x.p} pendientes`;
+        svg += `<rect x="${izq + ancho * i}" y="${arr}" width="${ancho}" height="${H - arr - abj}" fill="transparent" data-tip="${esc(tip)}"/>`;
+        if (x.d === 1 || x.d % 5 === 0) svg += `<text x="${cx + barra / 2}" y="${H - 8}" class="g-eje" text-anchor="middle">${x.d}</text>`;
+    });
+    $('grafDias').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitas por día del mes">${svg}</svg>`;
+}
+
+// Las gráficas se dibujan al ancho real del contenedor para que el texto no se achique en el celular
+const anchoGrafica = id => Math.max(300, Math.round($(id).clientWidth || 640));
+let esperaResize;
+window.addEventListener('resize', () => {
+    clearTimeout(esperaResize);
+    esperaResize = setTimeout(() => { if (pantallaActiva() === 'panelScreen') pintarPanel(); }, 200);
+});
+
+// Barra con el extremo de dato redondeado (4px) y la base recta
+function rectRedondo(x, yTop, w, h, color, horizontal) {
+    if (h <= 0 || w <= 0) return '';
+    const r = Math.min(4, horizontal ? h / 2 : w / 2, horizontal ? w : h);
+    if (horizontal) return `<path d="M${x},${yTop} h${w - r} a${r},${r} 0 0 1 ${r},${r} v${h - 2 * r} a${r},${r} 0 0 1 -${r},${r} h-${w - r} z" fill="${color}"/>`;
+    return `<path d="M${x},${yTop + h} v-${h - r} a${r},${r} 0 0 1 ${r},-${r} h${w - 2 * r} a${r},${r} 0 0 1 ${r},${r} v${h - r} z" fill="${color}"/>`;
+}
+
+// Barras horizontales con la etiqueta a la izquierda y el valor en la punta
+function barrasHorizontales(contenedor, filas, anchoEtiqueta = 150) {
+    if (!filas.length) return '<p class="no-results" style="padding:10px">Sin datos en este periodo.</p>';
+    const max = Math.max(...filas.map(f => f.total), 1);
+    const W = anchoGrafica(contenedor), alto = 30, H = filas.length * alto + 6, izq = anchoEtiqueta, der = 40;
+    const x = v => (W - izq - der) * v / max;
+    let svg = '';
+    filas.forEach((f, i) => {
+        const yb = i * alto + 6, g = 16;
+        svg += `<text x="${izq - 8}" y="${yb + g - 3}" class="g-etq" text-anchor="end">${esc(f.nombre)}</text>`;
+        svg += rectRedondo(izq, yb, x(f.total), g, f.color || COLOR.tipo, true);
+        if (f.parte) svg += f.parte >= f.total ? rectRedondo(izq, yb, x(f.parte), g, COLOR.objOk, true)
+            : `<rect x="${izq}" y="${yb}" width="${Math.max(0, x(f.parte) - 2)}" height="${g}" fill="${COLOR.objOk}"/>`;
+        svg += `<text x="${izq + x(f.total) + 6}" y="${yb + g - 3}" class="g-valor">${f.etiqueta ?? f.total}</text>`;
+        svg += `<rect x="0" y="${yb - 4}" width="${W}" height="${alto}" fill="transparent" data-tip="${esc(f.tip || `${f.nombre}: ${f.total}`)}"/>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" role="img">${svg}</svg>`;
+}
+
+function pintarGraficaTipos(vis) {
+    const filas = [...Object.keys(TIPOS_VISITA), 'Trabajo interno'].map(t => {
+        const lista = vis.filter(v => t === 'Trabajo interno' ? v.interno : v.tipoVisita === t);
+        const ok = lista.filter(v => v.estado === 'visitado').length;
+        return { nombre: t, total: lista.length, tip: `${t}: ${lista.length} programadas · ${ok} ${t === 'Trabajo interno' ? 'realizadas' : 'visitadas'}` };
+    }).filter(f => f.total > 0);
+    $('grafTipos').innerHTML = barrasHorizontales('grafTipos', filas, 150);
+}
+
+function pintarGraficaObjetivos(vis) {
+    const cuenta = {};
+    vis.filter(v => !v.interno).forEach(v => (v.objetivos || []).forEach(o => {
+        cuenta[o] = cuenta[o] || { total: 0, parte: 0 };
+        cuenta[o].total++;
+        if (v.estado === 'visitado' && (v.objetivosCumplidos || []).includes(o)) cuenta[o].parte++;
+    }));
+    const filas = Object.entries(cuenta).sort((a, b) => b[1].total - a[1].total).slice(0, 10)
+        .map(([o, k]) => ({ nombre: o, total: k.total, parte: k.parte, color: COLOR.obj, etiqueta: `${k.parte}/${k.total}`,
+            tip: `${o}: programado ${k.total} ${k.total === 1 ? 'vez' : 'veces'} · cumplido ${k.parte}` }));
+    $('grafObjetivos').innerHTML = barrasHorizontales('grafObjetivos', filas, 170);
+}
+
+// Tooltip de las gráficas
+document.addEventListener('pointermove', e => {
+    const t = $('tooltip');
+    if (!t) return;
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (!el) { t.classList.remove('visible'); return; }
+    t.textContent = el.dataset.tip;
+    t.classList.add('visible');
+    const x = Math.min(e.clientX + 12, window.innerWidth - t.offsetWidth - 8);
+    t.style.left = Math.max(8, x) + 'px';
+    t.style.top = (e.clientY - t.offsetHeight - 12) + 'px';
+});
+
+// Ficha completa de una visita (solo lectura)
+function verDetalleVisita(id) {
+    const v = registros[id];
+    const fila = (t, x) => x ? `<strong>${t}</strong><p>${esc(x)}</p>` : '';
+    const estado = v.estado === 'visitado' ? (v.interno ? 'Realizado' : 'Visitado') : v.estado === 'no_visitado' ? (v.interno ? 'No realizado' : 'No visitado') : 'Pendiente';
+    const cumplidos = v.objetivosCumplidos || [];
+    abrirModal(`<div class="form-rc ficha">
+        <h2>${esc(v.contacto)}</h2>
+        <p class="sub">${esc(nombreVendedor(v.vendedor))} · ${esc(mayuscula(fechaLarga(v.fecha)))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>
+        <div class="marcas"><span class="chip ${v.estado === 'visitado' ? 'ok' : v.estado === 'no_visitado' ? 'no' : 'p'}">${estado}</span>
+            ${v.interno ? '<span class="chip gris">Trabajo interno</span>' : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>`}
+            ${esProgramada(v) ? '' : '<span class="chip np">No programada</span>'}${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}</div>
+        ${fila('Contacto', [v.tipoContacto, v.ciudad].filter(Boolean).join(' · '))}
+        ${v.tipoVisita && !v.interno ? `<strong>${esc(v.tipoVisita)} · objetivos</strong><p class="objetivos">${(v.objetivos || []).map(o => `<span class="${v.estado === 'visitado' ? (cumplidos.includes(o) ? 'cumplido' : 'no-cumplido') : ''}">${v.estado === 'visitado' && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}</p>` : ''}
+        ${fila('Notas de la programación', v.objetivo)}
+        ${fila('Qué se hizo', v.gestion)}${fila('Atendió', v.atendio)}${fila('Productos presentados', v.productos)}${fila('Muestras', v.muestras)}
+        ${v.pedido === 'si' ? fila('Pedido', 'Sí' + (v.valorPedido ? ' · ' + pesos(v.valorPedido) : '')) : ''}
+        ${fila('Compromisos', v.compromisos)}${fila('Motivo', v.motivo)}
+        ${v.reprogramadaPara ? fila('Reprogramada para', fechaCorta(v.reprogramadaPara)) : ''}
+        ${fila('Observaciones', v.observaciones)}
+        ${v.estado !== 'pendiente' ? fila('Cierre', v.cierreAutomatico ? 'Automático: no se reportó a tiempo' : 'Reportada el ' + fechaHora(v.registrada)) : fila('Plazo de reporte', textoCierre(v))}
+    </div>`);
 }
 
 // ---------- DESCARGAR INFORME (Excel) ----------
@@ -1229,7 +1509,8 @@ function armarLibro(mes, vend) {
     const colsV = [
         { t: 'Fecha', w: 12, f: 'dd/mm/yyyy' }, { t: 'Cita fija', w: 10 }, { t: 'Vendedor', w: 20 }, { t: 'Contacto', w: 32 },
         { t: 'Tipo de contacto', w: 24 }, { t: 'Ciudad', w: 14 }, { t: 'Programada', w: 12 }, { t: 'Modalidad', w: 12 },
-        { t: 'Tipo de visita', w: 26 }, { t: 'Objetivos', w: 36, wrap: true }, { t: 'Notas', w: 30, wrap: true }, { t: 'Estado', w: 13 },
+        { t: 'Tipo de visita', w: 26 }, { t: 'Objetivos', w: 36, wrap: true }, { t: 'Objetivos cumplidos', w: 36, wrap: true },
+        { t: '% objetivos', w: 12, f: '0%' }, { t: 'Contacto proyecto', w: 12 }, { t: 'Notas', w: 30, wrap: true }, { t: 'Estado', w: 13 },
         { t: 'Gestión', w: 22 }, { t: 'Atendió', w: 20 }, { t: 'Productos presentados', w: 30, wrap: true },
         { t: 'Muestras', w: 24, wrap: true }, { t: 'Pedido', w: 8 }, { t: 'Valor pedido', w: 14, f: '"$" #,##0' },
         { t: 'Compromisos', w: 30, wrap: true }, { t: 'Motivo no visita', w: 20 }, { t: 'Reprogramada para', w: 14, f: 'dd/mm/yyyy' },
@@ -1240,13 +1521,29 @@ function armarLibro(mes, vend) {
     const horaCol = t => t ? new Date(Date.parse(t) - 5 * 3600000) : null;
     tabla(h, 'TablaVisitas', colsV, vis.map(v => [
         fecha(v.fecha), v.hora || '', nombreVendedor(v.vendedor), v.interno ? '' : v.contacto, v.tipoContacto || '', v.ciudad || '',
-        esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), v.tipoVisita || '', (v.objetivos || []).join(', '), v.objetivo || '',
+        esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), v.tipoVisita || '', (v.objetivos || []).join(', '),
+        v.estado === 'visitado' ? (v.objetivosCumplidos || []).join(', ') : '',
+        v.estado === 'visitado' && v.objetivos?.length ? (v.objetivosCumplidos || []).length / v.objetivos.length : null,
+        v.esProyecto ? 'Sí' : v.eraProyecto ? 'Vinculado' : '', v.objetivo || '',
         (v.interno ? { visitado: 'Realizado', no_visitado: 'No realizado' }[v.estado] : null) || estadoTxt[v.estado] || v.estado, v.gestion || '', v.atendio || '', v.productos || '', v.muestras || '',
         v.pedido === 'si' ? 'Sí' : v.estado === 'visitado' ? 'No' : '', v.valorPedido ? Number(v.valorPedido) : null,
         v.compromisos || '', v.motivo || '', fecha(v.reprogramadaPara), v.observaciones || '',
         v.estado === 'pendiente' ? null : horaCol(v.registrada),
         v.estado === 'pendiente' ? '' : v.cierreAutomatico ? 'Automático' : 'Vendedor',
         horaCol(new Date(limiteCierre(v)).toISOString())
+    ]));
+
+    // Contactos proyecto
+    const hp = hoja('Proyectos');
+    const colsP = [
+        { t: 'Contacto', w: 32 }, { t: 'Tipo', w: 16 }, { t: 'Ciudad', w: 16 }, { t: 'Teléfono', w: 14 }, { t: 'Vendedor', w: 20 },
+        { t: 'Creado', w: 12, f: 'dd/mm/yyyy' }, { t: 'Visitas', w: 9 }, { t: 'Estado', w: 12 }, { t: 'Vinculado a (CRM)', w: 32 }
+    ];
+    const listaP = proyectos().filter(p => !vend || p.vendedor === vend).sort((x, y) => x.nombre.localeCompare(y.nombre));
+    tabla(hp, 'TablaProyectos', colsP, listaP.map(p => [
+        p.nombre, p.tipo, p.ciudad || '', p.telefono || '', nombreVendedor(p.vendedor), fecha(p.fecha),
+        visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === p.id).length,
+        p.estado === 'vinculado' ? 'Vinculado' : 'Proyecto', p.vinculadoA || ''
     ]));
 
     // Actividades
