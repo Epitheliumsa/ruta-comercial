@@ -1,3 +1,6 @@
+/* Lo oculto con el atributo hidden no se muestra aunque su clase use flex o grid */
+[hidden] { display: none !important; }
+
 /* Ruta Comercial: estilos propios sobre la base del Vademécum (styles.css) */
 
 .home-saludo small {
@@ -740,3 +743,7 @@
 
 .dialogo.playa .dialogo-caja { border-top-color: #1e8fc4; }
 .dialogo.playa .dialogo-caja h3 { color: #136a94; }
+
+.form-rc .check.dia-completo { margin-top: 12px; }
+.dialogo.permiso .dialogo-caja { border-top-color: #1e63c4; }
+.dialogo.permiso .dialogo-caja h3 { color: #1552a8; }

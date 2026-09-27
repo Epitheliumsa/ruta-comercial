@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609270056';
+const APP_VERSION = '202609270102';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -34,7 +34,10 @@ const NOVEDAD_RANGO = ['Vacaciones', 'Incapacidad', 'Permiso'];   // se pueden p
 const esNovedad = tipo => NOVEDADES.includes(tipo);
 const novedadesDe = (vendedor, fecha) => visibles().filter(r => r.clase === 'novedad' && r.vendedor === vendedor
     && r.fecha <= fecha && (r.hasta || r.fecha) >= fecha);
-const rangoNovedad = n => n.hasta && n.hasta !== n.fecha ? `${fechaCorta(n.fecha)} al ${fechaCorta(n.hasta)}` : fechaCorta(n.fecha);
+// Un permiso puede ser de día completo (uno o varios días) o por horas en un solo día
+const esPorHoras = n => n.tipo === 'Permiso' && !n.diaCompleto && n.horaInicio && n.horaFin;
+const rangoNovedad = n => esPorHoras(n) ? `${fechaCorta(n.fecha)}, de ${horaBonita(n.horaInicio)} a ${horaBonita(n.horaFin)}`
+    : n.hasta && n.hasta !== n.fecha ? `${fechaCorta(n.fecha)} al ${fechaCorta(n.hasta)}` : fechaCorta(n.fecha);
 const CORTO_NOVEDAD = { Vacaciones: 'Vacac.', Incapacidad: 'Incap.', Permiso: 'Permiso', 'Cumpleaños': 'Cumple' };
 const MODALIDADES = { presencial: 'Presencial', virtual: 'Virtual' };
 // Las visitas se programan antes de esta hora (Colombia, UTC-5) del día de la visita;
@@ -931,6 +934,13 @@ function abrirProgramar(id) {
             <div id="cajaHora"><label for="fHora">Cita fija</label><input id="fHora" type="time" value="${esc(v?.hora)}"></div>
             <div id="cajaHasta" hidden><label for="fHasta">Hasta</label><input id="fHasta" type="date" value="${esc(v?.hasta)}"></div>
         </div>
+        <div id="cajaPermiso" hidden>
+            <label class="check dia-completo"><input type="checkbox" id="fDiaCompleto" ${!v || v.clase !== 'novedad' || v.diaCompleto !== false ? 'checked' : ''} onchange="cambiarTipoProgramacion()"><span>Día completo</span></label>
+            <div class="dos" id="cajaHorasPermiso">
+                <div><label for="fHoraInicio">Hora de inicio</label><input id="fHoraInicio" type="time" value="${esc(v?.horaInicio)}"></div>
+                <div><label for="fHoraFin">Hora de finalización</label><input id="fHoraFin" type="time" value="${esc(v?.horaFin)}"></div>
+            </div>
+        </div>
         <p class="ayuda" id="ayudaHora">La hora es opcional: úsala solo si tienes una cita acordada. Te avisamos 15 minutos antes.</p>
         <div id="cajaModalidad">
             <label>Modalidad</label>
@@ -967,8 +977,14 @@ function cambiarTipoProgramacion(marcados) {
     $('cajaModalidad').hidden = interno || novedad;
     $('cajaHora').hidden = novedad;
     $('ayudaHora').hidden = novedad;
-    $('cajaHasta').hidden = !NOVEDAD_RANGO.includes(tipo);
-    $('lblFecha').textContent = NOVEDAD_RANGO.includes(tipo) ? 'Desde' : 'Fecha';
+    // Permiso: día completo (con "Hasta") o por horas en un solo día
+    const permiso = tipo === 'Permiso';
+    const porHoras = permiso && !$('fDiaCompleto').checked;
+    $('cajaPermiso').hidden = !permiso;
+    $('cajaHorasPermiso').hidden = !porHoras;
+    const conRango = NOVEDAD_RANGO.includes(tipo) && !porHoras;
+    $('cajaHasta').hidden = !conRango;
+    $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : interno ? '¿Qué vas a hacer? (opcional)' : 'Notas (opcional)';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, permiso por cita médica' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
     pintarObjetivos(marcados);
@@ -1096,10 +1112,15 @@ async function guardarProgramada(e, id) {
 
 function guardarNovedad(id, tipo) {
     const desde = $('fFecha').value;
-    const hasta = NOVEDAD_RANGO.includes(tipo) && $('fHasta').value ? $('fHasta').value : desde;
+    const porHoras = tipo === 'Permiso' && !$('fDiaCompleto').checked;
+    const horaInicio = porHoras ? $('fHoraInicio').value : '', horaFin = porHoras ? $('fHoraFin').value : '';
+    if (porHoras && (!horaInicio || !horaFin)) return toast('Escribe la hora de inicio y la hora de finalización del permiso');
+    if (porHoras && horaFin <= horaInicio) return toast('La hora de finalización debe ser después de la hora de inicio');
+    const hasta = NOVEDAD_RANGO.includes(tipo) && !porHoras && $('fHasta').value ? $('fHasta').value : desde;
     if (hasta < desde) return toast('La fecha "Hasta" no puede ser antes de "Desde"');
     const n = id ? { ...registros[id] } : { id: nuevoId(), clase: 'novedad', vendedor: agenda.vendedor, creado: new Date().toISOString(), creadoPor: sesion.id };
-    Object.assign(n, { tipo, fecha: desde, hasta, nota: $('fObjetivo').value.trim() });
+    Object.assign(n, { tipo, fecha: desde, hasta, nota: $('fObjetivo').value.trim(),
+        diaCompleto: tipo === 'Permiso' ? !porHoras : true, horaInicio, horaFin });
     guardarRegistro(n);
     cerrarModal();
     if (!(agenda.fecha >= desde && agenda.fecha <= hasta)) elegirFecha(desde); else pintarAgenda();
@@ -1107,6 +1128,7 @@ function guardarNovedad(id, tipo) {
     if (tipo === 'Cumpleaños') dialogo({ tono: 'fiesta', titulo: `¡Disfruta tu día, ${nombre}!`, texto: `Cumpleaños registrado para el ${fechaLarga(desde)}.`, aceptar: 'Gracias', cancelar: '' });
     else if (tipo === 'Vacaciones') dialogo({ tono: 'playa', titulo: `Playa, Brisa y Mar. ¡¡¡Felices Vacaciones!!! ${nombre}`, texto: `Vacaciones registradas: ${rangoNovedad(n)}.`, aceptar: 'Gracias', cancelar: '' });
     else if (tipo === 'Incapacidad') dialogo({ tono: 'salud', titulo: `Recupérate pronto, ${nombre}`, texto: `Incapacidad registrada: ${rangoNovedad(n)}.`, aceptar: 'Gracias', cancelar: '' });
+    else if (tipo === 'Permiso') dialogo({ tono: 'permiso', titulo: `¡Que te vaya muy bien, ${nombre}!`, texto: `Permiso registrado: ${rangoNovedad(n)}${n.diaCompleto ? ' (día completo).' : ''}`, aceptar: 'Gracias', cancelar: '' });
     else toast(`${tipo} registrado: ${rangoNovedad(n)}`);
 }
 
@@ -1815,11 +1837,13 @@ function armarLibro(mes, vend) {
     // Novedades (vacaciones, incapacidades, permisos, cumpleaños) que tocan el mes
     const hn = hoja('Novedades');
     const colsN = [{ t: 'Vendedor', w: 22 }, { t: 'Novedad', w: 16 }, { t: 'Desde', w: 12, f: 'dd/mm/yyyy' }, { t: 'Hasta', w: 12, f: 'dd/mm/yyyy' },
+        { t: 'Día completo', w: 13 }, { t: 'Hora de inicio', w: 14 }, { t: 'Hora de finalización', w: 18 },
         { t: 'Días', w: 8 }, { t: 'Detalle', w: 40, wrap: true }];
     const iniMes = mes + '-01', finMes = finDeMes(mes);
     const listaN = visibles().filter(n => n.clase === 'novedad' && (!vend || n.vendedor === vend) && n.fecha <= finMes && (n.hasta || n.fecha) >= iniMes)
         .sort((x, y) => x.fecha.localeCompare(y.fecha));
     tabla(hn, 'TablaNovedades', colsN, listaN.map(n => [nombreVendedor(n.vendedor), n.tipo, fecha(n.fecha), fecha(n.hasta || n.fecha),
+        esPorHoras(n) ? 'No' : 'Sí', esPorHoras(n) ? horaBonita(n.horaInicio) : '', esPorHoras(n) ? horaBonita(n.horaFin) : '',
         Math.round((deIso(n.hasta || n.fecha) - deIso(n.fecha)) / 86400000) + 1, n.nota || '']));
 
     // Contactos proyecto
@@ -1859,7 +1883,7 @@ function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Can
         const d = $('dialogo');
         d.className = 'dialogo visible ' + tono;
         d.innerHTML = `<div class="dialogo-caja" role="alertdialog" aria-modal="true" aria-labelledby="dialogoTitulo">
-            ${tono === 'fiesta' ? '<div class="dialogo-icono">🎂</div>' : tono === 'salud' ? '<div class="dialogo-icono">💚</div>' : tono === 'playa' ? '<div class="dialogo-icono">🏖️</div>' : tono === 'aviso' ? '<div class="dialogo-icono">📅</div>' : ''}
+            ${tono === 'fiesta' ? '<div class="dialogo-icono">🎂</div>' : tono === 'salud' ? '<div class="dialogo-icono">💚</div>' : tono === 'playa' ? '<div class="dialogo-icono">🏖️</div>' : tono === 'permiso' ? '<div class="dialogo-icono">🕒</div>' : tono === 'aviso' ? '<div class="dialogo-icono">📅</div>' : ''}
             ${titulo ? `<h3 id="dialogoTitulo">${esc(titulo)}</h3>` : ''}
             ${texto ? `<p>${esc(texto).replace(/\n/g, '<br>')}</p>` : ''}
             ${campo ? `<textarea id="dialogoCampo" placeholder="${esc(campo)}"></textarea>` : ''}
