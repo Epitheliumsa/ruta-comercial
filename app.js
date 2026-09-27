@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609270049';
+const APP_VERSION = '202609270053';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -520,9 +520,17 @@ const opcionesProyecto = zona => proyectosDeZona(zona)
     .map(p => `<option value="${esc(p.nombre)}" label="${esc([ESTADO_PROYECTO[p.estado], p.tipo, p.ciudad].filter(Boolean).join(' · '))}">`).join('');
 
 // "Maestra de Contactos" o "Contacto nuevo": cambia la lista del buscador y abre los datos del proyecto
-// En "¿Qué vas a programar?" las visitas a un contacto nuevo vienen como "nuevo:<tipo de visita>"
-const tipoBase = () => $('fTipo').value.replace(/^nuevo:/, '');
-const origenElegido = () => $('fTipo').value.startsWith('nuevo:') ? 'nuevo' : 'maestra';
+
+// "Contacto nuevo" es una sola opción del menú; el tipo de visita se elige en un segundo campo
+const tipoBase = () => $('fTipo').value === 'nuevo' ? $('fTipoNuevo').value : $('fTipo').value;
+const origenElegido = () => $('fTipo').value === 'nuevo' ? 'nuevo' : 'maestra';
+const TIPO_CONTACTO_DE_VISITA = { 'Visita Médica': 'Médico', 'Visita Comercial': 'Cliente', 'Punto de Venta': 'Punto de Venta' };
+
+function cambiarTipoNuevo() {
+    const t = TIPO_CONTACTO_DE_VISITA[$('fTipoNuevo').value];
+    if (t) { $('pTipo').value = t; etiquetaPersonaProyecto(); }
+    pintarObjetivos();
+}
 
 function elegirOrigen(origen) {
     $('lblContacto').textContent = origen === 'nuevo' ? 'Contacto nuevo' : 'Contacto (Maestra de Contactos)';
@@ -880,7 +888,7 @@ function abrirProgramar(id) {
     const lista = contactos[zona] || [];
     const actual = v?.tipoVisita || v?.tipo;
     const opcion = t => `<option ${t === actual && !v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
-    const opcionNuevo = t => `<option value="nuevo:${esc(t)}" ${t === actual && v?.esProyecto ? 'selected' : ''}>${esc(t)} · Contacto nuevo</option>`;
+    const opcionNuevo = t => `<option ${t === actual && v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
     abrirModal(`<form class="form-rc" onsubmit="guardarProgramada(event, '${id || ''}')">
         <h2>${v ? 'Editar programación' : 'Programar'}</h2>
         <p class="sub">${esc(nombreVendedor(agenda.vendedor))} · ${esc(zona || '')}</p>
@@ -888,10 +896,17 @@ function abrirProgramar(id) {
         <select id="fTipo" required onchange="cambiarTipoProgramacion()">
             <option value="">Elige una opción</option>
             <optgroup label="Visitas (Maestra de Contactos)">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
-            <optgroup label="Contacto nuevo">${Object.keys(TIPOS_VISITA).map(opcionNuevo).join('')}</optgroup>
             <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
+            <optgroup label="Contacto nuevo"><option value="nuevo" ${v?.esProyecto ? 'selected' : ''}>Contacto nuevo</option></optgroup>
             <optgroup label="Novedades">${NOVEDADES.map(opcion).join('')}</optgroup>
         </select>
+        <div id="cajaTipoNuevo" hidden>
+            <label for="fTipoNuevo">Tipo de visita</label>
+            <select id="fTipoNuevo" onchange="cambiarTipoNuevo()">
+                <option value="">Elige el tipo de visita</option>
+                ${Object.keys(TIPOS_VISITA).map(opcionNuevo).join('')}
+            </select>
+        </div>
         <div id="cajaContacto">
             <label for="fContacto" id="lblContacto">Contacto</label>
             <input id="fContacto" list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
@@ -944,6 +959,7 @@ function abrirProgramar(id) {
 // Muestra u oculta los campos según sea una visita, un trabajo interno o una novedad
 function cambiarTipoProgramacion(marcados) {
     const tipo = tipoBase();
+    $('cajaTipoNuevo').hidden = origenElegido() !== 'nuevo';
     elegirOrigen(origenElegido());
     const interno = esTrabajoInterno(tipo);
     const novedad = esNovedad(tipo);
@@ -988,7 +1004,9 @@ function sugerirTipo() {
     const c = buscarMaestra(zona, nombre);
     const p = !c && buscarProyecto(zona, nombre);
     const tipo = tipoSugerido(c ? c.e : p ? p.tipo : '');
-    if (tipo) { $('fTipo').value = (p ? 'nuevo:' : '') + tipo; cambiarTipoProgramacion(); }
+    if (!tipo) return;
+    if (p) { $('fTipo').value = 'nuevo'; $('fTipoNuevo').value = tipo; } else $('fTipo').value = tipo;
+    cambiarTipoProgramacion();
 }
 
 function avisoProgramacion(v) {
@@ -1010,6 +1028,7 @@ async function guardarProgramada(e, id) {
     e.preventDefault();
     const tipo = tipoBase();
     if (esNovedad(tipo)) return guardarNovedad(id, tipo);
+    if (origenElegido() === 'nuevo' && !tipo) { toast('Elige el tipo de visita del contacto nuevo'); $('fTipoNuevo').focus(); return; }
     // Advertencia antes de programar en un festivo o en un día con novedad (vacaciones, incapacidad…)
     const fechaElegida = $('fFecha').value;
     const cambiaDia = !id || registros[id].fecha !== fechaElegida;
@@ -1030,7 +1049,7 @@ async function guardarProgramada(e, id) {
     let c = interno ? {} : buscarMaestra(zona, nombre) || {};
     let proyecto = nuevo ? buscarProyecto(zona, nombre) : null;
     if (!interno && !nuevo && !c.n) {
-        toast('No está en la Maestra de Contactos. Si es un contacto nuevo, elige la visita en el grupo "Contacto nuevo".');
+        toast('No está en la Maestra de Contactos. Si es un contacto nuevo, elige "Contacto nuevo" en ¿Qué vas a programar?');
         return;
     }
     if (nuevo && c.n) {
