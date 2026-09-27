@@ -1,7 +1,7 @@
 // CONFIGURACIÓN
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
-const API_URL = '';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Usuarios: la clave no se guarda aquí, solo su huella SHA-256 de "usuario:clave" (en minúsculas)
 const USUARIOS = [
@@ -188,6 +188,7 @@ const actividadesMes = (mes, vendedor) => visibles()
 // ---------- SINCRONIZACIÓN CON EL SERVIDOR ----------
 let sincronizando = false;
 let ultimaSync = null;
+let errorSync = '';
 
 async function llamarApi(cuerpo) {
     const resp = await fetch(API_URL, {
@@ -226,8 +227,10 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         guardarLocal();
         programarAvisos();
         ultimaSync = new Date();
+        errorSync = '';
     } catch (e) {
         console.warn('No se pudo sincronizar:', e);
+        errorSync = navigator.onLine ? (e.message || 'Error de conexión') : 'Sin internet';
     }
     sincronizando = false;
     pintarEstadoSync();
@@ -243,7 +246,8 @@ function pintarEstadoSync() {
     }
     if (sincronizando) { el.textContent = 'Sincronizando…'; return; }
     const pend = pendientes.size ? `${pendientes.size} cambios por subir · ` : '';
-    const cuando = ultimaSync ? `Actualizado ${ultimaSync.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}` : 'Sin conexión con el servidor';
+    const cuando = errorSync ? `No se pudo conectar (${errorSync})`
+        : ultimaSync ? `Actualizado ${ultimaSync.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}` : 'Conectando…';
     el.innerHTML = `${esc(pend + cuando)} · <button onclick="sincronizar()">Actualizar</button>`;
 }
 
