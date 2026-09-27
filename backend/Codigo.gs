@@ -17,7 +17,7 @@ const USUARIOS = {
   'l.ramos':     { huella: 'afecd958a07662fa1c466a63fa799f91873a1371f878dc6e4bd6c35ffce87617', id: 'lramos',     tipo: 'comercial' },
   'y.caballero': { huella: 'df5769c03aec2c0300cd912335962a57617271fa86e0ef852d5d959895c6ecab', id: 'ycaballero', tipo: 'comercial' },
   'j.herrera':   { huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', id: 'jherrera',   tipo: 'jefe' },  // Jefe comercial: ve y registra para todo el equipo
-  'm.castro':    { huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', id: 'mcastro',    tipo: 'jefe' },
+  'm.castro':    { huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', id: 'mcastro',    tipo: 'comercial' },
   'h.reyes':     { huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', id: 'hreyes',     tipo: 'jefe', admin: true }
 };
 

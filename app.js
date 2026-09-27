@@ -3,12 +3,15 @@
 // Vacía = los datos se guardan solo en este dispositivo.
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
+// Zona de un vendedor que todavía no tiene zona: no trae contactos del CRM (todo lo que programe queda como proyecto)
+const ZONA_POR_ASIGNAR = 'Zona por asignar';
+
 // Usuarios: la clave no se guarda aquí, solo su huella SHA-256 de "usuario:clave" (en minúsculas)
 const USUARIOS = [
     { usuario: 'L.Ramos',     huella: 'afecd958a07662fa1c466a63fa799f91873a1371f878dc6e4bd6c35ffce87617', tipo: 'comercial', id: 'lramos',     nombre: 'Lizeth Ramos',      zona: 'Zona Norte' },
     { usuario: 'Y.Caballero', huella: 'df5769c03aec2c0300cd912335962a57617271fa86e0ef852d5d959895c6ecab', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur' },
     { usuario: 'J.Herrera',   huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', jefe: true, cargo: 'Jefe comercial' },
-    { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'jefe',      id: 'mcastro',    nombre: 'M. Castro', cargo: 'Equipo Epithelium' },
+    { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'comercial', id: 'mcastro',    nombre: 'M. Castro',         zona: ZONA_POR_ASIGNAR },
     { usuario: 'H.Reyes',     huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', admin: true, cargo: 'Administrador' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
@@ -573,6 +576,7 @@ function pintarAgenda() {
         return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}" onclick="elegirFecha('${d}')"><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span><span class="puntos">${puntos}</span></button>`;
     }).join('');
 
+    $('agAvisoZona').hidden = comercial(v)?.zona !== ZONA_POR_ASIGNAR;
     const lista = visitasDe(v, f);
     const k = cuentaVisitas(lista);
     const internos = lista.filter(x => x.interno).length;

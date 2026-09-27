@@ -673,3 +673,5 @@
     .filters.filtros-panel { grid-template-columns: 1fr; }
 }
 @media (min-width: 900px) { .filters.filtros-panel { position: static; box-shadow: none; } }
+
+.aviso-zona { margin: 12px 15px 0; padding: 10px 12px; border-radius: 8px; background: #fffaf3; border: 1px dashed #e8b27a; color: #6b4a2a; font-size: 13px; font-weight: 600; }
