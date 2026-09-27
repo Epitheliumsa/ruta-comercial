@@ -70,6 +70,7 @@ function tipoSugerido(etiqueta) {
     if (e.includes('medico')) return 'Visita Médica';
     return 'Visita Comercial';
 }
+const horaBonita = h => { const [H, M] = h.split(':').map(Number); return `${H % 12 || 12}:${String(M).padStart(2, '0')} ${H < 12 ? 'a. m.' : 'p. m.'}`; };
 const pesos = v => v ? '$ ' + Number(v).toLocaleString('es-CO') : '';
 
 function toast(msg) {
@@ -109,6 +110,7 @@ function guardarRegistro(r) {
     registros[r.id] = r;
     pendientes.add(r.id);
     guardarLocal();
+    programarAvisos();
     sincronizar();
 }
 
@@ -118,9 +120,11 @@ function borrarRegistro(r) {
 }
 
 const visibles = () => Object.values(registros).filter(r => !r.borrado);
+// Primero las citas fijas por hora; las visitas sin hora van después
+const ordenCita = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '').localeCompare(b.hora || '');
 const visitasDe = (vendedor, fecha) => visibles()
     .filter(r => r.clase === 'visita' && r.vendedor === vendedor && r.fecha === fecha)
-    .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
+    .sort(ordenCita);
 const visitasMes = (mes, vendedor) => visibles()
     .filter(r => r.clase === 'visita' && mesDe(r.fecha) === mes && (!vendedor || r.vendedor === vendedor));
 const actividadesMes = (mes, vendedor) => visibles()
@@ -164,6 +168,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
             if (!pendientes.has(r.id) && (!local || (r.actualizado || '') >= (local.actualizado || ''))) registros[r.id] = r;
         });
         guardarLocal();
+        programarAvisos();
         ultimaSync = new Date();
     } catch (e) {
         console.warn('No se pudo sincronizar:', e);
@@ -248,6 +253,7 @@ function entrarApp() {
     $('agVendedor').innerHTML = opciones;
     $('actVendedor').innerHTML = '<option value="">Todo el equipo</option>' + opciones;
     irInicio();
+    programarAvisos();
     sincronizar();
 }
 
@@ -285,6 +291,85 @@ function pintarInicio() {
     $('homeActTxt').textContent = acts.length ? `${hechas} de ${acts.length} realizadas este mes` : 'Sin actividades programadas este mes';
     pintarEstadoSync();
 }
+
+// ---------- AVISO DE CITAS (15 minutos antes) ----------
+const MINUTOS_AVISO = 15;
+let temporizadores = [];
+let registroSW = null;
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(r => { registroSW = r; }).catch(() => {});
+}
+
+const momentoCita = v => Date.parse(`${v.fecha}T${v.hora}:00-05:00`);
+
+function avisados() {
+    try { return JSON.parse(localStorage.getItem('rc_avisados') || '{}'); } catch (e) { return {}; }
+}
+
+// Deja listos los avisos de las citas pendientes del vendedor en las próximas 24 horas.
+// Funcionan mientras la app esté abierta (en pantalla o en segundo plano).
+function programarAvisos() {
+    temporizadores.forEach(clearTimeout);
+    temporizadores = [];
+    if (!sesion || esJefe()) return;
+    const ahora = Date.now();
+    const ya = avisados();
+    visibles()
+        .filter(v => v.clase === 'visita' && v.vendedor === sesion.id && v.estado === 'pendiente' && v.hora)
+        .forEach(v => {
+            const cita = momentoCita(v);
+            const clave = v.id + '@' + v.fecha + 'T' + v.hora;
+            if (ya[clave] || cita <= ahora || cita - ahora > 24 * 3600 * 1000) return;
+            const espera = Math.max(0, cita - MINUTOS_AVISO * 60000 - ahora);
+            temporizadores.push(setTimeout(() => avisarCita(v, clave), espera));
+        });
+    pintarBotonAvisos();
+}
+
+function avisarCita(v, clave) {
+    const ya = avisados();
+    ya[clave] = Date.now();
+    localStorage.setItem('rc_avisados', JSON.stringify(ya));
+    const faltan = Math.max(0, Math.round((momentoCita(v) - Date.now()) / 60000));
+    const texto = `${v.contacto} · ${horaBonita(v.hora)} (${faltan ? `en ${faltan} min` : 'ahora'})`;
+    $('avisoCitaTxt').textContent = texto;
+    $('avisoCita').dataset.fecha = v.fecha;
+    $('avisoCita').classList.add('visible');
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    if ('Notification' in window && Notification.permission === 'granted') {
+        const opciones = { body: texto, icon: 'icons/icon-192.png', tag: clave };
+        if (registroSW) registroSW.showNotification('Cita en 15 minutos', opciones);
+        else try { new Notification('Cita en 15 minutos', opciones); } catch (e) {}
+    }
+}
+
+function verCitaAvisada() {
+    cerrarAvisoCita();
+    agenda.vendedor = sesion.id;
+    agenda.fecha = $('avisoCita').dataset.fecha || hoy();
+    abrirAgenda();
+}
+
+function cerrarAvisoCita() {
+    $('avisoCita').classList.remove('visible');
+}
+
+function pintarBotonAvisos() {
+    const b = $('btnAvisos');
+    if (!b) return;
+    b.hidden = esJefe() || !('Notification' in window) || Notification.permission !== 'default';
+}
+
+async function activarAvisos() {
+    if (!('Notification' in window)) return;
+    const permiso = await Notification.requestPermission();
+    toast(permiso === 'granted' ? 'Listo: te avisaremos 15 minutos antes de cada cita' : 'Sin permiso de notificaciones: el aviso saldrá solo dentro de la app');
+    pintarBotonAvisos();
+}
+
+// Al volver a la app se revisan los avisos (los temporizadores se pausan en segundo plano en algunos celulares)
+document.addEventListener('visibilitychange', () => { if (!document.hidden) programarAvisos(); });
 
 // ---------- AGENDA ----------
 function abrirAgenda() {
@@ -371,7 +456,7 @@ function tarjetaVisita(v) {
         reporte = `<div class="reporte"><b>${esc(v.motivo)}</b>${v.reprogramadaPara ? ` · Reprogramada para el ${esc(fechaCorta(v.reprogramadaPara))}` : ''}${v.observaciones ? '<br>' + esc(v.observaciones) : ''}</div>`;
     }
     return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}">
-        <div class="visita-cab"><div><span class="visita-hora">${esc(v.hora || '--:--')}</span><h3>${esc(v.contacto)}</h3></div>${chip}</div>
+        <div class="visita-cab"><div>${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}<h3>${esc(v.contacto)}</h3></div>${chip}</div>
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
         ${objetivos}
@@ -405,10 +490,11 @@ function abrirProgramar(id) {
             <input id="fContacto" list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
             <datalist id="dlContactos">${lista.map(c => `<option value="${esc(c.n)}" label="${esc([c.e, c.c].filter(Boolean).join(' · '))}">`).join('')}</datalist>
         </div>
-        <div class="dos">
+        <div class="fila-fecha">
             <div><label for="fFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
-            <div><label for="fHora">Hora</label><input id="fHora" type="time" value="${v?.hora || '09:00'}"></div>
+            <div><label for="fHora">Cita fija</label><input id="fHora" type="time" value="${esc(v?.hora)}"></div>
         </div>
+        <p class="ayuda">La hora es opcional: úsala solo si tienes una cita acordada. Te avisamos 15 minutos antes.</p>
         <div id="cajaModalidad">
             <label>Modalidad</label>
             ${botonesModalidad(v?.modalidad)}
@@ -526,7 +612,7 @@ function eliminarVisita(id) {
 function abrirRegistro(id, tipo) {
     const v = registros[id];
     const opciones = (lista, actual) => lista.map(o => `<option ${o === actual ? 'selected' : ''}>${esc(o)}</option>`).join('');
-    const cab = `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · ' + esc(v.hora) : ''}</p>`;
+    const cab = `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`;
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
             <h2>Trabajo realizado</h2>${cab}
@@ -642,7 +728,7 @@ function guardarNoVisitado(e, id) {
         guardarRegistro({
             id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente',
             contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
-            fecha: repro, hora: antes.hora, objetivo: antes.objetivo, vieneDe: antes.fecha,
+            fecha: repro, hora: '', objetivo: antes.objetivo, vieneDe: antes.fecha,
             modalidad: antes.modalidad, tipoVisita: antes.tipoVisita, objetivos: antes.objetivos, interno: !!antes.interno,
             programada: Date.now() < limiteProgramacion(repro),
             creado: new Date().toISOString(), creadoPor: sesion.id
@@ -938,7 +1024,7 @@ function armarLibro(mes, vend) {
     // ExcelJS guarda las fechas en UTC: se arman en UTC para que no se corran de día
     const fecha = s => { if (!s) return null; const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
     const vendedores = vend ? COMERCIALES.filter(c => c.id === vend) : COMERCIALES;
-    const vis = visitasMes(mes, vend).sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')));
+    const vis = visitasMes(mes, vend).sort((a, b) => a.fecha.localeCompare(b.fecha) || ordenCita(a, b));
     const acts = actividadesMes(mes, vend).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
 
     const hoja = nombre => {
@@ -985,7 +1071,7 @@ function armarLibro(mes, vend) {
     // Visitas
     const h = hoja('Visitas');
     const colsV = [
-        { t: 'Fecha', w: 12, f: 'dd/mm/yyyy' }, { t: 'Hora', w: 8 }, { t: 'Vendedor', w: 20 }, { t: 'Contacto', w: 32 },
+        { t: 'Fecha', w: 12, f: 'dd/mm/yyyy' }, { t: 'Cita fija', w: 10 }, { t: 'Vendedor', w: 20 }, { t: 'Contacto', w: 32 },
         { t: 'Tipo de contacto', w: 24 }, { t: 'Ciudad', w: 14 }, { t: 'Programada', w: 12 }, { t: 'Modalidad', w: 12 },
         { t: 'Tipo de visita', w: 26 }, { t: 'Objetivos', w: 36, wrap: true }, { t: 'Notas', w: 30, wrap: true }, { t: 'Estado', w: 13 },
         { t: 'Gestión', w: 22 }, { t: 'Atendió', w: 20 }, { t: 'Productos presentados', w: 30, wrap: true },

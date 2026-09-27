@@ -64,6 +64,7 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 6h17l9 9v27H12z"/><path d="M29 6v9h9"/><path d="M25 21v13M19.5 28.5L25 34l5.5-5.5"/></svg>
                     <span class="home-btn-text"><strong>Descargar informe</strong><small>Excel con visitas y actividades del mes</small></span>
                 </button>
+                <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
             </div>
         </div>
@@ -166,6 +167,11 @@
             </div>
         </div>
         <div id="toast" class="toast"></div>
+        <div id="avisoCita" class="aviso-cita" role="alert">
+            <div><strong>Cita en 15 minutos</strong><span id="avisoCitaTxt"></span></div>
+            <button onclick="verCitaAvisada()">Ver</button>
+            <button class="cerrar" onclick="cerrarAvisoCita()" aria-label="Cerrar aviso">&times;</button>
+        </div>
     </div>
 
     <script src="app.js"></script>

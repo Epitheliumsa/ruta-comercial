@@ -6,6 +6,7 @@ Agenda de visitas y actividades de la fuerza de ventas de Epithelium, para web y
 - **Agenda de visitas**: programar visitas por día y registrar cada una como *Visitado*
   (gestión, quién atendió, productos, muestras, pedido y valor, compromisos) o
   *No visitado* (motivo, reprogramar, observaciones).
+- **Cita fija** (opcional): hora acordada con el contacto; la app avisa 15 minutos antes mientras esté abierta.
 - **Actividades del mes**: el jefe (o el vendedor) programa actividades y el vendedor
   las marca como realizadas con fecha y resultado.
 - **Panel del equipo** (solo jefes): cumplimiento por vendedor y motivos de no visita.
