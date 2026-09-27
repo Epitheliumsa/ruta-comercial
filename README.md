@@ -14,7 +14,7 @@ Agenda de visitas y actividades de la fuerza de ventas de Epithelium, para web y
 - **Panel del equipo** (solo jefes): cumplimiento por vendedor y motivos de no visita.
 - **Descargar informe**: Excel del mes (Resumen, Visitas, Actividades) sin líneas de cuadrícula.
 
-Los contactos salen de `contactos.json` (nombre, ciudad y etiqueta del CRM, por zona).
+Los contactos salen de `contactos.json` (Maestra de Contactos: nombre, ciudad y etiqueta, por zona).
 Mientras `API_URL` en `app.js` esté vacía, los datos quedan en cada dispositivo.
 Para que el jefe vea en vivo a todo el equipo se instala `backend/Codigo.gs` en una hoja
 de Google Sheets (instrucciones al inicio del archivo) y se pega su URL en `API_URL`.

@@ -2,10 +2,10 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609270030';
+const APP_VERSION = '202609270036';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
-// Zona de un vendedor que todavía no tiene zona: no trae contactos del CRM (todo lo que programe queda como proyecto)
+// Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
 const ZONA_POR_ASIGNAR = 'Zona por asignar';
 
 // Usuarios: la clave no se guarda aquí, solo su huella SHA-256 de "usuario:clave" (en minúsculas)
@@ -220,6 +220,7 @@ const actividadesMes = (mes, vendedor) => visibles()
 
 // ---------- SINCRONIZACIÓN CON EL SERVIDOR ----------
 let sincronizando = false;
+let sincronizarOtraVez = false;   // hubo cambios mientras se sincronizaba: se repite al terminar
 let ultimaSync = null;
 let errorSync = '';
 
@@ -236,7 +237,8 @@ async function llamarApi(cuerpo) {
 }
 
 async function sincronizar(mesCentro = mesDe(hoy())) {
-    if (!API_URL || !sesion || sincronizando) return pintarEstadoSync();
+    if (sincronizando) { sincronizarOtraVez = true; return; }
+    if (!API_URL || !sesion) return pintarEstadoSync();
     sincronizando = true;
     pintarEstadoSync();
     try {
@@ -268,6 +270,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
     sincronizando = false;
     pintarEstadoSync();
     repintarPantallaActiva();
+    if (sincronizarOtraVez) { sincronizarOtraVez = false; if (pendientes.size) sincronizar(mesCentro); }
 }
 
 function pintarEstadoSync() {
@@ -384,7 +387,10 @@ function pintarInicio() {
     const acts = actividadesMes(mesDe(hoy()), vend);
     const hechas = acts.filter(a => a.hecha).length;
     const proys = proyectos().filter(p => p.estado !== 'vinculado' && (esJefe() || p.vendedor === sesion.id)).length;
-    $('proyectosTxt').textContent = proys ? `${proys} por vincular al CRM` : 'Contactos nuevos que aún no están en el CRM';
+    $('proyectosTxt').textContent = proys ? `${proys} sin crear en la Maestra de Contactos` : 'Proyectos que aún no están en la Maestra de Contactos';
+    const solsCreacion = solicitudesCreacion().length;
+    $('btnCreacion').style.display = esJefe() ? '' : 'none';
+    $('creacionTxt').textContent = solsCreacion ? `${solsCreacion} por revisar` : 'No hay solicitudes pendientes';
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     $('solicitudesTxt').textContent = sols.length ? `${sols.length} por revisar` : 'No hay solicitudes pendientes';
@@ -494,18 +500,46 @@ document.addEventListener('visibilitychange', () => {
     programarAvisos();
 });
 
-// ---------- CONTACTOS PROYECTO ----------
-// Contactos que todavía no están en el CRM. Se usan en las visitas marcados como "Proyecto"
-// y, cuando se crean en el CRM, se vinculan a ese contacto (sus visitas pasan al nombre del CRM).
+// ---------- CONTACTOS NUEVOS (PROYECTO) ----------
+// Contactos que todavía no están en la Maestra de Contactos. Se visitan como "Contacto nuevo" (proyecto);
+// cuando se van a volver clientes, el vendedor envía la "solicitud de creación" a los jefes y, una vez
+// creado en la Maestra, el contacto se vincula (sus visitas pasan al nombre de la Maestra).
 const TIPOS_PROYECTO = ['Médico', 'Cliente', 'Punto de Venta'];
+const ESTADO_PROYECTO = { proyecto: 'Contacto nuevo', solicitud: 'Solicitud de creación', vinculado: 'Creado en la Maestra' };
 const proyectos = () => visibles().filter(r => r.clase === 'proyecto');
 const proyectosDeZona = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado');
-const buscarCRM = (zona, nombre) => (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre));
+const buscarMaestra = (zona, nombre) => (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre));
+const buscarProyecto = (zona, nombre) => proyectosDeZona(zona).find(p => normalizar(p.nombre) === normalizar(nombre));
+const solicitudesCreacion = () => proyectos().filter(p => p.estado === 'solicitud');
+const JEFE_COMERCIAL = USUARIOS.find(u => u.jefe);
+const visitasDeProyecto = id => visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id);
 
-// Contactos para el buscador de la visita: los del CRM y los proyectos de la zona
-function opcionesContacto(zona) {
-    return (contactos[zona] || []).map(c => `<option value="${esc(c.n)}" label="${esc([c.e, c.c].filter(Boolean).join(' · '))}">`).join('')
-        + proyectosDeZona(zona).map(p => `<option value="${esc(p.nombre)}" label="${esc(['Proyecto', p.tipo, p.ciudad].filter(Boolean).join(' · '))}">`).join('');
+const opcionesMaestra = zona => (contactos[zona] || [])
+    .map(c => `<option value="${esc(c.n)}" label="${esc([c.e, c.c].filter(Boolean).join(' · '))}">`).join('');
+const opcionesProyecto = zona => proyectosDeZona(zona)
+    .map(p => `<option value="${esc(p.nombre)}" label="${esc([ESTADO_PROYECTO[p.estado], p.tipo, p.ciudad].filter(Boolean).join(' · '))}">`).join('');
+
+// "Maestra de Contactos" o "Contacto nuevo": cambia la lista del buscador y abre los datos del proyecto
+function elegirOrigen(origen) {
+    document.querySelectorAll('#fOrigen button').forEach(b => b.classList.toggle('on', b.dataset.origen === origen));
+    const zona = comercial(agenda.vendedor)?.zona;
+    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : opcionesMaestra(zona);
+    $('fContacto').placeholder = origen === 'nuevo' ? 'Nombre del contacto nuevo o búscalo si ya lo visitaste' : 'Busca el médico, cliente o punto de venta';
+    revisarProyecto();
+}
+
+const origenElegido = () => document.querySelector('#fOrigen .on')?.dataset.origen || 'maestra';
+
+function revisarProyecto() {
+    const nuevo = origenElegido() === 'nuevo';
+    const zona = comercial(agenda.vendedor)?.zona;
+    const existente = nuevo && buscarProyecto(zona, $('fContacto').value);
+    $('cajaProyecto').hidden = !nuevo || !!existente;
+    $('ayudaContacto').hidden = !existente;
+    if (existente) {
+        const n = visitasDeProyecto(existente.id).length;
+        $('ayudaContacto').textContent = `Contacto nuevo ya registrado (${ESTADO_PROYECTO[existente.estado].toLowerCase()}) · ${n} ${n === 1 ? 'visita' : 'visitas'} antes`;
+    }
 }
 
 // El nombre de contacto es obligatorio para clientes y puntos de venta; en un médico el contacto es el mismo médico
@@ -515,43 +549,91 @@ function etiquetaPersonaProyecto() {
     $('pPersona').placeholder = obligatorio ? 'Persona con quien se habla (ej: administradora)' : 'Ej: asistente o secretaria';
 }
 
-function mostrarNuevoProyecto(abrir) {
-    $('cajaProyecto').hidden = !abrir;
-    $('lnkProyecto').hidden = abrir;
-    if (abrir && !$('fContacto').value.trim()) $('fContacto').focus();
-}
-
-function abrirProyectos() {
+function abrirProyectos(filtro) {
     const lista = proyectos()
         .filter(p => esJefe() || p.vendedor === sesion.id)
-        .sort((a, b) => (a.estado === 'vinculado') - (b.estado === 'vinculado') || a.nombre.localeCompare(b.nombre));
-    const visitas = id => visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id).length;
+        .filter(p => !filtro || p.estado === filtro)
+        .sort((a, b) => ['solicitud', 'proyecto', 'vinculado'].indexOf(a.estado) - ['solicitud', 'proyecto', 'vinculado'].indexOf(b.estado) || a.nombre.localeCompare(b.nombre));
+    const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? 'np' : 'proy'}">${ESTADO_PROYECTO[p.estado]}</span>`;
+    const acciones = p => {
+        if (p.estado === 'vinculado') return `<p>Creado en la Maestra como <b>${esc(p.vinculadoA)}</b></p>`;
+        const botones = [];
+        if (p.estado === 'proyecto') botones.push(`<button class="btn-secundario" onclick="solicitarCreacion('${p.id}')">Solicitud de creación</button>`);
+        if (p.estado === 'solicitud' && esJefe()) botones.push(`<button class="btn-secundario btn-peligro" onclick="rechazarCreacion('${p.id}')">Rechazar</button>`);
+        if (esJefe()) botones.push(`<button class="btn-primario" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular a la Maestra</button>`);
+        return `${p.solicitud && p.estado === 'solicitud' ? `<p class="nota-sol">Solicitada el ${esc(fechaHora(p.solicitud.fecha))} por ${esc(nombreVendedor(p.solicitud.por))}${p.solicitud.nota ? ': ' + esc(p.solicitud.nota) : ''}</p>` : ''}
+            ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol">Solicitud rechazada${p.rechazo.motivo ? ': ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
+            ${p.estado === 'solicitud' && !esJefe() ? '<p class="nota-sol">Enviada a los jefes. Cuando se cree en la Maestra de Contactos quedará vinculado.</p>' : ''}
+            <div class="vincular" id="vin-${p.id}" hidden>
+                <label for="vinInput-${p.id}">Contacto creado en la Maestra de Contactos</label>
+                <input id="vinInput-${p.id}" list="dlMaestra-${p.id}" autocomplete="off" placeholder="Busca el contacto en la Maestra">
+                <datalist id="dlMaestra-${p.id}">${opcionesMaestra(p.zona)}</datalist>
+                <div class="form-botones"><button class="btn-secundario" onclick="abrirProyectos(${filtro ? `'${filtro}'` : ''})">Cancelar</button><button class="btn-primario" onclick="vincularProyecto('${p.id}')">Vincular</button></div>
+            </div>
+            ${botones.length ? `<div class="form-botones">${botones.join('')}</div>` : ''}`;
+    };
     abrirModal(`<div class="form-rc">
-        <h2>Contactos proyecto</h2>
-        <p class="sub">Contactos que aún no están en el CRM. Cuando se creen allá, vincúlalos para que sus visitas queden a nombre del contacto del CRM.</p>
+        <h2>${filtro === 'solicitud' ? 'Solicitudes de creación' : 'Contactos nuevos'}</h2>
+        <p class="sub">${filtro === 'solicitud'
+            ? 'Contactos nuevos que los vendedores piden crear en la Maestra de Contactos. Cuando lo crees, vincúlalo aquí.'
+            : 'Contactos que aún no están en la Maestra de Contactos. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>
         ${lista.length ? lista.map(p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
-            <strong>${esc(p.nombre)}</strong>
-            <small>${esc([p.tipo, p.persona, p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}${esJefe() ? ' · ' + esc(nombreVendedor(p.vendedor)) : ''} · ${visitas(p.id)} ${visitas(p.id) === 1 ? 'visita' : 'visitas'}</small>
-            ${p.estado === 'vinculado'
-                ? `<p><span class="chip ok">Vinculado</span> al CRM como <b>${esc(p.vinculadoA)}</b></p>`
-                : `<div class="vincular" id="vin-${p.id}" hidden>
-                    <label for="vinInput-${p.id}">Contacto creado en el CRM</label>
-                    <input id="vinInput-${p.id}" list="dlCRM-${p.id}" autocomplete="off" placeholder="Busca el contacto del CRM">
-                    <datalist id="dlCRM-${p.id}">${(contactos[p.zona] || []).map(c => `<option value="${esc(c.n)}" label="${esc([c.e, c.c].filter(Boolean).join(' · '))}">`).join('')}</datalist>
-                    <div class="form-botones"><button class="btn-secundario" onclick="$('vin-${p.id}').hidden=true">Cancelar</button><button class="btn-primario" onclick="vincularProyecto('${p.id}')">Vincular</button></div>
-                </div>
-                <div class="form-botones" id="vinBtn-${p.id}"><button class="btn-primario" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular al CRM</button></div>`}
-        </div>`).join('') : '<p class="no-results">No hay contactos proyecto. Se crean al programar una visita a alguien que no está en el CRM.</p>'}
+            <div class="visita-cab"><strong>${esc(p.nombre)}</strong>${chip(p)}</div>
+            <small>${esc([p.tipo, p.persona, p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}${esJefe() ? ' · ' + esc(nombreVendedor(p.vendedor)) : ''} · ${visitasDeProyecto(p.id).length} ${visitasDeProyecto(p.id).length === 1 ? 'visita' : 'visitas'}</small>
+            ${acciones(p)}
+        </div>`).join('') : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay contactos nuevos. Se crean al programar una visita marcando "Contacto nuevo".'}</p>`}
     </div>`);
+}
+
+// El vendedor revisa los datos del contacto y envía la solicitud de creación a los jefes
+function solicitarCreacion(id) {
+    const p = registros[id];
+    abrirModal(`<form class="form-rc" onsubmit="enviarSolicitudCreacion(event, '${id}')">
+        <h2>Solicitud de creación</h2>
+        <p class="sub">${esc(p.nombre)} se va a volver cliente. Revisa sus datos: la solicitud le llega a ${esc(JEFE_COMERCIAL?.nombre || 'la jefe comercial')} y a ${esc(ADMIN.nombre)}.</p>
+        <div class="dos">
+            <div><label for="sTipo">Tipo</label><select id="sTipo">${TIPOS_PROYECTO.map(t => `<option ${t === p.tipo ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+            <div><label for="sCiudad">Ciudad</label><input id="sCiudad" required value="${esc(p.ciudad)}"></div>
+        </div>
+        <label for="sPersona">Nombre de contacto</label><input id="sPersona" value="${esc(p.persona)}">
+        <label for="sDir">Dirección</label><input id="sDir" required value="${esc(p.direccion)}">
+        <label for="sTel">Teléfono</label><input id="sTel" type="tel" required value="${esc(p.telefono)}">
+        <label for="sNota">Observaciones para la creación (opcional)</label>
+        <textarea id="sNota" placeholder="Ej: NIT, correo de facturación, condiciones acordadas"></textarea>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="abrirProyectos()">Cancelar</button>
+            <button class="btn-primario">Enviar solicitud</button>
+        </div>
+    </form>`);
+}
+
+function enviarSolicitudCreacion(e, id) {
+    e.preventDefault();
+    guardarRegistro({ ...registros[id], estado: 'solicitud', tipo: $('sTipo').value, ciudad: $('sCiudad').value.trim(),
+        persona: $('sPersona').value.trim(), direccion: $('sDir').value.trim(), telefono: $('sTel').value.trim(),
+        solicitud: { fecha: new Date().toISOString(), por: sesion.id, nota: $('sNota').value.trim() }, rechazo: null });
+    toast('Solicitud de creación enviada a los jefes');
+    abrirProyectos();
+    pintarInicio();
+}
+
+function rechazarCreacion(id) {
+    if (!esJefe()) return;
+    const motivo = prompt('¿Por qué se rechaza la solicitud? (opcional)');
+    if (motivo === null) return;
+    guardarRegistro({ ...registros[id], estado: 'proyecto', rechazo: { motivo: motivo.trim(), por: sesion.id, fecha: new Date().toISOString() } });
+    toast('Solicitud rechazada: el contacto sigue como contacto nuevo');
+    abrirProyectos('solicitud');
+    pintarInicio();
 }
 
 function vincularProyecto(id) {
     const p = registros[id];
-    const c = buscarCRM(p.zona, $('vinInput-' + id).value);
-    if (!c) return toast('Ese contacto no está en la lista del CRM de la app. Pide que se actualice la lista de contactos.');
+    const c = buscarMaestra(p.zona, $('vinInput-' + id).value);
+    if (!c) return toast('Ese contacto no está en la Maestra de Contactos de la app. Pide que se actualice la lista de contactos.');
     guardarRegistro({ ...p, estado: 'vinculado', vinculadoA: c.n, vinculadoEl: new Date().toISOString(), vinculadoPor: sesion.id });
-    // Las visitas del proyecto pasan al contacto del CRM (se conserva que fueron proyecto)
-    visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id).forEach(v =>
+    // Las visitas del contacto nuevo pasan al contacto de la Maestra (se conserva que fueron proyecto)
+    visitasDeProyecto(id).forEach(v =>
         guardarRegistro({ ...v, contacto: c.n, tipoContacto: c.e || '', ciudad: c.c || v.ciudad, esProyecto: false, eraProyecto: true }));
     toast(`${p.nombre} quedó vinculado a ${c.n}`);
     abrirProyectos();
@@ -804,12 +886,16 @@ function abrirProgramar(id) {
             <optgroup label="Novedades">${NOVEDADES.map(opcion).join('')}</optgroup>
         </select>
         <div id="cajaContacto">
-            <label for="fContacto">Contacto</label>
+            <label>Contacto</label>
+            <div class="modalidad origen" id="fOrigen" role="group" aria-label="Origen del contacto">
+                <button type="button" data-origen="maestra" onclick="elegirOrigen('maestra')">Maestra de Contactos</button>
+                <button type="button" data-origen="nuevo" onclick="elegirOrigen('nuevo')">Contacto nuevo</button>
+            </div>
             <input id="fContacto" list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
-            <datalist id="dlContactos">${opcionesContacto(zona)}</datalist>
-            <button type="button" class="link-mini link-proyecto" id="lnkProyecto" onclick="mostrarNuevoProyecto(true)">¿No está en el CRM? Crear contacto proyecto</button>
+            <datalist id="dlContactos"></datalist>
+            <p class="ayuda" id="ayudaContacto" hidden></p>
             <div class="caja-proyecto" id="cajaProyecto" hidden>
-                <p><span class="chip proy">Proyecto</span> Contacto nuevo que aún no está en el CRM. Escribe su nombre arriba.</p>
+                <p><span class="chip proy">Proyecto</span> Contacto nuevo que aún no está en la Maestra de Contactos. Escribe su nombre arriba.</p>
                 <div class="dos">
                     <div><label for="pTipo">Tipo</label><select id="pTipo" onchange="etiquetaPersonaProyecto()">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
                     <div><label for="pCiudad">Ciudad</label><input id="pCiudad" placeholder="Ej: Bogotá"></div>
@@ -820,7 +906,6 @@ function abrirProgramar(id) {
                 <input id="pDir" placeholder="Ej: Cra 15 # 93-60, consultorio 402">
                 <label for="pTel">Teléfono (opcional)</label>
                 <input id="pTel" type="tel" inputmode="tel">
-                <button type="button" class="link-mini" onclick="mostrarNuevoProyecto(false)">Cancelar contacto nuevo</button>
             </div>
         </div>
         <div class="fila-fecha">
@@ -848,7 +933,9 @@ function abrirProgramar(id) {
     </form>`);
     cambiarTipoProgramacion(v?.objetivos || []);
     if (v && v.clase === 'visita') avisoProgramacion(v);
+    elegirOrigen(v?.esProyecto ? 'nuevo' : 'maestra');
     $('fContacto').addEventListener('change', sugerirTipo);
+    $('fContacto').addEventListener('input', revisarProyecto);
     $('fFecha').addEventListener('change', () => avisoProgramacion(v && v.clase === 'visita' ? v : null));
 }
 
@@ -895,8 +982,8 @@ function sugerirTipo() {
     if ($('fTipo').value) return;
     const zona = comercial(agenda.vendedor)?.zona;
     const nombre = $('fContacto').value;
-    const c = buscarCRM(zona, nombre);
-    const p = !c && proyectosDeZona(zona).find(x => normalizar(x.nombre) === normalizar(nombre));
+    const c = buscarMaestra(zona, nombre);
+    const p = !c && buscarProyecto(zona, nombre);
     const tipo = tipoSugerido(c ? c.e : p ? p.tipo : '');
     if (tipo) { $('fTipo').value = tipo; pintarObjetivos(); }
 }
@@ -922,6 +1009,23 @@ function guardarProgramada(e, id) {
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
     const objetivos = interno ? [] : [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
     if (!interno && !objetivos.length) { toast('Escoge al menos un objetivo de la visita'); return; }
+    const zona = comercial(agenda.vendedor)?.zona;
+    const nuevo = !interno && origenElegido() === 'nuevo';
+    let c = interno ? {} : buscarMaestra(zona, nombre) || {};
+    let proyecto = nuevo ? buscarProyecto(zona, nombre) : null;
+    if (!interno && !nuevo && !c.n) {
+        toast('No está en la Maestra de Contactos. Si es un contacto nuevo, marca "Contacto nuevo".');
+        return;
+    }
+    if (nuevo && c.n) {
+        toast('Ese contacto ya está en la Maestra de Contactos: márcalo en "Maestra de Contactos".');
+        return;
+    }
+    if (nuevo && !proyecto && $('pTipo').value !== 'Médico' && !$('pPersona').value.trim()) {
+        $('pPersona').focus();
+        toast('Escribe el nombre de contacto del cliente o punto de venta');
+        return;
+    }
     // Confirmación si el día es festivo o el vendedor tiene una novedad (vacaciones, incapacidad…)
     const fechaElegida = $('fFecha').value;
     const cambiaDia = !id || registros[id].fecha !== fechaElegida;
@@ -929,21 +1033,7 @@ function guardarProgramada(e, id) {
     if (cambiaDia && festivo && !confirm(`El ${fechaCorta(fechaElegida)} es festivo: ${festivo}.\n¿Seguro quieres programar ese día?`)) return;
     const nov = novedadesDe(agenda.vendedor, fechaElegida)[0];
     if (cambiaDia && nov && !confirm(`${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Seguro quieres programar?`)) return;
-    const zona = comercial(agenda.vendedor)?.zona;
-    let c = interno ? {} : buscarCRM(zona, nombre) || {};
-    let proyecto = null;
-    if (!interno && !c.n) {
-        proyecto = proyectosDeZona(zona).find(p => normalizar(p.nombre) === normalizar(nombre));
-        if (!proyecto && $('cajaProyecto').hidden) {
-            mostrarNuevoProyecto(true);
-            toast('Ese contacto no está en el CRM: complétalo como contacto proyecto');
-            return;
-        }
-        if (!proyecto && $('pTipo').value !== 'Médico' && !$('pPersona').value.trim()) {
-            $('pPersona').focus();
-            toast('Escribe el nombre de contacto del cliente o punto de venta');
-            return;
-        }
+    if (nuevo) {
         if (!proyecto) {
             proyecto = {
                 id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre, tipo: $('pTipo').value,
@@ -953,7 +1043,7 @@ function guardarProgramada(e, id) {
             };
             guardarRegistro(proyecto);
         }
-        c = { n: proyecto.nombre, e: 'Proyecto · ' + proyecto.tipo, c: proyecto.ciudad };
+        c = { n: proyecto.nombre, e: 'Contacto nuevo · ' + proyecto.tipo, c: proyecto.ciudad };
     }
     const antes = id ? registros[id] : null;
     const fecha = $('fFecha').value;
@@ -1705,13 +1795,14 @@ function armarLibro(mes, vend) {
     const colsP = [
         { t: 'Contacto', w: 32 }, { t: 'Tipo', w: 16 }, { t: 'Nombre de contacto', w: 24 }, { t: 'Dirección', w: 30 },
         { t: 'Ciudad', w: 16 }, { t: 'Teléfono', w: 14 }, { t: 'Vendedor', w: 20 },
-        { t: 'Creado', w: 12, f: 'dd/mm/yyyy' }, { t: 'Visitas', w: 9 }, { t: 'Estado', w: 12 }, { t: 'Vinculado a (CRM)', w: 32 }
+        { t: 'Creado', w: 12, f: 'dd/mm/yyyy' }, { t: 'Visitas', w: 9 }, { t: 'Estado', w: 22 }, { t: 'Solicitud de creación', w: 17, f: 'dd/mm/yyyy hh:mm' },
+        { t: 'Observaciones solicitud', w: 34, wrap: true }, { t: 'Creado en la Maestra como', w: 32 }
     ];
     const listaP = proyectos().filter(p => !vend || p.vendedor === vend).sort((x, y) => x.nombre.localeCompare(y.nombre));
     tabla(hp, 'TablaProyectos', colsP, listaP.map(p => [
         p.nombre, p.tipo, p.persona || '', p.direccion || '', p.ciudad || '', p.telefono || '', nombreVendedor(p.vendedor), fecha(p.fecha),
         visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === p.id).length,
-        p.estado === 'vinculado' ? 'Vinculado' : 'Proyecto', p.vinculadoA || ''
+        ESTADO_PROYECTO[p.estado] || p.estado, p.solicitud ? horaCol(p.solicitud.fecha) : null, p.solicitud?.nota || '', p.vinculadoA || ''
     ]));
 
     // Actividades
