@@ -7,6 +7,7 @@ Agenda de visitas y actividades de la fuerza de ventas de Epithelium, para web y
   (gestión, quién atendió, productos, muestras, pedido y valor, compromisos) o
   *No visitado* (motivo, reprogramar, observaciones).
 - **Cita fija** (opcional): hora acordada con el contacto; la app avisa 15 minutos antes mientras esté abierta.
+- **Cierre**: cada visita se reporta hasta las 11:59 a. m. del siguiente día hábil (con festivos de Colombia); si no, queda como NO visitada. Lo reportado no se modifica y eliminar una visita requiere autorización del administrador.
 - **Actividades del mes**: el jefe (o el vendedor) programa actividades y el vendedor
   las marca como realizadas con fecha y resultado.
 - **Panel del equipo** (solo jefes): cumplimiento por vendedor y motivos de no visita.

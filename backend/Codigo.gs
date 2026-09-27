@@ -18,7 +18,7 @@ const USUARIOS = {
   'y.caballero': { huella: 'df5769c03aec2c0300cd912335962a57617271fa86e0ef852d5d959895c6ecab', id: 'ycaballero', tipo: 'comercial' },
   'j.herrera':   { huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', id: 'jherrera',   tipo: 'comercial' },
   'm.castro':    { huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', id: 'mcastro',    tipo: 'jefe' },
-  'h.reyes':     { huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', id: 'hreyes',     tipo: 'jefe' }
+  'h.reyes':     { huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', id: 'hreyes',     tipo: 'jefe', admin: true }
 };
 
 const HOJA = 'Registros';
@@ -90,6 +90,21 @@ function guardar_(usuario, registros) {
       const fecha = r.fecha || (r.mes ? r.mes + '-01' : '');
       const fila = [r.id, r.clase, r.vendedor, fecha, r.actualizado || '', r.borrado ? 'si' : '', JSON.stringify(r)];
       const n = filaDe[r.id];
+      const actual = n ? JSON.parse(valores[n - 1][6]) : null;
+      if (r.clase === 'visita') {
+        // Solo el administrador elimina visitas
+        if (r.borrado && !(actual && actual.borrado) && !usuario.admin) return;
+        // Un reporte hecho dentro del plazo reemplaza el cierre automático
+        const reporteATiempo = actual && actual.cierreAutomatico && r.estado !== 'pendiente' && !r.cierreAutomatico
+          && r.registrada && r.limiteReporte && r.registrada <= r.limiteReporte;
+        if (reporteATiempo) {
+          r.actualizado = new Date().toISOString();
+          fila[4] = r.actualizado;
+          fila[6] = JSON.stringify(r);
+        } else if (actual && actual.estado && actual.estado !== 'pendiente' && r.estado !== actual.estado && !usuario.admin) {
+          return; // Una visita cerrada no se puede modificar
+        }
+      }
       if (n) {
         if (String(valores[n - 1][4]) > String(r.actualizado || '')) return;
         h.getRange(n, 1, 1, fila.length).setValues([fila]);

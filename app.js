@@ -9,7 +9,7 @@ const USUARIOS = [
     { usuario: 'Y.Caballero', huella: 'df5769c03aec2c0300cd912335962a57617271fa86e0ef852d5d959895c6ecab', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur' },
     { usuario: 'J.Herrera',   huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales' },
     { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'jefe',      id: 'mcastro',    nombre: 'M. Castro' },
-    { usuario: 'H.Reyes',     huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', tipo: 'jefe',      id: 'hreyes',     nombre: 'H. Reyes' }
+    { usuario: 'H.Reyes',     huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', admin: true }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
 
@@ -58,6 +58,9 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const normalizar = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const $ = id => document.getElementById(id);
 const esJefe = () => sesion && sesion.tipo === 'jefe';
+// El administrador (Hernán Reyes) es el único que autoriza eliminar visitas
+const esAdmin = () => !!(sesion && sesion.admin);
+const ADMIN = USUARIOS.find(u => u.admin);
 const comercial = id => COMERCIALES.find(c => c.id === id);
 const nombreVendedor = id => comercial(id)?.nombre || id;
 const limiteProgramacion = fecha => Date.parse(`${fecha}T${HORA_LIMITE}:00-05:00`);
@@ -71,6 +74,57 @@ function tipoSugerido(etiqueta) {
     return 'Visita Comercial';
 }
 const horaBonita = h => { const [H, M] = h.split(':').map(Number); return `${H % 12 || 12}:${String(M).padStart(2, '0')} ${H < 12 ? 'a. m.' : 'p. m.'}`; };
+const fechaHora = isoTxt => new Date(isoTxt).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+
+// ---------- DÍAS HÁBILES Y CIERRE DE VISITAS ----------
+// Cada visita se reporta a más tardar a las 11:59 a. m. (Colombia) del siguiente día hábil;
+// si no se reporta, queda automáticamente como NO visitada
+const HORA_CIERRE = '11:59';
+function pascua(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+    const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const n = h + l - 7 * m + 114;
+    return iso(new Date(y, Math.floor(n / 31) - 1, (n % 31) + 1));
+}
+const alLunes = f => sumarDias(f, (8 - deIso(f).getDay()) % 7);
+const cacheFestivos = {};
+// Festivos de Colombia (Ley Emiliani: varios se corren al lunes)
+function festivos(y) {
+    if (cacheFestivos[y]) return cacheFestivos[y];
+    const f = md => `${y}-${md}`;
+    const p = pascua(y);
+    return cacheFestivos[y] = new Set([
+        f('01-01'), f('05-01'), f('07-20'), f('08-07'), f('12-08'), f('12-25'),
+        ...['01-06', '03-19', '06-29', '08-15', '10-12', '11-01', '11-11'].map(md => alLunes(f(md))),
+        sumarDias(p, -3), sumarDias(p, -2), sumarDias(p, 43), sumarDias(p, 64), sumarDias(p, 71)
+    ]);
+}
+const esHabil = f => { const w = deIso(f).getDay(); return w !== 0 && w !== 6 && !festivos(+f.slice(0, 4)).has(f); };
+function siguienteHabil(f) { let d = sumarDias(f, 1); while (!esHabil(d)) d = sumarDias(d, 1); return d; }
+const diaCierre = v => siguienteHabil(v.fecha);
+const limiteCierre = v => Date.parse(`${diaCierre(v)}T${HORA_CIERRE}:59-05:00`);
+const puedeReportar = v => v.estado === 'pendiente' && v.fecha <= hoy() && Date.now() <= limiteCierre(v);
+const textoCierre = v => `${fechaCorta(diaCierre(v))}, ${horaBonita(HORA_CIERRE)}`;
+
+// Pasa a NO visitado lo que no se reportó a tiempo (el jefe cierra las de todo el equipo)
+function cerrarVencidas() {
+    if (!sesion) return 0;
+    const ahora = Date.now();
+    const vencidas = visibles().filter(v => v.clase === 'visita' && v.estado === 'pendiente'
+        && (esJefe() || v.vendedor === sesion.id) && ahora > limiteCierre(v));
+    vencidas.forEach(v => {
+        const cuando = new Date(ahora).toISOString();
+        registros[v.id] = { ...v, estado: 'no_visitado', motivo: 'Sin reporte a tiempo', cierreAutomatico: true,
+            registrada: cuando, actualizado: cuando, actualizadoPor: 'sistema' };
+        pendientes.add(v.id);
+    });
+    if (vencidas.length) guardarLocal();
+    return vencidas.length;
+}
+
+setInterval(() => { if (cerrarVencidas()) { repintarPantallaActiva(); sincronizar(); } }, 60000);
+
 const pesos = v => v ? '$ ' + Number(v).toLocaleString('es-CO') : '';
 
 function toast(msg) {
@@ -106,6 +160,7 @@ function guardarLocal() {
 // Guarda un registro (visita o actividad) y lo deja listo para subir
 function guardarRegistro(r) {
     r.actualizado = new Date().toISOString();
+    if (r.clase === 'visita') r.limiteReporte = new Date(limiteCierre(r)).toISOString();
     r.actualizadoPor = sesion.id;
     registros[r.id] = r;
     pendientes.add(r.id);
@@ -167,6 +222,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
             const local = registros[r.id];
             if (!pendientes.has(r.id) && (!local || (r.actualizado || '') >= (local.actualizado || ''))) registros[r.id] = r;
         });
+        cerrarVencidas();
         guardarLocal();
         programarAvisos();
         ultimaSync = new Date();
@@ -204,7 +260,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         contactos = JSON.parse(localStorage.getItem('rc_contactos') || '{}');
     }
     try { sesion = JSON.parse(localStorage.getItem('rc_sesion') || 'null'); } catch (e) { sesion = null; }
-    if (sesion && USUARIOS.some(u => u.id === sesion.id)) entrarApp();
+    const u = sesion && USUARIOS.find(x => x.id === sesion.id);
+    if (u) { sesion = { ...u, clave: sesion.clave }; entrarApp(); }
     else mostrarPantalla('loginScreen');
 });
 
@@ -252,6 +309,7 @@ function entrarApp() {
     const opciones = COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('');
     $('agVendedor').innerHTML = opciones;
     $('actVendedor').innerHTML = '<option value="">Todo el equipo</option>' + opciones;
+    cerrarVencidas();
     irInicio();
     programarAvisos();
     sincronizar();
@@ -285,9 +343,12 @@ function pintarInicio() {
     const pend = deHoy.filter(v => v.estado === 'pendiente').length;
     $('homeAgendaTxt').textContent = deHoy.length
         ? `Hoy: ${deHoy.length} ${deHoy.length === 1 ? 'visita' : 'visitas'}${pend ? ` · ${pend} por registrar` : ' · todas registradas'}`
-        : 'Hoy no tienes visitas programadas';
+        : esJefe() ? 'Hoy el equipo no tiene visitas programadas' : 'Hoy no tienes visitas programadas';
     const acts = actividadesMes(mesDe(hoy()), vend);
     const hechas = acts.filter(a => a.hecha).length;
+    const sols = solicitudesPendientes();
+    $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
+    $('solicitudesTxt').textContent = sols.length ? `${sols.length} por revisar` : 'No hay solicitudes pendientes';
     $('homeActTxt').textContent = acts.length ? `${hechas} de ${acts.length} realizadas este mes` : 'Sin actividades programadas este mes';
     pintarEstadoSync();
 }
@@ -369,7 +430,42 @@ async function activarAvisos() {
 }
 
 // Al volver a la app se revisan los avisos (los temporizadores se pausan en segundo plano en algunos celulares)
-document.addEventListener('visibilitychange', () => { if (!document.hidden) programarAvisos(); });
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (cerrarVencidas()) { repintarPantallaActiva(); sincronizar(); }
+    programarAvisos();
+});
+
+// ---------- SOLICITUDES DE ELIMINACIÓN (administrador) ----------
+const solicitudesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.solicitudEliminar?.estado === 'pendiente');
+
+function abrirSolicitudes() {
+    const lista = solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
+    abrirModal(`<div class="form-rc">
+        <h2>Solicitudes de eliminación</h2>
+        <p class="sub">Visitas que los vendedores piden eliminar por error de programación.</p>
+        ${lista.length ? lista.map(v => `<div class="solicitud">
+            <strong>${esc(v.contacto)}</strong>
+            <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} · pedida el ${esc(fechaHora(v.solicitudEliminar.fecha))}</small>
+            <p>${esc(v.solicitudEliminar.motivo)}</p>
+            <div class="form-botones">
+                <button class="btn-secundario" onclick="resolverSolicitud('${v.id}', false)">Rechazar</button>
+                <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitud('${v.id}', true)">Autorizar y eliminar</button>
+            </div>
+        </div>`).join('') : '<p class="no-results">No hay solicitudes pendientes.</p>'}
+    </div>`, 'theme-rojo');
+}
+
+function resolverSolicitud(id, autorizar) {
+    if (!esAdmin()) return;
+    const v = registros[id];
+    const solicitud = { ...v.solicitudEliminar, estado: autorizar ? 'aprobada' : 'rechazada', resueltaPor: sesion.id, resuelta: new Date().toISOString() };
+    if (autorizar) borrarRegistro({ ...v, solicitudEliminar: solicitud });
+    else guardarRegistro({ ...v, solicitudEliminar: solicitud });
+    toast(autorizar ? 'Visita eliminada' : 'Solicitud rechazada');
+    abrirSolicitudes();
+    pintarInicio();
+}
 
 // ---------- AGENDA ----------
 function abrirAgenda() {
@@ -462,17 +558,68 @@ function tarjetaVisita(v) {
         ${objetivos}
         ${v.objetivo ? `<p>${esc(v.objetivo)}</p>` : ''}
         ${reporte}
-        <div class="acciones">
-            <button class="bv ok${v.estado === 'visitado' ? ' on' : ''}" onclick="abrirRegistro('${v.id}','ok')">✓ ${txtOk}</button>
-            <button class="bv no${v.estado === 'no_visitado' ? ' on' : ''}" onclick="abrirRegistro('${v.id}','no')">✕ ${txtNo}</button>
-            <button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>
-        </div>
+        ${accionesVisita(v, txtOk, txtNo)}
     </div>`;
+}
+
+function accionesVisita(v, txtOk, txtNo) {
+    const sol = v.solicitudEliminar;
+    const eliminar = accionEliminar(v, 'link-mini')
+        + (sol?.estado === 'rechazada' ? '<span class="chip gris">Eliminación rechazada</span>' : '');
+    if (v.estado !== 'pendiente') {
+        const nota = v.cierreAutomatico
+            ? 'Cerrada automáticamente: no se reportó a tiempo'
+            : `Reportada el ${fechaHora(v.registrada)}`;
+        return `<div class="acciones cerrada"><span class="nota-cierre">🔒 ${esc(nota)}</span>${eliminar}</div>`;
+    }
+    const editar = `<button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>`;
+    if (v.fecha > hoy()) {
+        return `<div class="acciones"><span class="nota-cierre">Se reporta desde el ${esc(fechaCorta(v.fecha))} hasta el ${esc(textoCierre(v))}</span>${editar}${eliminar}</div>`;
+    }
+    return `<div class="acciones">
+            <button class="bv ok" onclick="abrirRegistro('${v.id}','ok')">✓ ${txtOk}</button>
+            <button class="bv no" onclick="abrirRegistro('${v.id}','no')">✕ ${txtNo}</button>
+            <span class="nota-cierre alerta">Reportar hasta el ${esc(textoCierre(v))}</span>
+            ${editar}${eliminar}
+        </div>`;
+}
+
+// Eliminar: el administrador elimina directo; los demás piden autorización
+function accionEliminar(v, clase) {
+    if (esAdmin()) return `<button type="button" class="${clase}" onclick="eliminarVisita('${v.id}')">Eliminar</button>`;
+    if (v.solicitudEliminar?.estado === 'pendiente') return '<span class="chip np">Eliminación por autorizar</span>';
+    return `<button type="button" class="${clase}" onclick="solicitarEliminacion('${v.id}')">Solicitar eliminación</button>`;
+}
+
+function solicitarEliminacion(id) {
+    const v = registros[id];
+    abrirModal(`<form class="form-rc" onsubmit="enviarSolicitud(event, '${id}')">
+        <h2>Solicitar eliminación</h2>
+        <p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}</p>
+        <p class="ayuda">Las visitas solo se eliminan con autorización de ${esc(ADMIN.nombre)}. Mientras tanto la visita sigue en la agenda.</p>
+        <label for="sMotivo">¿Por qué se debe eliminar?</label>
+        <textarea id="sMotivo" required placeholder="Ej: la programé dos veces por error"></textarea>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario" style="background:#c2413a">Enviar solicitud</button>
+        </div>
+    </form>`, 'theme-rojo');
+}
+
+function enviarSolicitud(e, id) {
+    e.preventDefault();
+    guardarRegistro({ ...registros[id], solicitudEliminar: {
+        estado: 'pendiente', motivo: $('sMotivo').value.trim(), por: sesion.id, fecha: new Date().toISOString()
+    } });
+    cerrarModal();
+    toast(`Solicitud enviada a ${ADMIN.nombre}`);
+    pintarAgenda();
 }
 
 // Formulario para programar (o editar) una visita o un trabajo interno
 function abrirProgramar(id) {
     const v = id ? registros[id] : null;
+    if (v && v.estado !== 'pendiente') return toast('Esta visita ya se cerró y no se puede modificar');
     const zona = comercial(agenda.vendedor)?.zona;
     const lista = contactos[zona] || [];
     const opcion = t => `<option ${t === v?.tipoVisita ? 'selected' : ''}>${esc(t)}</option>`;
@@ -507,7 +654,7 @@ function abrirProgramar(id) {
         <textarea id="fObjetivo" placeholder="Ej: llevar lista de precios nueva">${esc(v?.objetivo)}</textarea>
         <p class="aviso-hora" id="fAviso" hidden></p>
         <div class="form-botones">
-            ${v ? `<button type="button" class="btn-secundario btn-peligro" onclick="eliminarVisita('${v.id}')">Eliminar</button>` : ''}
+            ${v ? accionEliminar(v, 'btn-secundario btn-peligro') : ''}
             <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
             <button class="btn-primario">${v ? 'Guardar cambios' : 'Programar'}</button>
         </div>
@@ -601,8 +748,9 @@ function guardarProgramada(e, id) {
 }
 
 function eliminarVisita(id) {
-    if (!confirm('¿Eliminar esta visita?')) return;
-    borrarRegistro({ ...registros[id] });
+    if (!esAdmin() || !confirm('¿Eliminar esta visita?')) return;
+    const v = registros[id];
+    borrarRegistro({ ...v, solicitudEliminar: { ...(v.solicitudEliminar || {}), estado: 'aprobada', resueltaPor: sesion.id, resuelta: new Date().toISOString() } });
     cerrarModal();
     toast('Visita eliminada');
     pintarAgenda();
@@ -612,14 +760,15 @@ function eliminarVisita(id) {
 function abrirRegistro(id, tipo) {
     const v = registros[id];
     const opciones = (lista, actual) => lista.map(o => `<option ${o === actual ? 'selected' : ''}>${esc(o)}</option>`).join('');
-    const cab = `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`;
+    if (!puedeReportar(v)) return toast(v.estado !== 'pendiente' ? 'Esta visita ya se cerró y no se puede modificar' : 'El plazo para reportar esta visita ya cerró');
+    const cab = `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>
+        <p class="aviso-hora">Plazo: ${esc(textoCierre(v))}. Después de guardar, el reporte no se puede modificar.</p>`;
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
             <h2>Trabajo realizado</h2>${cab}
             <label for="rObs">¿Qué se hizo?</label>
             <textarea id="rObs" placeholder="Ej: se enviaron 5 cotizaciones y se cerró el informe de cartera">${esc(v.estado === 'visitado' ? v.observaciones : '')}</textarea>
             <div class="form-botones">
-                ${v.estado !== 'pendiente' ? `<button type="button" class="btn-secundario btn-peligro" onclick="volverPendiente('${id}')">Dejar pendiente</button>` : ''}
                 <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn-primario">Guardar</button>
             </div>
@@ -652,7 +801,6 @@ function abrirRegistro(id, tipo) {
             <label for="rObs">Observaciones</label>
             <textarea id="rObs">${esc(ya ? v.observaciones : '')}</textarea>
             <div class="form-botones">
-                ${v.estado !== 'pendiente' ? `<button type="button" class="btn-secundario btn-peligro" onclick="volverPendiente('${id}')">Dejar pendiente</button>` : ''}
                 <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn-primario">Guardar visita</button>
             </div>
@@ -668,7 +816,6 @@ function abrirRegistro(id, tipo) {
             <label for="nObs">Observaciones</label>
             <textarea id="nObs" placeholder="Ej: la doctora estaba en cirugía">${esc(ya ? v.observaciones : '')}</textarea>
             <div class="form-botones">
-                ${v.estado !== 'pendiente' ? `<button type="button" class="btn-secundario btn-peligro" onclick="volverPendiente('${id}')">Dejar pendiente</button>` : ''}
                 <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn-primario" style="background:#c2413a">Guardar</button>
             </div>
@@ -679,8 +826,18 @@ function abrirRegistro(id, tipo) {
 const LIMPIAR_VISITADO = { gestion: '', atendio: '', productos: '', muestras: '', pedido: '', valorPedido: '', compromisos: '' };
 const LIMPIAR_NO_VISITADO = { motivo: '' };
 
+// Revisa que el plazo siga abierto al momento de guardar
+function plazoAbierto(id) {
+    if (puedeReportar(registros[id])) return true;
+    cerrarModal();
+    toast('El plazo para reportar esta visita ya cerró');
+    pintarAgenda();
+    return false;
+}
+
 function guardarVisitado(e, id) {
     e.preventDefault();
+    if (!plazoAbierto(id)) return;
     const pedido = document.querySelector('input[name=rPedido]:checked').value;
     const v = {
         ...registros[id], ...LIMPIAR_NO_VISITADO,
@@ -704,6 +861,7 @@ function guardarVisitado(e, id) {
 
 function guardarInternoRealizado(e, id) {
     e.preventDefault();
+    if (!plazoAbierto(id)) return;
     guardarRegistro({ ...registros[id], ...LIMPIAR_NO_VISITADO, estado: 'visitado', observaciones: $('rObs').value.trim(), registrada: new Date().toISOString() });
     cerrarModal();
     toast('Trabajo registrado como realizado');
@@ -712,6 +870,7 @@ function guardarInternoRealizado(e, id) {
 
 function guardarNoVisitado(e, id) {
     e.preventDefault();
+    if (!plazoAbierto(id)) return;
     const antes = registros[id];
     const repro = $('nRepro').disabled ? '' : $('nRepro').value;
     const v = {
@@ -736,13 +895,6 @@ function guardarNoVisitado(e, id) {
     }
     cerrarModal();
     toast(repro ? `Reprogramada para el ${fechaCorta(repro)}` : 'Marcada como no visitada');
-    pintarAgenda();
-}
-
-function volverPendiente(id) {
-    guardarRegistro({ ...registros[id], ...LIMPIAR_VISITADO, ...LIMPIAR_NO_VISITADO, estado: 'pendiente', observaciones: '' });
-    cerrarModal();
-    toast('La visita quedó pendiente');
     pintarAgenda();
 }
 
@@ -1077,14 +1229,20 @@ function armarLibro(mes, vend) {
         { t: 'Gestión', w: 22 }, { t: 'Atendió', w: 20 }, { t: 'Productos presentados', w: 30, wrap: true },
         { t: 'Muestras', w: 24, wrap: true }, { t: 'Pedido', w: 8 }, { t: 'Valor pedido', w: 14, f: '"$" #,##0' },
         { t: 'Compromisos', w: 30, wrap: true }, { t: 'Motivo no visita', w: 20 }, { t: 'Reprogramada para', w: 14, f: 'dd/mm/yyyy' },
-        { t: 'Observaciones', w: 36, wrap: true }
+        { t: 'Observaciones', w: 36, wrap: true }, { t: 'Reportada', w: 17, f: 'dd/mm/yyyy hh:mm' },
+        { t: 'Cierre', w: 14 }, { t: 'Plazo de reporte', w: 17, f: 'dd/mm/yyyy hh:mm' }
     ];
+    // Fecha y hora de Colombia para Excel (que no maneja zonas horarias)
+    const horaCol = t => t ? new Date(Date.parse(t) - 5 * 3600000) : null;
     tabla(h, 'TablaVisitas', colsV, vis.map(v => [
         fecha(v.fecha), v.hora || '', nombreVendedor(v.vendedor), v.interno ? '' : v.contacto, v.tipoContacto || '', v.ciudad || '',
         esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), v.tipoVisita || '', (v.objetivos || []).join(', '), v.objetivo || '',
         (v.interno ? { visitado: 'Realizado', no_visitado: 'No realizado' }[v.estado] : null) || estadoTxt[v.estado] || v.estado, v.gestion || '', v.atendio || '', v.productos || '', v.muestras || '',
         v.pedido === 'si' ? 'Sí' : v.estado === 'visitado' ? 'No' : '', v.valorPedido ? Number(v.valorPedido) : null,
-        v.compromisos || '', v.motivo || '', fecha(v.reprogramadaPara), v.observaciones || ''
+        v.compromisos || '', v.motivo || '', fecha(v.reprogramadaPara), v.observaciones || '',
+        v.estado === 'pendiente' ? null : horaCol(v.registrada),
+        v.estado === 'pendiente' ? '' : v.cierreAutomatico ? 'Automático' : 'Vendedor',
+        horaCol(new Date(limiteCierre(v)).toISOString())
     ]));
 
     // Actividades
