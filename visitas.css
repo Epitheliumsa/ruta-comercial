@@ -155,6 +155,8 @@
 .chip.no { background: #fbe4e2; color: #b1352e; }
 .chip.p { background: #fbf0d9; color: #9a6512; }
 .chip.azul { background: #e6f0fc; color: #1552a8; }
+.chip.gris { background: #edf1ef; color: #4c615b; }
+.chip.np { background: #f3e6fb; color: #7a2fa0; }
 
 /* Tarjeta de visita */
 .visita-card {
@@ -533,3 +535,41 @@
     .fila-botones { flex-wrap: wrap; }
     .fila-botones .btn-nuevo:last-child { width: 100%; }
 }
+
+/* Programación: modalidad, objetivos y aviso de hora */
+.marcas { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 6px; }
+
+.producto-card p.objetivos { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 6px 0; }
+.producto-card p.objetivos b { color: #006b4f; font-size: 13px; margin-right: 2px; }
+.objetivos span { background: #eaf6ef; color: #006b4f; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+
+.visita-card.interno { border-left-color: #7c8e88; }
+.visita-card.interno h3 { color: #4c615b; }
+
+.modalidad { display: flex; gap: 8px; }
+.modalidad button {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px; border-radius: 8px; border: 1.5px solid #d5e6dc; background: white;
+    font-family: inherit; font-size: 15px; font-weight: 700; color: #4c615b; cursor: pointer;
+}
+.modalidad svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.modalidad button.presencial.on { background: #006b4f; border-color: #006b4f; color: white; }
+.modalidad button.virtual.on { background: #1e63c4; border-color: #1e63c4; color: white; }
+
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.form-rc .check {
+    margin: 0; display: flex; align-items: center; gap: 8px; padding: 9px 10px;
+    border: 1px solid #d5e6dc; border-radius: 8px; background: white; cursor: pointer;
+    text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; color: #333;
+}
+.form-rc .check input { width: 18px; height: 18px; accent-color: #009460; flex-shrink: 0; }
+.form-rc .check:has(input:checked) { border-color: #009460; background: #eaf6ef; }
+.form-rc label small { text-transform: none; letter-spacing: 0; font-weight: 500; color: #7a8a84; }
+
+.aviso-hora { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #f3e6fb; color: #5e2380; font-size: 13px; font-weight: 600; }
+
+.kpi.np { border-top-color: #9b4fc4; } .kpi.np b { color: #7a2fa0; }
+.tabla-w td.alerta { color: #7a2fa0; font-weight: 800; }
+
+@media (max-width: 480px) { .checks { grid-template-columns: 1fr; } }
+@media (min-width: 900px) { .kpis { grid-template-columns: repeat(8, 1fr); } }

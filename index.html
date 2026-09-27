@@ -89,7 +89,7 @@
                 <div class="fila-botones">
                     <button class="btn-nuevo" onclick="irHoy()">Hoy</button>
                     <input type="date" id="agFechaPick" onchange="elegirFecha(this.value)" aria-label="Elegir fecha">
-                    <button class="btn-nuevo active" onclick="abrirProgramar()">+ Programar visita</button>
+                    <button class="btn-nuevo active" onclick="abrirProgramar()">+ Programar</button>
                 </div>
             </div>
 
@@ -144,7 +144,11 @@
             <div class="panel-cuerpo">
                 <div class="kpis" id="panKpis"></div>
                 <div class="panel-bloque">
-                    <h2>Por vendedor</h2>
+                    <h2>Indicador del día · <span id="panHoyTxt"></span></h2>
+                    <div class="tabla-w"><table id="panHoy"></table></div>
+                </div>
+                <div class="panel-bloque">
+                    <h2>Por vendedor · mes</h2>
                     <div class="tabla-w"><table id="panTabla"></table></div>
                 </div>
                 <div class="panel-bloque">
