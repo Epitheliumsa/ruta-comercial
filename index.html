@@ -166,12 +166,13 @@
                 </div>
                 <div class="vp-filtros">
                     <input id="vpBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="visiplan.busca=this.value; pintarVisiplan()">
+                    <select id="vpTipo" onchange="visiplan.tipo=this.value; pintarVisiplan()" aria-label="Tipo de cliente"></select>
                     <select id="vpEtiqueta" onchange="visiplan.etiqueta=this.value; pintarVisiplan()" aria-label="Etiqueta"></select>
                     <label class="vp-solo"><input type="checkbox" id="vpSoloMarcados" onchange="pintarVisiplan()"> Solo planeados</label>
                 </div>
             </div>
             <div class="resumen-dia" id="vpResumen"></div>
-            <p class="ayuda vp-ayuda">Toca una casilla para poner o quitar la X. Se guarda sola. Los días festivos salen en gris.</p>
+            <p class="ayuda vp-ayuda"><span class="vp-muestra plan"></span> Plan: toca la casilla para poner o quitar la X (se guarda sola). <span class="vp-muestra real"></span> Real: se marca sola cuando reportas la visita como visitada. Los festivos salen en gris.</p>
             <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) marcarPlan(c)"></table></div>
         </div>
 
