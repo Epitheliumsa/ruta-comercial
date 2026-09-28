@@ -749,3 +749,6 @@
 .dialogo.permiso .dialogo-caja h3 { color: #1552a8; }
 
 .aviso-festivo.en-form { margin: 12px 0 0; }
+
+/* Acceso al Vademécum Epithelium */
+a.home-btn { text-decoration: none; }
