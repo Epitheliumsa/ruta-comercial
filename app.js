@@ -842,9 +842,7 @@ function pintarVisiplan() {
         const s = semanas[semanas.length - 1];
         if (!s || deIso(d).getDay() === 1 && s.dias.length) semanas.push({ dias: [d] }); else s.dias.push(d);
     });
-    const totalX = Object.values(marcas).reduce((s, d) => s + d.length, 0);
-    const totalR = Object.values(reales).reduce((s, d) => s + d.size, 0);
-    $('vpResumen').innerHTML = `<span><b>${Object.values(marcas).filter(d => d.length).length}</b> clientes planeados</span><span class="chip vp-chip-plan">${totalX} planeadas</span><span class="chip vp-chip-real">${totalR} realizadas</span>${editable ? '' : '<span class="chip gris">🔒 Cerrado</span>'}`;
+    visiplan.reales = reales; visiplan.editable = editable;
 
     const fs = d => deIso(d).getDay() === 6 ? ' fs' : '';   // último día de la semana: línea más fuerte
     const cab1 = semanas.map((s, i) => `<th colspan="${s.dias.length * 2}" class="vp-sem">Semana ${i + 1}</th>`).join('');
@@ -854,11 +852,53 @@ function pintarVisiplan() {
         const m = marcas[c.n] || [], r = reales[c.n] || new Set();
         return `<tr><td class="vp-et">${esc(c.e)}</td><th class="vp-cli" scope="row">${esc(c.n)}</th>`
             + dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}" data-c="${esc(c.n)}" data-d="${d}"></td>`
-                + `<td class="vp-r h${fs(d)}${r.has(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}"></td>`).join('')
-            + `<td class="vp-n plan">${m.length}</td><td class="vp-n real">${r.size}</td></tr>`;
+                + `<td data-d="${d}" class="vp-r h${fs(d)}${r.has(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}"></td>`).join('')
+            + `<td class="vp-n plan">${m.length}</td><td class="vp-n real">${r.size}</td><td class="vp-n vp-pct"></td></tr>`;
     }).join('');
     $('vpTabla').classList.toggle('bloqueada', !editable);
-    $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">Etiqueta</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n">Frec. objetivo</th><th rowspan="3" class="vp-n">Frec. real</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 4}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`;
+    $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">Etiqueta</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n">Frec. objetivo</th><th rowspan="3" class="vp-n">Frec. real</th><th rowspan="3" class="vp-n">% Cumpl.</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 5}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`
+        + `<tfoot><tr class="vp-tot"><td class="vp-et"></td><th class="vp-cli" scope="row">Total del día</th>${dias.map(d => `<td class="vp-tp${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td><td class="vp-tr${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpTotP"></td><td class="vp-n real" id="vpTotR"></td><td class="vp-n vp-pct" id="vpTotPct"></td></tr>`
+        + `<tr class="vp-tot vp-tot-pct"><td class="vp-et"></td><th class="vp-cli" scope="row">% cumplimiento</th>${dias.map(d => `<td colspan="2" class="vp-dp${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="3"></td></tr></tfoot>`;
+    actualizarTotalesPlan();
+}
+
+// Totales del Visiplan: suma por cliente (horizontal), por día (vertical) y % de cumplimiento (real / planeado).
+// Se recalculan al instante cada vez que se pone o se quita una X.
+const pctPlan = (r, p) => p ? Math.round(r / p * 100) + '%' : '';
+function claseCumpl(celda, r, p) {
+    celda.classList.remove('bueno', 'medio', 'bajo');
+    if (p) celda.classList.add(r / p >= 0.9 ? 'bueno' : r / p >= 0.6 ? 'medio' : 'bajo');
+}
+function actualizarTotalesPlan() {
+    const tabla = $('vpTabla');
+    tabla.querySelectorAll('tbody tr').forEach(fila => {
+        const p = fila.querySelectorAll('.vp-x.on').length, r = fila.querySelectorAll('.vp-r.on').length, c = fila.querySelector('.vp-pct');
+        if (!c) return;
+        c.textContent = pctPlan(r, p); claseCumpl(c, r, p);
+    });
+    let tp = 0, tr = 0;
+    tabla.querySelectorAll('tfoot .vp-tp').forEach(celda => {
+        const d = celda.dataset.d;
+        const p = tabla.querySelectorAll(`tbody .vp-x.on[data-d="${d}"]`).length, r = tabla.querySelectorAll(`tbody .vp-r.on[data-d="${d}"]`).length;
+        tp += p; tr += r;
+        celda.textContent = p || '';
+        tabla.querySelector(`tfoot .vp-tr[data-d="${d}"]`).textContent = r || '';
+        const dp = tabla.querySelector(`tfoot .vp-dp[data-d="${d}"]`);
+        dp.textContent = pctPlan(r, p); claseCumpl(dp, r, p);
+    });
+    if ($('vpTotP')) {
+        $('vpTotP').textContent = tp; $('vpTotR').textContent = tr;
+        $('vpTotPct').textContent = pctPlan(tr, tp); claseCumpl($('vpTotPct'), tr, tp);
+    }
+    // Resumen del mes completo (sin filtros)
+    const marcas = planDe(visiplan.vendedor, visiplan.mes)?.marcas || {}, reales = visiplan.reales || {};
+    const totalX = Object.values(marcas).reduce((s, d) => s + d.length, 0);
+    const totalR = Object.values(reales).reduce((s, d) => s + d.size, 0);
+    const clientesP = Object.values(marcas).filter(d => d.length).length;
+    $('vpResumen').innerHTML = `<span><b>${clientesP}</b> ${clientesP === 1 ? 'cliente planeado' : 'clientes planeados'}</span>`
+        + `<span class="chip vp-chip-plan">${totalX} programadas</span><span class="chip vp-chip-real">${totalR} realizadas</span>`
+        + (totalX ? `<span class="chip vp-chip-pct">${pctPlan(totalR, totalX)} cumplimiento</span>` : '')
+        + (visiplan.editable ? '' : '<span class="chip gris">🔒 Cerrado</span>');
 }
 
 // Marcar o quitar una X (se guarda sola a los pocos segundos)
@@ -877,6 +917,7 @@ function marcarPlan(celda) {
     registros[id] = plan;   // se ve de inmediato; se guarda y sube después de una pausa
     celda.classList.toggle('on', lista.has(d));
     celda.parentElement.querySelector('.vp-n.plan').textContent = lista.size;
+    actualizarTotalesPlan();
     clearTimeout(esperaPlan);
     esperaPlan = setTimeout(() => { guardarRegistro(registros[id]); pintarVisiplan(); toast('Plan guardado'); }, 1200);
 }
@@ -2106,8 +2147,9 @@ function armarLibro(mes, vend) {
     const diasV = diasDelMes(mes);
     const colsVP = [{ t: 'Vendedor', w: 20 }, { t: 'Tipo de cliente', w: 16 }, { t: 'Etiqueta', w: 26 }, { t: 'Cliente', w: 34 }, { t: 'Seguimiento', w: 12 },
         ...diasV.map(d => ({ t: `${DIAS[deIso(d).getDay()][0]} ${deIso(d).getDate()}`, w: 5 })),
-        { t: 'Frec. objetivo', w: 13 }, { t: 'Frec. real', w: 11 }];
+        { t: 'Frec. objetivo', w: 13 }, { t: 'Frec. real', w: 11 }, { t: '% Cumpl.', w: 10 }];
     const filasVP = [];
+    const pctX = (r, p) => p ? Math.round(r / p * 100) / 100 : null;
     vendedores.forEach(ven => {
         const pl = planDe(ven.id, mes);
         const etiquetaDe = n => (contactos[ven.zona] || []).find(c => c.n === n)?.e || (buscarProyecto(ven.zona, n) ? 'Contacto nuevo' : '');
@@ -2117,12 +2159,29 @@ function armarLibro(mes, vend) {
             .forEach(x => { (reales[x.contacto] = reales[x.contacto] || new Set()).add(x.fecha); });
         [...new Set([...Object.keys(marcas), ...Object.keys(reales)])].sort((a, b) => a.localeCompare(b)).forEach(n => {
             const ds = marcas[n] || [], r = reales[n] || new Set();
-            filasVP.push([ven.nombre, tipoDe(n), etiquetaDe(n), n, 'Plan', ...diasV.map(d => ds.includes(d) ? 'X' : ''), ds.length, r.size]);
-            filasVP.push([ven.nombre, tipoDe(n), etiquetaDe(n), n, 'Real', ...diasV.map(d => r.has(d) ? 'X' : ''), ds.length, r.size]);
+            filasVP.push([ven.nombre, tipoDe(n), etiquetaDe(n), n, 'Plan', ...diasV.map(d => ds.includes(d) ? 'X' : ''), ds.length, r.size, pctX(r.size, ds.length)]);
+            filasVP.push([ven.nombre, tipoDe(n), etiquetaDe(n), n, 'Real', ...diasV.map(d => r.has(d) ? 'X' : ''), ds.length, r.size, pctX(r.size, ds.length)]);
         });
     });
     tabla(hv, 'TablaVisiplan', colsVP, filasVP);
     diasV.forEach((d, i) => { hv.getColumn(i + 6).alignment = { horizontal: 'center' }; });
+    hv.getColumn(diasV.length + 8).numFmt = '0%';
+    // Totales por día (suma vertical) y % de cumplimiento, debajo de la tabla
+    if (filasVP.length) {
+        const suma = (seg, i) => filasVP.filter(f => f[4] === seg && f[5 + i] === 'X').length;
+        const tP = diasV.map((d, i) => suma('Plan', i)), tR = diasV.map((d, i) => suma('Real', i));
+        const totP = tP.reduce((a, b) => a + b, 0), totR = tR.reduce((a, b) => a + b, 0);
+        const base = 3 + filasVP.length + 2;
+        [['Total programadas', tP, totP, 'FF0F766E'], ['Total realizadas', tR, totR, 'FFE8700A'],
+         ['% cumplimiento', diasV.map((d, i) => pctX(tR[i], tP[i])), pctX(totR, totP), 'FF1D4ED8']].forEach(([t, vals, tot, color], k) => {
+            const fila = hv.getRow(base + k);
+            fila.getCell(4).value = t;
+            vals.forEach((v, i) => { const c = fila.getCell(6 + i); c.value = v || null; if (k === 2) c.numFmt = '0%'; });
+            const ct = fila.getCell(k === 2 ? diasV.length + 8 : diasV.length + 6 + k); ct.value = tot;
+            if (k === 2) ct.numFmt = '0%';
+            fila.font = { bold: true, color: { argb: color } };
+        });
+    }
     // Planeado en verde petróleo y real en naranja, como en la app
     hv.eachRow(fila => {
         const seg = fila.getCell(5).value;
