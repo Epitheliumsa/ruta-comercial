@@ -14,3 +14,9 @@
   pegarlo y crear una **Nueva versión** de la implementación existente (así la URL no cambia).
 - Contactos: `contactos.json` (Maestra de Contactos por zona). Maryi Tatiana Castro comparte la zona Clientes Especiales, a cargo de Jennifer Herrera.
 - Responder en español, con tono sencillo, claro y conciso, tuteando.
+
+## Etapa de pruebas
+- La app está **en pruebas**. Todo lo que se registre ahora (visitas, actividades, novedades, contactos
+  nuevos, solicitudes) es de prueba y **se debe borrar cuando la app salga en vivo**: filas de la hoja
+  `Registros` del Google Sheet de Hernán y los datos guardados en cada celular/navegador.
+- Al salir en vivo, recordarle al usuario este borrado y confirmarlo antes de hacerlo.
