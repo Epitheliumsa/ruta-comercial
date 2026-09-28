@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609270105';
+const APP_VERSION = '202609281045';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -408,7 +408,15 @@ async function revisarVersion() {
         const resp = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
         if (!resp.ok) return;
         const publicada = (await resp.text()).trim();
-        if (publicada && publicada !== APP_VERSION) $('avisoVersion').classList.add('visible');
+        if (!publicada || publicada === APP_VERSION) return;
+        // Se recarga sola una vez por versión (sin cambios por subir); si no, queda el aviso para actualizar
+        let yaIntentada = null;
+        try { yaIntentada = sessionStorage.getItem('rc_recarga'); } catch (e) {}
+        if (yaIntentada !== publicada && !pendientes.size) {
+            try { sessionStorage.setItem('rc_recarga', publicada); } catch (e) {}
+            return location.replace(location.pathname + '?v=' + publicada);
+        }
+        $('avisoVersion').classList.add('visible');
     } catch (e) { /* sin conexión: se revisa después */ }
 }
 
