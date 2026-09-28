@@ -20,3 +20,6 @@
   nuevos, solicitudes) es de prueba y **se debe borrar cuando la app salga en vivo**: filas de la hoja
   `Registros` del Google Sheet de Hernán y los datos guardados en cada celular/navegador.
 - Al salir en vivo, recordarle al usuario este borrado y confirmarlo antes de hacerlo.
+- Limpieza ya preparada en `app.js`: cambiar `ETAPA_DATOS = 'pruebas'` por `'vivo'`, correr
+  `sh actualizar-version.sh` y publicar (con confirmación). Cada celular borra una vez lo de pruebas y la app
+  ignora los registros de pruebas del servidor. Después Hernán puede borrar esas filas de `Registros`.

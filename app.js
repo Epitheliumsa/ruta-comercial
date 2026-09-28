@@ -200,9 +200,32 @@ async function huellaDe(usuario, clave) {
 }
 
 // ---------- DATOS LOCALES ----------
+// ---------- ETAPA DE LOS DATOS (pruebas / en vivo) ----------
+// Mientras se prueba la app, todo lo que se registra queda marcado como 'pruebas'.
+// PARA SALIR EN VIVO: cambiar ETAPA_DATOS a 'vivo' y publicar. Al abrir esa versión, cada celular borra
+// una sola vez lo guardado en pruebas y la app ignora los registros de pruebas que sigan en la hoja de Google.
+// (Hernán puede luego borrar esas filas de la pestaña Registros cuando quiera; ya no afectan la app.)
+const ETAPA_DATOS = 'pruebas';
+const etapaDe = r => r.etapa || 'pruebas';   // lo registrado antes de esta marca es de pruebas
+
+function limpiarSiCambioEtapa() {
+    try {
+        const anterior = localStorage.getItem('rc_etapa');
+        if (anterior === ETAPA_DATOS) return;
+        if (anterior !== null || ETAPA_DATOS !== 'pruebas') {
+            // Cambió la etapa: se borra lo local de la etapa anterior (la sesión y los contactos se conservan)
+            ['rc_registros', 'rc_pendientes', 'rc_avisados'].forEach(k => localStorage.removeItem(k));
+            console.info(`Datos de "${anterior || 'pruebas'}" borrados: la app pasa a "${ETAPA_DATOS}"`);
+        }
+        localStorage.setItem('rc_etapa', ETAPA_DATOS);
+    } catch (e) { /* sin almacenamiento local */ }
+}
+
 function cargarLocal() {
+    limpiarSiCambioEtapa();
     try {
         registros = JSON.parse(localStorage.getItem('rc_registros') || '{}');
+        Object.keys(registros).forEach(id => { if (etapaDe(registros[id]) !== ETAPA_DATOS) delete registros[id]; });
         pendientes = new Set(JSON.parse(localStorage.getItem('rc_pendientes') || '[]'));
     } catch (e) {
         registros = {};
@@ -218,6 +241,7 @@ function guardarLocal() {
 // Guarda un registro (visita o actividad) y lo deja listo para subir
 function guardarRegistro(r) {
     r.actualizado = new Date().toISOString();
+    r.etapa = ETAPA_DATOS;
     if (r.clase === 'visita') r.limiteReporte = new Date(limiteCierre(r)).toISOString();
     r.actualizadoPor = sesion.id;
     registros[r.id] = r;
@@ -280,6 +304,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
             hasta: finDeMes(sumarMes(mesCentro, 1))
         });
         datos.registros.forEach(r => {
+            if (etapaDe(r) !== ETAPA_DATOS) return;   // registros de otra etapa (pruebas) no entran
             const local = registros[r.id];
             if (!pendientes.has(r.id) && (!local || (r.actualizado || '') >= (local.actualizado || ''))) registros[r.id] = r;
         });
