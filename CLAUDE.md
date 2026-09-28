@@ -12,7 +12,7 @@
   novedades, contactos nuevos, panel del jefe y descarga en Excel (sin líneas de cuadrícula).
 - Servidor: `backend/Codigo.gs` en Google Apps Script (hoja de Hernán Reyes). Si cambia, Hernán debe
   pegarlo y crear una **Nueva versión** de la implementación existente (así la URL no cambia).
-- Contactos: `contactos.json` (Maestra de Contactos por zona). Maryi Tatiana Castro comparte la zona Clientes Especiales, a cargo de Jennifer Herrera.
+- Contactos: `contactos.json` (Maestra de Contactos por zona).
 - Responder en español, con tono sencillo, claro y conciso, tuteando.
 
 ## Etapa de pruebas
