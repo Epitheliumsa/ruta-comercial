@@ -846,18 +846,19 @@ function pintarVisiplan() {
     const totalR = Object.values(reales).reduce((s, d) => s + d.size, 0);
     $('vpResumen').innerHTML = `<span><b>${Object.values(marcas).filter(d => d.length).length}</b> clientes planeados</span><span class="chip vp-chip-plan">${totalX} planeadas</span><span class="chip vp-chip-real">${totalR} realizadas</span>${editable ? '' : '<span class="chip gris">🔒 Cerrado</span>'}`;
 
-    const cab1 = semanas.map((s, i) => `<th colspan="${s.dias.length}" class="vp-sem">Semana ${i + 1}</th>`).join('');
-    const cab2 = dias.map(d => `<th class="vp-dia${nombreFestivo(d) ? ' festivo' : ''}" title="${esc(nombreFestivo(d) || fechaLarga(d))}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
+    const fs = d => deIso(d).getDay() === 6 ? ' fs' : '';   // último día de la semana: línea más fuerte
+    const cab1 = semanas.map((s, i) => `<th colspan="${s.dias.length * 2}" class="vp-sem">Semana ${i + 1}</th>`).join('');
+    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" title="${esc(nombreFestivo(d) || fechaLarga(d))}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
+    const cab3 = dias.map(d => `<th class="vp-sub plan${nombreFestivo(d) ? ' festivo' : ''}">P</th><th class="vp-sub real${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}">R</th>`).join('');
     const filas = clientes.slice(0, 400).map(c => {
         const m = marcas[c.n] || [], r = reales[c.n] || new Set();
-        return `<tr class="vp-fila-plan"><td class="vp-et" rowspan="2">${esc(c.e)}</td><th class="vp-cli" scope="row" rowspan="2">${esc(c.n)}</th><td class="vp-tag plan">Plan</td>`
-            + dias.map(d => `<td class="vp-x${m.includes(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}" data-c="${esc(c.n)}" data-d="${d}"></td>`).join('')
-            + `<td class="vp-n plan" rowspan="2">${m.length}</td><td class="vp-n real" rowspan="2">${r.size}</td></tr>`
-            + `<tr class="vp-fila-real"><td class="vp-tag real">Real</td>`
-            + dias.map(d => `<td class="vp-r${r.has(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}"${r.has(d) ? ' title="Visita efectiva"' : ''}></td>`).join('') + '</tr>';
+        return `<tr><td class="vp-et">${esc(c.e)}</td><th class="vp-cli" scope="row">${esc(c.n)}</th>`
+            + dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}" data-c="${esc(c.n)}" data-d="${d}"></td>`
+                + `<td class="vp-r h${fs(d)}${r.has(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}"></td>`).join('')
+            + `<td class="vp-n plan">${m.length}</td><td class="vp-n real">${r.size}</td></tr>`;
     }).join('');
     $('vpTabla').classList.toggle('bloqueada', !editable);
-    $('vpTabla').innerHTML = `<thead><tr><th rowspan="2" class="vp-et">Etiqueta</th><th rowspan="2" class="vp-cli">Cliente</th><th rowspan="2" class="vp-tag"></th>${cab1}<th rowspan="2" class="vp-n">Frec. objetivo</th><th rowspan="2" class="vp-n">Frec. real</th></tr><tr>${cab2}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length + 5}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`;
+    $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">Etiqueta</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n">Frec. objetivo</th><th rowspan="3" class="vp-n">Frec. real</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 4}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`;
 }
 
 // Marcar o quitar una X (se guarda sola a los pocos segundos)

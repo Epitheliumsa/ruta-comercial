@@ -832,7 +832,6 @@ a.home-btn { text-decoration: none; }
 .vp-x:hover { background: #e3f5f3; }
 .vp-r { background: #fcfbf9; }
 .vp-x.festivo, .vp-r.festivo { background: #eceeed; }
-.vp-fila-plan > td, .vp-fila-plan > th { border-bottom-color: #f1f5f4; }
 /* X delgada dibujada con dos líneas finas */
 .vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-muestra::before, .vp-muestra::after {
     content: ''; position: absolute; left: 50%; top: 50%; width: 13px; height: 1.6px; border-radius: 2px; background: currentColor; }
@@ -840,11 +839,7 @@ a.home-btn { text-decoration: none; }
 .vp-x.on::after, .vp-r.on::after, .vp-muestra::after { transform: translate(-50%, -50%) rotate(-45deg); }
 .vp-x.on { background: #e1f3f1; color: #0f766e; }
 .vp-r.on { background: #fff0e0; color: #e8700a; }
-.vp-tag { position: sticky; left: 300px; z-index: 1; background: white; min-width: 38px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
-.vp-tag.plan { color: #0f766e; }
-.vp-tag.real { color: #e8700a; background: #fcfbf9; }
-.vp-tabla thead .vp-tag { z-index: 3; background: #f2f8f7; }
-.vp-n.plan { color: #0f766e; }
+.vp-tabla thead .vp-n.plan { color: #0f766e; }
 .vp-n.real { color: #e8700a; }
 .vp-chip-plan { background: #e1f3f1; color: #0f766e; }
 .vp-chip-real { background: #fff0e0; color: #c25c05; }
@@ -862,5 +857,16 @@ a.home-btn { text-decoration: none; }
     .vp-filtros { grid-template-columns: 1fr; }
     .vp-et { display: none; }
     .vp-cli { left: 0; min-width: 140px; max-width: 140px; }
-    .vp-tag { left: 140px; }
-}
+    }
+
+/* Vista horizontal: cada día con P (plan) y R (real) lado a lado, con una línea marcada entre días */
+.vp-x.h, .vp-r.h { width: 22px; min-width: 22px; height: 30px; }
+.vp-x.h { border-right: 1px dotted #dbe6e3; }
+.vp-tabla .vp-r.h, .vp-tabla .vp-sub.real, .vp-tabla .vp-dia[colspan] { border-right: 2px solid #8fbfb7; }
+.vp-tabla thead tr:nth-child(3) th { top: 60px; height: 18px; font-size: 9px; }
+.vp-tabla .vp-dia[colspan] { background: #e4f1ef; color: #0b5c56; font-size: 12px; }
+.vp-tabla .vp-dia[colspan] small { color: #0b5c56; font-size: 11px; }
+.vp-tabla .vp-dia.festivo[colspan] { background: #e3e6e5; color: #8a9490; }
+.vp-tabla .vp-sem, .vp-tabla .fs { border-right: 2px solid #0f766e; }
+.vp-sub.plan { color: #0f766e; }
+.vp-sub.real { color: #e8700a; }
