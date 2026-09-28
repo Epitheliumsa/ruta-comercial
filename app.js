@@ -51,16 +51,17 @@ const TIPOS_VISITA = {
 const TRABAJO_INTERNO = ['Trabajo Administrativo Oficina', 'Trabajo Administrativo Fuera de la Oficina', 'Planeación Mes'];
 const esTrabajoInterno = tipo => TRABAJO_INTERNO.includes(tipo);
 // Novedades del vendedor: días en que no trabaja o trabaja parcial. No son visitas ni cuentan en los indicadores
-const NOVEDADES = ['Vacaciones', 'Incapacidad', 'Permiso', 'Cumpleaños'];
+const NOVEDADES = ['Cita médica', 'Cumpleaños', 'Incapacidad', 'Permiso', 'Vacaciones'];   // en orden alfabético
+const NOVEDAD_HORAS = ['Cita médica', 'Permiso'];   // pueden ser de día completo o por horas
 const NOVEDAD_RANGO = ['Vacaciones', 'Incapacidad', 'Permiso'];   // se pueden programar por varios días
 const esNovedad = tipo => NOVEDADES.includes(tipo);
 const novedadesDe = (vendedor, fecha) => visibles().filter(r => r.clase === 'novedad' && r.vendedor === vendedor
     && r.fecha <= fecha && (r.hasta || r.fecha) >= fecha);
 // Un permiso puede ser de día completo (uno o varios días) o por horas en un solo día
-const esPorHoras = n => n.tipo === 'Permiso' && !n.diaCompleto && n.horaInicio && n.horaFin;
+const esPorHoras = n => NOVEDAD_HORAS.includes(n.tipo) && !n.diaCompleto && n.horaInicio && n.horaFin;
 const rangoNovedad = n => esPorHoras(n) ? `${fechaCorta(n.fecha)}, de ${horaBonita(n.horaInicio)} a ${horaBonita(n.horaFin)}`
     : n.hasta && n.hasta !== n.fecha ? `${fechaCorta(n.fecha)} al ${fechaCorta(n.hasta)}` : fechaCorta(n.fecha);
-const CORTO_NOVEDAD = { Vacaciones: 'Vacac.', Incapacidad: 'Incap.', Permiso: 'Permiso', 'Cumpleaños': 'Cumple' };
+const CORTO_NOVEDAD = { Vacaciones: 'Vacac.', Incapacidad: 'Incap.', Permiso: 'Permiso', 'Cumpleaños': 'Cumple', 'Cita médica': 'Cita méd.' };
 const MODALIDADES = { presencial: 'Presencial', virtual: 'Virtual' };
 // Las visitas se programan antes de esta hora (Colombia, UTC-5) del día de la visita;
 // las que se crean después quedan como NO programadas
@@ -1048,7 +1049,7 @@ function cambiarTipoProgramacion(marcados) {
     $('cajaHora').hidden = novedad;
     $('ayudaHora').hidden = novedad;
     // Permiso: día completo (con "Hasta") o por horas en un solo día
-    const permiso = tipo === 'Permiso';
+    const permiso = NOVEDAD_HORAS.includes(tipo);
     const porHoras = permiso && !$('fDiaCompleto').checked;
     $('cajaPermiso').hidden = !permiso;
     $('cajaHorasPermiso').hidden = !porHoras;
@@ -1056,7 +1057,7 @@ function cambiarTipoProgramacion(marcados) {
     $('cajaHasta').hidden = !conRango;
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : interno ? '¿Qué vas a hacer? (opcional)' : 'Notas (opcional)';
-    $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, permiso por cita médica' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
+    $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
     pintarObjetivos(marcados);
     avisoProgramacion(null);
 }
@@ -1186,15 +1187,15 @@ async function guardarProgramada(e, id) {
 
 function guardarNovedad(id, tipo) {
     const desde = $('fFecha').value;
-    const porHoras = tipo === 'Permiso' && !$('fDiaCompleto').checked;
+    const porHoras = NOVEDAD_HORAS.includes(tipo) && !$('fDiaCompleto').checked;
     const horaInicio = porHoras ? $('fHoraInicio').value : '', horaFin = porHoras ? $('fHoraFin').value : '';
-    if (porHoras && (!horaInicio || !horaFin)) return toast('Escribe la hora de inicio y la hora de finalización del permiso');
+    if (porHoras && (!horaInicio || !horaFin)) return toast(`Escribe la hora de inicio y la hora de finalización ${tipo === 'Permiso' ? 'del permiso' : 'de la cita médica'}`);
     if (porHoras && horaFin <= horaInicio) return toast('La hora de finalización debe ser después de la hora de inicio');
     const hasta = NOVEDAD_RANGO.includes(tipo) && !porHoras && $('fHasta').value ? $('fHasta').value : desde;
     if (hasta < desde) return toast('La fecha "Hasta" no puede ser antes de "Desde"');
     const n = id ? { ...registros[id] } : { id: nuevoId(), clase: 'novedad', vendedor: agenda.vendedor, creado: new Date().toISOString(), creadoPor: sesion.id };
     Object.assign(n, { tipo, fecha: desde, hasta, nota: $('fObjetivo').value.trim(),
-        diaCompleto: tipo === 'Permiso' ? !porHoras : true, horaInicio, horaFin });
+        diaCompleto: NOVEDAD_HORAS.includes(tipo) ? !porHoras : true, horaInicio, horaFin });
     guardarRegistro(n);
     cerrarModal();
     if (!(agenda.fecha >= desde && agenda.fecha <= hasta)) elegirFecha(desde); else pintarAgenda();
@@ -1202,6 +1203,7 @@ function guardarNovedad(id, tipo) {
     if (tipo === 'Cumpleaños') dialogo({ tono: 'fiesta', titulo: `¡Disfruta tu día, ${nombre}!`, texto: `Cumpleaños registrado para el ${fechaLarga(desde)}.`, aceptar: 'Gracias', cancelar: '' });
     else if (tipo === 'Vacaciones') dialogo({ tono: 'playa', titulo: `Playa, Brisa y Mar. ¡¡¡Felices Vacaciones!!! ${nombre}`, texto: `Vacaciones registradas: ${rangoNovedad(n)}.`, aceptar: 'Gracias', cancelar: '' });
     else if (tipo === 'Incapacidad') dialogo({ tono: 'salud', titulo: `Recupérate pronto, ${nombre}`, texto: `Incapacidad registrada: ${rangoNovedad(n)}.`, aceptar: 'Gracias', cancelar: '' });
+    else if (tipo === 'Cita médica') dialogo({ tono: 'salud', titulo: `¡Cuídate mucho, ${nombre}!`, texto: `Cita médica registrada: ${rangoNovedad(n)}${n.diaCompleto ? ' (día completo).' : ''}`, aceptar: 'Gracias', cancelar: '' });
     else if (tipo === 'Permiso') dialogo({ tono: 'permiso', titulo: `¡Que te vaya muy bien, ${nombre}!`, texto: `Permiso registrado: ${rangoNovedad(n)}${n.diaCompleto ? ' (día completo).' : ''}`, aceptar: 'Gracias', cancelar: '' });
     else toast(`${tipo} registrado: ${rangoNovedad(n)}`);
 }
