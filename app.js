@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609281045';
+const APP_VERSION = '202609281050';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -891,10 +891,24 @@ function enviarSolicitud(e, id) {
 }
 
 // Formulario para programar (o editar) una visita o un trabajo interno
-function abrirProgramar(id) {
+// Pregunta antes de programar en un festivo o en un día con novedad; devuelve true si se continúa
+async function confirmarDia(fecha) {
+    const festivo = nombreFestivo(fecha);
+    const nov = novedadesDe(agenda.vendedor, fecha)[0];
+    if (festivo && !await dialogo({ tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fecha)} es festivo: ${festivo}.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
+    if (nov && !await dialogo({ tono: 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
+    return true;
+}
+
+async function abrirProgramar(id) {
     advertenciaAceptada = '';
     const v = id ? registros[id] : null;
     if (v && v.clase === 'visita' && v.estado !== 'pendiente') return toast('Esta visita ya se cerró y no se puede modificar');
+    // Al programar algo nuevo en un festivo (o día con novedad) primero sale la advertencia, antes del formulario
+    if (!v) {
+        if (!await confirmarDia(agenda.fecha)) return;
+        advertenciaAceptada = agenda.fecha;
+    }
     const zona = comercial(agenda.vendedor)?.zona;
     const lista = contactos[zona] || [];
     const actual = v?.tipoVisita || v?.tipo;
@@ -1059,11 +1073,9 @@ async function guardarProgramada(e, id) {
     // es lo primero que sale al tocar Programar
     const fechaElegida = $('fFecha').value;
     const cambiaDia = !id || registros[id].fecha !== fechaElegida;
+    // Si en el formulario se cambió a otra fecha festiva (o con novedad), se pregunta de nuevo al guardar
     if (!esNovedad(tipo) && fechaElegida && cambiaDia && advertenciaAceptada !== fechaElegida) {
-        const festivo = nombreFestivo(fechaElegida);
-        const nov = novedadesDe(agenda.vendedor, fechaElegida)[0];
-        if (festivo && !await dialogo({ tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fechaElegida)} es festivo: ${festivo}.\n¿Seguro quieres programar ese día?`, aceptar: 'Sí, programar', cancelar: 'No' })) return;
-        if (nov && !await dialogo({ tono: 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Seguro quieres programar?`, aceptar: 'Sí, programar', cancelar: 'No' })) return;
+        if (!await confirmarDia(fechaElegida)) return;
         advertenciaAceptada = fechaElegida;
     }
     if (!$('fTipo').value) { toast('Elige qué vas a programar'); $('fTipo').focus(); return; }
