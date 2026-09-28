@@ -810,7 +810,7 @@ a.home-btn { text-decoration: none; }
 .home-btn.home-btn-visiplan { border-left-color: #0e7490; background: linear-gradient(135deg, #ffffff 60%, #e2f4f8 100%); }
 .home-btn.home-btn-visiplan svg { background: linear-gradient(135deg, #0b4a5c, #22a3c4); }
 .home-btn.home-btn-visiplan .home-btn-text strong { color: #0b5f75; }
-.vp-filtros { display: grid; grid-template-columns: 2fr 1.5fr auto; gap: 8px; align-items: center; }
+.vp-filtros { display: grid; grid-template-columns: 2fr 1.2fr 1.2fr auto; gap: 8px; align-items: center; }
 .vp-solo { font-size: 13px; color: #4c615b; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 .vp-solo input { width: auto; }
 #vpMesSub.cerrado { color: #b1352e; font-weight: 700; }
@@ -827,9 +827,26 @@ a.home-btn { text-decoration: none; }
 .vp-et { position: sticky; left: 0; background: white; z-index: 1; min-width: 110px; max-width: 110px; font-size: 10px; color: #7a8a84; text-align: left !important; padding: 4px 6px !important; }
 .vp-cli { position: sticky; left: 110px; background: white; z-index: 1; min-width: 190px; max-width: 190px; text-align: left !important; padding: 6px 8px !important; font-weight: 600; color: #333; box-shadow: 2px 0 0 #e6eeec; }
 .vp-tabla thead .vp-et, .vp-tabla thead .vp-cli { z-index: 3; background: #f2f8f7; }
-.vp-x { width: 30px; height: 32px; cursor: pointer; font-weight: 800; color: #0f766e; user-select: none; }
+.vp-x, .vp-r { position: relative; width: 30px; height: 26px; user-select: none; }
+.vp-x { cursor: pointer; }
 .vp-x:hover { background: #e3f5f3; }
-.vp-x.on { background: #0f766e; color: white; }
+.vp-r { background: #fcfbf9; }
+.vp-x.festivo, .vp-r.festivo { background: #eceeed; }
+/* X delgada dibujada con dos líneas finas */
+.vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-muestra::before, .vp-muestra::after {
+    content: ''; position: absolute; left: 50%; top: 50%; width: 13px; height: 1.6px; border-radius: 2px; background: currentColor; }
+.vp-x.on::before, .vp-r.on::before, .vp-muestra::before { transform: translate(-50%, -50%) rotate(45deg); }
+.vp-x.on::after, .vp-r.on::after, .vp-muestra::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.vp-x.on { background: #e1f3f1; color: #0f766e; }
+.vp-r.on { background: #fff0e0; color: #e8700a; }
+.vp-tabla thead .vp-n.plan { color: #0f766e; }
+.vp-n.real { color: #e8700a; }
+.vp-chip-plan { background: #e1f3f1; color: #0f766e; }
+.vp-chip-real { background: #fff0e0; color: #c25c05; }
+.vp-muestra { position: relative; display: inline-block; width: 18px; height: 14px; border-radius: 3px; vertical-align: -2px; }
+.vp-muestra.plan { background: #e1f3f1; color: #0f766e; }
+.vp-muestra.real { background: #fff0e0; color: #e8700a; margin-left: 6px; }
+.vp-muestra::before, .vp-muestra::after { width: 9px; }
 .vp-tabla.bloqueada .vp-x { cursor: not-allowed; }
 .vp-n { min-width: 64px; font-weight: 700; color: #333; font-variant-numeric: tabular-nums; }
 .plan-dia { display: flex; flex-direction: column; gap: 10px; }
@@ -840,4 +857,31 @@ a.home-btn { text-decoration: none; }
     .vp-filtros { grid-template-columns: 1fr; }
     .vp-et { display: none; }
     .vp-cli { left: 0; min-width: 140px; max-width: 140px; }
-}
+    }
+
+/* Vista horizontal: cada día con P (plan) y R (real) lado a lado, con una línea marcada entre días */
+.vp-x.h, .vp-r.h { width: 22px; min-width: 22px; height: 30px; }
+.vp-x.h { border-right: 1px dotted #dbe6e3; }
+.vp-tabla .vp-r.h, .vp-tabla .vp-sub.real, .vp-tabla .vp-dia[colspan] { border-right: 2px solid #8fbfb7; }
+.vp-tabla thead tr:nth-child(3) th { top: 60px; height: 18px; font-size: 9px; }
+.vp-tabla .vp-dia[colspan] { background: #e4f1ef; color: #0b5c56; font-size: 12px; }
+.vp-tabla .vp-dia[colspan] small { color: #0b5c56; font-size: 11px; }
+.vp-tabla .vp-dia.festivo[colspan] { background: #e3e6e5; color: #8a9490; }
+.vp-tabla .vp-sem, .vp-tabla .fs { border-right: 2px solid #0f766e; }
+.vp-sub.plan { color: #0f766e; }
+.vp-sub.real { color: #e8700a; }
+
+/* Totales del Visiplan (abajo, siempre a la vista) */
+.vp-tabla tfoot td, .vp-tabla tfoot th { position: sticky; background: #f2f8f7; font-weight: 700; font-size: 11px; height: 26px; font-variant-numeric: tabular-nums; }
+.vp-tabla tfoot tr.vp-tot:first-child td, .vp-tabla tfoot tr.vp-tot:first-child th { bottom: 26px; border-top: 2px solid #0f766e; }
+.vp-tabla tfoot tr.vp-tot-pct td, .vp-tabla tfoot tr.vp-tot-pct th { bottom: 0; font-size: 10px; }
+.vp-tabla tfoot .vp-cli, .vp-tabla tfoot .vp-et { z-index: 3; color: #0b5c56; }
+.vp-tabla tfoot .vp-tp { color: #0f766e; }
+.vp-tabla tfoot .vp-tr { color: #e8700a; }
+.vp-tabla tfoot .vp-tr, .vp-tabla tfoot .vp-dp { border-right: 2px solid #8fbfb7; }
+.vp-tabla tfoot .fs { border-right: 2px solid #0f766e; }
+.vp-pct { min-width: 64px; }
+.vp-pct.bueno, .vp-dp.bueno { color: #15803d; }
+.vp-pct.medio, .vp-dp.medio { color: #b45309; }
+.vp-pct.bajo, .vp-dp.bajo { color: #c2410c; }
+.vp-chip-pct { background: #e7f0ff; color: #1d4ed8; }
