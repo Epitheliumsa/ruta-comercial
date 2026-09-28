@@ -52,6 +52,10 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="10" width="34" height="31" rx="3"/><path d="M7 19h34M16 6v8M32 6v8"/><path d="M16 28l4 4 8-8"/></svg>
                     <span class="home-btn-text"><strong>Plan de Trabajo</strong><small id="homeAgendaTxt">Programa y registra tus visitas del día</small></span>
                 </button>
+                <button class="home-btn home-btn-visiplan" onclick="abrirVisiplan()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="32" rx="3"/><path d="M6 18h36M15 5v8M33 5v8M18 18v23M30 18v23M6 29.5h36"/><path d="M21.5 22.5l5 5M26.5 22.5l-5 5"/></svg>
+                    <span class="home-btn-text"><strong>Visiplan del mes</strong><small id="homeVisiplanTxt">Marca con X qué días visitas a cada cliente</small></span>
+                </button>
                 <button class="home-btn home-btn-panel" id="btnPanel" onclick="abrirPanel()" style="display:none">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 41h34"/><rect x="10" y="24" width="7" height="13" rx="1.5"/><rect x="21" y="14" width="7" height="23" rx="1.5"/><rect x="32" y="19" width="7" height="18" rx="1.5"/></svg>
                     <span class="home-btn-text"><strong>Panel del equipo</strong><small>Cumplimiento de visitas y actividades por vendedor</small></span>
@@ -142,6 +146,33 @@
             </div>
 
             <div id="actLista" class="resultados"></div>
+        </div>
+
+        <!-- VISIPLAN -->
+        <div id="visiplanScreen" class="screen app-screen tema-teal">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Visiplan del mes</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+            <div class="filters filtros-rc">
+                <select id="vpVendedor" onchange="visiplan.vendedor=this.value; pintarVisiplan()" aria-label="Vendedor"></select>
+                <div class="nav-fecha">
+                    <button class="btn-nav" onclick="moverMesPlan(-1)" aria-label="Mes anterior">&lsaquo;</button>
+                    <div class="nav-titulo"><strong id="vpMesTxt"></strong><small id="vpMesSub"></small></div>
+                    <button class="btn-nav" onclick="moverMesPlan(1)" aria-label="Mes siguiente">&rsaquo;</button>
+                </div>
+                <div class="vp-filtros">
+                    <input id="vpBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="visiplan.busca=this.value; pintarVisiplan()">
+                    <select id="vpEtiqueta" onchange="visiplan.etiqueta=this.value; pintarVisiplan()" aria-label="Etiqueta"></select>
+                    <label class="vp-solo"><input type="checkbox" id="vpSoloMarcados" onchange="pintarVisiplan()"> Solo planeados</label>
+                </div>
+            </div>
+            <div class="resumen-dia" id="vpResumen"></div>
+            <p class="ayuda vp-ayuda">Toca una casilla para poner o quitar la X. Se guarda sola. Los días festivos salen en gris.</p>
+            <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) marcarPlan(c)"></table></div>
         </div>
 
         <!-- PANEL DEL EQUIPO -->
