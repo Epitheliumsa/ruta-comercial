@@ -30,6 +30,18 @@ const PERFIL_VADEMECUM = {
     hreyes: { tipo: 'equipo', zona: null }
 };
 
+// El enlace lleva además un código de acceso (SHA-256 de "vademecum:usuario:clave") que el Vademécum
+// verifica: así entra sin clave aunque la app esté instalada y no comparta el almacenamiento del navegador
+async function prepararEnlaceVademecum() {
+    const enlace = document.querySelector('.home-btn-vade');
+    if (!enlace) return;
+    enlace.href = VADEMECUM_URL;
+    if (!sesion || !PERFIL_VADEMECUM[sesion.id] || !sesion.clave) return;
+    const bytes = new TextEncoder().encode(`vademecum:${sesion.usuario}:${sesion.clave}`.toLowerCase());
+    const codigo = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(b => b.toString(16).padStart(2, '0')).join('');
+    enlace.href = `${VADEMECUM_URL}#acceso=${codigo}`;
+}
+
 function abrirVademecum(e) {
     const perfil = sesion && PERFIL_VADEMECUM[sesion.id];
     if (!perfil) return;   // sin perfil: el Vademécum pide su usuario y clave como siempre
@@ -401,6 +413,7 @@ function entrarApp() {
     $('agVendedor').innerHTML = opciones;
     $('actVendedor').innerHTML = '<option value="">Todo el equipo</option>' + opciones;
     cerrarVencidas();
+    prepararEnlaceVademecum();
     irInicio();
     programarAvisos();
     sincronizar();
