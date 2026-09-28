@@ -25,7 +25,7 @@ const VADEMECUM_URL = 'https://epitheliumsa.github.io/vademecum-epithelium/';
 const PERFIL_VADEMECUM = {
     lramos: { tipo: 'comercial', zona: 'Zona Norte' },
     ycaballero: { tipo: 'comercial', zona: 'Zona Sur' },
-    jherrera: { tipo: 'comercial', zona: 'Clientes Especiales' },
+    jherrera: { tipo: 'equipo', zona: null },   // jefe comercial: ve todas las zonas
     mcastro: { tipo: 'equipo', zona: null },
     hreyes: { tipo: 'equipo', zona: null }
 };
@@ -1203,7 +1203,7 @@ function guardarNovedad(id, tipo) {
     if (tipo === 'Cumpleaños') dialogo({ tono: 'fiesta', titulo: `¡Disfruta tu día, ${nombre}!`, texto: `Cumpleaños registrado para el ${fechaLarga(desde)}.`, aceptar: 'Gracias', cancelar: '' });
     else if (tipo === 'Vacaciones') dialogo({ tono: 'playa', titulo: `Playa, Brisa y Mar. ¡¡¡Felices Vacaciones!!! ${nombre}`, texto: `Vacaciones registradas: ${rangoNovedad(n)}.`, aceptar: 'Gracias', cancelar: '' });
     else if (tipo === 'Incapacidad') dialogo({ tono: 'salud', titulo: `Recupérate pronto, ${nombre}`, texto: `Incapacidad registrada: ${rangoNovedad(n)}.`, aceptar: 'Gracias', cancelar: '' });
-    else if (tipo === 'Cita médica') dialogo({ tono: 'salud', titulo: `¡Cuídate mucho, ${nombre}!`, texto: `Cita médica registrada: ${rangoNovedad(n)}${n.diaCompleto ? ' (día completo).' : ''}`, aceptar: 'Gracias', cancelar: '' });
+    else if (tipo === 'Cita médica') dialogo({ tono: 'salud', titulo: `Llega a tiempo, no pierdas tu cita, ${nombre}`, texto: `Cita médica registrada: ${rangoNovedad(n)}${n.diaCompleto ? ' (día completo).' : ''}`, aceptar: 'Gracias', cancelar: '' });
     else if (tipo === 'Permiso') dialogo({ tono: 'permiso', titulo: `¡Que te vaya muy bien, ${nombre}!`, texto: `Permiso registrado: ${rangoNovedad(n)}${n.diaCompleto ? ' (día completo).' : ''}`, aceptar: 'Gracias', cancelar: '' });
     else toast(`${tipo} registrado: ${rangoNovedad(n)}`);
 }
