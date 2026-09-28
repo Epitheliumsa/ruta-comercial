@@ -18,6 +18,28 @@ const USUARIOS = [
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
 
+// Acceso directo al Vademécum Epithelium: los dos sitios están en epitheliumsa.github.io y comparten el
+// almacenamiento del navegador, así que se deja la sesión del Vademécum lista con el mismo perfil que
+// tiene cada usuario allá (comerciales con su zona; equipo ve todos los portafolios)
+const VADEMECUM_URL = 'https://epitheliumsa.github.io/vademecum-epithelium/';
+const PERFIL_VADEMECUM = {
+    lramos: { tipo: 'comercial', zona: 'Zona Norte' },
+    ycaballero: { tipo: 'comercial', zona: 'Zona Sur' },
+    jherrera: { tipo: 'comercial', zona: 'Clientes Especiales' },
+    mcastro: { tipo: 'equipo', zona: null },
+    hreyes: { tipo: 'equipo', zona: null }
+};
+
+function abrirVademecum(e) {
+    const perfil = sesion && PERFIL_VADEMECUM[sesion.id];
+    if (!perfil) return;   // sin perfil: el Vademécum pide su usuario y clave como siempre
+    try {
+        localStorage.setItem('vademecum_interno', JSON.stringify(perfil));
+        localStorage.removeItem('vademecum_cliente');
+        localStorage.setItem('vademecum_timestamp', new Date().toISOString());
+    } catch (err) { /* sin almacenamiento: el Vademécum pedirá la clave */ }
+}
+
 // Tipo de visita y sus objetivos (se pueden escoger varios)
 const TIPOS_VISITA = {
     'Visita Médica': ['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación', 'Cartera'],
