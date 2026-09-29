@@ -834,10 +834,11 @@ const MAX_BARRAS = 8;
 const GRUPOS_ETIQUETA = {
     cliente: { t: 'Cliente', c: '#2563eb', tinte: '#e3ecfd' },
     medico: { t: 'Médico', c: '#db2777', tinte: '#fce6f0' },
+    ambos: { t: 'Cliente y Médico', c: '#2563eb', c2: '#db2777', tinte: '#f1e6f6' },
     pv: { t: 'Punto de Venta', c: '#ca8a04', tinte: '#faf0d4' }
 };
 const COLOR_FACTURA = { si: '#16a34a', no: '#dc2626' };
-const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
+const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
 const zonasMaestra = () => Object.keys(contactos).filter(z => (contactos[z] || []).length);
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
 
@@ -891,7 +892,7 @@ function pintarMaestra() {
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[grupoEtiqueta(c.e)];
-        return `<button class="mc-fila" style="--g:${g.c}; --tinte:${g.tinte}; --fx:${COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
+        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
                 <span class="mc-datos">${c.cl ? `<span>Clasificación <b>${esc(c.cl)}</b></span>` : ''}${c.ca ? `<span class="cat">${esc(c.ca)}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
             <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
@@ -920,7 +921,9 @@ function pintarComposicion(lista) {
         grupos = [...grupos.slice(0, MAX_BARRAS - 1), ['__otros', resto.reduce((s, g) => s + g[1], 0), resto.length]];
     }
     const total = lista.length, max = Math.max(1, ...grupos.map(g => g[1]));
-    const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${GRUPOS_ETIQUETA[grupoEtiqueta(v)].c}`
+    // Cliente y Médico: rayas de los dos colores
+    const colorEtiqueta = g => g.c2 ? `repeating-linear-gradient(135deg, ${g.c} 0 6px, ${g.c2} 6px 12px)` : g.c;
+    const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[grupoEtiqueta(v)])}`
         : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : '';
     const activo = d.filtro ? maestra[d.filtro] : (maestra.zonas || []).length === 1 ? maestra.zonas[0] : '';
     $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; pintarMaestra()">${x.t}</button>`).join('');

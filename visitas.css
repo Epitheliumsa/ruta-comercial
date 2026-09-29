@@ -1079,9 +1079,9 @@ a.home-btn { text-decoration: none; }
 .mc-fila { position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; text-align: left;
     background: linear-gradient(135deg, #ffffff 70%, var(--tinte, #f1f9f4) 100%); border: 1px solid #dbe8e5; border-radius: 10px; padding: 10px 14px 10px 19px;
     cursor: pointer; font: inherit; box-shadow: 0 2px 8px rgba(0, 60, 40, .08); transition: transform .2s, box-shadow .2s; }
-/* Barra izquierda: 80 % color de la etiqueta, 20 % final verde (facturable) o rojo (no facturable) */
+/* Barra izquierda: 80 % color de la etiqueta (Cliente y Médico: mitad azul, mitad rosado), 20 % final verde (facturable) o rojo (no facturable) */
 .mc-fila::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
-    background: linear-gradient(180deg, var(--g, #009460) 0 calc(80% - 1px), white calc(80% - 1px) calc(80% + 1px), var(--fx, #16a34a) calc(80% + 1px)); }
+    background: linear-gradient(180deg, var(--g, #009460) 0 40%, var(--g2, var(--g, #009460)) 40% calc(80% - 1px), white calc(80% - 1px) calc(80% + 1px), var(--fx, #16a34a) calc(80% + 1px)); }
 .mc-fila:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 60, 40, .14); }
 .mc-nombre b { display: block; color: #1f2937; font-size: 14px; }
 .mc-nombre small { color: #6b7c7a; font-size: 12px; }
