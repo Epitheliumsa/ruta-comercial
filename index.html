@@ -177,6 +177,10 @@
                         <button data-p="hoy" onclick="periodoPlan('hoy')">Hoy</button>
                         <button data-p="semana" onclick="periodoPlan('semana')">Semana</button>
                         <button data-p="mes" class="activo" onclick="periodoPlan('mes')">Mes</button>
+                        <label class="vp-cal" title="Ir a un día">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                            <input type="date" id="vpFechaPick" aria-label="Ir a un día" onchange="verDiaPlan(this.value)" onclick="try { this.showPicker() } catch (e) {}">
+                        </label>
                     </div>
                     <div class="vp-filtros">
                         <input id="vpBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="visiplan.busca=this.value; pintarVisiplan()">

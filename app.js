@@ -1181,10 +1181,20 @@ function periodoPlan(p) {
     if (p !== 'mes') visiplan.mes = mesDe(hoy());
     pintarVisiplan();
 }
-// Clic en un día del encabezado: se ve solo ese día
-function irDiaPlan(d) {
+// Calendario del Visiplan: ver solo el día elegido
+function verDiaPlan(d) {
+    if (!d) return;
+    const mesAntes = visiplan.mes;
     visiplan.periodo = 'hoy'; visiplan.dia = d; visiplan.mes = mesDe(d);
     pintarVisiplan();
+    if (visiplan.mes !== mesAntes) sincronizar(visiplan.mes);
+}
+// Clic en un día del encabezado: abre el Plan de Trabajo de ese día (del vendedor que se está viendo)
+function irDiaPlan(d) {
+    if (esJefe()) agenda.vendedor = visiplan.vendedores[0] || agenda.vendedor;
+    agenda.fecha = d;
+    abrirAgenda();
+    sincronizar(mesDe(d));
 }
 function diasVistaPlan(mes) {
     const dias = diasDelMes(mes);
@@ -1232,6 +1242,7 @@ function pintarVisiplan() {
     document.querySelectorAll('#vpPeriodo button').forEach(b => b.classList.toggle('activo', b.dataset.p === visiplan.periodo));
     const otroDia = visiplan.periodo === 'hoy' && visiplan.dia !== hoy();
     $('vpPeriodo').querySelector('[data-p="hoy"]').textContent = otroDia ? mayuscula(fechaCorta(visiplan.dia)) : 'Hoy';
+    $('vpFechaPick').value = visiplan.periodo === 'hoy' ? visiplan.dia : '';
     const dias = diasVistaPlan(mes), enVista = new Set(dias);
     visiplan.dias = dias;
     const soloVista = (m, r) => [m.filter(d => enVista.has(d)), new Set([...r].filter(d => enVista.has(d)))];
@@ -1249,7 +1260,7 @@ function pintarVisiplan() {
     const fs = d => deIso(d).getDay() === 6 ? ' fs' : '';   // último día de la semana: línea más fuerte
     const diaPlanHead = d => vista.some(v => seg[v.id].diasPlaneacion.has(d)) ? ' dia-plan' : '';
     const cab1 = semanas.map((s, i) => `<th colspan="${s.dias.length * 2}" class="vp-sem">Semana ${i + 1}</th>`).join('');
-    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}${diaPlanHead(d)}${dias.length > 1 ? ' ir' : ''}"${dias.length > 1 ? ` onclick="irDiaPlan('${d}')"` : ''} title="${esc(nombreFestivo(d) || (diaPlanHead(d) ? 'Planeación Mes · ' : '') + fechaLarga(d))}${dias.length > 1 ? ' · toca para ver solo este día' : ''}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
+    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}${diaPlanHead(d)} ir" onclick="irDiaPlan('${d}')" title="${esc(nombreFestivo(d) || (diaPlanHead(d) ? 'Planeación Mes · ' : '') + fechaLarga(d))} · toca para abrir el Plan de Trabajo${visiplan.vendedores.length > 1 ? ' de ' + esc(nombreVendedor(visiplan.vendedores[0])) : ''}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
     const cab3 = dias.map(d => `<th class="vp-sub plan${nombreFestivo(d) ? ' festivo' : ''}">P</th><th class="vp-sub real${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}">R</th>`).join('');
     const dp = (v, d) => seg[v].diasPlaneacion.has(d) ? ' dia-plan' : '';
     const celdas = (c, m, r, px) => dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}${dp(c.v, d)}" data-c="${esc(c.n)}" data-v="${c.v}" data-d="${d}"></td>`
