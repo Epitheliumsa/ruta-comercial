@@ -759,7 +759,7 @@ function resolverSolicitud(id, autorizar) {
 // Cada vendedor marca con X, al inicio del mes, qué días visitará a cada cliente de su zona. Se puede
 // editar hasta el 2.º día hábil del mes. En el día, cada X aparece en el Plan de Trabajo para confirmarla:
 // al confirmarla se programa la visita (con lo que se va a hacer). Si no se confirma ese día, queda cerrada.
-const visiplan = { mes: sumarMes(mesDe(hoy()), 0), vendedor: null, busca: '', etiqueta: '', tipo: '' };
+const visiplan = { mes: sumarMes(mesDe(hoy()), 0), vendedor: null, busca: '', etiqueta: '', tipo: '', filtro: '' };
 let esperaPlan = null;
 
 const idPlan = (vendedor, mes) => `plan-${vendedor}-${mes}`;
@@ -816,9 +816,22 @@ function abrirVisiplan() {
 
 function cambiarVendedorPlan(valor) {
     visiplan.vendedor = valor;
-    if (valor === 'todos') $('vpSoloMarcados').checked = true;   // todo el equipo: arranca solo con lo planeado
+    if (valor === 'todos') visiplan.filtro = 'plan';   // todo el equipo: arranca solo con lo planeado
     pintarVisiplan();
 }
+
+// Filtro de clientes: desde la lista "Mostrar" o tocando un indicador del resumen (otro toque lo quita)
+function filtrarPlan(f, desdeLista) {
+    visiplan.filtro = !desdeLista && visiplan.filtro === f ? '' : f;
+    pintarVisiplan();
+}
+const FILTROS_PLAN = {
+    plan: (m) => m.length > 0,
+    noplan: (m) => m.length === 0,
+    real: (m, r) => r.size > 0,
+    cump: (m, r) => m.some(d => r.has(d)),
+    visit: (m, r) => m.length > 0 && r.size > 0
+};
 
 function moverMesPlan(n) { visiplan.mes = sumarMes(visiplan.mes, n); pintarVisiplan(); sincronizar(visiplan.mes); }
 
@@ -859,9 +872,10 @@ function pintarVisiplan() {
         selTipo.dataset.zona = claveZona; visiplan.tipo = '';
     }
     const q = normalizar(visiplan.busca);
-    const soloMarcados = $('vpSoloMarcados').checked;
+    $('vpFiltro').value = visiplan.filtro;
+    const pasaFiltro = FILTROS_PLAN[visiplan.filtro];
     clientes = clientes.filter(c => (!q || normalizar(c.n).includes(q)) && (!visiplan.etiqueta || c.e === visiplan.etiqueta) && (!visiplan.tipo || c.t === visiplan.tipo)
-        && (!soloMarcados || (seg[c.v].marcas[c.n] || []).length || seg[c.v].reales[c.n] || seg[c.v].proximas[c.n]));
+        && (!pasaFiltro || pasaFiltro(seg[c.v].marcas[c.n] || [], seg[c.v].reales[c.n] || new Set())));
 
     const dias = diasDelMes(mes);
     const semanas = [];
@@ -885,9 +899,9 @@ function pintarVisiplan() {
     }).join('');
     $('vpTabla').classList.toggle('bloqueada', !editable);
     $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">${todos ? 'Vendedor · Etiqueta' : 'Etiqueta'}</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n" title="Visitas programadas">Obj</th><th rowspan="3" class="vp-n" title="Visitas efectivas">Real</th><th rowspan="3" class="vp-n" title="Visitas efectivas en el día que se planearon / programadas">% Cump</th><th rowspan="3" class="vp-n" title="Visitas efectivas / visitas programadas">% Visitas</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 6}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`
-        + `<tfoot><tr class="vp-tot"><td class="vp-et"></td><th class="vp-cli" scope="row">Obj · Real del día</th>${dias.map(d => `<td class="vp-tp${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td><td class="vp-tr${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpTotP"></td><td class="vp-n real" id="vpTotR"></td><td class="vp-n vp-pct" id="vpTotPct"></td><td class="vp-n vp-pvis" id="vpTotVis"></td></tr>`
-        + `<tr class="vp-tot vp-tot-c"><td class="vp-et"></td><th class="vp-cli" scope="row">% Cump del día</th>${dias.map(d => `<td colspan="2" class="vp-dp${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="4"></td></tr>`
-        + `<tr class="vp-tot vp-tot-v"><td class="vp-et"></td><th class="vp-cli" scope="row">% Visitas del día</th>${dias.map(d => `<td colspan="2" class="vp-dv${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="4"></td></tr></tfoot>`;
+        + `<tfoot><tr class="vp-tot"><td class="vp-et vp-pie" id="vpPieN"></td><th class="vp-cli" scope="row">Obj · Real del día</th>${dias.map(d => `<td class="vp-tp${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td><td class="vp-tr${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpTotP"></td><td class="vp-n real" id="vpTotR"></td><td class="vp-n vp-pct" id="vpTotPct"></td><td class="vp-n vp-pvis" id="vpTotVis"></td></tr>`
+        + `<tr class="vp-tot vp-tot-c"><td class="vp-et vp-pie" id="vpPieP"></td><th class="vp-cli" scope="row">% Cump del día</th>${dias.map(d => `<td colspan="2" class="vp-dp${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="4"></td></tr>`
+        + `<tr class="vp-tot vp-tot-v"><td class="vp-et vp-pie" id="vpPieV"></td><th class="vp-cli" scope="row">% Visitas del día</th>${dias.map(d => `<td colspan="2" class="vp-dv${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="4"></td></tr></tfoot>`;
     actualizarTotalesPlan();
 }
 
@@ -922,6 +936,14 @@ function actualizarTotalesPlan() {
         ponPct(tabla.querySelector(`tfoot .vp-dp[data-d="${d}"]`), pd.c, pd.o);
         ponPct(tabla.querySelector(`tfoot .vp-dv[data-d="${d}"]`), pd.r, pd.o);
     });
+    // Pie de la primera columna: clientes (según el filtro), planeados y visitados con su porcentaje
+    const filasCli = [...tabla.querySelectorAll('tbody tr')].filter(f => f.querySelector('.vp-x'));
+    const nCli = filasCli.length, nPlan = filasCli.filter(f => f.querySelector('.vp-x.on')).length, nVis = filasCli.filter(f => f.querySelector('.vp-r.on')).length;
+    if ($('vpPieN')) {
+        $('vpPieN').innerHTML = `<b>${nCli}</b> ${nCli === 1 ? 'cliente' : 'clientes'}`;
+        $('vpPieP').innerHTML = `Planeados <b>${nPlan}</b> · ${pctPlan(nPlan, nCli) || '0%'}`;
+        $('vpPieV').innerHTML = `Visitados <b>${nVis}</b> · ${pctPlan(nVis, nCli) || '0%'}`;
+    }
     if ($('vpTotP')) {
         $('vpTotP').textContent = T.o; $('vpTotR').textContent = T.r;
         ponPct($('vpTotPct'), T.c, T.o); ponPct($('vpTotVis'), T.r, T.o);
@@ -933,9 +955,10 @@ function actualizarTotalesPlan() {
         Object.entries(marcas).forEach(([n, ds]) => { const k = indicadoresPlan(ds, reales[n] || new Set()); obj += k.obj; cump += k.cump; if (ds.length) clientesP++; });
         Object.values(reales).forEach(r => { real += r.size; });
     });
-    $('vpResumen').innerHTML = `<span><b>${clientesP}</b> ${clientesP === 1 ? 'cliente planeado' : 'clientes planeados'}</span>`
-        + `<span class="chip vp-chip-plan">Obj ${obj}</span><span class="chip vp-chip-real">Real ${real}</span>`
-        + (obj ? `<span class="chip vp-chip-pct">${pctPlan(cump, obj)} Cump</span><span class="chip vp-chip-pct">${pctPlan(real, obj)} Visitas</span>` : '')
+    const chip = (f, clase, html, titulo) => `<button type="button" class="chip chip-filtro ${clase}${visiplan.filtro === f ? ' activo' : ''}" onclick="filtrarPlan('${f}')" title="${titulo}" aria-pressed="${visiplan.filtro === f}">${html}</button>`;
+    $('vpResumen').innerHTML = chip('plan', 'vp-chip-cli', `<b>${clientesP}</b> ${clientesP === 1 ? 'cliente planeado' : 'clientes planeados'}`, 'Ver solo los clientes planeados')
+        + chip('plan', 'vp-chip-plan', `Obj ${obj}`, 'Ver solo los clientes planeados') + chip('real', 'vp-chip-real', `Real ${real}`, 'Ver los clientes con visita real')
+        + (obj ? chip('cump', 'vp-chip-pct', `${pctPlan(cump, obj)} Cump`, 'Ver los cumplidos en el día planeado') + chip('visit', 'vp-chip-pct', `${pctPlan(real, obj)} Visitas`, 'Ver los planeados que ya se visitaron') : '')
         + (visiplan.editable ? '' : '<span class="chip gris">🔒 Cerrado</span>');
 }
 
