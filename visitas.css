@@ -630,7 +630,7 @@
 .solicitud .form-botones { margin-top: 10px; }
 
 /* Objetivos cumplidos */
-.objetivos span.cumplido { background: #0a6647; color: white; }
+.objetivos span.cumplido { background: #e3f5ea; color: #0f6b43; box-shadow: inset 0 0 0 1px #b6e0c8; }
 .objetivos span.no-cumplido { background: #f1f3f2; color: #8a9a94; text-decoration: line-through; }
 .producto-card p.objetivos small { color: #7a8a84; font-size: 12px; font-weight: 600; }
 
@@ -1024,7 +1024,7 @@ a.home-btn { text-decoration: none; }
 .check.sub { padding: 6px 10px; font-size: 12.5px; background: white; }
 .check.sub.programado span { font-weight: 800; color: #1f2937; }
 .check.sub.no-programado span { color: #9aa5a1; font-weight: 500; }
-.sub-chip { font-weight: 500; opacity: .9; }
+.sub-chip { font-weight: 500; color: #4c7a64; }
 .home-btn.home-btn-mensual { border-left-color: #ca8a04; background: linear-gradient(135deg, #ffffff 60%, #fef9e1 100%); }
 .home-btn.home-btn-mensual svg { background: linear-gradient(135deg, #854d0e, #eab308); }
 .home-btn.home-btn-mensual .home-btn-text strong { color: #854d0e; }
