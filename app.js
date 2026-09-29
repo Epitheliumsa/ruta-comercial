@@ -2248,7 +2248,7 @@ function bajarArchivo(buffer, nombre) {
 
 function armarLibro(mes, vend, solo) {
     const libro = new ExcelJS.Workbook();
-    libro.creator = 'Ruta Comercial Epithelium';
+    libro.creator = 'Epithelium Visita';
     const verde = 'FF006B4F';
     const estadoTxt = { visitado: 'Visitado', no_visitado: 'No visitado', pendiente: 'Pendiente' };
     // ExcelJS guarda las fechas en UTC: se arman en UTC para que no se corran de día
