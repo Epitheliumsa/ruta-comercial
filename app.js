@@ -1842,7 +1842,7 @@ async function abrirProgramar(id, contactoPlan) {
     const bloqueado = !!contactoPlan || (v && v.clase === 'visita');
     const opcionNuevo = t => `<option ${t === actual && v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
     abrirModal(`<form class="form-rc" novalidate onsubmit="guardarProgramada(event, '${id || ''}')">
-        <h2>${v ? 'Editar programación' : 'Programar'}</h2>
+        <h2>${v ? 'Editar Plan de Visita' : 'Plan de Visita'}</h2>
         <p class="sub">${esc(nombreVendedor(agenda.vendedor))} · ${esc(zona || '')}</p>
         <div class="fila-fecha compacta">
             <div><label for="fFecha" id="lblFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
@@ -1851,7 +1851,7 @@ async function abrirProgramar(id, contactoPlan) {
         </div>
         <div id="cajaQue"${bloqueado ? ' hidden' : ''}>
         <label for="fTipo">¿Qué vas a programar?</label>
-        <select id="fTipo" required onchange="tiposForm = null; cambiarTipoProgramacion()">
+        <select id="fTipo" required onchange="limpiarPlanVisita(true)">
             <option value="">Elige una opción</option>
             <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
             <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
@@ -1942,9 +1942,21 @@ async function abrirProgramar(id, contactoPlan) {
         $('fTipoFijo').dataset.extra = contactoPlan ? ' · del Visiplan' : v?.origen === 'reprogramada' || v?.origen === 'proxima' ? ' · reprogramada' : '';
         pintarTipoFijo();
     }
-    $('fContacto').addEventListener('change', () => { tiposForm = null; sugerirTipo(); pintarTipoCliente(); });
+    $('fContacto').addEventListener('change', () => { limpiarPlanVisita(false); sugerirTipo(); pintarTipoCliente(); });
     $('fContacto').addEventListener('input', revisarProyecto);
     $('fFecha').addEventListener('change', () => { avisoProgramacion(v && v.clase === 'visita' ? v : null); pintarObjetivos(); });
+}
+
+// Si el vendedor cambia qué va a programar o el cliente, el formulario se limpia (objetivos, subcategorías,
+// qué va a hacer y modalidad); al cambiar qué va a programar también se borra el cliente. Fecha y hora se conservan.
+function limpiarPlanVisita(cambioTipo) {
+    tiposForm = null;
+    if (cambioTipo) { $('fContacto').value = ''; revisarProyecto(); }
+    $('fObjetivo').value = '';
+    $('fObjetivoCuenta').textContent = '0 / 100';
+    document.querySelectorAll('#modalContenido .modalidad button').forEach(b => b.classList.toggle('on', b.dataset.mod === 'presencial'));
+    $('fObjetivos').innerHTML = '';
+    if (cambioTipo) cambiarTipoProgramacion([], {});
 }
 
 // Muestra u oculta los campos según sea una visita, un trabajo interno o una novedad
