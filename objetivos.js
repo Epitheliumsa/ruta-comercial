@@ -109,22 +109,22 @@ window.MATRIZ_OBJETIVOS = {
  "subcategorias": {
   "medcom:Visita Médica": {
    "Administración de Cartera": [
-    "Acuerdo de Pago",
     "Cobro de Factura",
     "Conciliación de Cartera",
-    "Recibo de Caja"
+    "Recibo de Caja",
+    "Acuerdo de Pago"
    ],
    "Codificación de Producto": [
     "Presentación y Documentación",
-    "Producto Codificado",
+    "Solicitud de Codificación",
     "Seguimiento a la Codificación",
-    "Solicitud de Codificación"
+    "Producto Codificado"
    ],
    "Colocación": [
+    "Producto Nuevo",
     "Producto Terminado",
     "Magistral Individual",
-    "Magistral de Pedido",
-    "Producto Nuevo"
+    "Magistral de Pedido"
    ],
    "Desarrollo Productos": [
     "Fórmula Magistral Nueva",
@@ -149,9 +149,9 @@ window.MATRIZ_OBJETIVOS = {
     "Portafolio Actual"
    ],
    "Precios": [
-    "Chequeo de Precios",
     "Lista de Precios",
-    "Negociación"
+    "Negociación",
+    "Chequeo de Precios"
    ],
    "Productos Nuevos": [
     "Presentación del Producto",
@@ -160,35 +160,35 @@ window.MATRIZ_OBJETIVOS = {
     "Codificación"
    ],
    "Protocolo Médico": [
+    "Presentación Protocolo Médico",
     "Inscripción del Médico",
-    "Presentación del Protocolo",
     "Seguimiento",
     "Solicitud y Recolección de Información"
    ]
   },
   "Visita Comercial": {
    "Administración de Cartera": [
-    "Acuerdo de Pago",
     "Cobro de Factura",
     "Conciliación de Cartera",
-    "Recibo de Caja"
+    "Recibo de Caja",
+    "Acuerdo de Pago"
    ],
    "Capacitación": [
+    "Producto Nuevo",
     "Actividades",
-    "Portafolio",
-    "Producto Nuevo"
+    "Portafolio"
    ],
    "Codificación de Producto": [
     "Presentación y Documentación",
-    "Producto Codificado",
+    "Solicitud de Codificación",
     "Seguimiento a la Codificación",
-    "Solicitud de Codificación"
+    "Producto Codificado"
    ],
    "Colocación": [
+    "Producto Nuevo",
     "Producto Terminado",
     "Magistral Individual",
-    "Magistral de Pedido",
-    "Producto Nuevo"
+    "Magistral de Pedido"
    ],
    "Desarrollo Productos": [
     "Fórmula Magistral Nueva",
@@ -214,9 +214,9 @@ window.MATRIZ_OBJETIVOS = {
     "Portafolio Actual"
    ],
    "Precios": [
-    "Chequeo de Precios",
     "Lista de Precios",
-    "Negociación"
+    "Negociación",
+    "Chequeo de Precios"
    ],
    "Productos Nuevos": [
     "Presentación del Producto",
@@ -227,15 +227,15 @@ window.MATRIZ_OBJETIVOS = {
   },
   "Punto de Venta": {
    "Capacitación": [
+    "Producto Nuevo",
     "Actividades",
-    "Portafolio",
-    "Producto Nuevo"
+    "Portafolio"
    ],
    "Codificación de Producto": [
     "Presentación y Documentación",
-    "Producto Codificado",
+    "Solicitud de Codificación",
     "Seguimiento a la Codificación",
-    "Solicitud de Codificación"
+    "Producto Codificado"
    ],
    "Devoluciones - PQR": [
     "Devolución",
@@ -250,14 +250,14 @@ window.MATRIZ_OBJETIVOS = {
     "Tester"
    ],
    "Exhibición": [
+    "Vitrina",
     "Góndola",
-    "Material POP",
-    "Vitrina"
+    "Material POP"
    ],
    "Precios": [
-    "Chequeo de Precios",
     "Lista de Precios",
-    "Negociación"
+    "Negociación",
+    "Chequeo de Precios"
    ],
    "Productos Nuevos": [
     "Presentación del Producto",
@@ -268,10 +268,10 @@ window.MATRIZ_OBJETIVOS = {
   },
   "nuevo:Visita Médica": {
    "Colocación": [
+    "Producto Nuevo",
     "Producto Terminado",
     "Magistral Individual",
-    "Magistral de Pedido",
-    "Producto Nuevo"
+    "Magistral de Pedido"
    ],
    "Desarrollo Productos": [
     "Fórmula Magistral Nueva",
@@ -286,15 +286,15 @@ window.MATRIZ_OBJETIVOS = {
     "Presentación del Producto"
    ],
    "Protocolo Médico": [
-    "Presentación del Protocolo"
+    "Presentación Protocolo Médico"
    ]
   },
   "nuevo:Visita Comercial": {
    "Colocación": [
+    "Producto Nuevo",
     "Producto Terminado",
     "Magistral Individual",
-    "Magistral de Pedido",
-    "Producto Nuevo"
+    "Magistral de Pedido"
    ],
    "Desarrollo Productos": [
     "Fórmula Magistral Nueva",
@@ -331,8 +331,8 @@ window.MATRIZ_OBJETIVOS = {
     "Codificación"
    ],
    "Protocolo Médico": [
+    "Presentación Protocolo Médico",
     "Inscripción del Médico",
-    "Presentación del Protocolo",
     "Seguimiento",
     "Solicitud y Recolección de Información"
    ]
