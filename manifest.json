@@ -1,6 +1,6 @@
 {
-  "name": "Ruta Comercial Epithelium",
-  "short_name": "Ruta Comercial",
+  "name": "Epithelium Visita",
+  "short_name": "Epithelium Visita",
   "description": "Agenda de visitas y actividades de la fuerza de ventas de Epithelium.",
   "start_url": "./index.html",
   "scope": "./",
