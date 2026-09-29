@@ -1911,7 +1911,7 @@ async function abrirProgramar(id, contactoPlan) {
             ${botonesModalidad(v?.modalidad)}
         </div>
         <div id="cajaObjetivos" hidden>
-            <label>Objetivos de la visita <small>(puedes escoger varios)</small></label>
+            <label id="lblObjetivos">Objetivos de la visita <small>(puedes escoger varios)</small></label>
             <div class="checks" id="fObjetivos"></div>
         </div>
         <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small></label>
@@ -1991,6 +1991,7 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / 100';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
     pintarTipoCliente(true);
+    $('lblObjetivos').innerHTML = `${interno ? 'Objetivos del trabajo' : 'Objetivos de la visita'} <small>(puedes escoger varios)</small>`;
     pintarObjetivos(marcados, subsMarcados);
     avisoProgramacion(null);
 }
@@ -2097,6 +2098,12 @@ function leerSubs(cont, soloDe) {
     });
     return r;
 }
+// Objetivo programado sin marcar ninguna subcategoría: se asume que se van a hacer todas sus subcategorías
+function conTodasLasSubs(subs, objetivos, tipo, nuevo, mes) {
+    const r = { ...subs };
+    objetivos.forEach(o => { if (!(r[o] || []).length) { const todas = subcategoriasDe(tipo, nuevo, o, mes); if (todas.length) r[o] = todas; } });
+    return r;
+}
 // Cierre: una subcategoría cumplida también cuenta su objetivo como cumplido
 function leerCierre() {
     const cont = $('rCumplidos');
@@ -2106,7 +2113,7 @@ function leerCierre() {
     return { objetivosCumplidos: objs, subCumplidos: subs };
 }
 const cajaCierre = v => objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita lo programado; marca lo que lograste)</small></label>
-            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: v.subobjetivos || {} })}</div>` : '';
+            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: conTodasLasSubs(v.subobjetivos || {}, programadosVigentes(v), tiposDe(v), v.esProyecto, mesDe(v.fecha)) })}</div>` : '';
 // Texto de subcategorías junto a un objetivo (✓ en las cumplidas)
 function textoSubs(v, o) {
     const prog = (v.subobjetivos || {})[o] || [], cumpl = (v.subCumplidos || {})[o] || [];
@@ -2169,7 +2176,7 @@ async function guardarProgramada(e, id) {
     const nombre = $('fContacto').value.trim();
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
     const objetivos = leerObjetivos($('fObjetivos'));
-    const subobjetivos = leerSubs($('fObjetivos'), objetivos);
+    const subobjetivos = conTodasLasSubs(leerSubs($('fObjetivos'), objetivos), objetivos, tiposElegidos(), origenElegido() === 'nuevo', mesDe(fechaElegida));
     if (!objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
     if (!$('fObjetivo').value.trim()) { toast('Escribe qué vas a hacer (máximo 100 caracteres)'); $('fObjetivo').focus(); return; }
     const zona = comercial(agenda.vendedor)?.zona;
@@ -2305,7 +2312,7 @@ function abrirRegistro(id, tipo) {
     } else if (tipo === 'ok') {
         const ya = v.estado === 'visitado';
         abrirModal(`<form class="form-rc" onsubmit="guardarVisitado(event, '${id}')">
-            <h2>Registrar visita</h2>${cab}
+            <h2>Cierre de Visita</h2>${cab}
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
