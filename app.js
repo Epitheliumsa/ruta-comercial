@@ -1881,8 +1881,9 @@ async function abrirProgramar(id, contactoPlan) {
             <label>Objetivos de la visita <small>(puedes escoger varios)</small></label>
             <div class="checks" id="fObjetivos"></div>
         </div>
-        <label for="fObjetivo" id="lblNotas">Notas (opcional)</label>
-        <textarea id="fObjetivo" placeholder="Ej: llevar lista de precios nueva">${esc(v?.clase === 'novedad' ? v.nota : v?.objetivo)}</textarea>
+        <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer?</label>
+        <textarea id="fObjetivo" maxlength="100" oninput="$('fObjetivoCuenta').textContent = this.value.length + ' / 100'" placeholder="Ej: llevar lista de precios nueva">${esc(v?.clase === 'novedad' ? v.nota : v?.objetivo)}</textarea>
+        <p class="ayuda cuenta-nota" id="fObjetivoCuenta">0 / 100</p>
         <p class="aviso-hora" id="fAviso" hidden></p>
         <div class="form-botones">
             ${v && v.clase === 'visita' ? accionEliminar(v, 'btn-secundario btn-peligro') : ''}
@@ -1931,7 +1932,10 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     const conRango = NOVEDAD_RANGO.includes(tipo) && !porHoras;
     $('cajaHasta').hidden = !conRango;
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
-    $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : interno ? '¿Qué vas a hacer? (opcional)' : 'Notas (opcional)';
+    // En visitas y trabajo interno es obligatorio escribir qué se va a hacer (máximo 100 caracteres)
+    $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : '¿Qué vas a hacer? (obligatorio, máx. 100 caracteres)';
+    $('fObjetivoCuenta').hidden = novedad;
+    $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / 100';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
     pintarTipoCliente(true);
     pintarObjetivos(marcados, subsMarcados);
@@ -2108,6 +2112,7 @@ async function guardarProgramada(e, id) {
     const objetivos = leerObjetivos($('fObjetivos'));
     const subobjetivos = leerSubs($('fObjetivos'), objetivos);
     if (!objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
+    if (!$('fObjetivo').value.trim()) { toast('Escribe qué vas a hacer (máximo 100 caracteres)'); $('fObjetivo').focus(); return; }
     const zona = comercial(agenda.vendedor)?.zona;
     const nuevo = !interno && origenElegido() === 'nuevo';
     let c = interno ? {} : buscarMaestra(zona, nombre) || {};

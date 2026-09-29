@@ -1152,3 +1152,4 @@ a.home-btn { text-decoration: none; }
 .vp-tabla .vp-dia.ir { cursor: pointer; }
 .vp-tabla .vp-dia.ir:hover { background: #cfe8e4; color: #064e48; }
 #visiplanScreen .filters { position: relative; z-index: 20; }
+.cuenta-nota { text-align: right; margin: 2px 0 0; font-size: 11px; color: #7a8a84; }
