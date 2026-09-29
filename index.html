@@ -68,6 +68,10 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 12h22M17 24h22M17 36h22"/><path d="M6 11l3 3 5-5M6 23l3 3 5-5"/><rect x="6" y="33" width="7" height="7" rx="1.5"/></svg>
                     <span class="home-btn-text"><strong>Actividades del mes</strong><small id="homeActTxt">Lo que tienes programado este mes</small></span>
                 </button>
+                <button class="home-btn home-btn-maestra" onclick="abrirMaestra()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="6" width="32" height="36" rx="3"/><circle cx="24" cy="18" r="5"/><path d="M15 32c1.5-5 5-7 9-7s7.5 2 9 7"/><path d="M15 37h18"/></svg>
+                    <span class="home-btn-text"><strong>Maestra Clientes</strong><small id="maestraTxt">Clientes de tu zona</small></span>
+                </button>
                 <button class="home-btn home-btn-proy" onclick="abrirProyectos()">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="20" cy="16" r="7"/><path d="M7 40v-2a12 12 0 0 1 12-12h2a12 12 0 0 1 8 3"/><path d="M36 28v12M30 34h12"/></svg>
                     <span class="home-btn-text"><strong>Contactos nuevos</strong><small id="proyectosTxt">Proyectos que aún no están en la Maestra de Contactos</small></span>
@@ -206,6 +210,33 @@
                 <p class="ayuda vp-ayuda">Toca una casilla <b>P</b> para poner o quitar la X (se guarda sola). La <b>R</b> se marca sola al reportar la visita. Toca un cliente para ver su historial. Toca un indicador para filtrar.</p>
             </div>
             <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) return marcarPlan(c); const cl=event.target.closest('tbody [data-cliente]'); if(cl) verCliente(cl.dataset.cliente, cl.dataset.v)"></table></div>
+        </div>
+
+        <!-- MAESTRA CLIENTES -->
+        <div id="maestraScreen" class="screen app-screen tema-teal">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Maestra Clientes</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+            <div class="filters filtros-rc">
+                <div class="vp-vends" id="mcZonas" role="group" aria-label="Zona y vendedor"></div>
+                <div class="mc-filtros">
+                    <input id="mcBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="maestra.busca=this.value; pintarMaestra()">
+                    <select id="mcEtiqueta" onchange="maestra.etiqueta=this.value; pintarMaestra()" aria-label="Etiqueta"></select>
+                    <select id="mcCiudad" onchange="maestra.ciudad=this.value; pintarMaestra()" aria-label="Ciudad"></select>
+                    <select id="mcClasif" onchange="maestra.cl=this.value; pintarMaestra()" aria-label="Clasificación"></select>
+                    <select id="mcCategoria" onchange="maestra.ca=this.value; pintarMaestra()" aria-label="Categoría"></select>
+                    <select id="mcPlazo" onchange="maestra.pz=this.value; pintarMaestra()" aria-label="Plazo de pago"></select>
+                    <select id="mcFacturar" onchange="maestra.f=this.value; pintarMaestra()" aria-label="Cliente para facturar">
+                        <option value="">Facturar: todos</option><option value="si">Cliente para facturar: Sí</option><option value="no">Cliente para facturar: No</option>
+                    </select>
+                </div>
+            </div>
+            <p class="ayuda mc-ayuda" id="mcResumen"></p>
+            <div id="mcLista" class="mc-lista"></div>
         </div>
 
         <!-- PANEL DEL EQUIPO -->

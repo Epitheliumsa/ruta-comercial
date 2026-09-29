@@ -430,6 +430,7 @@ function entrarApp() {
     intro.appendChild(saludo);
     $('btnPanel').style.display = esJefe() ? '' : 'none';
     $('btnMensual').style.display = esJefe() ? '' : 'none';
+    $('maestraTxt').textContent = esJefe() ? 'Clientes por zona y vendedor' : 'Clientes de tu zona';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
     const opciones = COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('');
     $('agVendedor').innerHTML = opciones;
@@ -457,6 +458,7 @@ function repintarPantallaActiva() {
     if (p === 'actScreen') pintarActividades();
     if (p === 'panelScreen') pintarPanel();
     if (p === 'visiplanScreen') pintarVisiplan();
+    if (p === 'maestraScreen') pintarMaestra();
 }
 
 function irInicio() {
@@ -811,6 +813,76 @@ function guardarMensual(e) {
         vendedor: 'equipo', mes, fecha: mes + '-01', listas, borrado: false, editadoPor: sesion.id });
     cerrarModal();
     toast(`Guardado para ${nombreMes(mes)}`);
+}
+
+// ---------- MAESTRA CLIENTES ----------
+// El comercial ve los clientes de su zona; los jefes los ven por zona y vendedor (una, varias o todas)
+const maestra = { zonas: null, busca: '', etiqueta: '', ciudad: '', cl: '', ca: '', pz: '', f: '' };
+const zonasMaestra = () => Object.keys(contactos).filter(z => (contactos[z] || []).length);
+const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
+
+function abrirMaestra() {
+    if (!maestra.zonas) maestra.zonas = esJefe() ? zonasMaestra() : [comercial(sesion.id)?.zona].filter(Boolean);
+    $('mcZonas').hidden = !esJefe();
+    pintarMaestra();
+    mostrarPantalla('maestraScreen');
+}
+
+function elegirZonaMaestra(z) {
+    const todas = zonasMaestra();
+    if (z === 'todas') maestra.zonas = maestra.zonas.length === todas.length ? [todas[0]] : todas;
+    else if (maestra.zonas.includes(z)) { if (maestra.zonas.length > 1) maestra.zonas = maestra.zonas.filter(x => x !== z); }
+    else maestra.zonas = todas.filter(x => x === z || maestra.zonas.includes(x));
+    pintarMaestra();
+}
+
+function pintarMaestra() {
+    const todas = zonasMaestra(), sel = maestra.zonas || [];
+    if (esJefe()) {
+        $('mcZonas').innerHTML = `<button type="button" class="vp-vend-btn todos${sel.length === todas.length ? ' activo' : ''}" onclick="elegirZonaMaestra('todas')">Todas las zonas</button>`
+            + todas.map(z => {
+                const v = vendedorDeZona(z);
+                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}')">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${contactos[z].length}</small></button>`;
+            }).join('');
+    }
+    const base = sel.flatMap(z => (contactos[z] || []).map(c => ({ ...c, z })));
+    const opciones = (sel2, lista, todos) => {
+        const actual = sel2.value;
+        sel2.innerHTML = `<option value="">${todos}</option>` + lista.map(x => `<option ${x === actual ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    };
+    const unicos = k => [...new Set(base.map(c => c[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    opciones($('mcEtiqueta'), unicos('e'), 'Todas las etiquetas');
+    opciones($('mcCiudad'), unicos('c'), 'Todas las ciudades');
+    opciones($('mcClasif'), unicos('cl').sort((a, b) => Number(a) - Number(b) || a.localeCompare(b)), 'Todas las clasificaciones');
+    opciones($('mcCategoria'), unicos('ca'), 'Todas las categorías');
+    opciones($('mcPlazo'), unicos('pz').sort((a, b) => Number(a) - Number(b) || a.localeCompare(b)), 'Todos los plazos');
+    maestra.etiqueta = $('mcEtiqueta').value; maestra.ciudad = $('mcCiudad').value;
+    maestra.cl = $('mcClasif').value; maestra.ca = $('mcCategoria').value; maestra.pz = $('mcPlazo').value; maestra.f = $('mcFacturar').value;
+    const q = normalizar(maestra.busca);
+    const lista = base.filter(c => (!q || normalizar(c.n).includes(q)) && (!maestra.etiqueta || c.e === maestra.etiqueta) && (!maestra.ciudad || c.c === maestra.ciudad)
+        && (!maestra.cl || c.cl === maestra.cl) && (!maestra.ca || c.ca === maestra.ca) && (!maestra.pz || c.pz === maestra.pz)
+        && (!maestra.f || (maestra.f === 'si') === !!c.f));
+    // Última visita efectiva de cada cliente
+    const ultima = {};
+    visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado')
+        .forEach(x => { const k = normalizar(x.contacto); if (!ultima[k] || x.fecha > ultima[k]) ultima[k] = x.fecha; });
+    $('mcResumen').textContent = `${lista.length} ${lista.length === 1 ? 'cliente' : 'clientes'}${lista.length !== base.length ? ` de ${base.length}` : ''} · toca un cliente para ver su historial`;
+    const fila = c => {
+        const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
+        return `<button class="mc-fila" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
+            <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
+                <span class="mc-datos">${c.cl ? `<span>Clasificación <b>${esc(c.cl)}</b></span>` : ''}${c.ca ? `<span>${esc(c.ca)}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(/^\d+$/.test(c.pz) ? (c.pz === '0' ? 'contado' : c.pz + ' días') : c.pz)}</b></span>` : ''}<span class="${c.f ? 'fact' : ''}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
+            <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
+        </button>`;
+    };
+    // Jefes: agrupado por zona con el nombre del vendedor
+    $('mcLista').innerHTML = !lista.length ? '<div class="no-results">No hay clientes con estos filtros.</div>'
+        : sel.map(z => {
+            const deZona = lista.filter(c => c.z === z);
+            if (!deZona.length) return '';
+            const v = vendedorDeZona(z);
+            return (esJefe() ? `<p class="grupo-titulo">${esc(z)} · ${esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
+        }).join('');
 }
 
 // ---------- VISIPLAN (plan de visitas del mes) ----------
