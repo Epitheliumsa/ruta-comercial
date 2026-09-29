@@ -70,9 +70,13 @@ const subcategoriasDe = (tipo, nuevo, objetivo, mes) => esVariable(objetivo)
     ? listasDelMes(mes)[objetivo] || []
     : ((MATRIZ.subcategorias || {})[claveTipo(tipo, nuevo)] || {})[objetivo] || [];
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
-const objetivosCierre = v => {
-    const base = objetivosDeTipo(v.tipoVisita, v.esProyecto);
-    return [...base, ...(v.objetivos || []).filter(o => !base.includes(o))];
+// En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
+// antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
+const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Mapa del Cliente': 'Mapa del Cliente - Ampliación Portafolio' };
+const objetivosCierre = v => objetivosDeTipo(v.tipoVisita, v.esProyecto);
+const programadosVigentes = v => {
+    const base = objetivosCierre(v);
+    return (v.objetivos || []).map(o => NOMBRES_VIEJOS[o] || o).filter(o => base.includes(o));
 };
 const cumplidosProgramados = v => (v.objetivosCumplidos || []).filter(o => (v.objetivos || []).includes(o));
 // Trabajo interno: se programa igual que una visita (con objetivos), pero sin contacto
@@ -1600,7 +1604,7 @@ function leerCierre() {
     return { objetivosCumplidos: objs, subCumplidos: subs };
 }
 const cajaCierre = v => objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita lo programado; marca lo que lograste)</small></label>
-            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: v.tipoVisita, nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: v.objetivos || [], subsProg: v.subobjetivos || {} })}</div>` : '';
+            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: v.tipoVisita, nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: v.subobjetivos || {} })}</div>` : '';
 // Texto de subcategorías junto a un objetivo (✓ en las cumplidas)
 function textoSubs(v, o) {
     const prog = (v.subobjetivos || {})[o] || [], cumpl = (v.subCumplidos || {})[o] || [];
