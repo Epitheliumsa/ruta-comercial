@@ -485,5 +485,57 @@ window.MATRIZ_OBJETIVOS = {
   "Actividades",
   "Parrilla Promocional"
  ],
- "mensual": {}
+ "mensual": {},
+ "tiposPorClasificacion": {
+  "10": [
+   "Visita Comercial"
+  ],
+  "11": [
+   "Visita Comercial"
+  ],
+  "12": [
+   "Punto de Venta"
+  ],
+  "13": [
+   "Visita Comercial"
+  ],
+  "14": [
+   "Visita Comercial"
+  ],
+  "20": [
+   "Visita Médica",
+   "Visita Comercial"
+  ],
+  "21": [
+   "Visita Médica",
+   "Visita Comercial"
+  ],
+  "22": [
+   "Visita Médica"
+  ],
+  "31": [
+   "Visita Comercial"
+  ],
+  "50": [
+   "Visita Comercial"
+  ],
+  "53": [
+   "Visita Comercial"
+  ],
+  "60": [
+   "Visita Comercial"
+  ],
+  "61": [
+   "Visita Comercial"
+  ],
+  "70": [
+   "Visita Comercial"
+  ],
+  "71": [
+   "Visita Comercial"
+  ],
+  "90": [
+   "Visita Comercial"
+  ]
+ }
 };

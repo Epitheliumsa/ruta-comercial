@@ -59,6 +59,16 @@ const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, va
 const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Comercial', 'Punto de Venta'].map(t => [t, MATRIZ.objetivos[t] || []]));
 const claveTipo = (tipo, nuevo) => (nuevo && TIPOS_VISITA[tipo] ? 'nuevo:' : '') + tipo;
 const objetivosDeTipo = (tipo, nuevo) => MATRIZ.objetivos[claveTipo(tipo, nuevo)] || [];
+// Una visita puede ser de varios tipos a la vez (Visita Médica y Visita Comercial, según la clasificación del cliente)
+const listaTipos = t => (Array.isArray(t) ? t : [t]).filter(Boolean);
+const tiposDe = v => v.tiposVisita?.length ? v.tiposVisita : listaTipos(v.tipoVisita);
+const nombreTipo = v => tiposDe(v).join(' + ');
+const objetivosDeTipos = (tipos, nuevo) => [...new Set(listaTipos(tipos).flatMap(t => objetivosDeTipo(t, nuevo)))];
+// Tipos de visita en que sale un cliente según su clasificación (datos/Matriz_tipo_visita_clasificacion.xlsx).
+// Sin clasificación o sin marcar en la matriz: sale en todos.
+const tiposDeCliente = c => (MATRIZ.tiposPorClasificacion || {})[c?.cl] || Object.keys(TIPOS_VISITA);
+const AMBOS_TIPOS = ['Visita Médica', 'Visita Comercial'];
+const permiteAmbos = c => !!c && AMBOS_TIPOS.every(t => tiposDeCliente(c).includes(t));
 // Subcategorías variables (Parrilla Promocional, Actividades): las del mes que cargue un jefe en la app o, si no, las del archivo
 const esVariable = o => (MATRIZ.variables || []).includes(o);
 const idMensual = mes => `mensual-${mes}`;
@@ -68,12 +78,12 @@ const listasDelMes = mes => {
 };
 const subcategoriasDe = (tipo, nuevo, objetivo, mes) => esVariable(objetivo)
     ? listasDelMes(mes)[objetivo] || []
-    : ((MATRIZ.subcategorias || {})[claveTipo(tipo, nuevo)] || {})[objetivo] || [];
+    : [...new Set(listaTipos(tipo).flatMap(t => ((MATRIZ.subcategorias || {})[claveTipo(t, nuevo)] || {})[objetivo] || []))];
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
 // antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
 const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Mapa del Cliente': 'Mapa del Cliente - Ampliación Portafolio' };
-const objetivosCierre = v => objetivosDeTipo(v.tipoVisita, v.esProyecto);
+const objetivosCierre = v => objetivosDeTipos(tiposDe(v), v.esProyecto);
 const programadosVigentes = v => {
     const base = objetivosCierre(v);
     return (v.objetivos || []).map(o => NOMBRES_VIEJOS[o] || o).filter(o => base.includes(o));
@@ -141,6 +151,8 @@ const nombreVendedor = id => comercial(id)?.nombre || id;
 const limiteProgramacion = fecha => Date.parse(`${fecha}T${HORA_LIMITE}:00-05:00`);
 const esProgramada = v => v.programada !== false;
 const modalidadDe = v => MODALIDADES[v.modalidad] || MODALIDADES.presencial;
+// Tipo con el que se abre un cliente: el de su clasificación; si tiene varios, el que sugiere su etiqueta
+const tipoDeCliente = c => { const ts = tiposDeCliente(c), t = tipoSugerido(c?.e || ''); return ts.includes(t) ? t : ts[0]; };
 function tipoSugerido(etiqueta) {
     const e = normalizar(etiqueta);
     if (!e) return '';
@@ -611,7 +623,7 @@ const solicitudesCreacion = () => proyectos().filter(p => p.estado === 'solicitu
 const JEFE_COMERCIAL = USUARIOS.find(u => u.jefe);
 const visitasDeProyecto = id => visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id);
 
-const opcionesMaestra = zona => (contactos[zona] || [])
+const opcionesMaestra = (zona, tipo) => (contactos[zona] || []).filter(c => !TIPOS_VISITA[tipo] || tiposDeCliente(c).includes(tipo))
     .map(c => `<option value="${esc(c.n)}" label="${esc([c.e, c.c].filter(Boolean).join(' · '))}">`).join('');
 const opcionesProyecto = zona => proyectosDeZona(zona)
     .map(p => `<option value="${esc(p.nombre)}" label="${esc([ESTADO_PROYECTO[p.estado], p.tipo, p.ciudad].filter(Boolean).join(' · '))}">`).join('');
@@ -632,7 +644,7 @@ function cambiarTipoNuevo() {
 function elegirOrigen(origen) {
     $('lblContacto').textContent = origen === 'nuevo' ? 'Contacto nuevo' : 'Contacto (Maestra de Contactos)';
     const zona = comercial(agenda.vendedor)?.zona;
-    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : opcionesMaestra(zona);
+    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : opcionesMaestra(zona, tipoBase());
     $('fContacto').placeholder = origen === 'nuevo' ? 'Nombre del contacto nuevo o búscalo si ya lo visitaste' : 'Busca el médico, cliente o punto de venta';
     revisarProyecto();
 }
@@ -1663,7 +1675,7 @@ function tarjetaVisita(v, ord = null, mover = null) {
     const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
     const marcaObj = o => !cumplidos ? '' : cumplidos.includes(o) ? ' class="cumplido"' : ' class="no-cumplido"';
     let objetivos = v.tipoVisita
-        ? `<p class="objetivos"><b>${esc(v.tipoVisita)}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}${textoSubs(v, o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}${textoSubs(v, o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidosProgramados(v).length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
+        ? `<p class="objetivos"><b>${esc(nombreTipo(v))}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}${textoSubs(v, o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}${textoSubs(v, o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidosProgramados(v).length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
         : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${noProgTxt}`;
@@ -1822,6 +1834,11 @@ async function abrirProgramar(id, contactoPlan) {
                 <input id="pTel" type="tel" inputmode="tel">
             </div>
         </div>
+        <div id="cajaAmbos" class="caja-ambos" hidden>
+            <label>Esta visita es de <small>(marca una o ambas)</small></label>
+            <div class="ambos-opciones">${AMBOS_TIPOS.map(t => `<label class="check"><input type="checkbox" class="ambos" value="${t}" onchange="cambiarAmbos(this)"><span>${t}</span></label>`).join('')}</div>
+            <p class="ayuda" id="ayudaAmbos"></p>
+        </div>
         <p class="aviso-festivo en-form" id="fFestivo" hidden></p>
         <div class="fila-fecha">
             <div><label for="fFecha" id="lblFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
@@ -1853,6 +1870,7 @@ async function abrirProgramar(id, contactoPlan) {
             <button class="btn-primario">${v ? 'Guardar cambios' : 'Programar'}</button>
         </div>
     </form>`);
+    tiposForm = v?.tiposVisita?.length ? v.tiposVisita.slice() : null;
     cambiarTipoProgramacion(v?.objetivos || [], v?.subobjetivos || {});
     if (v && v.clase === 'visita') avisoProgramacion(v);
     if (contactoPlan) {
@@ -1860,7 +1878,8 @@ async function abrirProgramar(id, contactoPlan) {
         $('fContacto').value = contactoPlan;
         const zona = comercial(agenda.vendedor)?.zona;
         const p = buscarProyecto(zona, contactoPlan);
-        const t = esTrabajoInterno(contactoPlan) ? contactoPlan : tipoSugerido(buscarMaestra(zona, contactoPlan)?.e || p?.tipo || '');
+        const m = buscarMaestra(zona, contactoPlan);
+        const t = esTrabajoInterno(contactoPlan) ? contactoPlan : m ? tipoDeCliente(m) : tipoSugerido(p?.tipo || '');
         $('fTipo').value = p ? 'nuevo' : t;
         if (p) $('fTipoNuevo').value = t;
         cambiarTipoProgramacion();
@@ -1871,6 +1890,7 @@ async function abrirProgramar(id, contactoPlan) {
     }
     $('fContacto').addEventListener('change', sugerirTipo);
     $('fContacto').addEventListener('input', revisarProyecto);
+    $('fContacto').addEventListener('change', () => pintarAmbos());
     $('fFecha').addEventListener('change', () => { avisoProgramacion(v && v.clase === 'visita' ? v : null); pintarObjetivos(); });
 }
 
@@ -1895,9 +1915,38 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : interno ? '¿Qué vas a hacer? (opcional)' : 'Notas (opcional)';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
+    pintarAmbos(true);
     pintarObjetivos(marcados, subsMarcados);
     avisoProgramacion(null);
 }
+
+// Clientes cuya clasificación sale en Visita Médica y en Visita Comercial (p. ej. 20 y 21): el vendedor marca
+// si la visita es médica, comercial o ambas. Los objetivos salen de los tipos marcados.
+let tiposForm = null;
+function clienteDelForm() {
+    if (origenElegido() === 'nuevo' || esTrabajoInterno(tipoBase()) || esNovedad(tipoBase())) return null;
+    return buscarMaestra(comercial(agenda.vendedor)?.zona, $('fContacto').value);
+}
+function pintarAmbos(sinObjetivos) {
+    const c = clienteDelForm(), tipo = tipoBase();
+    const ver = permiteAmbos(c) && AMBOS_TIPOS.includes(tipo);
+    $('cajaAmbos').hidden = !ver;
+    if (!ver) { tiposForm = null; if (!sinObjetivos) pintarObjetivos(); return; }
+    if (!tiposForm || !tiposForm.length) tiposForm = [tipo];
+    if (!tiposForm.includes(tipo)) tiposForm = [tipo];
+    document.querySelectorAll('#cajaAmbos input.ambos').forEach(i => { i.checked = tiposForm.includes(i.value); });
+    $('ayudaAmbos').textContent = `${c.n} tiene clasificación ${c.cl}: puede ser visita médica, comercial o ambas en la misma visita.`;
+    if (!sinObjetivos) pintarObjetivos();
+}
+function cambiarAmbos(casilla) {
+    const marcados = [...document.querySelectorAll('#cajaAmbos input.ambos:checked')].map(i => i.value);
+    if (!marcados.length) { casilla.checked = true; return toast('Marca al menos un tipo de visita'); }
+    tiposForm = AMBOS_TIPOS.filter(t => marcados.includes(t));
+    // El tipo del menú sigue al primero marcado
+    if (!tiposForm.includes($('fTipo').value)) { $('fTipo').value = tiposForm[0]; elegirOrigen(origenElegido()); }
+    pintarObjetivos();
+}
+const tiposElegidos = () => !$('cajaAmbos').hidden && tiposForm?.length ? tiposForm : listaTipos(tipoBase());
 
 function botonesModalidad(actual = 'presencial') {
     return `<div class="modalidad" role="group" aria-label="Modalidad">${Object.entries(MODALIDADES).map(([k, t]) =>
@@ -1914,17 +1963,27 @@ const modalidadElegida = () => document.querySelector('.modalidad .on')?.dataset
 
 // Muestra los objetivos del tipo de visita elegido, conservando los que ya estén marcados
 function pintarObjetivos(marcados, subsMarcados) {
-    const tipo = tipoBase(), nuevo = origenElegido() === 'nuevo', cont = $('fObjetivos');
+    const tipo = tiposElegidos(), nuevo = origenElegido() === 'nuevo', cont = $('fObjetivos');
     const actuales = marcados || leerObjetivos(cont);
     const subs = subsMarcados || leerSubs(cont);
-    const lista = objetivosDeTipo(tipo, nuevo);
+    const lista = objetivosDeTipos(tipo, nuevo);
     $('cajaObjetivos').hidden = !lista.length;
     cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs });
 }
 
 // Objetivos con sus subcategorías. Al marcar un objetivo se abren sus subcategorías.
 // En el cierre (con "programados") lo programado va en negrita y lo demás en gris claro.
-function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {} }) {
+function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {}, _uno = false }) {
+    // Visita de varios tipos: los objetivos van por grupo; los que se repiten salen una sola vez, en el primer grupo
+    const tipos = listaTipos(tipo);
+    if (tipos.length > 1 && !_uno) {
+        const vistos = new Set();
+        return tipos.map(t => {
+            const deTipo = lista.filter(o => objetivosDeTipo(t, nuevo).includes(o) && !vistos.has(o));
+            deTipo.forEach(o => vistos.add(o));
+            return deTipo.length ? `<p class="obj-grupo">${esc(t)}</p>` + htmlObjetivos(deTipo, { tipo, nuevo, mes, marcados, subs, programados, subsProg, _uno: true }) : '';
+        }).join('');
+    }
     return lista.map(o => {
         const sc = subcategoriasDe(tipo, nuevo, o, mes);
         const prog = programados && programados.includes(o);
@@ -1961,7 +2020,7 @@ function leerCierre() {
     return { objetivosCumplidos: objs, subCumplidos: subs };
 }
 const cajaCierre = v => objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita lo programado; marca lo que lograste)</small></label>
-            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: v.tipoVisita, nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: v.subobjetivos || {} })}</div>` : '';
+            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: v.subobjetivos || {} })}</div>` : '';
 // Texto de subcategorías junto a un objetivo (✓ en las cumplidas)
 function textoSubs(v, o) {
     const prog = (v.subobjetivos || {})[o] || [], cumpl = (v.subCumplidos || {})[o] || [];
@@ -1976,7 +2035,7 @@ function sugerirTipo() {
     const nombre = $('fContacto').value;
     const c = buscarMaestra(zona, nombre);
     const p = !c && buscarProyecto(zona, nombre);
-    const tipo = tipoSugerido(c ? c.e : p ? p.tipo : '');
+    const tipo = c ? tipoDeCliente(c) : tipoSugerido(p ? p.tipo : '');
     if (!tipo) return;
     if (p) { $('fTipo').value = 'nuevo'; $('fTipoNuevo').value = tipo; } else $('fTipo').value = tipo;
     cambiarTipoProgramacion();
@@ -2034,6 +2093,12 @@ async function guardarProgramada(e, id) {
         toast('Ese contacto ya está en la Maestra de Contactos: elige la visita en el grupo "Visitas".');
         return;
     }
+    // La clasificación del cliente dice en qué tipos de visita sale
+    if (!interno && !nuevo && !tiposDeCliente(c).includes(tipo)) {
+        toast(`${c.n} (clasificación ${c.cl}) es de ${tiposDeCliente(c).join(' o ')}. Cambia el tipo de visita.`);
+        return;
+    }
+    const tipos = interno || nuevo ? [tipo] : tiposElegidos();
     if (nuevo && !proyecto && $('pTipo').value !== 'Médico' && !$('pPersona').value.trim()) {
         $('pPersona').focus();
         toast('Escribe el nombre de contacto del cliente o punto de venta');
@@ -2062,7 +2127,7 @@ async function guardarProgramada(e, id) {
         contacto: interno ? tipo : (c.n || nombre), tipoContacto: c.e || '', ciudad: c.c || '',
         esProyecto: !!proyecto, contactoProyecto: proyecto ? proyecto.id : '',
         fecha, hora: $('fHora').value, objetivo: $('fObjetivo').value.trim(),
-        modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipo, objetivos, subobjetivos,
+        modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipos[0], tiposVisita: tipos.length > 1 ? tipos : [], objetivos, subobjetivos,
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
         programada: antes && antes.fecha === fecha ? esProgramada(antes) : Date.now() < limiteProgramacion(fecha)
     });
@@ -2247,7 +2312,7 @@ function agendarProxima(antes) {
         contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
         esProyecto: !!antes.esProyecto, contactoProyecto: antes.contactoProyecto || '',
         fecha, hora: '', objetivo: antes.compromisos || '', vieneDe: antes.fecha,
-        modalidad: antes.modalidad, tipoVisita: antes.tipoVisita, objetivos: antes.objetivos || [], interno: false,
+        modalidad: antes.modalidad, tipoVisita: antes.tipoVisita, tiposVisita: antes.tiposVisita, objetivos: antes.objetivos || [], interno: false,
         programada: Date.now() < limiteProgramacion(fecha),
         creado: new Date().toISOString(), creadoPor: sesion.id
     };
@@ -2281,7 +2346,7 @@ function verCliente(nombre, vendedor) {
         ] : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
-            <p class="meta">${esc([x.tipoVisita, modalidadDe(x), nombreVendedor(x.vendedor)].filter(Boolean).join(' · '))}</p>
+            <p class="meta">${esc([nombreTipo(x), modalidadDe(x), nombreVendedor(x.vendedor)].filter(Boolean).join(' · '))}</p>
             ${partes.filter(Boolean).length ? `<div class="reporte">${partes.filter(Boolean).join('<br>')}</div>` : ''}
         </div>`;
     }).join('');
@@ -2329,7 +2394,7 @@ function guardarNoVisitado(e, id) {
             id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente',
             contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
             fecha: repro, hora: '', objetivo: antes.objetivo, vieneDe: antes.fecha, origen: 'reprogramada',
-            modalidad: antes.modalidad, tipoVisita: antes.tipoVisita, objetivos: antes.objetivos, interno: !!antes.interno,
+            modalidad: antes.modalidad, tipoVisita: antes.tipoVisita, tiposVisita: antes.tiposVisita, objetivos: antes.objetivos, interno: !!antes.interno,
             programada: Date.now() < limiteProgramacion(repro),
             creado: new Date().toISOString(), creadoPor: sesion.id
         });
@@ -2524,7 +2589,7 @@ function filtrarPanel() {
 }
 
 const pasaFiltro = v => (!filtroPanel.vendedor || v.vendedor === filtroPanel.vendedor)
-    && (!filtroPanel.tipo || (filtroPanel.tipo === '__interno' ? v.interno : v.tipoVisita === filtroPanel.tipo));
+    && (!filtroPanel.tipo || (filtroPanel.tipo === '__interno' ? v.interno : tiposDe(v).includes(filtroPanel.tipo)));
 
 function pintarPanel() {
     iniciarFiltrosPanel();
@@ -2589,7 +2654,7 @@ function pintarPanel() {
         const cumpl = v.estado === 'visitado' && v.objetivos?.length ? ` · ${cumplidosProgramados(v).length}/${v.objetivos.length} objetivos` : '';
         return `<button class="fila-det" onclick="verDetalleVisita('${v.id}')">
             <span class="fd-fecha">${esc(fechaCorta(v.fecha))}${v.hora ? `<small>${esc(horaBonita(v.hora))}</small>` : ''}</span>
-            <span class="fd-cuerpo"><b>${esc(v.contacto)}</b><small>${esc(nombreVendedor(v.vendedor))} · ${esc(v.interno ? 'Trabajo interno' : v.tipoVisita || '')}${cumpl}${esProgramada(v) ? '' : ' · No programada'}${v.esProyecto ? ' · Proyecto' : ''}</small></span>
+            <span class="fd-cuerpo"><b>${esc(v.contacto)}</b><small>${esc(nombreVendedor(v.vendedor))} · ${esc(v.interno ? 'Trabajo interno' : nombreTipo(v))}${cumpl}${esProgramada(v) ? '' : ' · No programada'}${v.esProyecto ? ' · Proyecto' : ''}</small></span>
             ${est}
         </button>`;
     }).join('') : '<p class="no-results" style="padding:10px">No hay visitas con estos filtros.</p>';
@@ -2673,7 +2738,7 @@ function barrasHorizontales(contenedor, filas, anchoEtiqueta = 150) {
 
 function pintarGraficaTipos(vis) {
     const filas = [...Object.keys(TIPOS_VISITA), 'Trabajo interno'].map(t => {
-        const lista = vis.filter(v => t === 'Trabajo interno' ? v.interno : v.tipoVisita === t);
+        const lista = vis.filter(v => t === 'Trabajo interno' ? v.interno : tiposDe(v).includes(t));
         const ok = lista.filter(v => v.estado === 'visitado').length;
         return { nombre: t, total: lista.length, tip: `${t}: ${lista.length} programadas · ${ok} ${t === 'Trabajo interno' ? 'realizadas' : 'visitadas'}` };
     }).filter(f => f.total > 0);
@@ -2719,7 +2784,7 @@ function verDetalleVisita(id) {
             ${v.interno ? '<span class="chip gris">Trabajo interno</span>' : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>`}
             ${esProgramada(v) ? '' : '<span class="chip np">No programada</span>'}${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}</div>
         ${fila('Contacto', [v.tipoContacto, v.ciudad].filter(Boolean).join(' · '))}
-        ${v.tipoVisita && v.objetivos?.length ? `<strong>${esc(v.tipoVisita)} · objetivos</strong><p class="objetivos">${(v.objetivos || []).map(o => `<span class="${v.estado === 'visitado' ? (cumplidos.includes(o) ? 'cumplido' : 'no-cumplido') : ''}">${v.estado === 'visitado' && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}</p>` : ''}
+        ${v.tipoVisita && v.objetivos?.length ? `<strong>${esc(nombreTipo(v))} · objetivos</strong><p class="objetivos">${(v.objetivos || []).map(o => `<span class="${v.estado === 'visitado' ? (cumplidos.includes(o) ? 'cumplido' : 'no-cumplido') : ''}">${v.estado === 'visitado' && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}</p>` : ''}
         ${fila('Notas de la programación', v.objetivo)}
         ${fila('Qué se hizo', v.gestion)}${fila('Atendió', v.atendio)}${fila('Productos presentados', v.productos)}${fila('Muestras', v.muestras)}
         ${v.pedido === 'si' ? fila('Pedido', 'Sí' + (v.valorPedido ? ' · ' + pesos(v.valorPedido) : '')) : ''}
@@ -2871,7 +2936,7 @@ function armarLibro(mes, vend, solo) {
     const horaCol = t => t ? new Date(Date.parse(t) - 5 * 3600000) : null;
     tabla(h, 'TablaVisitas', colsV, vis.map(v => [
         fecha(v.fecha), v.hora || '', nombreVendedor(v.vendedor), v.interno ? '' : v.contacto, v.tipoContacto || '', v.ciudad || '',
-        esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), v.tipoVisita || '', (v.objetivos || []).join(', '), textoSubsExcel(v.subobjetivos),
+        esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), nombreTipo(v), (v.objetivos || []).join(', '), textoSubsExcel(v.subobjetivos),
         v.estado === 'visitado' ? (v.objetivosCumplidos || []).join(', ') : '', v.estado === 'visitado' ? textoSubsExcel(v.subCumplidos) : '',
         v.estado === 'visitado' && v.objetivos?.length ? cumplidosProgramados(v).length / v.objetivos.length : null,
         v.esProyecto ? 'Sí' : v.eraProyecto ? 'Vinculado' : '', v.objetivo || '',

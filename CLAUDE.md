@@ -28,6 +28,9 @@
 - Salen de un solo archivo: `datos/Matriz_objetivos_subcategorias.xlsx` → `python3 herramientas/matriz_objetivos.py` genera `objetivos.js`.
 - Para actualizarlos usa la skill `matriz-objetivos` (`.claude/skills/matriz-objetivos/SKILL.md`). No se editan a mano en `app.js`.
 - La Parrilla Promocional y las Actividades cambian cada mes: hoja "Mensual" del Excel o botón de jefes en la app.
+- En qué tipo de visita sale cada cliente depende de su clasificación: `datos/Matriz_tipo_visita_clasificacion.xlsx`
+  (X por tipo). El mismo generador lo pasa a `objetivos.js`. Si una clasificación tiene X en Visita Médica y Visita
+  Comercial (hoy la 20 y la 21), al programar el vendedor marca una, otra o ambas en la misma visita.
 
 ## Maestra de Contactos
 - Cada vez que llegue una Maestra de Contactos usa la skill `maestra-contactos` (`herramientas/maestra_contactos.py`).
