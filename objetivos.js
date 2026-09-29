@@ -121,21 +121,21 @@ window.MATRIZ_OBJETIVOS = {
     "Solicitud de codificación"
    ],
    "Colocación": [
-    "Magistral de pedido",
+    "Producto terminado",
     "Magistral individual",
-    "Producto nuevo",
-    "Producto terminado"
+    "Magistral de pedido",
+    "Producto nuevo"
    ],
    "Desarrollo Productos": [
-    "Ajuste de fórmula",
     "Fórmula magistral nueva",
+    "Ajuste de fórmula",
     "Muestra de desarrollo"
    ],
    "Devoluciones - PQR": [
     "Devolución",
     "Queja",
-    "Reacondicionamiento",
     "Reclamo",
+    "Reacondicionamiento",
     "Sugerencia"
    ],
    "Entrega de Muestras": [
@@ -143,10 +143,10 @@ window.MATRIZ_OBJETIVOS = {
     "Muestra médica"
    ],
    "Mapa del Cliente - Ampliación Portafolio": [
-    "Portafolio actual",
-    "Productos foco",
     "Productos nuevos",
-    "Productos transición"
+    "Productos foco",
+    "Productos transición",
+    "Portafolio actual"
    ],
    "Precios": [
     "Lista de precios",
@@ -154,10 +154,10 @@ window.MATRIZ_OBJETIVOS = {
     "Precios de la competencia"
    ],
    "Productos Nuevos": [
-    "Codificación",
+    "Presentación del producto",
     "Entrega de muestra",
     "Material de apoyo",
-    "Presentación del producto"
+    "Codificación"
    ],
    "Protocolo Médico": [
     "Inscripción del médico",
@@ -185,21 +185,21 @@ window.MATRIZ_OBJETIVOS = {
     "Solicitud de codificación"
    ],
    "Colocación": [
-    "Magistral de pedido",
+    "Producto terminado",
     "Magistral individual",
-    "Producto nuevo",
-    "Producto terminado"
+    "Magistral de pedido",
+    "Producto nuevo"
    ],
    "Desarrollo Productos": [
-    "Ajuste de fórmula",
     "Fórmula magistral nueva",
+    "Ajuste de fórmula",
     "Muestra de desarrollo"
    ],
    "Devoluciones - PQR": [
     "Devolución",
     "Queja",
-    "Reacondicionamiento",
     "Reclamo",
+    "Reacondicionamiento",
     "Sugerencia"
    ],
    "Entrega de Muestras": [
@@ -208,10 +208,10 @@ window.MATRIZ_OBJETIVOS = {
     "Tester"
    ],
    "Mapa del Cliente - Ampliación Portafolio": [
-    "Portafolio actual",
-    "Productos foco",
     "Productos nuevos",
-    "Productos transición"
+    "Productos foco",
+    "Productos transición",
+    "Portafolio actual"
    ],
    "Precios": [
     "Lista de precios",
@@ -219,10 +219,10 @@ window.MATRIZ_OBJETIVOS = {
     "Precios de la competencia"
    ],
    "Productos Nuevos": [
-    "Codificación",
+    "Presentación del producto",
     "Entrega de muestra",
     "Material de apoyo",
-    "Presentación del producto"
+    "Codificación"
    ]
   },
   "Punto de Venta": {
@@ -240,8 +240,8 @@ window.MATRIZ_OBJETIVOS = {
    "Devoluciones - PQR": [
     "Devolución",
     "Queja",
-    "Reacondicionamiento",
     "Reclamo",
+    "Reacondicionamiento",
     "Sugerencia"
    ],
    "Entrega de Muestras": [
@@ -260,22 +260,22 @@ window.MATRIZ_OBJETIVOS = {
     "Precios de la competencia"
    ],
    "Productos Nuevos": [
-    "Codificación",
+    "Presentación del producto",
     "Entrega de muestra",
     "Material de apoyo",
-    "Presentación del producto"
+    "Codificación"
    ]
   },
   "nuevo:Visita Médica": {
    "Colocación": [
-    "Magistral de pedido",
+    "Producto terminado",
     "Magistral individual",
-    "Producto nuevo",
-    "Producto terminado"
+    "Magistral de pedido",
+    "Producto nuevo"
    ],
    "Desarrollo Productos": [
-    "Ajuste de fórmula",
     "Fórmula magistral nueva",
+    "Ajuste de fórmula",
     "Muestra de desarrollo"
    ],
    "Entrega de Muestras": [
@@ -291,14 +291,14 @@ window.MATRIZ_OBJETIVOS = {
   },
   "nuevo:Visita Comercial": {
    "Colocación": [
-    "Magistral de pedido",
+    "Producto terminado",
     "Magistral individual",
-    "Producto nuevo",
-    "Producto terminado"
+    "Magistral de pedido",
+    "Producto nuevo"
    ],
    "Desarrollo Productos": [
-    "Ajuste de fórmula",
     "Fórmula magistral nueva",
+    "Ajuste de fórmula",
     "Muestra de desarrollo"
    ],
    "Entrega de Muestras": [
@@ -311,8 +311,8 @@ window.MATRIZ_OBJETIVOS = {
   },
   "Visita Médica": {
    "Desarrollo Productos": [
-    "Ajuste de fórmula",
     "Fórmula magistral nueva",
+    "Ajuste de fórmula",
     "Muestra de desarrollo"
    ],
    "Devoluciones - PQR": [
@@ -325,10 +325,10 @@ window.MATRIZ_OBJETIVOS = {
     "Muestra médica"
    ],
    "Productos Nuevos": [
-    "Codificación",
+    "Presentación del producto",
     "Entrega de muestra",
     "Material de apoyo",
-    "Presentación del producto"
+    "Codificación"
    ],
    "Protocolo Médico": [
     "Inscripción del médico",
