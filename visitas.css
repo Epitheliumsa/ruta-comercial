@@ -1153,3 +1153,9 @@ a.home-btn { text-decoration: none; }
 .vp-tabla .vp-dia.ir:hover { background: #cfe8e4; color: #064e48; }
 #visiplanScreen .filters { position: relative; z-index: 20; }
 .cuenta-nota { text-align: right; margin: 2px 0 0; font-size: 11px; color: #7a8a84; }
+/* Visiplan: calendario para ir a un día */
+.vp-cal { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 38px; border-radius: 999px; cursor: pointer; color: #0b5c56; }
+.vp-cal:hover { background: #e3f1ef; }
+.vp-cal svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.vp-cal input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.vp-cal input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
