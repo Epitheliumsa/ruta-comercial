@@ -946,8 +946,10 @@ a.home-btn { text-decoration: none; }
 .vp-filtros { grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; }
 .vp-barra { display: block; }
 .vp-tabla thead .vp-n { font-size: 10.5px; line-height: 1.15; }
-.vp-pie { font-size: 10px !important; font-weight: 600 !important; color: #334155 !important; white-space: nowrap; }
+.vp-tabla tfoot .vp-pie { font-size: 10.5px; font-weight: 600; color: #334155; white-space: nowrap; text-align: center; padding: 0 6px; }
 .vp-pie b { color: #0b5c56; }
+.vp-pie .p b { color: #1d4ed8; }
+.vp-pie .v b { color: #15803d; }
 .vp-chip-cli { background: white; color: #334155; border-color: #dbe4e2; font-weight: 600; }
 .vp-chip-cli b { font-weight: 800; }
 @media (min-width: 900px) {
@@ -959,4 +961,42 @@ a.home-btn { text-decoration: none; }
     .vp-filtros { grid-template-columns: 1fr 1fr; }
     .vp-filtros #vpBusca { grid-column: 1 / -1; }
 }
-.vp-tabla { min-width: 100%; }
+.vp-tabla.estirar { min-width: 100%; }
+
+/* Periodo: Hoy · Semana · Mes */
+.vp-periodo { display: inline-flex; align-self: center; background: #eef3f2; border-radius: 999px; padding: 3px; gap: 2px; }
+.vp-periodo button { border: none; background: transparent; padding: 5px 16px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 700; color: #4c615b; cursor: pointer; }
+.vp-periodo button.activo { background: #0f766e; color: white; }
+/* Tarjetas de clientes / planeados / visitados: solo en celular */
+.vp-kpis { display: none; }
+@media (max-width: 700px) {
+    .vp-banner .vp-conv, .vp-ayuda, #vpMesSub { display: none; }
+    .vp-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 4px; }
+    .vp-kpis div { background: white; border-radius: 12px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 8px rgba(0, 60, 40, .08); border-top: 3px solid #94a3b8; }
+    .vp-kpis div.p { border-top-color: #1d4ed8; }
+    .vp-kpis div.v { border-top-color: #15803d; }
+    .vp-kpis b { display: block; font-size: 24px; line-height: 1.1; color: #1f2937; }
+    .vp-kpis div.p b { color: #1d4ed8; }
+    .vp-kpis div.v b { color: #15803d; }
+    .vp-kpis span { font-size: 11px; color: #64748b; font-weight: 600; }
+    .vp-tabla .vp-cli { font-size: 13px; }
+    .vp-x.h, .vp-r.h { width: 26px; min-width: 26px; height: 36px; }
+    .vp-periodo { align-self: stretch; justify-content: space-between; }
+    .vp-periodo button { flex: 1; }
+}
+
+/* Selección de vendedores para jefes (uno, varios o todo el equipo) */
+.vp-vends { display: flex; flex-wrap: wrap; gap: 6px; }
+.vp-vend-btn { border: 1px solid #cfe0dc; background: white; color: #334155; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.vp-vend-btn small { color: #7a8a84; font-weight: 500; }
+.vp-vend-btn.activo { background: #e3f1ef; border-color: #0f766e; color: #0b5c56; }
+.vp-vend-btn.todos.activo { background: #0f766e; color: white; }
+
+/* Trabajo interno en el Visiplan y días de Planeación Mes (toda la columna en azul) */
+.vp-int .vp-cli { color: #475569; font-weight: 600; font-style: italic; }
+.vp-int .vp-et { color: #475569; }
+.vp-int-fin td, .vp-int-fin th { border-bottom: 2px solid #cbd5e1 !important; }
+.vp-tabla td.dia-plan, .vp-tabla th.vp-dia.dia-plan { background: #dbeafe; }
+.vp-tabla .vp-x.on.dia-plan { background: #bfdbfe; }
+.vp-tabla .vp-r.on.dia-plan { background: #bbf7d0; }
+.vp-muestra.planeacion { background: #dbeafe; }

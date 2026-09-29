@@ -159,11 +159,16 @@
             </div>
             <div class="filters filtros-rc vp-banner">
                 <div class="vp-banner-izq">
-                    <select id="vpVendedor" onchange="cambiarVendedorPlan(this.value)" aria-label="Vendedor"></select>
+                    <div class="vp-vends" id="vpVendedores" role="group" aria-label="Vendedores"></div>
                     <div class="nav-fecha">
                         <button class="btn-nav" onclick="moverMesPlan(-1)" aria-label="Mes anterior">&lsaquo;</button>
                         <div class="nav-titulo"><strong id="vpMesTxt"></strong><small id="vpMesSub"></small></div>
                         <button class="btn-nav" onclick="moverMesPlan(1)" aria-label="Mes siguiente">&rsaquo;</button>
+                    </div>
+                    <div class="vp-periodo" id="vpPeriodo" role="group" aria-label="Periodo">
+                        <button data-p="hoy" onclick="periodoPlan('hoy')">Hoy</button>
+                        <button data-p="semana" onclick="periodoPlan('semana')">Semana</button>
+                        <button data-p="mes" class="activo" onclick="periodoPlan('mes')">Mes</button>
                     </div>
                     <div class="vp-filtros">
                         <input id="vpBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="visiplan.busca=this.value; pintarVisiplan()">
@@ -185,12 +190,14 @@
                         <span><i class="vp-muestra plan"></i> Programada (Obj)</span>
                         <span><i class="vp-muestra real"></i> Visita real · efectiva</span>
                         <span><i class="vp-muestra prox"></i> Reprogramada · pasa a verde al visitarla</span>
+                        <span><i class="vp-muestra planeacion"></i> Día de Planeación Mes</span>
                         <span><i class="vp-muestra fest"></i> Festivo</span>
                     </div>
                     <button class="btn-secundario vp-excel" onclick="descargarVisiplan(this)">⬇ Descargar Excel</button>
                 </div>
             </div>
             <div class="vp-barra">
+                <div class="vp-kpis" id="vpKpis"></div>
                 <div class="resumen-dia" id="vpResumen"></div>
                 <p class="ayuda vp-ayuda">Toca una casilla <b>P</b> para poner o quitar la X (se guarda sola). La <b>R</b> se marca sola al reportar la visita. Toca un cliente para ver su historial. Toca un indicador para filtrar.</p>
             </div>
