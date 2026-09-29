@@ -1088,8 +1088,9 @@ async function descargarVisiplan(boton) {
     try {
         await sincronizar(visiplan.mes);
         await cargarExcelJS();
+        pintarVisiplan();
         const sel = visiplan.vendedores, todos = sel.length === COMERCIALES.length;
-        const libro = armarLibro(visiplan.mes, todos ? '' : sel.length === 1 ? sel[0] : sel, 'visiplan');
+        const libro = libroVisiplanPantalla();
         const buffer = await libro.xlsx.writeBuffer();
         const quien = todos ? 'Equipo' : sel.length === 1 ? nombreVendedor(sel[0]).replace(/\s+/g, '_') : 'Varios';
         bajarArchivo(buffer, `Visiplan_${quien}_${visiplan.mes}.xlsx`);
@@ -1100,6 +1101,101 @@ async function descargarVisiplan(boton) {
     }
     boton.disabled = false;
     boton.textContent = txt;
+}
+
+// Excel "fiel copia" del Visiplan: se arma desde la tabla que se ve en pantalla (mismos filtros, periodo,
+// vendedores, colores, X, totales y convenciones), leyendo los colores reales de cada celda
+function libroVisiplanPantalla() {
+    const libro = new ExcelJS.Workbook();
+    libro.creator = 'Epithelium Visita';
+    const h = libro.addWorksheet('Visiplan', { views: [{ showGridLines: false }] });
+    const argb = css => {
+        const m = String(css).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+        if (!m || (m[4] !== undefined && Number(m[4]) === 0)) return null;
+        return 'FF' + [m[1], m[2], m[3]].map(n => Math.round(Number(n)).toString(16).padStart(2, '0')).join('').toUpperCase();
+    };
+    const estiloDe = (el, celda, extra = {}) => {
+        const cs = getComputedStyle(el);
+        const fondo = argb(cs.backgroundColor);
+        if (fondo && fondo !== 'FFFFFFFF') celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fondo } };
+        celda.font = { bold: Number(cs.fontWeight) >= 600, italic: cs.fontStyle === 'italic', color: { argb: argb(cs.color) || 'FF333333' }, size: extra.size || 10 };
+        const lado = w => parseFloat(w) >= 2 ? 'medium' : 'thin';
+        const borde = (w, c) => parseFloat(w) > 0 ? { style: lado(w), color: { argb: argb(c) || 'FFE6EEEC' } } : undefined;
+        celda.border = { right: borde(cs.borderRightWidth, cs.borderRightColor), bottom: borde(cs.borderBottomWidth, cs.borderBottomColor),
+            top: borde(cs.borderTopWidth, cs.borderTopColor), left: borde(cs.borderLeftWidth, cs.borderLeftColor) };
+        celda.alignment = { horizontal: cs.textAlign === 'left' || cs.textAlign === 'start' ? 'left' : 'center', vertical: 'middle', wrapText: true };
+    };
+    const texto = el => {
+        if (el.matches('.vp-x.on, .vp-r.on, .vp-r.prox')) return 'X';
+        const v = el.querySelector('.vp-vend');
+        if (v) return `${v.textContent.trim()} · ${el.textContent.replace(v.textContent, '').trim()}`;
+        const chico = el.querySelector('small');
+        if (chico) return `${el.firstChild.textContent.trim()} ${chico.textContent.trim()}`;
+        const t = el.textContent.replace(/\s+/g, ' ').trim();
+        if (/^\d+$/.test(t)) return Number(t);                        // números como números
+        if (/^\d+%$/.test(t)) return { pct: Number(t.slice(0, -1)) / 100 };   // porcentajes con formato %
+        return t;
+    };
+    // Encabezado: título, vendedores, periodo y filtros
+    const vend = COMERCIALES.filter(c => visiplan.vendedores.includes(c.id)).map(c => `${c.nombre} · ${c.zona}`).join(', ');
+    const periodo = { hoy: 'Hoy', semana: 'Esta semana', mes: 'Mes completo' }[visiplan.periodo];
+    const filtros = [visiplan.busca && `Búsqueda: ${visiplan.busca}`, visiplan.tipo, visiplan.etiqueta, visiplan.filtro && $('vpFiltro').selectedOptions[0]?.textContent]
+        .filter(Boolean).join(' · ');
+    h.getCell('A1').value = `Visiplan del mes · ${mayuscula(nombreMes(visiplan.mes))}`;
+    h.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0B5C56' } };
+    h.getCell('A2').value = vend;
+    h.getCell('A2').font = { color: { argb: 'FF555555' } };
+    h.getCell('A3').value = `${periodo}${filtros ? ' · ' + filtros : ''} · Descargado el ${fechaHora(new Date().toISOString())}`;
+    h.getCell('A3').font = { italic: true, color: { argb: 'FF777777' }, size: 9 };
+    // Resumen (los indicadores de arriba) con sus colores
+    let col = 1;
+    document.querySelectorAll('#vpResumen > *').forEach(chip => {
+        const c = h.getCell(5, col); c.value = chip.textContent.replace(/\s+/g, ' ').trim(); estiloDe(chip, c, { size: 10 });
+        c.border = {}; h.mergeCells(5, col, 5, col + 1); col += 2;
+    });
+    // Convenciones
+    col = 1;
+    document.querySelectorAll('.vp-conv span').forEach(sp => {
+        const muestra = sp.querySelector('.vp-muestra');
+        const m = h.getCell(6, col); m.value = muestra && !muestra.matches('.fest, .planeacion') ? 'X' : '';
+        if (muestra) estiloDe(muestra, m);
+        m.border = {};
+        const t = h.getCell(6, col + 1); t.value = sp.textContent.trim(); t.font = { size: 9, color: { argb: 'FF4C615B' } };
+        h.mergeCells(6, col + 1, 6, col + 4); col += 5;
+    });
+    // La tabla, celda por celda (respeta columnas y filas combinadas)
+    const inicio = 8, ocupadas = new Set();
+    let fila = inicio;
+    const tabla = $('vpTabla');
+    [...tabla.querySelectorAll('thead tr, tbody tr, tfoot tr')].forEach(tr => {
+        let c = 1;
+        [...tr.children].forEach(td => {
+            while (ocupadas.has(`${fila},${c}`)) c++;
+            const cs = Number(td.colSpan) || 1, rs = Number(td.rowSpan) || 1;
+            const celda = h.getCell(fila, c);
+            const valor = texto(td);
+            celda.value = valor && valor.pct !== undefined ? valor.pct : valor;
+            estiloDe(td, celda);
+            if (valor && valor.pct !== undefined) celda.numFmt = '0%';
+            if (cs > 1 || rs > 1) {
+                h.mergeCells(fila, c, fila + rs - 1, c + cs - 1);
+                for (let i = 0; i < rs; i++) for (let j = 0; j < cs; j++) ocupadas.add(`${fila + i},${c + j}`);
+            }
+            c += cs;
+        });
+        fila++;
+    });
+    // Anchos parecidos a la pantalla
+    const cab = tabla.querySelector('thead tr');
+    const cols = [...tabla.querySelectorAll('tbody tr:first-child > *')];
+    h.getColumn(1).width = 24; h.getColumn(2).width = 36;
+    cols.forEach((td, i) => {
+        if (i < 2) return;
+        h.getColumn(i + 1).width = td.classList.contains('vp-n') ? 9 : 3.6;
+    });
+    h.getRow(inicio).height = 18;
+    h.views = [{ showGridLines: false, state: 'frozen', xSplit: 2, ySplit: inicio + (cab ? 2 : 0) }];
+    return libro;
 }
 
 // Marcar o quitar una X (se guarda sola a los pocos segundos)
