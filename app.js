@@ -54,7 +54,7 @@ function abrirVademecum(e) {
 
 // Tipo de visita y sus objetivos (se pueden escoger varios)
 // Objetivos y subcategorías por tipo: vienen de objetivos.js, que se genera desde
-// datos/Matriz_objetivos_subcategorias.xlsx (herramientas/matriz_objetivos.py). No se editan aquí.
+// datos/Matriz_App.xlsx (skill "matriz": herramientas/matriz_app.py). No se editan aquí.
 const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, variables: [], mensual: {} };
 const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Comercial', 'Punto de Venta'].map(t => [t, MATRIZ.objetivos[t] || []]));
 // Variante del tipo: true = contacto nuevo; 'medcom' = visita médica y comercial a la vez (clientes 20 y 21 con las
@@ -68,7 +68,7 @@ const listaTipos = t => (Array.isArray(t) ? t : [t]).filter(Boolean);
 const tiposDe = v => v.tiposVisita?.length ? v.tiposVisita : listaTipos(v.tipoVisita);
 const nombreTipo = v => tiposDe(v).join(' + ');
 const objetivosDeTipos = (tipos, nuevo) => [...new Set(listaTipos(tipos).flatMap(t => objetivosDeTipo(t, nuevo)))];
-// Tipos de visita en que sale un cliente según su clasificación (datos/Matriz_tipo_visita_clasificacion.xlsx).
+// Tipos de visita en que sale un cliente según su clasificación (hoja "Tipo de visita" de datos/Matriz_App.xlsx).
 // Sin clasificación o sin marcar en la matriz: sale en todos.
 const tiposDeCliente = c => (MATRIZ.tiposPorClasificacion || {})[c?.cl] || Object.keys(TIPOS_VISITA);
 const AMBOS_TIPOS = ['Visita Médica', 'Visita Comercial'];

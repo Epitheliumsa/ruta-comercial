@@ -1,4 +1,4 @@
-// Generado desde datos/Matriz_objetivos_subcategorias.xlsx con herramientas/matriz_objetivos.py. No editar a mano.
+// Generado desde datos/Matriz_App.xlsx con herramientas/matriz_objetivos.py. No editar a mano.
 window.MATRIZ_OBJETIVOS = {
  "objetivos": {
   "Visita Médica": [

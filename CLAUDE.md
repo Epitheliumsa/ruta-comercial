@@ -24,18 +24,15 @@
   `sh actualizar-version.sh` y publicar (con confirmación). Cada celular borra una vez lo de pruebas y la app
   ignora los registros de pruebas del servidor. Después Hernán puede borrar esas filas de `Registros`.
 
-## Objetivos y subcategorías
-- Salen de un solo archivo: `datos/Matriz_objetivos_subcategorias.xlsx` → `python3 herramientas/matriz_objetivos.py` genera `objetivos.js`.
-- Para actualizarlos usa la skill `matriz-objetivos` (`.claude/skills/matriz-objetivos/SKILL.md`). No se editan a mano en `app.js`.
-- La Parrilla Promocional y las Actividades cambian cada mes: hoja "Mensual" del Excel o botón de jefes en la app.
-- En qué tipo de visita sale cada cliente depende de su clasificación: `datos/Matriz_tipo_visita_clasificacion.xlsx`
-  (X por tipo). El mismo generador lo pasa a `objetivos.js`. Si una clasificación tiene X en Visita Médica y Visita
-  Comercial (hoy la 20 y la 21), al programar el vendedor marca una, otra o ambas en la misma visita.
-- La columna "Visita Médica Comercial (clasificación 20 y 21)" de la matriz de objetivos aplica solo cuando en esos
-  clientes se marcan las dos (médica y comercial): sale una sola lista. Con solo una marcada se usa la columna de ese
-  tipo (Visita Médica pura o Visita Comercial).
-- Objetivos y subcategorías van en nombre propio (NOMPROPIO, conectores en minúscula: "Chequeo de Precios"); el
-  generador lo aplica solo.
+## Matriz de la app (skill `matriz`)
+- Toda la configuración está en un solo archivo: `datos/Matriz_App.xlsx` (Índice, Visitas, Trabajo interno, Mensual y
+  Tipo de visita) → `python3 herramientas/matriz_app.py` la refresca y genera `objetivos.js`.
+- Para entregarla o actualizarla usa la skill `matriz` (`.claude/skills/matriz/SKILL.md`). No se edita a mano en `app.js`.
+- La Parrilla Promocional y las Actividades cambian cada mes: hoja "Mensual" o botón de jefes en la app.
+- En qué tipo de visita sale cada cliente depende de su clasificación (hoja "Tipo de visita"). Si una clasificación
+  tiene X en Visita Médica y Visita Comercial (hoy 20 y 21), al programar el vendedor marca una, otra o ambas; con
+  las dos marcadas se usa la columna "Visita Médica Comercial" de Visitas.
+- Objetivos y subcategorías van en nombre propio (NOMPROPIO, conectores en minúscula: "Chequeo de Precios").
 
 ## Maestra de Contactos
 - Cada vez que llegue una Maestra de Contactos usa la skill `maestra-contactos` (`herramientas/maestra_contactos.py`).
