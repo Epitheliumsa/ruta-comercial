@@ -58,7 +58,14 @@ for fila in ws.iter_rows(min_row=2, values_only=True):
     if not zona:
         sin_zona.append(nombre)
         continue
-    nuevo[zona].append({'n': nombre, 'c': val('Ciudad'), 'e': val('Etiquetas')})
+    # n nombre, c ciudad, e etiquetas, t título, p provincia, f cliente para facturar, cl clasificación, ca categoría, pz plazo de pago
+    facturar = fila[col['Cliente para Facturar']] if 'Cliente para Facturar' in col else None
+    extra = {'t': val('Título') if 'Título' in col else '', 'p': val('Provincia') if 'Provincia' in col else '',
+             'f': facturar in (True, 'True', 'true', 1, 'Sí', 'Si'),
+             'cl': val('Categoría de cliente/Clasificación') if 'Categoría de cliente/Clasificación' in col else '',
+             'ca': val('Categoría de cliente') if 'Categoría de cliente' in col else '',
+             'pz': val('Plazos de Pago') if 'Plazos de Pago' in col else ''}
+    nuevo[zona].append({'n': nombre, 'c': val('Ciudad'), 'e': val('Etiquetas'), **{k: v for k, v in extra.items() if v not in ('', None)}})
     filas_limpias.append([fila[i] for i, n in enumerate(cab) if n not in QUITAR] + [zona])
 for z in ZONAS:
     nuevo[z].sort(key=lambda x: x['n'].lower())

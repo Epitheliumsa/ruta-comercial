@@ -817,7 +817,7 @@ function guardarMensual(e) {
 
 // ---------- MAESTRA CLIENTES ----------
 // El comercial ve los clientes de su zona; los jefes los ven por zona y vendedor (una, varias o todas)
-const maestra = { zonas: null, busca: '', etiqueta: '', ciudad: '' };
+const maestra = { zonas: null, busca: '', etiqueta: '', ciudad: '', cl: '', ca: '', pz: '', f: '' };
 const zonasMaestra = () => Object.keys(contactos).filter(z => (contactos[z] || []).length);
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
 
@@ -853,9 +853,15 @@ function pintarMaestra() {
     const unicos = k => [...new Set(base.map(c => c[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
     opciones($('mcEtiqueta'), unicos('e'), 'Todas las etiquetas');
     opciones($('mcCiudad'), unicos('c'), 'Todas las ciudades');
+    opciones($('mcClasif'), unicos('cl').sort((a, b) => Number(a) - Number(b) || a.localeCompare(b)), 'Todas las clasificaciones');
+    opciones($('mcCategoria'), unicos('ca'), 'Todas las categorías');
+    opciones($('mcPlazo'), unicos('pz').sort((a, b) => Number(a) - Number(b) || a.localeCompare(b)), 'Todos los plazos');
     maestra.etiqueta = $('mcEtiqueta').value; maestra.ciudad = $('mcCiudad').value;
+    maestra.cl = $('mcClasif').value; maestra.ca = $('mcCategoria').value; maestra.pz = $('mcPlazo').value; maestra.f = $('mcFacturar').value;
     const q = normalizar(maestra.busca);
-    const lista = base.filter(c => (!q || normalizar(c.n).includes(q)) && (!maestra.etiqueta || c.e === maestra.etiqueta) && (!maestra.ciudad || c.c === maestra.ciudad));
+    const lista = base.filter(c => (!q || normalizar(c.n).includes(q)) && (!maestra.etiqueta || c.e === maestra.etiqueta) && (!maestra.ciudad || c.c === maestra.ciudad)
+        && (!maestra.cl || c.cl === maestra.cl) && (!maestra.ca || c.ca === maestra.ca) && (!maestra.pz || c.pz === maestra.pz)
+        && (!maestra.f || (maestra.f === 'si') === !!c.f));
     // Última visita efectiva de cada cliente
     const ultima = {};
     visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado')
@@ -864,7 +870,8 @@ function pintarMaestra() {
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         return `<button class="mc-fila" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
-            <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.e, c.c].filter(Boolean).join(' · '))}</small></span>
+            <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
+                <span class="mc-datos">${c.cl ? `<span>Clasificación <b>${esc(c.cl)}</b></span>` : ''}${c.ca ? `<span>${esc(c.ca)}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(/^\d+$/.test(c.pz) ? (c.pz === '0' ? 'contado' : c.pz + ' días') : c.pz)}</b></span>` : ''}<span class="${c.f ? 'fact' : ''}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
             <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
         </button>`;
     };
