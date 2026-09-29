@@ -1006,3 +1006,9 @@ a.home-btn { text-decoration: none; }
 .visita-card.reprog { border-left-color: #dc2626 !important; background: linear-gradient(135deg, #ffffff 60%, #fdecec 100%); }
 .visita-card.reprog .ord.prog { background: #fdecec; color: #b91c1c; border-color: #f5b5b5; }
 .visita-card.reprog .ord.prog.abierta { background: #dc2626; color: white; border-color: #dc2626; }
+
+/* Cierre de la visita: objetivos programados en negrita, los demás en gris claro */
+#rCumplidos .check.programado span { font-weight: 800; color: #1f2937; }
+#rCumplidos .check.no-programado span { color: #9aa5a1; font-weight: 500; }
+#rCumplidos .check.no-programado input:checked + span { color: #4b5563; }
+.objetivos span.extra { border: 1px dashed #86c5a8; }

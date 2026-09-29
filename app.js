@@ -53,11 +53,28 @@ function abrirVademecum(e) {
 }
 
 // Tipo de visita y sus objetivos (se pueden escoger varios)
+// Objetivos por tipo de visita (matriz de objetivos definida por Hernán Reyes)
 const TIPOS_VISITA = {
-    'Visita Médica': ['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación', 'Cartera'],
-    'Visita Comercial': ['Colocación', 'Mapa del Cliente', 'Cartera', 'Actividades', 'Precios', 'Devoluciones - PQR'],
-    'Punto de Venta': ['Presentación de Productos', 'Actividades', 'Precios', 'Exhibición', 'Capacitación']
+    'Visita Médica': ['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación',
+        'Administración de Cartera', 'Mapa del Cliente - Ampliación Portafolio', 'Actividades', 'Precios', 'Devoluciones - PQR', 'Codificación de Producto'],
+    'Visita Comercial': ['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación', 'Administración de Cartera',
+        'Mapa del Cliente - Ampliación Portafolio', 'Actividades', 'Precios', 'Devoluciones - PQR', 'Codificación de Producto', 'Capacitación'],
+    'Punto de Venta': ['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras', 'Actividades', 'Precios', 'Devoluciones - PQR',
+        'Codificación de Producto', 'Exhibición', 'Capacitación']
 };
+// Contacto nuevo: objetivos propios según el tipo de visita
+const OBJETIVOS_NUEVO = {
+    'Visita Médica': ['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación'],
+    'Visita Comercial': ['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación'],
+    'Punto de Venta': ['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras']
+};
+const objetivosDeTipo = (tipo, nuevo) => (nuevo ? OBJETIVOS_NUEVO : TIPOS_VISITA)[tipo] || [];
+// En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
+const objetivosCierre = v => {
+    const base = objetivosDeTipo(v.tipoVisita, v.esProyecto);
+    return [...base, ...(v.objetivos || []).filter(o => !base.includes(o))];
+};
+const cumplidosProgramados = v => (v.objetivosCumplidos || []).filter(o => (v.objetivos || []).includes(o));
 // Trabajo interno: se programa igual que una visita, pero sin contacto ni objetivos
 // y no cuenta en los indicadores de visitas
 const TRABAJO_INTERNO = ['Trabajo Administrativo Oficina', 'Trabajo Administrativo Fuera de la Oficina', 'Planeación Mes'];
@@ -1248,7 +1265,7 @@ function tarjetaVisita(v, ord = null, mover = null) {
     const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
     const marcaObj = o => !cumplidos ? '' : cumplidos.includes(o) ? ' class="cumplido"' : ' class="no-cumplido"';
     let objetivos = v.tipoVisita
-        ? `<p class="objetivos"><b>${esc(v.tipoVisita)}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidos.length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
+        ? `<p class="objetivos"><b>${esc(v.tipoVisita)}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidosProgramados(v).length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
         : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${noProgTxt}`;
@@ -1503,7 +1520,7 @@ function pintarObjetivos(marcados) {
     const tipo = tipoBase();
     const actuales = marcados || [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
     $('cajaObjetivos').hidden = !TIPOS_VISITA[tipo];
-    $('fObjetivos').innerHTML = (TIPOS_VISITA[tipo] || []).map(o =>
+    $('fObjetivos').innerHTML = objetivosDeTipo(tipo, origenElegido() === 'nuevo').map(o =>
         `<label class="check"><input type="checkbox" value="${esc(o)}" ${actuales.includes(o) ? 'checked' : ''}><span>${esc(o)}</span></label>`).join('');
 }
 
@@ -1687,8 +1704,8 @@ function abrirRegistro(id, tipo) {
             <h2>Registrar visita</h2>${cab}
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
-            ${v.objetivos?.length ? `<label>Objetivos cumplidos <small>(marca los que lograste)</small></label>
-            <div class="checks" id="rCumplidos">${v.objetivos.map(o => `<label class="check"><input type="checkbox" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div>` : ''}
+            ${objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita los programados; marca los que lograste)</small></label>
+            <div class="checks" id="rCumplidos">${objetivosCierre(v).map(o => `<label class="check${(v.objetivos || []).includes(o) ? ' programado' : ' no-programado'}"><input type="checkbox" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div>` : ''}
             <div class="dos">
                 <div><label for="rGestion">¿Qué se hizo?</label><select id="rGestion">${opciones(GESTIONES, v.gestion)}</select></div>
                 <div><label for="rAtendio">¿Quién atendió?</label><input id="rAtendio" value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo"></div>
@@ -2121,7 +2138,7 @@ function pintarPanel() {
     $('panDetalle').innerHTML = det.length ? det.map(v => {
         const est = v.estado === 'visitado' ? `<span class="chip ok">${v.interno ? 'Realizado' : 'Visitado'}</span>`
             : v.estado === 'no_visitado' ? `<span class="chip no">${v.interno ? 'No realizado' : 'No visitado'}</span>` : '<span class="chip p">Pendiente</span>';
-        const cumpl = v.estado === 'visitado' && v.objetivos?.length ? ` · ${(v.objetivosCumplidos || []).length}/${v.objetivos.length} objetivos` : '';
+        const cumpl = v.estado === 'visitado' && v.objetivos?.length ? ` · ${cumplidosProgramados(v).length}/${v.objetivos.length} objetivos` : '';
         return `<button class="fila-det" onclick="verDetalleVisita('${v.id}')">
             <span class="fd-fecha">${esc(fechaCorta(v.fecha))}${v.hora ? `<small>${esc(horaBonita(v.hora))}</small>` : ''}</span>
             <span class="fd-cuerpo"><b>${esc(v.contacto)}</b><small>${esc(nombreVendedor(v.vendedor))} · ${esc(v.interno ? 'Trabajo interno' : v.tipoVisita || '')}${cumpl}${esProgramada(v) ? '' : ' · No programada'}${v.esProyecto ? ' · Proyecto' : ''}</small></span>
@@ -2405,7 +2422,7 @@ function armarLibro(mes, vend, solo) {
         fecha(v.fecha), v.hora || '', nombreVendedor(v.vendedor), v.interno ? '' : v.contacto, v.tipoContacto || '', v.ciudad || '',
         esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), v.tipoVisita || '', (v.objetivos || []).join(', '),
         v.estado === 'visitado' ? (v.objetivosCumplidos || []).join(', ') : '',
-        v.estado === 'visitado' && v.objetivos?.length ? (v.objetivosCumplidos || []).length / v.objetivos.length : null,
+        v.estado === 'visitado' && v.objetivos?.length ? cumplidosProgramados(v).length / v.objetivos.length : null,
         v.esProyecto ? 'Sí' : v.eraProyecto ? 'Vinculado' : '', v.objetivo || '',
         (v.interno ? { visitado: 'Realizado', no_visitado: 'No realizado' }[v.estado] : null) || estadoTxt[v.estado] || v.estado, v.gestion || '', v.atendio || '', v.productos || '', v.muestras || '',
         v.pedido === 'si' ? 'Sí' : v.estado === 'visitado' ? 'No' : '', v.valorPedido ? Number(v.valorPedido) : null,
