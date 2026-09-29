@@ -53,33 +53,22 @@ function abrirVademecum(e) {
 }
 
 // Tipo de visita y sus objetivos (se pueden escoger varios)
-// Objetivos por tipo de visita (matriz de objetivos definida por Hernán Reyes). Van en orden alfabético,
-// menos Planeación Mes, que empieza con Visiplan, Diagnóstico de Zona, Plan de Acción y Plan de Trabajo Diario
-const alfabetico = lista => [...lista].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
-const TIPOS_VISITA = {
-    'Visita Médica': alfabetico(['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación',
-        'Administración de Cartera', 'Mapa del Cliente - Ampliación Portafolio', 'Actividades', 'Precios', 'Devoluciones - PQR', 'Codificación de Producto']),
-    'Visita Comercial': alfabetico(['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación', 'Administración de Cartera',
-        'Mapa del Cliente - Ampliación Portafolio', 'Actividades', 'Precios', 'Devoluciones - PQR', 'Codificación de Producto', 'Capacitación']),
-    'Punto de Venta': alfabetico(['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras', 'Actividades', 'Precios', 'Devoluciones - PQR',
-        'Codificación de Producto', 'Exhibición', 'Capacitación'])
+// Objetivos y subcategorías por tipo: vienen de objetivos.js, que se genera desde
+// datos/Matriz_objetivos_subcategorias.xlsx (herramientas/matriz_objetivos.py). No se editan aquí.
+const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, variables: [], mensual: {} };
+const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Comercial', 'Punto de Venta'].map(t => [t, MATRIZ.objetivos[t] || []]));
+const claveTipo = (tipo, nuevo) => (nuevo && TIPOS_VISITA[tipo] ? 'nuevo:' : '') + tipo;
+const objetivosDeTipo = (tipo, nuevo) => MATRIZ.objetivos[claveTipo(tipo, nuevo)] || [];
+// Subcategorías variables (Parrilla Promocional, Actividades): las del mes que cargue un jefe en la app o, si no, las del archivo
+const esVariable = o => (MATRIZ.variables || []).includes(o);
+const idMensual = mes => `mensual-${mes}`;
+const listasDelMes = mes => {
+    const r = registros[idMensual(mes)];
+    return r && !r.borrado ? r.listas || {} : (MATRIZ.mensual || {})[mes] || {};
 };
-// Contacto nuevo: objetivos propios según el tipo de visita
-const OBJETIVOS_NUEVO = {
-    'Visita Médica': alfabetico(['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación']),
-    'Visita Comercial': alfabetico(['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación']),
-    'Punto de Venta': alfabetico(['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras'])
-};
-// Trabajo interno: también se programa con objetivos
-const INTERNO_BASE = alfabetico(['Administración de Cartera', 'Plan de Trabajo Diario', 'Revisión Correos', 'Seguimiento', 'Capacitación',
-    'Trámites y Reclamos', 'Actividades Mes', 'Reunión Ventas', 'Interacción con Áreas']);
-const OBJETIVOS_INTERNO = {
-    'Trabajo Administrativo Oficina': INTERNO_BASE,
-    'Trabajo Administrativo Fuera de la Oficina': INTERNO_BASE,
-    'Planeación Mes': ['Visiplan', 'Diagnóstico de Zona', 'Plan de Acción', 'Plan de Trabajo Diario',
-        ...alfabetico(['Administración de Cartera', 'Revisión Correos', 'Capacitación', 'Trámites y Reclamos', 'Actividades Mes', 'Interacción con Áreas'])]
-};
-const objetivosDeTipo = (tipo, nuevo) => (OBJETIVOS_INTERNO[tipo] || (nuevo ? OBJETIVOS_NUEVO : TIPOS_VISITA)[tipo]) || [];
+const subcategoriasDe = (tipo, nuevo, objetivo, mes) => esVariable(objetivo)
+    ? listasDelMes(mes)[objetivo] || []
+    : ((MATRIZ.subcategorias || {})[claveTipo(tipo, nuevo)] || {})[objetivo] || [];
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
 const objetivosCierre = v => {
     const base = objetivosDeTipo(v.tipoVisita, v.esProyecto);
@@ -436,6 +425,7 @@ function entrarApp() {
     saludo.appendChild(detalle);
     intro.appendChild(saludo);
     $('btnPanel').style.display = esJefe() ? '' : 'none';
+    $('btnMensual').style.display = esJefe() ? '' : 'none';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
     const opciones = COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('');
     $('agVendedor').innerHTML = opciones;
@@ -781,6 +771,42 @@ function resolverSolicitud(id, autorizar) {
     toast(autorizar ? 'Visita eliminada' : 'Solicitud rechazada');
     abrirSolicitudes();
     pintarInicio();
+}
+
+// ---------- PARRILLA Y ACTIVIDADES DEL MES (subcategorías variables) ----------
+// Los jefes cargan cada mes los productos de la Parrilla Promocional y las Actividades; salen como subcategorías
+// al programar y al cerrar las visitas de ese mes
+function abrirMensual(mes = mesDe(hoy())) {
+    const listas = listasDelMes(mes);
+    const cargadas = !!registros[idMensual(mes)];
+    abrirModal(`<form class="form-rc" onsubmit="guardarMensual(event)">
+        <h2>Parrilla y actividades del mes</h2>
+        <p class="sub">Escribe una por línea. Salen como subcategorías en las visitas del mes.</p>
+        <label for="mMes">Mes</label>
+        <input id="mMes" type="month" required value="${mes}" onchange="abrirMensual(this.value)">
+        ${(MATRIZ.variables || []).map((o, i) => `<label for="mLista${i}">${esc(o)}</label>
+        <textarea id="mLista${i}" data-o="${esc(o)}" rows="6" placeholder="${o === 'Parrilla Promocional' ? 'Ej: Kojic Plus\nRetinol 0,5%' : 'Ej: Congreso de dermatología\nDía de marca en consultorio'}">${esc((listas[o] || []).join('\n'))}</textarea>`).join('')}
+        ${!cargadas && Object.keys(listas).length ? '<p class="ayuda">Estas vienen del archivo de la matriz. Si las guardas aquí, mandan las de la app.</p>' : ''}
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario">Guardar</button>
+        </div>
+    </form>`);
+}
+
+function guardarMensual(e) {
+    e.preventDefault();
+    const mes = $('mMes').value;
+    const listas = {};
+    document.querySelectorAll('#modalContenido textarea[data-o]').forEach(t => {
+        const l = [...new Set(t.value.split('\n').map(x => x.trim()).filter(Boolean))];
+        if (l.length) listas[t.dataset.o] = l;
+    });
+    const id = idMensual(mes);
+    guardarRegistro({ ...(registros[id] || { id, clase: 'mensual', creado: new Date().toISOString() }),
+        vendedor: 'equipo', mes, fecha: mes + '-01', listas, borrado: false, editadoPor: sesion.id });
+    cerrarModal();
+    toast(`Guardado para ${nombreMes(mes)}`);
 }
 
 // ---------- VISIPLAN (plan de visitas del mes) ----------
@@ -1276,7 +1302,7 @@ function tarjetaVisita(v, ord = null, mover = null) {
     const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
     const marcaObj = o => !cumplidos ? '' : cumplidos.includes(o) ? ' class="cumplido"' : ' class="no-cumplido"';
     let objetivos = v.tipoVisita
-        ? `<p class="objetivos"><b>${esc(v.tipoVisita)}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidosProgramados(v).length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
+        ? `<p class="objetivos"><b>${esc(v.tipoVisita)}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}${textoSubs(v, o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}${textoSubs(v, o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidosProgramados(v).length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
         : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${noProgTxt}`;
@@ -1466,7 +1492,7 @@ async function abrirProgramar(id, contactoPlan) {
             <button class="btn-primario">${v ? 'Guardar cambios' : 'Programar'}</button>
         </div>
     </form>`);
-    cambiarTipoProgramacion(v?.objetivos || []);
+    cambiarTipoProgramacion(v?.objetivos || [], v?.subobjetivos || {});
     if (v && v.clase === 'visita') avisoProgramacion(v);
     if (contactoPlan) {
         advertenciaAceptada = agenda.fecha;
@@ -1484,11 +1510,11 @@ async function abrirProgramar(id, contactoPlan) {
     }
     $('fContacto').addEventListener('change', sugerirTipo);
     $('fContacto').addEventListener('input', revisarProyecto);
-    $('fFecha').addEventListener('change', () => avisoProgramacion(v && v.clase === 'visita' ? v : null));
+    $('fFecha').addEventListener('change', () => { avisoProgramacion(v && v.clase === 'visita' ? v : null); pintarObjetivos(); });
 }
 
 // Muestra u oculta los campos según sea una visita, un trabajo interno o una novedad
-function cambiarTipoProgramacion(marcados) {
+function cambiarTipoProgramacion(marcados, subsMarcados) {
     const tipo = tipoBase();
     $('cajaTipoNuevo').hidden = origenElegido() !== 'nuevo';
     elegirOrigen(origenElegido());
@@ -1508,7 +1534,7 @@ function cambiarTipoProgramacion(marcados) {
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : interno ? '¿Qué vas a hacer? (opcional)' : 'Notas (opcional)';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
-    pintarObjetivos(marcados);
+    pintarObjetivos(marcados, subsMarcados);
     avisoProgramacion(null);
 }
 
@@ -1526,13 +1552,62 @@ function elegirModalidad(boton) {
 const modalidadElegida = () => document.querySelector('.modalidad .on')?.dataset.mod || 'presencial';
 
 // Muestra los objetivos del tipo de visita elegido, conservando los que ya estén marcados
-function pintarObjetivos(marcados) {
-    const tipo = tipoBase();
-    const actuales = marcados || [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
-    $('cajaObjetivos').hidden = !objetivosDeTipo(tipo, origenElegido() === 'nuevo').length;
-    $('fObjetivos').innerHTML = objetivosDeTipo(tipo, origenElegido() === 'nuevo').map(o =>
-        `<label class="check"><input type="checkbox" value="${esc(o)}" ${actuales.includes(o) ? 'checked' : ''}><span>${esc(o)}</span></label>`).join('');
+function pintarObjetivos(marcados, subsMarcados) {
+    const tipo = tipoBase(), nuevo = origenElegido() === 'nuevo', cont = $('fObjetivos');
+    const actuales = marcados || leerObjetivos(cont);
+    const subs = subsMarcados || leerSubs(cont);
+    const lista = objetivosDeTipo(tipo, nuevo);
+    $('cajaObjetivos').hidden = !lista.length;
+    cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs });
 }
+
+// Objetivos con sus subcategorías. Al marcar un objetivo se abren sus subcategorías.
+// En el cierre (con "programados") lo programado va en negrita y lo demás en gris claro.
+function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {} }) {
+    return lista.map(o => {
+        const sc = subcategoriasDe(tipo, nuevo, o, mes);
+        const prog = programados && programados.includes(o);
+        const abierto = marcados.includes(o) || prog;
+        const estilo = (lo, de) => programados ? (de.includes(lo) ? ' programado' : ' no-programado') : '';
+        const cajaSubs = sc.length
+            ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${(subs[o] || []).includes(x) ? 'checked' : ''}><span>${esc(x)}</span></label>`).join('')}</div>`
+            : esVariable(o) ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">Aún no se cargan ${o === 'Parrilla Promocional' ? 'los productos de la parrilla' : 'las actividades'} de ${nombreMes(mes)}.</p></div>` : '';
+        return `<div class="obj-item${abierto && cajaSubs ? ' abierto' : ''}"><label class="check${estilo(o, programados || [])}"><input type="checkbox" class="obj" value="${esc(o)}" ${marcados.includes(o) ? 'checked' : ''} onchange="abrirSubs(this)"><span>${esc(o)}</span></label>${cajaSubs}</div>`;
+    }).join('');
+}
+function abrirSubs(casilla) {
+    const item = casilla.closest('.obj-item'), caja = item.querySelector('.subs');
+    if (!caja) return;
+    const ver = casilla.checked || !!item.querySelector('.check.programado');
+    caja.hidden = !ver;
+    item.classList.toggle('abierto', ver);
+}
+const leerObjetivos = cont => [...cont.querySelectorAll('input.obj:checked')].map(i => i.value);
+function leerSubs(cont, soloDe) {
+    const r = {};
+    cont.querySelectorAll('.subs input:checked').forEach(i => {
+        if (soloDe && !soloDe.includes(i.dataset.o)) return;
+        (r[i.dataset.o] = r[i.dataset.o] || []).push(i.value);
+    });
+    return r;
+}
+// Cierre: una subcategoría cumplida también cuenta su objetivo como cumplido
+function leerCierre() {
+    const cont = $('rCumplidos');
+    if (!cont) return { objetivosCumplidos: [], subCumplidos: {} };
+    const subs = leerSubs(cont), objs = leerObjetivos(cont);
+    Object.keys(subs).forEach(o => { if (!objs.includes(o)) objs.push(o); });
+    return { objetivosCumplidos: objs, subCumplidos: subs };
+}
+const cajaCierre = v => objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita lo programado; marca lo que lograste)</small></label>
+            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: v.tipoVisita, nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: v.objetivos || [], subsProg: v.subobjetivos || {} })}</div>` : '';
+// Texto de subcategorías junto a un objetivo (✓ en las cumplidas)
+function textoSubs(v, o) {
+    const prog = (v.subobjetivos || {})[o] || [], cumpl = (v.subCumplidos || {})[o] || [];
+    const todas = [...prog, ...cumpl.filter(x => !prog.includes(x))];
+    return todas.length ? `<small class="sub-chip">: ${todas.map(x => (cumpl.includes(x) ? '✓ ' : '') + esc(x)).join(', ')}</small>` : '';
+}
+
 
 function sugerirTipo() {
     if ($('fTipo').value) return;
@@ -1583,7 +1658,8 @@ async function guardarProgramada(e, id) {
     const interno = esTrabajoInterno(tipo);
     const nombre = $('fContacto').value.trim();
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
-    const objetivos = [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
+    const objetivos = leerObjetivos($('fObjetivos'));
+    const subobjetivos = leerSubs($('fObjetivos'), objetivos);
     if (!objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
     const zona = comercial(agenda.vendedor)?.zona;
     const nuevo = !interno && origenElegido() === 'nuevo';
@@ -1625,7 +1701,7 @@ async function guardarProgramada(e, id) {
         contacto: interno ? tipo : (c.n || nombre), tipoContacto: c.e || '', ciudad: c.c || '',
         esProyecto: !!proyecto, contactoProyecto: proyecto ? proyecto.id : '',
         fecha, hora: $('fHora').value, objetivo: $('fObjetivo').value.trim(),
-        modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipo, objetivos,
+        modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipo, objetivos, subobjetivos,
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
         programada: antes && antes.fecha === fecha ? esProgramada(antes) : Date.now() < limiteProgramacion(fecha)
     });
@@ -1701,8 +1777,7 @@ function abrirRegistro(id, tipo) {
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
             <h2>Trabajo realizado</h2>${cab}
-            ${objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita los programados; marca los que lograste)</small></label>
-            <div class="checks" id="rCumplidos">${objetivosCierre(v).map(o => `<label class="check${(v.objetivos || []).includes(o) ? ' programado' : ' no-programado'}"><input type="checkbox" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div>` : ''}
+            ${cajaCierre(v)}
             <label for="rObs">¿Qué se hizo?</label>
             <textarea id="rObs" placeholder="Ej: se enviaron 5 cotizaciones y se cerró el informe de cartera">${esc(v.estado === 'visitado' ? v.observaciones : '')}</textarea>
             <div class="form-botones">
@@ -1716,8 +1791,7 @@ function abrirRegistro(id, tipo) {
             <h2>Registrar visita</h2>${cab}
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
-            ${objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita los programados; marca los que lograste)</small></label>
-            <div class="checks" id="rCumplidos">${objetivosCierre(v).map(o => `<label class="check${(v.objetivos || []).includes(o) ? ' programado' : ' no-programado'}"><input type="checkbox" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div>` : ''}
+            ${cajaCierre(v)}
             <div class="dos">
                 <div><label for="rGestion">¿Qué se hizo?</label><select id="rGestion">${opciones(GESTIONES, v.gestion)}</select></div>
                 <div><label for="rAtendio">¿Quién atendió?</label><input id="rAtendio" value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo"></div>
@@ -1784,7 +1858,7 @@ function guardarVisitado(e, id) {
         ...registros[id], ...LIMPIAR_NO_VISITADO,
         estado: 'visitado',
         modalidad: modalidadElegida(),
-        objetivosCumplidos: [...document.querySelectorAll('#rCumplidos input:checked')].map(i => i.value),
+        ...leerCierre(),
         gestion: $('rGestion').value,
         atendio: $('rAtendio').value.trim(),
         productos: $('rProductos').value.trim(),
@@ -1836,7 +1910,7 @@ function verCliente(nombre, vendedor) {
         const [cls, txt] = estadoTxt[x.estado] || ['p', x.estado];
         const partes = x.estado === 'visitado' ? [
             x.gestion ? `<b>${esc(x.gestion)}</b>${x.atendio ? ` · Atendió: ${esc(x.atendio)}` : ''}` : '',
-            (x.objetivosCumplidos || []).length ? `Objetivos cumplidos: ${x.objetivosCumplidos.map(esc).join(', ')}` : '',
+            (x.objetivosCumplidos || []).length ? `Objetivos cumplidos: ${x.objetivosCumplidos.map(o => esc(o) + ((x.subCumplidos || {})[o] ? ` (${x.subCumplidos[o].map(esc).join(', ')})` : '')).join(', ')}` : '',
             x.productos ? `Productos: ${esc(x.productos)}` : '',
             x.muestras ? `Muestras: ${esc(x.muestras)}` : '',
             x.pedido === 'si' ? `Pedido: sí${x.valorPedido ? ' · ' + pesos(x.valorPedido) : ''}` : '',
@@ -1868,7 +1942,7 @@ function guardarInternoRealizado(e, id) {
     e.preventDefault();
     if (!plazoAbierto(id)) return;
     guardarRegistro({ ...registros[id], ...LIMPIAR_NO_VISITADO, estado: 'visitado', observaciones: $('rObs').value.trim(),
-        objetivosCumplidos: [...document.querySelectorAll('#rCumplidos input:checked')].map(i => i.value), registrada: new Date().toISOString() });
+        ...leerCierre(), registrada: new Date().toISOString() });
     cerrarModal();
     toast('Trabajo registrado como realizado');
     pintarAgenda();
@@ -2348,6 +2422,8 @@ async function descargarInforme(e) {
     }
 }
 
+const textoSubsExcel = m => Object.entries(m || {}).filter(([, l]) => l.length).map(([o, l]) => `${o}: ${l.join(', ')}`).join(' · ');
+
 function bajarArchivo(buffer, nombre) {
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');
@@ -2421,7 +2497,8 @@ function armarLibro(mes, vend, solo) {
     const colsV = [
         { t: 'Fecha', w: 12, f: 'dd/mm/yyyy' }, { t: 'Cita fija', w: 10 }, { t: 'Vendedor', w: 20 }, { t: 'Contacto', w: 32 },
         { t: 'Tipo de contacto', w: 24 }, { t: 'Ciudad', w: 14 }, { t: 'Programada', w: 12 }, { t: 'Modalidad', w: 12 },
-        { t: 'Tipo de visita', w: 26 }, { t: 'Objetivos', w: 36, wrap: true }, { t: 'Objetivos cumplidos', w: 36, wrap: true },
+        { t: 'Tipo de visita', w: 26 }, { t: 'Objetivos', w: 36, wrap: true }, { t: 'Subcategorías programadas', w: 40, wrap: true },
+        { t: 'Objetivos cumplidos', w: 36, wrap: true }, { t: 'Subcategorías cumplidas', w: 40, wrap: true },
         { t: '% objetivos', w: 12, f: '0%' }, { t: 'Contacto proyecto', w: 12 }, { t: 'Notas', w: 30, wrap: true }, { t: 'Estado', w: 13 },
         { t: 'Gestión', w: 22 }, { t: 'Atendió', w: 20 }, { t: 'Productos presentados', w: 30, wrap: true },
         { t: 'Muestras', w: 24, wrap: true }, { t: 'Pedido', w: 8 }, { t: 'Valor pedido', w: 14, f: '"$" #,##0' },
@@ -2433,8 +2510,8 @@ function armarLibro(mes, vend, solo) {
     const horaCol = t => t ? new Date(Date.parse(t) - 5 * 3600000) : null;
     tabla(h, 'TablaVisitas', colsV, vis.map(v => [
         fecha(v.fecha), v.hora || '', nombreVendedor(v.vendedor), v.interno ? '' : v.contacto, v.tipoContacto || '', v.ciudad || '',
-        esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), v.tipoVisita || '', (v.objetivos || []).join(', '),
-        v.estado === 'visitado' ? (v.objetivosCumplidos || []).join(', ') : '',
+        esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), v.tipoVisita || '', (v.objetivos || []).join(', '), textoSubsExcel(v.subobjetivos),
+        v.estado === 'visitado' ? (v.objetivosCumplidos || []).join(', ') : '', v.estado === 'visitado' ? textoSubsExcel(v.subCumplidos) : '',
         v.estado === 'visitado' && v.objetivos?.length ? cumplidosProgramados(v).length / v.objetivos.length : null,
         v.esProyecto ? 'Sí' : v.eraProyecto ? 'Vinculado' : '', v.objetivo || '',
         (v.interno ? { visitado: 'Realizado', no_visitado: 'No realizado' }[v.estado] : null) || estadoTxt[v.estado] || v.estado, v.gestion || '', v.atendio || '', v.productos || '', v.muestras || '',

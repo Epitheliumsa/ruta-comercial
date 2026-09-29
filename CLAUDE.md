@@ -23,3 +23,8 @@
 - Limpieza ya preparada en `app.js`: cambiar `ETAPA_DATOS = 'pruebas'` por `'vivo'`, correr
   `sh actualizar-version.sh` y publicar (con confirmación). Cada celular borra una vez lo de pruebas y la app
   ignora los registros de pruebas del servidor. Después Hernán puede borrar esas filas de `Registros`.
+
+## Objetivos y subcategorías
+- Salen de un solo archivo: `datos/Matriz_objetivos_subcategorias.xlsx` → `python3 herramientas/matriz_objetivos.py` genera `objetivos.js`.
+- Para actualizarlos usa la skill `matriz-objetivos` (`.claude/skills/matriz-objetivos/SKILL.md`). No se editan a mano en `app.js`.
+- La Parrilla Promocional y las Actividades cambian cada mes: hoja "Mensual" del Excel o botón de jefes en la app.

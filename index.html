@@ -60,6 +60,10 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 41h34"/><rect x="10" y="24" width="7" height="13" rx="1.5"/><rect x="21" y="14" width="7" height="23" rx="1.5"/><rect x="32" y="19" width="7" height="18" rx="1.5"/></svg>
                     <span class="home-btn-text"><strong>Panel del equipo</strong><small>Cumplimiento de visitas y actividades por vendedor</small></span>
                 </button>
+                <button class="home-btn home-btn-mensual" id="btnMensual" onclick="abrirMensual()" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="9" width="34" height="32" rx="3"/><path d="M7 18h34M16 5v8M32 5v8"/><path d="M15 26h18M15 33h11"/></svg>
+                    <span class="home-btn-text"><strong>Parrilla y actividades del mes</strong><small id="mensualTxt">Subcategorías que cambian cada mes</small></span>
+                </button>
                 <button class="home-btn home-btn-act" onclick="abrirActividades()">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 12h22M17 24h22M17 36h22"/><path d="M6 11l3 3 5-5M6 23l3 3 5-5"/><rect x="6" y="33" width="7" height="7" rx="1.5"/></svg>
                     <span class="home-btn-text"><strong>Actividades del mes</strong><small id="homeActTxt">Lo que tienes programado este mes</small></span>
@@ -289,6 +293,7 @@
         </div>
     </div>
 
+    <script src="objetivos.js?v=202609282251"></script>
     <script src="app.js?v=202609282251"></script>
 </body>
 </html>
