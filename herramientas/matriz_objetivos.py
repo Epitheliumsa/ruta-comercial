@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Convierte la matriz de objetivos y subcategorías (Excel) en objetivos.js, que es lo que lee la app.
-También lee datos/Matriz_tipo_visita_clasificacion.xlsx: en qué tipos de visita sale cada clasificación de cliente.
+Hoja "Tipo de visita": en qué tipos de visita sale cada clasificación de cliente.
 
 Uso:  python3 herramientas/matriz_objetivos.py [ruta del Excel]
-      (por defecto: datos/Matriz_objetivos_subcategorias.xlsx)
+      (por defecto: datos/Matriz_App.xlsx, la matriz completa de la app)
 
 Reglas del archivo:
 - Hojas "Visitas" y "Trabajo interno": fila con Objetivo (columna A) = objetivo; ✓ o X en los tipos donde sale.
@@ -17,7 +17,7 @@ from pathlib import Path
 import openpyxl
 
 RAIZ = Path(__file__).resolve().parent.parent
-ENTRADA = Path(sys.argv[1]) if len(sys.argv) > 1 else RAIZ / 'datos' / 'Matriz_objetivos_subcategorias.xlsx'
+ENTRADA = Path(sys.argv[1]) if len(sys.argv) > 1 else RAIZ / 'datos' / 'Matriz_App.xlsx'
 SALIDA = RAIZ / 'objetivos.js'
 PRIMEROS = {'Planeación Mes': ['Visiplan', 'Diagnóstico de Zona', 'Plan de Acción', 'Plan de Trabajo Diario']}
 # Subcategorías con orden fijo (las demás van en orden alfabético). Las que no estén en la lista van al final.
@@ -109,9 +109,8 @@ if 'Mensual' in libro.sheetnames:
 # Clasificación del cliente -> tipos de visita donde sale (X en la matriz). Con Visita Médica y Visita Comercial
 # a la vez, al programar el vendedor marca una, otra o ambas.
 por_clasificacion = {}
-MATRIZ_CLASIF = RAIZ / 'datos' / 'Matriz_tipo_visita_clasificacion.xlsx'
-if MATRIZ_CLASIF.exists():
-    ws = openpyxl.load_workbook(MATRIZ_CLASIF, data_only=True).active
+if 'Tipo de visita' in libro.sheetnames:
+    ws = libro['Tipo de visita']
     cab = [limpio(c.value) for c in ws[4]]
     cols = {i: n for i, n in enumerate(cab) if n in ('Visita Médica', 'Visita Comercial', 'Punto de Venta')}
     for fila in ws.iter_rows(min_row=5, values_only=True):
@@ -127,7 +126,7 @@ if MATRIZ_CLASIF.exists():
 orden_tipos = [t for t in TIPOS.values() if t in objetivos]
 datos = {'objetivos': {t: objetivos[t] for t in orden_tipos}, 'subcategorias': subcategorias,
          'variables': variables, 'mensual': mensual, 'tiposPorClasificacion': por_clasificacion}
-SALIDA.write_text('// Generado desde datos/Matriz_objetivos_subcategorias.xlsx con herramientas/matriz_objetivos.py. No editar a mano.\n'
+SALIDA.write_text('// Generado desde datos/Matriz_App.xlsx con herramientas/matriz_objetivos.py. No editar a mano.\n'
                   'window.MATRIZ_OBJETIVOS = ' + json.dumps(datos, ensure_ascii=False, indent=1) + ';\n', encoding='utf-8')
 for t in orden_tipos:
     print(f'{t}: {len(objetivos[t])} objetivos, {sum(len(v) for v in subcategorias.get(t, {}).values())} subcategorías')
