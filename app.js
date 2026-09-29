@@ -2067,6 +2067,18 @@ function pintarObjetivos(marcados, subsMarcados) {
 
 // Objetivos con sus subcategorías. Al marcar un objetivo se abren sus subcategorías.
 // En el cierre (con "programados") lo programado va en negrita y lo demás en gris claro.
+// Color de cada objetivo (tono HSL): el objetivo va con un fondo suave y sus subcategorías con el mismo tono más tenue.
+// El tono refleja el tipo de objetivo (cartera = ámbar, reclamos = rojo, productos = verde…)
+const TONO_OBJETIVO = {
+    'Actividades': 280, 'Actividades Mes': 280, 'Parrilla Promocional': 25, 'Exhibición': 95,
+    'Administración de Cartera': 42, 'Precios': 55,
+    'Codificación de Producto': 205, 'Colocación': 150, 'Productos Nuevos': 125, 'Desarrollo Productos': 255,
+    'Mapa del Cliente - Ampliación Portafolio': 180, 'Entrega de Muestras': 320, 'Protocolo Médico': 230,
+    'Devoluciones - PQR': 0, 'Trámites y Reclamos': 0,
+    'Visiplan': 210, 'Diagnóstico de Zona': 190, 'Plan de Acción': 30, 'Plan de Trabajo Diario': 160,
+    'Capacitación': 240, 'Interacción con Áreas': 170, 'Reunión Ventas': 300, 'Revisión Correos': 215, 'Seguimiento': 140
+};
+const tonoObjetivo = o => TONO_OBJETIVO[o] ?? [...o].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 // Subcategorías guardadas con el nombre anterior (antes de pasarlas a nombre propio o renombrarlas)
 const SUBS_VIEJAS = { 'precios de la competencia': 'Chequeo de Precios', 'presentacion del protocolo': 'Presentación Protocolo Médico' };
 const tieneSub = (arr, x) => (arr || []).some(y => normalizar(SUBS_VIEJAS[normalizar(y)] || y) === normalizar(x));
@@ -2079,7 +2091,7 @@ function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, prog
         const cajaSubs = sc.length
             ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span></label>`).join('')}</div>`
             : esVariable(o) ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">Aún no se cargan ${o === 'Parrilla Promocional' ? 'los productos de la parrilla' : 'las actividades'} de ${nombreMes(mes)}.</p></div>` : '';
-        return `<div class="obj-item${abierto && cajaSubs ? ' abierto' : ''}"><label class="check${estilo(o, programados || [])}"><input type="checkbox" class="obj" value="${esc(o)}" ${marcados.includes(o) ? 'checked' : ''} onchange="abrirSubs(this)"><span>${esc(o)}</span></label>${cajaSubs}</div>`;
+        return `<div class="obj-item${abierto && cajaSubs ? ' abierto' : ''}" style="--h:${tonoObjetivo(o)}"><label class="check${estilo(o, programados || [])}"><input type="checkbox" class="obj" value="${esc(o)}" ${marcados.includes(o) ? 'checked' : ''} onchange="abrirSubs(this)"><span>${esc(o)}</span></label>${cajaSubs}</div>`;
     }).join('');
 }
 function abrirSubs(casilla) {

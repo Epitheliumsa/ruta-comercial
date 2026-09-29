@@ -1169,3 +1169,8 @@ a.home-btn { text-decoration: none; }
 .fila-fecha.compacta { grid-template-columns: auto auto 1fr; justify-content: start; gap: 0 12px; margin: -2px 0 4px; }
 .fila-fecha.compacta label { font-size: 10.5px; color: #7a8a84; margin: 4px 0 2px; }
 .fila-fecha.compacta input { padding: 5px 8px; font-size: 13px; color: #4c615b; background: #f7faf9; min-height: 0; width: auto; }
+/* Objetivos con color por tipo: el objetivo con un fondo suave y sus subcategorías con el mismo tono más tenue */
+.checks .obj-item > .check { background: hsl(var(--h, 160) 70% 93%); border-color: hsl(var(--h, 160) 40% 82%); }
+.checks .obj-item.abierto { background: hsl(var(--h, 160) 60% 97.5%); border-color: hsl(var(--h, 160) 40% 86%); }
+.checks .obj-item.abierto > .check { background: hsl(var(--h, 160) 70% 93%); border-color: hsl(var(--h, 160) 40% 82%); }
+.checks .obj-item .check.sub { background: hsl(var(--h, 160) 80% 98.5%); border-color: hsl(var(--h, 160) 35% 89%); }
