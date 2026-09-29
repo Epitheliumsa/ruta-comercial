@@ -10,7 +10,7 @@ Reglas del archivo:
   Filas de abajo con Subcategoría (columna B) = sus subcategorías; X en los tipos donde salen.
   Subcategoría "Variable" = se carga cada mes (hoja "Mensual" o pantalla de jefes en la app).
 - Hoja "Mensual": Mes (AAAA-MM) | Objetivo | Subcategoría, para los objetivos variables.
-- Orden: objetivos y subcategorías en orden alfabético, salvo Planeación Mes, que empieza con PRIMEROS.
+- Orden: objetivos y subcategorías en orden alfabético, salvo Planeación Mes (PRIMEROS) y las subcategorías de ORDEN_SUBS.
 """
 import json, sys, unicodedata
 from pathlib import Path
@@ -20,6 +20,19 @@ RAIZ = Path(__file__).resolve().parent.parent
 ENTRADA = Path(sys.argv[1]) if len(sys.argv) > 1 else RAIZ / 'datos' / 'Matriz_objetivos_subcategorias.xlsx'
 SALIDA = RAIZ / 'objetivos.js'
 PRIMEROS = {'Planeación Mes': ['Visiplan', 'Diagnóstico de Zona', 'Plan de Acción', 'Plan de Trabajo Diario']}
+# Subcategorías con orden fijo (las demás van en orden alfabético). Las que no estén en la lista van al final.
+ORDEN_SUBS = {
+    'Colocación': ['Producto terminado', 'Magistral individual', 'Magistral de pedido', 'Producto nuevo'],
+    'Desarrollo Productos': ['Fórmula magistral nueva', 'Ajuste de fórmula', 'Muestra de desarrollo'],
+    'Devoluciones - PQR': ['Devolución', 'Queja', 'Reclamo', 'Reacondicionamiento', 'Sugerencia'],
+    'Mapa del Cliente - Ampliación Portafolio': ['Productos nuevos', 'Productos foco', 'Productos transición', 'Portafolio actual'],
+    'Productos Nuevos': ['Presentación del producto', 'Entrega de muestra', 'Material de apoyo', 'Codificación'],
+}
+
+def ordenar_subs(obj, lista):
+    por_clave = {clave(x): x for x in lista}
+    fijo = [por_clave[clave(x)] for x in ORDEN_SUBS.get(obj, []) if clave(x) in por_clave]
+    return fijo + sorted([x for x in lista if x not in fijo], key=clave)
 # Nombre de la columna en el Excel -> clave del tipo en la app
 TIPOS = {
     'Visita Médica': 'Visita Médica', 'Visita Comercial': 'Visita Comercial', 'Punto de Venta': 'Punto de Venta',
@@ -37,6 +50,14 @@ def clave(t):
 
 def limpio(v):
     return ' '.join(str(v).split()) if v not in (None, '') else ''
+
+# Objetivos y subcategorías en nombre propio (como NOMPROPIO de Excel), con los conectores en minúscula
+# ("Chequeo de Precios") y las siglas como vienen (PQR, SPA)
+MENORES = {'de', 'del', 'la', 'las', 'el', 'los', 'y', 'e', 'o', 'u', 'a', 'al', 'en', 'con', 'para', 'por', 'sin', 'su', 'sus', 'un', 'una'}
+def nomprop(t):
+    palabras = t.split(' ')
+    return ' '.join(p.lower() if i and p.lower() in MENORES else p if len(p) > 1 and p.isupper() else p[:1].upper() + p[1:]
+                    for i, p in enumerate(palabras))
 
 def ordenar(tipo, lista):
     primeros = [o for o in PRIMEROS.get(tipo, []) if o in lista]
@@ -56,6 +77,8 @@ for hoja in ('Visitas', 'Trabajo interno'):
         obj, sub = limpio(fila[0]), limpio(fila[1]) if len(fila) > 1 else ''
         if obj.startswith('✓ en la'):
             break
+        obj = nomprop(obj) if obj else obj
+        sub = sub if not sub or sub.lower().startswith('variable') else nomprop(sub)
         if obj:
             actual = obj
             for i, t in cols.items():
@@ -73,7 +96,7 @@ for hoja in ('Visitas', 'Trabajo interno'):
                     subcategorias.setdefault(t, {}).setdefault(actual, []).append(sub)
 
 objetivos = {t: ordenar(t, l) for t, l in objetivos.items()}
-subcategorias = {t: {o: sorted(set(s), key=clave) for o, s in d.items()} for t, d in subcategorias.items()}
+subcategorias = {t: {o: ordenar_subs(o, set(s)) for o, s in d.items()} for t, d in subcategorias.items()}
 
 mensual = {}
 if 'Mensual' in libro.sheetnames:

@@ -18,10 +18,20 @@ Nunca se editan los objetivos a mano en `app.js` ni en `objetivos.js`.
 - **Mensual**: Mes (AAAA-MM) | Objetivo | Subcategoría, para Parrilla Promocional y Actividades.
   Si un jefe las carga en la app (botón "Parrilla y actividades del mes"), mandan las de la app para ese mes.
 
+## Nombres
+- Objetivos y subcategorías en nombre propio (como NOMPROPIO), con de/del/la/y… en minúscula y siglas (PQR) como vienen. El script lo aplica solo.
+
 ## Reglas de orden (las aplica el script)
 - Objetivos y subcategorías en orden alfabético.
 - Excepción: **Planeación Mes** empieza con Visiplan, Diagnóstico de Zona, Plan de Acción y Plan de Trabajo Diario
   (constante `PRIMEROS` del script).
+- Excepción: subcategorías con orden fijo (constante `ORDEN_SUBS` del script):
+  - Colocación: Producto terminado, Magistral individual, Magistral de pedido, Producto nuevo.
+  - Desarrollo Productos: Fórmula magistral nueva, Ajuste de fórmula, Muestra de desarrollo.
+  - Devoluciones - PQR: Devolución, Queja, Reclamo, Reacondicionamiento, Sugerencia.
+  - Mapa del Cliente - Ampliación Portafolio: Productos nuevos, Productos foco, Productos transición, Portafolio actual.
+  - Productos Nuevos: Presentación del producto, Entrega de muestra, Material de apoyo, Codificación.
+  Si llega una subcategoría nueva en esos objetivos, va al final (alfabética) salvo que el usuario diga su lugar.
 
 ## Pasos
 1. Si el usuario manda un Excel con el mismo formato, cópialo encima de `datos/Matriz_objetivos_subcategorias.xlsx`.
