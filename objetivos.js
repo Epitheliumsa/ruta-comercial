@@ -3,7 +3,6 @@ window.MATRIZ_OBJETIVOS = {
  "objetivos": {
   "Visita Médica": [
    "Actividades",
-   "Administración de Cartera",
    "Codificación de Producto",
    "Colocación",
    "Desarrollo Productos",
@@ -38,6 +37,20 @@ window.MATRIZ_OBJETIVOS = {
    "Parrilla Promocional",
    "Precios",
    "Productos Nuevos"
+  ],
+  "medcom:Visita Médica": [
+   "Actividades",
+   "Administración de Cartera",
+   "Codificación de Producto",
+   "Colocación",
+   "Desarrollo Productos",
+   "Devoluciones - PQR",
+   "Entrega de Muestras",
+   "Mapa del Cliente - Ampliación Portafolio",
+   "Parrilla Promocional",
+   "Precios",
+   "Productos Nuevos",
+   "Protocolo Médico"
   ],
   "nuevo:Visita Médica": [
    "Colocación",
@@ -94,7 +107,7 @@ window.MATRIZ_OBJETIVOS = {
   ]
  },
  "subcategorias": {
-  "Visita Médica": {
+  "medcom:Visita Médica": {
    "Administración de Cartera": [
     "Acuerdo de pago",
     "Cobro de factura",
@@ -294,6 +307,34 @@ window.MATRIZ_OBJETIVOS = {
    ],
    "Productos Nuevos": [
     "Presentación del producto"
+   ]
+  },
+  "Visita Médica": {
+   "Desarrollo Productos": [
+    "Ajuste de fórmula",
+    "Fórmula magistral nueva",
+    "Muestra de desarrollo"
+   ],
+   "Devoluciones - PQR": [
+    "Queja",
+    "Reclamo",
+    "Sugerencia"
+   ],
+   "Entrega de Muestras": [
+    "Muestra comercial",
+    "Muestra médica"
+   ],
+   "Productos Nuevos": [
+    "Codificación",
+    "Entrega de muestra",
+    "Material de apoyo",
+    "Presentación del producto"
+   ],
+   "Protocolo Médico": [
+    "Inscripción del médico",
+    "Presentación del protocolo",
+    "Seguimiento",
+    "Solicitud y recolección de información"
    ]
   },
   "nuevo:Punto de Venta": {

@@ -57,7 +57,11 @@ function abrirVademecum(e) {
 // datos/Matriz_objetivos_subcategorias.xlsx (herramientas/matriz_objetivos.py). No se editan aquí.
 const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, variables: [], mensual: {} };
 const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Comercial', 'Punto de Venta'].map(t => [t, MATRIZ.objetivos[t] || []]));
-const claveTipo = (tipo, nuevo) => (nuevo && TIPOS_VISITA[tipo] ? 'nuevo:' : '') + tipo;
+// Variante del tipo: true = contacto nuevo; 'medcom' = Visita Médica a un cliente con clasificación 20 o 21 (médico
+// que también compra), que tiene sus propios objetivos en la matriz ("Visita Médica Comercial")
+const claveTipo = (tipo, nuevo) => nuevo === 'medcom'
+    ? (tipo === 'Visita Médica' && MATRIZ.objetivos['medcom:' + tipo] ? 'medcom:' + tipo : tipo)
+    : (nuevo && TIPOS_VISITA[tipo] ? 'nuevo:' : '') + tipo;
 const objetivosDeTipo = (tipo, nuevo) => MATRIZ.objetivos[claveTipo(tipo, nuevo)] || [];
 // Una visita puede ser de varios tipos a la vez (Visita Médica y Visita Comercial, según la clasificación del cliente)
 const listaTipos = t => (Array.isArray(t) ? t : [t]).filter(Boolean);
@@ -83,7 +87,8 @@ const subcategoriasDe = (tipo, nuevo, objetivo, mes) => esVariable(objetivo)
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
 // antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
 const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Mapa del Cliente': 'Mapa del Cliente - Ampliación Portafolio' };
-const objetivosCierre = v => objetivosDeTipos(tiposDe(v), v.esProyecto);
+const varianteDe = v => v.esProyecto ? true : (v.medicoComercial ?? permiteAmbos(buscarMaestra(comercial(v.vendedor)?.zona, v.contacto))) ? 'medcom' : false;
+const objetivosCierre = v => objetivosDeTipos(tiposDe(v), varianteDe(v));
 const programadosVigentes = v => {
     const base = objetivosCierre(v);
     return (v.objetivos || []).map(o => NOMBRES_VIEJOS[o] || o).filter(o => base.includes(o));
@@ -1986,7 +1991,7 @@ const modalidadElegida = () => document.querySelector('.modalidad .on')?.dataset
 
 // Muestra los objetivos del tipo de visita elegido, conservando los que ya estén marcados
 function pintarObjetivos(marcados, subsMarcados) {
-    const tipo = tiposElegidos(), nuevo = origenElegido() === 'nuevo', cont = $('fObjetivos');
+    const tipo = tiposElegidos(), nuevo = origenElegido() === 'nuevo' || (permiteAmbos(clienteDelForm()) && 'medcom'), cont = $('fObjetivos');
     const actuales = marcados || leerObjetivos(cont);
     const subs = subsMarcados || leerSubs(cont);
     const lista = objetivosDeTipos(tipo, nuevo);
@@ -2043,7 +2048,7 @@ function leerCierre() {
     return { objetivosCumplidos: objs, subCumplidos: subs };
 }
 const cajaCierre = v => objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita lo programado; marca lo que lograste)</small></label>
-            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: v.subobjetivos || {} })}</div>` : '';
+            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: varianteDe(v), mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: v.subobjetivos || {} })}</div>` : '';
 // Texto de subcategorías junto a un objetivo (✓ en las cumplidas)
 function textoSubs(v, o) {
     const prog = (v.subobjetivos || {})[o] || [], cumpl = (v.subCumplidos || {})[o] || [];
@@ -2155,6 +2160,7 @@ async function guardarProgramada(e, id) {
         esProyecto: !!proyecto, contactoProyecto: proyecto ? proyecto.id : '',
         fecha, hora: $('fHora').value, objetivo: $('fObjetivo').value.trim(),
         modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipos[0], tiposVisita: tipos.length > 1 ? tipos : [], objetivos, subobjetivos,
+        medicoComercial: !interno && !nuevo && permiteAmbos(c),
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
         programada: antes && antes.fecha === fecha ? esProgramada(antes) : Date.now() < limiteProgramacion(fecha)
     });

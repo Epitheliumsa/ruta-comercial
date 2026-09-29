@@ -23,6 +23,8 @@ PRIMEROS = {'Planeación Mes': ['Visiplan', 'Diagnóstico de Zona', 'Plan de Acc
 # Nombre de la columna en el Excel -> clave del tipo en la app
 TIPOS = {
     'Visita Médica': 'Visita Médica', 'Visita Comercial': 'Visita Comercial', 'Punto de Venta': 'Punto de Venta',
+    # Visita Médica a clientes con clasificación 20 y 21 (médico que también compra): tiene sus propios objetivos
+    'Visita Médica Comercial (clasificación 20 y 21)': 'medcom:Visita Médica',
     'Contacto nuevo · Visita Médica': 'nuevo:Visita Médica', 'Contacto nuevo · Visita Comercial': 'nuevo:Visita Comercial',
     'Contacto nuevo · Punto de Venta': 'nuevo:Punto de Venta',
     'Trabajo Administrativo Oficina': 'Trabajo Administrativo Oficina',

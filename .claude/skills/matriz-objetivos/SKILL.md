@@ -13,7 +13,7 @@ Nunca se editan los objetivos a mano en `app.js` ni en `objetivos.js`.
 - **Visitas** y **Trabajo interno**: fila con *Objetivo* (columna A, fondo verde) = objetivo, con ✓ o X en los tipos
   donde sale. Filas de abajo con *Subcategoría* (columna B) = sus subcategorías, con X en los tipos donde salen.
   Subcategoría escrita **Variable** = se carga cada mes (Parrilla Promocional y Actividades).
-  - Columnas de Visitas: Visita Médica, Visita Comercial, Punto de Venta y las tres de Contacto nuevo.
+  - Columnas de Visitas: Visita Médica, Visita Médica Comercial (clasificación 20 y 21), Visita Comercial, Punto de Venta y las tres de Contacto nuevo.
   - Columnas de Trabajo interno: Trabajo Administrativo Oficina, Fuera de la Oficina, Planeación Mes.
 - **Mensual**: Mes (AAAA-MM) | Objetivo | Subcategoría, para Parrilla Promocional y Actividades.
   Si un jefe las carga en la app (botón "Parrilla y actividades del mes"), mandan las de la app para ese mes.

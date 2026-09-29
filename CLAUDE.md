@@ -31,6 +31,8 @@
 - En qué tipo de visita sale cada cliente depende de su clasificación: `datos/Matriz_tipo_visita_clasificacion.xlsx`
   (X por tipo). El mismo generador lo pasa a `objetivos.js`. Si una clasificación tiene X en Visita Médica y Visita
   Comercial (hoy la 20 y la 21), al programar el vendedor marca una, otra o ambas en la misma visita.
+- La Visita Médica a esos clientes (20 y 21) usa la columna "Visita Médica Comercial (clasificación 20 y 21)" de la
+  matriz de objetivos; la Visita Médica pura (p. ej. 22) usa la columna "Visita Médica".
 
 ## Maestra de Contactos
 - Cada vez que llegue una Maestra de Contactos usa la skill `maestra-contactos` (`herramientas/maestra_contactos.py`).
