@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Convierte la matriz de objetivos y subcategorías (Excel) en objetivos.js, que es lo que lee la app.
+También lee datos/Matriz_tipo_visita_clasificacion.xlsx: en qué tipos de visita sale cada clasificación de cliente.
 
 Uso:  python3 herramientas/matriz_objetivos.py [ruta del Excel]
       (por defecto: datos/Matriz_objetivos_subcategorias.xlsx)
@@ -80,13 +81,32 @@ if 'Mensual' in libro.sheetnames:
             mes = mes[:7]
             mensual.setdefault(mes, {}).setdefault(obj, []).append(sub)
 
+# Clasificación del cliente -> tipos de visita donde sale (X en la matriz). Con Visita Médica y Visita Comercial
+# a la vez, al programar el vendedor marca una, otra o ambas.
+por_clasificacion = {}
+MATRIZ_CLASIF = RAIZ / 'datos' / 'Matriz_tipo_visita_clasificacion.xlsx'
+if MATRIZ_CLASIF.exists():
+    ws = openpyxl.load_workbook(MATRIZ_CLASIF, data_only=True).active
+    cab = [limpio(c.value) for c in ws[4]]
+    cols = {i: n for i, n in enumerate(cab) if n in ('Visita Médica', 'Visita Comercial', 'Punto de Venta')}
+    for fila in ws.iter_rows(min_row=5, values_only=True):
+        cl = limpio(fila[0])
+        if not cl.isdigit():
+            continue
+        tipos = [n for i, n in cols.items() if limpio(fila[i])]
+        if tipos:
+            por_clasificacion[cl] = tipos
+        else:
+            avisos.append(f'Clasificación {cl} no tiene X en ningún tipo de visita (sale en todos)')
+
 orden_tipos = [t for t in TIPOS.values() if t in objetivos]
 datos = {'objetivos': {t: objetivos[t] for t in orden_tipos}, 'subcategorias': subcategorias,
-         'variables': variables, 'mensual': mensual}
+         'variables': variables, 'mensual': mensual, 'tiposPorClasificacion': por_clasificacion}
 SALIDA.write_text('// Generado desde datos/Matriz_objetivos_subcategorias.xlsx con herramientas/matriz_objetivos.py. No editar a mano.\n'
                   'window.MATRIZ_OBJETIVOS = ' + json.dumps(datos, ensure_ascii=False, indent=1) + ';\n', encoding='utf-8')
 for t in orden_tipos:
     print(f'{t}: {len(objetivos[t])} objetivos, {sum(len(v) for v in subcategorias.get(t, {}).values())} subcategorías')
 print('Variables:', ', '.join(variables) or '—', '| Meses cargados:', ', '.join(sorted(mensual)) or '—')
+print('Clasificaciones:', ' · '.join(f'{c}: {"/".join(t)}' for c, t in por_clasificacion.items()) or '—')
 for a in avisos:
     print('AVISO:', a)
