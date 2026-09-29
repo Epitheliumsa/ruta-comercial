@@ -774,7 +774,8 @@ function limitePlan(mes) {   // hasta el final del 2.º día hábil del mes (hor
     while (true) { if (esHabil(d) && ++n === 2) break; d = sumarDias(d, 1); }
     return { dia: d, ms: Date.parse(`${d}T23:59:59-05:00`) };
 }
-const planEditable = mes => esAdmin() || Date.now() <= limitePlan(mes).ms;
+// Mientras estemos en pruebas el plan queda abierto; al salir en vivo (ETAPA_DATOS = 'vivo') vuelve el cierre del 2.º día hábil
+const planEditable = mes => ETAPA_DATOS === 'pruebas' || esAdmin() || Date.now() <= limitePlan(mes).ms;
 const clavePlan = (contacto, fecha) => `${contacto}|${fecha}`;
 
 // Lo planeado para un vendedor en un día (con su estado: por confirmar, confirmada o cerrada)
@@ -807,7 +808,8 @@ function pintarVisiplan() {
     const lim = limitePlan(mes);
     $('vpMesTxt').textContent = mayuscula(nombreMes(mes));
     $('vpMesSub').textContent = editable
-        ? `Se puede editar hasta el ${fechaLarga(lim.dia)}${esAdmin() && Date.now() > lim.ms ? ' (abierto por el administrador)' : ''}`
+        ? (Date.now() > lim.ms && ETAPA_DATOS === 'pruebas' ? 'Abierto para pruebas (en vivo se cierra el 2.º día hábil)'
+            : `Se puede editar hasta el ${fechaLarga(lim.dia)}${esAdmin() && Date.now() > lim.ms ? ' (abierto por el administrador)' : ''}`)
         : `Plan cerrado el ${fechaLarga(lim.dia)}: ya no se puede editar`;
     $('vpMesSub').classList.toggle('cerrado', !editable);
 
