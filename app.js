@@ -631,7 +631,8 @@ const opcionesProyecto = zona => proyectosDeZona(zona)
 // "Maestra de Contactos" o "Contacto nuevo": cambia la lista del buscador y abre los datos del proyecto
 
 // "Contacto nuevo" es una sola opción del menú; el tipo de visita se elige en un segundo campo
-const tipoBase = () => $('fTipo').value === 'nuevo' ? $('fTipoNuevo').value : $('fTipo').value;
+// "Visita a cliente": el tipo de visita no se elige, sale de la clasificación del cliente (ver tiposCliente)
+const tipoBase = () => { const f = $('fTipo').value; return f === 'nuevo' ? $('fTipoNuevo').value : f === 'visita' ? tiposCliente()[0] || '' : f; };
 const origenElegido = () => $('fTipo').value === 'nuevo' ? 'nuevo' : 'maestra';
 const TIPO_CONTACTO_DE_VISITA = { 'Visita Médica': 'Médico', 'Visita Comercial': 'Cliente', 'Punto de Venta': 'Punto de Venta' };
 
@@ -642,9 +643,9 @@ function cambiarTipoNuevo() {
 }
 
 function elegirOrigen(origen) {
-    $('lblContacto').textContent = origen === 'nuevo' ? 'Contacto nuevo' : 'Contacto (Maestra de Contactos)';
+    $('lblContacto').textContent = origen === 'nuevo' ? 'Contacto nuevo' : 'Cliente (Maestra de Contactos)';
     const zona = comercial(agenda.vendedor)?.zona;
-    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : opcionesMaestra(zona, tipoBase());
+    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : opcionesMaestra(zona);
     $('fContacto').placeholder = origen === 'nuevo' ? 'Nombre del contacto nuevo o búscalo si ya lo visitaste' : 'Busca el médico, cliente o punto de venta';
     revisarProyecto();
 }
@@ -909,60 +910,68 @@ function filtrarMaestra(base, sin) {
         && FILTROS_MAESTRA.every(k => k === sin || !maestra.sel[k].length || maestra.sel[k].includes(DIMS_MAESTRA[k].valor(c))));
 }
 
-// Filtros de selección múltiple: botón con lo elegido y lista de casillas con cuántos clientes tiene cada opción
-function pintarFiltrosMaestra(base) {
-    const caja = $('mcFiltrosMulti');
+// Filtros de selección múltiple (Maestra Clientes y Visiplan): botón con lo elegido y lista de casillas con cuántos
+// clientes tiene cada opción. "Todas" deja el filtro sin elegir nada (salen todos). Cada pantalla es un grupo.
+const MULTI = {
+    maestra: { get sel() { return maestra.sel; }, abierto: null, busca: '', enfocar: false, repintar: () => pintarMaestra() },
+    visiplan: { get sel() { return visiplan.sel; }, abierto: null, busca: '', enfocar: false, repintar: () => pintarVisiplan() }
+};
+function pintarMultis(caja, grupo, defs) {
+    const g = MULTI[grupo];
     const tecleando = document.activeElement?.classList?.contains('mc-multi-busca');
     const antes = caja.querySelector('.mc-multi-ops');
     const scroll = antes ? antes.scrollTop : 0;
-    caja.innerHTML = FILTROS_MAESTRA.map(k => {
-        const d = DIMS_MAESTRA[k], elegidos = maestra.sel[k];
-        const ejemplo = {};
-        base.forEach(c => { const v = d.valor(c); if (v && !ejemplo[v]) ejemplo[v] = c; });
-        const cuenta = {};
-        filtrarMaestra(base, k).forEach(c => { const v = d.valor(c); cuenta[v] = (cuenta[v] || 0) + 1; });
-        const nombre = v => d.nombre ? d.nombre(v, ejemplo[v]) : v;
-        const valores = Object.keys(ejemplo).sort(d.orden || ((a, b) => a.localeCompare(b, 'es')));
+    caja.innerHTML = defs.map(d => {
+        const k = d.k, elegidos = g.sel[k], nombre = v => d.nombre ? d.nombre(v) : v;
         const texto = !elegidos.length ? d.todos : elegidos.length === 1 ? nombre(elegidos[0]) : `${d.t}: ${elegidos.length} elegidas`;
-        const abierto = maestra.abierto === k, qo = normalizar(maestra.buscaOp);
+        const abierto = g.abierto === k, qo = normalizar(g.busca);
         return `<div class="mc-multi${abierto ? ' abierto' : ''}${elegidos.length ? ' con' : ''}" data-k="${k}">
-            <button type="button" class="mc-multi-btn" onclick="abrirFiltroMaestra('${k}')" aria-expanded="${abierto}" title="${esc(d.t)}"><span>${esc(texto)}</span></button>
+            <button type="button" class="mc-multi-btn" onclick="abrirMulti('${grupo}', '${k}')" aria-expanded="${abierto}" title="${esc(d.t)}"><span>${esc(texto)}</span></button>
             ${!abierto ? '' : `<div class="mc-multi-panel">
-                ${valores.length > 10 ? `<input class="mc-multi-busca" placeholder="Buscar ${esc(d.t.toLowerCase())}..." value="${esc(maestra.buscaOp)}" oninput="maestra.buscaOp=this.value; pintarMaestra()">` : ''}
-                ${k === 'vis' ? `<select class="mc-multi-mes" onchange="maestra.mesVis=this.value; pintarMaestra()" aria-label="Mes">${mesesMaestra().map(m => `<option value="${m}" ${m === maestra.mesVis ? 'selected' : ''}>${esc(nombreMes(m).replace(/^./, x => x.toUpperCase()))}</option>`).join('')}</select>` : ''}
-                <div class="mc-multi-acc"><b>${esc(d.t)}</b>${elegidos.length ? `<button type="button" onclick="limpiarFiltroMaestra('${k}')">Quitar filtro</button>` : '<span>Elige una o varias</span>'}</div>
-                <div class="mc-multi-ops">${valores.filter(v => !qo || normalizar(nombre(v)).includes(qo)).map(v => `<label class="${cuenta[v] ? '' : 'vacio'}">
-                    <input type="checkbox" data-v="${esc(v)}" ${elegidos.includes(v) ? 'checked' : ''} onchange="marcarFiltroMaestra('${k}', this.dataset.v)">
-                    <span>${esc(nombre(v))}</span><small>${cuenta[v] || 0}</small></label>`).join('') || '<p>Sin opciones</p>'}</div>
+                ${d.extra || ''}
+                ${d.valores.length > 10 ? `<input class="mc-multi-busca" placeholder="Buscar ${esc(d.t.toLowerCase())}..." value="${esc(g.busca)}" oninput="MULTI.${grupo}.busca=this.value; MULTI.${grupo}.repintar()">` : ''}
+                <div class="mc-multi-acc"><b>${esc(d.t)}</b><span>Elige una o varias</span></div>
+                <label class="mc-multi-todas"><input type="checkbox" ${elegidos.length ? '' : 'checked'} onchange="todasMulti('${grupo}', '${k}')"><span>${esc(d.todos)}</span></label>
+                <div class="mc-multi-ops">${d.valores.filter(v => !qo || normalizar(nombre(v)).includes(qo)).map(v => `<label class="${!d.cuenta || d.cuenta[v] ? '' : 'vacio'}">
+                    <input type="checkbox" data-v="${esc(v)}" ${elegidos.includes(v) ? 'checked' : ''} onchange="marcarMulti('${grupo}', '${k}', this.dataset.v)">
+                    <span>${esc(nombre(v))}</span><small>${d.cuenta ? d.cuenta[v] || 0 : ''}</small></label>`).join('') || '<p>Sin opciones</p>'}</div>
             </div>`}
         </div>`;
     }).join('');
     const ops = caja.querySelector('.mc-multi-ops');
     if (ops) ops.scrollTop = scroll;
     const bq = caja.querySelector('.mc-multi-busca');
-    if (bq && (tecleando || (maestra.enfocarBusca && !matchMedia('(hover: none)').matches))) { bq.focus(); bq.setSelectionRange(bq.value.length, bq.value.length); }
-    maestra.enfocarBusca = false;
+    if (bq && (tecleando || (g.enfocar && !matchMedia('(hover: none)').matches))) { bq.focus(); bq.setSelectionRange(bq.value.length, bq.value.length); }
+    g.enfocar = false;
 }
-
-function abrirFiltroMaestra(k) {
-    maestra.abierto = maestra.abierto === k ? null : k;
-    maestra.buscaOp = '';
-    maestra.enfocarBusca = true;
-    pintarMaestra();
+function abrirMulti(grupo, k) {
+    const g = MULTI[grupo];
+    g.abierto = g.abierto === k ? null : k;
+    g.busca = ''; g.enfocar = true;
+    g.repintar();
 }
-
-function marcarFiltroMaestra(k, v) {
-    const s = maestra.sel[k];
-    maestra.sel[k] = s.includes(v) ? s.filter(x => x !== v) : [...s, v];
-    pintarMaestra();
+function marcarMulti(grupo, k, v) {
+    const g = MULTI[grupo], s = g.sel[k];
+    g.sel[k] = s.includes(v) ? s.filter(x => x !== v) : [...s, v];
+    g.repintar();
 }
-
-function limpiarFiltroMaestra(k) { maestra.sel[k] = []; pintarMaestra(); }
-
+function todasMulti(grupo, k) { MULTI[grupo].sel[k] = []; MULTI[grupo].repintar(); }
 // Cerrar la lista de opciones al tocar fuera de ella
 document.addEventListener('click', e => {
-    if (maestra.abierto && document.contains(e.target) && !e.target.closest('.mc-multi')) { maestra.abierto = null; pintarMaestra(); }
+    if (!document.contains(e.target) || e.target.closest('.mc-multi')) return;
+    Object.values(MULTI).forEach(g => { if (g.abierto) { g.abierto = null; g.repintar(); } });
 });
+
+function pintarFiltrosMaestra(base) {
+    pintarMultis($('mcFiltrosMulti'), 'maestra', FILTROS_MAESTRA.map(k => {
+        const d = DIMS_MAESTRA[k], ejemplo = {}, cuenta = {};
+        base.forEach(c => { const v = d.valor(c); if (v && !ejemplo[v]) ejemplo[v] = c; });
+        filtrarMaestra(base, k).forEach(c => { const v = d.valor(c); cuenta[v] = (cuenta[v] || 0) + 1; });
+        return { k, t: d.t, todos: d.todos, cuenta, nombre: v => d.nombre ? d.nombre(v, ejemplo[v]) : v,
+            valores: Object.keys(ejemplo).sort(d.orden || ((a, b) => a.localeCompare(b, 'es'))),
+            extra: k === 'vis' ? `<select class="mc-multi-mes" onchange="maestra.mesVis=this.value; pintarMaestra()" aria-label="Mes">${mesesMaestra().map(m => `<option value="${m}" ${m === maestra.mesVis ? 'selected' : ''}>${esc(nombreMes(m).replace(/^./, x => x.toUpperCase()))}</option>`).join('')}</select>` : '' };
+    }));
+}
 
 function pintarMaestra() {
     const todas = zonasMaestra(), sel = maestra.zonas || [];
@@ -1054,14 +1063,16 @@ function filtrarComposicion(v) {
         const todas = zonasMaestra(), z = maestra.zonas || [];
         maestra.zonas = z.length === todas.length ? [v] : z.includes(v) ? (z.length > 1 ? z.filter(x => x !== v) : todas) : todas.filter(x => x === v || z.includes(x));
         pintarMaestra();
-    } else marcarFiltroMaestra(maestra.dim, v);
+    } else marcarMulti('maestra', maestra.dim, v);
 }
 
 // ---------- VISIPLAN (plan de visitas del mes) ----------
 // Cada vendedor marca con X, al inicio del mes, qué días visitará a cada cliente de su zona. Se puede
 // editar hasta el 2.º día hábil del mes. En el día, cada X aparece en el Plan de Trabajo para confirmarla:
 // al confirmarla se programa la visita (con lo que se va a hacer). Si no se confirma ese día, queda cerrada.
-const visiplan = { mes: sumarMes(mesDe(hoy()), 0), vendedores: null, busca: '', etiqueta: '', tipo: '', filtro: '', periodo: 'mes' };
+const visiplan = { mes: sumarMes(mesDe(hoy()), 0), vendedores: null, busca: '', sel: { t: [], e: [], f: [] }, periodo: 'mes', dia: hoy() };
+const INTERNO_ETQ = 'Trabajo interno';
+const NOMBRES_FILTRO_PLAN = { plan: 'Planeados', noplan: 'No planeados', real: 'Con visita real', cump: 'Cumplidos en el día planeado', visit: 'Planeados y visitados' };
 let esperaPlan = null;
 
 const idPlan = (vendedor, mes) => `plan-${vendedor}-${mes}`;
@@ -1137,15 +1148,18 @@ function pintarVendedoresPlan() {
 function elegirVendedorPlan(id, e) {
     const antes = visiplan.vendedores.length;
     visiplan.vendedores = eleccionChip(visiplan.vendedores, id, COMERCIALES.map(c => c.id), e);
-    if (antes === 1 && visiplan.vendedores.length > 1) visiplan.filtro = 'plan';   // varios vendedores: arranca solo con lo planeado
+    if (antes === 1 && visiplan.vendedores.length > 1) visiplan.sel.f = ['plan'];   // varios vendedores: arranca solo con lo planeado
     pintarVisiplan();
 }
 
 // Filtro de clientes: desde la lista "Mostrar" o tocando un indicador del resumen (otro toque lo quita)
-function filtrarPlan(f, desdeLista) {
-    visiplan.filtro = !desdeLista && visiplan.filtro === f ? '' : f;
+function filtrarPlan(f) {
+    const s = visiplan.sel.f;
+    visiplan.sel.f = s.length === 1 && s[0] === f ? [] : [f];
     pintarVisiplan();
 }
+// Un cliente pasa el filtro "Mostrar" si cumple cualquiera de las opciones elegidas
+const pasaFiltrosPlan = (m, r) => !visiplan.sel.f.length || visiplan.sel.f.some(f => FILTROS_PLAN[f](m, r));
 const FILTROS_PLAN = {
     plan: (m) => m.length > 0,
     noplan: (m) => m.length === 0,
@@ -1158,12 +1172,18 @@ const FILTROS_PLAN = {
 // Periodo que se ve en el Visiplan: hoy, esta semana o el mes completo (por defecto)
 function periodoPlan(p) {
     visiplan.periodo = p;
+    if (p === 'hoy') visiplan.dia = hoy();
     if (p !== 'mes') visiplan.mes = mesDe(hoy());
+    pintarVisiplan();
+}
+// Clic en un día del encabezado: se ve solo ese día
+function irDiaPlan(d) {
+    visiplan.periodo = 'hoy'; visiplan.dia = d; visiplan.mes = mesDe(d);
     pintarVisiplan();
 }
 function diasVistaPlan(mes) {
     const dias = diasDelMes(mes);
-    if (visiplan.periodo === 'hoy') return dias.filter(d => d === hoy());
+    if (visiplan.periodo === 'hoy') return dias.filter(d => d === (visiplan.dia || hoy()));
     if (visiplan.periodo === 'semana') return dias.filter(d => lunesDe(d) === lunesDe(hoy()));
     return dias;
 }
@@ -1193,28 +1213,26 @@ function pintarVisiplan() {
         clientes = clientes.concat((contactos[ven.zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Comercial', v: ven.id }))
             .concat(proyectosDeZona(ven.zona).map(p => ({ n: p.nombre, e: 'Contacto nuevo · ' + p.tipo, t: p.tipo, v: ven.id }))));
     });
+    // Filtros (selección múltiple): tipo de cliente, etiqueta (con Trabajo interno) y qué mostrar
     const claveZona = vista.map(c => c.id).join(',');
-    const selEt = $('vpEtiqueta');
-    if (selEt.dataset.zona !== claveZona) {
-        const etiquetas = [...new Set(clientes.map(c => c.e).filter(Boolean))].sort();
-        selEt.innerHTML = '<option value="">Todas las etiquetas</option>' + etiquetas.map(e => `<option>${esc(e)}</option>`).join('');
-        selEt.dataset.zona = claveZona; visiplan.etiqueta = '';
-    }
-    const selTipo = $('vpTipo');
-    if (selTipo.dataset.zona !== claveZona) {
-        const tiposZona = [...new Set(clientes.map(c => c.t).filter(Boolean))].sort();
-        selTipo.innerHTML = '<option value="">Todos los tipos de cliente</option>' + tiposZona.map(t => `<option>${esc(t)}</option>`).join('');
-        selTipo.dataset.zona = claveZona; visiplan.tipo = '';
-    }
+    if (visiplan.zonaFiltros !== claveZona) { visiplan.zonaFiltros = claveZona; visiplan.sel.t = []; visiplan.sel.e = []; }
+    const cuentaDe = k => clientes.reduce((o, c) => (o[c[k]] = (o[c[k]] || 0) + 1, o), {});
+    const unicos = k => [...new Set(clientes.map(c => c[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    if (!visiplan.oculto) pintarMultis($('vpMultis'), 'visiplan', [
+        { k: 't', t: 'Tipo de cliente', todos: 'Todos los tipos de cliente', valores: unicos('t'), cuenta: cuentaDe('t') },
+        { k: 'e', t: 'Etiqueta', todos: 'Todas las etiquetas', valores: [INTERNO_ETQ, ...unicos('e')], cuenta: { ...cuentaDe('e'), [INTERNO_ETQ]: TRABAJO_INTERNO.length * vista.length } },
+        { k: 'f', t: 'Mostrar', todos: 'Todos los clientes', valores: Object.keys(NOMBRES_FILTRO_PLAN), nombre: f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o visitados' }
+    ]);
     const q = normalizar(visiplan.busca);
-    $('vpFiltro').value = visiplan.filtro;
     document.querySelectorAll('#vpPeriodo button').forEach(b => b.classList.toggle('activo', b.dataset.p === visiplan.periodo));
+    const otroDia = visiplan.periodo === 'hoy' && visiplan.dia !== hoy();
+    $('vpPeriodo').querySelector('[data-p="hoy"]').textContent = otroDia ? mayuscula(fechaCorta(visiplan.dia)) : 'Hoy';
     const dias = diasVistaPlan(mes), enVista = new Set(dias);
     visiplan.dias = dias;
     const soloVista = (m, r) => [m.filter(d => enVista.has(d)), new Set([...r].filter(d => enVista.has(d)))];
-    const pasaFiltro = FILTROS_PLAN[visiplan.filtro];
-    clientes = clientes.filter(c => (!q || normalizar(c.n).includes(q)) && (!visiplan.etiqueta || c.e === visiplan.etiqueta) && (!visiplan.tipo || c.t === visiplan.tipo)
-        && (!pasaFiltro || pasaFiltro(...soloVista(seg[c.v].marcas[c.n] || [], seg[c.v].reales[c.n] || new Set()))));
+    const { t: selT, e: selE } = visiplan.sel;
+    clientes = clientes.filter(c => (!q || normalizar(c.n).includes(q)) && (!selE.length || selE.includes(c.e)) && (!selT.length || selT.includes(c.t))
+        && pasaFiltrosPlan(...soloVista(seg[c.v].marcas[c.n] || [], seg[c.v].reales[c.n] || new Set())));
 
     const semanas = [];
     dias.forEach(d => {
@@ -1226,14 +1244,16 @@ function pintarVisiplan() {
     const fs = d => deIso(d).getDay() === 6 ? ' fs' : '';   // último día de la semana: línea más fuerte
     const diaPlanHead = d => vista.some(v => seg[v.id].diasPlaneacion.has(d)) ? ' dia-plan' : '';
     const cab1 = semanas.map((s, i) => `<th colspan="${s.dias.length * 2}" class="vp-sem">Semana ${i + 1}</th>`).join('');
-    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}${diaPlanHead(d)}" title="${esc(nombreFestivo(d) || (diaPlanHead(d) ? 'Planeación Mes · ' : '') + fechaLarga(d))}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
+    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}${diaPlanHead(d)}${dias.length > 1 ? ' ir' : ''}"${dias.length > 1 ? ` onclick="irDiaPlan('${d}')"` : ''} title="${esc(nombreFestivo(d) || (diaPlanHead(d) ? 'Planeación Mes · ' : '') + fechaLarga(d))}${dias.length > 1 ? ' · toca para ver solo este día' : ''}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
     const cab3 = dias.map(d => `<th class="vp-sub plan${nombreFestivo(d) ? ' festivo' : ''}">P</th><th class="vp-sub real${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}">R</th>`).join('');
     const dp = (v, d) => seg[v].diasPlaneacion.has(d) ? ' dia-plan' : '';
     const celdas = (c, m, r, px) => dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}${dp(c.v, d)}" data-c="${esc(c.n)}" data-v="${c.v}" data-d="${d}"></td>`
         + `<td data-d="${d}" class="vp-r h${fs(d)}${r.has(d) ? ' on' : px.has(d) ? ' prox' : ''}${nombreFestivo(d) ? ' festivo' : ''}${dp(c.v, d)}"${!r.has(d) && px.has(d) ? ' title="Reprogramada: pasa a verde cuando se visite"' : ''}></td>`).join('');
     const vacio = new Set();
     // Arriba, el trabajo interno de cada vendedor (se programa igual con X; no suma en los indicadores de clientes)
-    const filasInternas = visiplan.filtro && visiplan.filtro !== 'actividad' ? '' : vista.map(ven => TRABAJO_INTERNO.map((t, i) => {
+    // Trabajo interno: sale con "Todas las etiquetas" o si se elige en Etiqueta, y sin filtros de clientes en "Mostrar"
+    const verInternos = (!selE.length || selE.includes(INTERNO_ETQ)) && (!visiplan.sel.f.length || visiplan.sel.f.includes('actividad')) && !q;
+    const filasInternas = !verInternos ? '' : vista.map(ven => TRABAJO_INTERNO.map((t, i) => {
         const c = { n: t, v: ven.id }, sg = seg[ven.id];
         return `<tr class="vp-int${i === TRABAJO_INTERNO.length - 1 ? ' vp-int-fin' : ''}"><td class="vp-et">${todos ? `<b class="vp-vend">${esc(nombreVendedor(ven.id))}</b>` : ''}Trabajo interno</td><th class="vp-cli" scope="row">${esc(t)}</th>`
             + celdas(c, sg.internos.marcas[t] || [], sg.internos.reales[t] || vacio, vacio)
@@ -1319,7 +1339,7 @@ function actualizarTotalesPlan() {
         });
         Object.keys(reales).forEach(n => { real += rv(n).size; });
     });
-    const chip = (f, clase, html, titulo) => `<button type="button" class="chip chip-filtro ${clase}${visiplan.filtro === f ? ' activo' : ''}" onclick="filtrarPlan('${f}')" title="${titulo}" aria-pressed="${visiplan.filtro === f}">${html}</button>`;
+    const chip = (f, clase, html, titulo) => { const on = visiplan.sel.f.includes(f); return `<button type="button" class="chip chip-filtro ${clase}${on ? ' activo' : ''}" onclick="filtrarPlan('${f}')" title="${titulo}" aria-pressed="${on}">${html}</button>`; };
     $('vpResumen').innerHTML = chip('plan', 'vp-chip-cli', `<b>${clientesP}</b> ${clientesP === 1 ? 'cliente planeado' : 'clientes planeados'}`, 'Ver solo los clientes planeados')
         + chip('plan', 'vp-chip-plan', `Obj ${obj}`, 'Ver solo los clientes planeados') + chip('real', 'vp-chip-real', `Real ${real}`, 'Ver los clientes con visita real')
         + (obj ? chip('cump', 'vp-chip-pct', `${pctPlan(cump, obj)} Cump`, 'Ver los cumplidos en el día planeado') + chip('visit', 'vp-chip-pct', `${pctPlan(real, obj)} Visitas`, 'Ver los planeados que ya se visitaron') : '')
@@ -1354,19 +1374,13 @@ async function descargarVisiplan(boton) {
 // Arma el Visiplan de un mes y vendedores dados en la tabla de la app (sin tocar lo que el usuario está viendo)
 // y lo pasa al Excel con el mismo formato de la pantalla. Lo usa el informe general.
 function conVisiplanDe(mes, vendedores, hacer) {
-    const antes = { ...visiplan, vendedores: [...(visiplan.vendedores || [])] };
-    const filtroAntes = $('vpFiltro').value;
-    Object.assign(visiplan, { mes, vendedores, periodo: 'mes', filtro: 'actividad', busca: '', etiqueta: '', tipo: '' });
-    const tipo = $('vpTipo'), etq = $('vpEtiqueta');
-    tipo.dataset.zona = ''; etq.dataset.zona = '';
-    if (!$('vpFiltro').querySelector('option[value="actividad"]')) $('vpFiltro').insertAdjacentHTML('beforeend', '<option value="actividad" hidden>Planeados o visitados</option>');
+    const antes = { ...visiplan, vendedores: [...(visiplan.vendedores || [])], sel: { ...visiplan.sel } };
+    Object.assign(visiplan, { mes, vendedores, periodo: 'mes', busca: '', sel: { t: [], e: [], f: ['actividad'] }, oculto: true, zonaFiltros: vendedores.join(',') });
     try {
         pintarVisiplan();
         return hacer();
     } finally {
-        Object.assign(visiplan, antes);
-        tipo.dataset.zona = ''; etq.dataset.zona = '';
-        $('vpFiltro').value = filtroAntes;
+        Object.assign(visiplan, antes, { oculto: false });
         pintarVisiplan();
     }
 }
@@ -1408,9 +1422,9 @@ function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
     };
     // Encabezado: título, vendedores, periodo y filtros
     const vend = COMERCIALES.filter(c => visiplan.vendedores.includes(c.id)).map(c => `${c.nombre} · ${c.zona}`).join(', ');
-    const periodo = { hoy: 'Hoy', semana: 'Esta semana', mes: 'Mes completo' }[visiplan.periodo];
-    const filtros = [visiplan.busca && `Búsqueda: ${visiplan.busca}`, visiplan.tipo, visiplan.etiqueta, visiplan.filtro && $('vpFiltro').selectedOptions[0]?.textContent]
-        .filter(Boolean).join(' · ');
+    const periodo = visiplan.periodo === 'hoy' ? (visiplan.dia === hoy() ? 'Hoy' : mayuscula(fechaLarga(visiplan.dia))) : { semana: 'Esta semana', mes: 'Mes completo' }[visiplan.periodo];
+    const filtros = [visiplan.busca && `Búsqueda: ${visiplan.busca}`, visiplan.sel.t.join(', '), visiplan.sel.e.join(', '),
+        visiplan.sel.f.map(f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o visitados').join(', ')].filter(Boolean).join(' · ');
     h.getCell('A1').value = `Visiplan del mes · ${mayuscula(nombreMes(visiplan.mes))}`;
     h.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0B5C56' } };
     h.getCell('A2').value = vend;
@@ -1604,13 +1618,19 @@ function pintarAgenda() {
         : '';
 
     const plan = planeadasDe(v, f).filter(p => p.estado !== 'confirmada');
-    const bloquePlan = plan.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${plan.length} ${plan.length === 1 ? 'cliente planeado' : 'clientes planeados'}</p>${plan.map(p => `
+    // Arriba los planeados por confirmar; los que no se confirmaron a tiempo quedan al final del día
+    const tarjetaPlan = p => `
         <div class="producto-card plan-card ${p.estado === 'cerrada' ? 'cerrada' : ''}">
             <div class="visita-cab"><div><h3>${esc(p.contacto)}</h3></div><span class="chip ${p.estado === 'cerrada' ? 'gris' : 'azul'}">${p.estado === 'cerrada' ? 'No confirmada · cerrada' : 'Planeada'}</span></div>
             ${p.estado === 'por confirmar' && f === t
                 ? `<div class="acciones"><button class="bv ok" data-c="${esc(p.contacto)}" onclick="confirmarPlaneada(this.dataset.c, '${f}')">✓ Confirmar visita</button><span class="nota-cierre">Si no la confirmas hoy, queda cerrada y no se programa.</span></div>`
                 : p.estado === 'por confirmar' ? '<p class="nota-cierre">Se confirma el mismo día de la visita.</p>' : ''}
-        </div>`).join('')}</div>` : '';
+        </div>`;
+    // Después de las 8:00 a. m. los que no se confirmaron también bajan al final (se pueden confirmar mientras sea el día)
+    const tarde = p => p.estado === 'cerrada' || Date.now() >= limiteProgramacion(f);
+    const abiertas = plan.filter(p => !tarde(p)), cerradas = plan.filter(tarde);
+    const bloquePlan = abiertas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${abiertas.length} ${abiertas.length === 1 ? 'cliente planeado' : 'clientes planeados'}</p>${abiertas.map(tarjetaPlan).join('')}</div>` : '';
+    const bloqueCerradas = cerradas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${cerradas.length} ${cerradas.length === 1 ? 'planeado no confirmado' : 'planeados no confirmados'}</p>${cerradas.map(tarjetaPlan).join('')}</div>` : '';
     const cont = $('agLista');
     if (!lista.length && !novs.length && !plan.length) {
         cont.innerHTML = `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo" style="margin-top:15px" onclick="abrirProgramar()">+ Programar</button></div>`;
@@ -1630,7 +1650,8 @@ function pintarAgenda() {
     const tarjetas = vistas.map(x => tarjetaVisita(x, ordenes[x.id], mover)).join('');
     const aviso = agenda.filtro ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="filtrarAgenda('${agenda.filtro}')">Quitar filtro</button></p>` : '';
     cont.innerHTML = (agenda.filtro ? '' : novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
-        + (tarjetas || '<div class="no-results">No hay visitas con este filtro.</div>');
+        + (tarjetas || (lista.length || !cerradas.length ? '<div class="no-results">No hay visitas con este filtro.</div>' : ''))
+        + (agenda.filtro ? '' : bloqueCerradas);
 }
 
 // Orden de las visitas del día. El programado lo pone el vendedor y lo puede cambiar hasta que cierra la
@@ -1796,6 +1817,7 @@ async function abrirProgramar(id, contactoPlan) {
     const lista = contactos[zona] || [];
     const actual = v?.tipoVisita || v?.tipo;
     const opcion = t => `<option ${t === actual && !v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
+    const esVisitaCliente = !v || (TIPOS_VISITA[actual] && !v.esProyecto);
     const opcionNuevo = t => `<option ${t === actual && v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
     abrirModal(`<form class="form-rc" novalidate onsubmit="guardarProgramada(event, '${id || ''}')">
         <h2>${v ? 'Editar programación' : 'Programar'}</h2>
@@ -1803,7 +1825,7 @@ async function abrirProgramar(id, contactoPlan) {
         <label for="fTipo">¿Qué vas a programar?</label>
         <select id="fTipo" required onchange="cambiarTipoProgramacion()">
             <option value="">Elige una opción</option>
-            <optgroup label="Visitas (Maestra de Contactos)">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
+            <optgroup label="Visitas (Maestra de Contactos)"><option value="visita" ${esVisitaCliente ? 'selected' : ''}>Visita a cliente</option></optgroup>
             <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
             <optgroup label="Contacto nuevo"><option value="nuevo" ${v?.esProyecto ? 'selected' : ''}>Contacto nuevo</option></optgroup>
             <optgroup label="Novedades">${NOVEDADES.map(opcion).join('')}</optgroup>
@@ -1817,7 +1839,10 @@ async function abrirProgramar(id, contactoPlan) {
         </div>
         <div id="cajaContacto">
             <label for="fContacto" id="lblContacto">Contacto</label>
-            <input id="fContacto" list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
+            <div class="contacto-fila">
+                <input id="fContacto" list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
+                <div id="cajaTipoCliente" class="tipo-cliente" hidden></div>
+            </div>
             <datalist id="dlContactos"></datalist>
             <p class="ayuda" id="ayudaContacto" hidden></p>
             <div class="caja-proyecto" id="cajaProyecto" hidden>
@@ -1833,11 +1858,6 @@ async function abrirProgramar(id, contactoPlan) {
                 <label for="pTel">Teléfono (opcional)</label>
                 <input id="pTel" type="tel" inputmode="tel">
             </div>
-        </div>
-        <div id="cajaAmbos" class="caja-ambos" hidden>
-            <label>Esta visita es de <small>(marca una o ambas)</small></label>
-            <div class="ambos-opciones">${AMBOS_TIPOS.map(t => `<label class="check"><input type="checkbox" class="ambos" value="${t}" onchange="cambiarAmbos(this)"><span>${t}</span></label>`).join('')}</div>
-            <p class="ayuda" id="ayudaAmbos"></p>
         </div>
         <p class="aviso-festivo en-form" id="fFestivo" hidden></p>
         <div class="fila-fecha">
@@ -1870,7 +1890,7 @@ async function abrirProgramar(id, contactoPlan) {
             <button class="btn-primario">${v ? 'Guardar cambios' : 'Programar'}</button>
         </div>
     </form>`);
-    tiposForm = v?.tiposVisita?.length ? v.tiposVisita.slice() : null;
+    tiposForm = v?.tiposVisita?.length ? v.tiposVisita.slice() : v && TIPOS_VISITA[v.tipoVisita] ? [v.tipoVisita] : null;
     cambiarTipoProgramacion(v?.objetivos || [], v?.subobjetivos || {});
     if (v && v.clase === 'visita') avisoProgramacion(v);
     if (contactoPlan) {
@@ -1878,19 +1898,17 @@ async function abrirProgramar(id, contactoPlan) {
         $('fContacto').value = contactoPlan;
         const zona = comercial(agenda.vendedor)?.zona;
         const p = buscarProyecto(zona, contactoPlan);
-        const m = buscarMaestra(zona, contactoPlan);
-        const t = esTrabajoInterno(contactoPlan) ? contactoPlan : m ? tipoDeCliente(m) : tipoSugerido(p?.tipo || '');
-        $('fTipo').value = p ? 'nuevo' : t;
-        if (p) $('fTipoNuevo').value = t;
+        $('fTipo').value = p ? 'nuevo' : esTrabajoInterno(contactoPlan) ? contactoPlan : 'visita';
+        if (p) $('fTipoNuevo').value = tipoSugerido(p.tipo || '');
+        tiposForm = null;
         cambiarTipoProgramacion();
         document.querySelector('#modalContenido h2').textContent = 'Confirmar visita del plan';
         $('fAviso').hidden = false;
         $('fAviso').textContent = 'Visita del Visiplan: cuenta como programada. Escoge qué vas a hacer y confirma.';
         $('fFecha').disabled = true;
     }
-    $('fContacto').addEventListener('change', sugerirTipo);
+    $('fContacto').addEventListener('change', () => { tiposForm = null; sugerirTipo(); pintarTipoCliente(); });
     $('fContacto').addEventListener('input', revisarProyecto);
-    $('fContacto').addEventListener('change', () => pintarAmbos());
     $('fFecha').addEventListener('change', () => { avisoProgramacion(v && v.clase === 'visita' ? v : null); pintarObjetivos(); });
 }
 
@@ -1915,38 +1933,43 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : interno ? '¿Qué vas a hacer? (opcional)' : 'Notas (opcional)';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
-    pintarAmbos(true);
+    pintarTipoCliente(true);
     pintarObjetivos(marcados, subsMarcados);
     avisoProgramacion(null);
 }
 
-// Clientes cuya clasificación sale en Visita Médica y en Visita Comercial (p. ej. 20 y 21): el vendedor marca
-// si la visita es médica, comercial o ambas. Los objetivos salen de los tipos marcados.
+// Visita a cliente: al escoger el cliente, al lado sale el tipo de visita según su clasificación. Solo si la
+// clasificación sale en Visita Médica y Visita Comercial (hoy 20 y 21) se marca una, otra o ambas.
 let tiposForm = null;
 function clienteDelForm() {
-    if (origenElegido() === 'nuevo' || esTrabajoInterno(tipoBase()) || esNovedad(tipoBase())) return null;
-    return buscarMaestra(comercial(agenda.vendedor)?.zona, $('fContacto').value);
+    if ($('fTipo')?.value !== 'visita') return null;
+    return buscarMaestra(comercial(agenda.vendedor)?.zona, $('fContacto').value) || null;
 }
-function pintarAmbos(sinObjetivos) {
-    const c = clienteDelForm(), tipo = tipoBase();
-    const ver = permiteAmbos(c) && AMBOS_TIPOS.includes(tipo);
-    $('cajaAmbos').hidden = !ver;
-    if (!ver) { tiposForm = null; if (!sinObjetivos) pintarObjetivos(); return; }
-    if (!tiposForm || !tiposForm.length) tiposForm = [tipo];
-    if (!tiposForm.includes(tipo)) tiposForm = [tipo];
-    document.querySelectorAll('#cajaAmbos input.ambos').forEach(i => { i.checked = tiposForm.includes(i.value); });
-    $('ayudaAmbos').textContent = `${c.n} tiene clasificación ${c.cl}: puede ser visita médica, comercial o ambas en la misma visita.`;
+function tiposCliente() {
+    const c = clienteDelForm();
+    if (!c) return [];
+    if (!permiteAmbos(c)) return [tipoDeCliente(c)];
+    const elegidos = AMBOS_TIPOS.filter(t => (tiposForm || []).includes(t));
+    return elegidos.length ? elegidos : [tipoDeCliente(c)];
+}
+function pintarTipoCliente(sinObjetivos) {
+    const caja = $('cajaTipoCliente'), c = clienteDelForm();
+    caja.hidden = !c;
+    if (!c) caja.innerHTML = '';
+    else if (permiteAmbos(c)) {
+        const ts = tiposCliente();
+        caja.innerHTML = AMBOS_TIPOS.map(t => `<label class="check tipo-op"><input type="checkbox" value="${t}" ${ts.includes(t) ? 'checked' : ''} onchange="cambiarAmbos(this)"><span>${t}</span></label>`).join('')
+            + `<small>Clasificación ${esc(c.cl)}: marca una o ambas</small>`;
+    } else caja.innerHTML = `<span class="tipo-fijo">${esc(tipoDeCliente(c))}</span>${c.cl ? `<small>Clasificación ${esc(c.cl)}</small>` : ''}`;
     if (!sinObjetivos) pintarObjetivos();
 }
 function cambiarAmbos(casilla) {
-    const marcados = [...document.querySelectorAll('#cajaAmbos input.ambos:checked')].map(i => i.value);
+    const marcados = [...$('cajaTipoCliente').querySelectorAll('input:checked')].map(i => i.value);
     if (!marcados.length) { casilla.checked = true; return toast('Marca al menos un tipo de visita'); }
     tiposForm = AMBOS_TIPOS.filter(t => marcados.includes(t));
-    // El tipo del menú sigue al primero marcado
-    if (!tiposForm.includes($('fTipo').value)) { $('fTipo').value = tiposForm[0]; elegirOrigen(origenElegido()); }
     pintarObjetivos();
 }
-const tiposElegidos = () => !$('cajaAmbos').hidden && tiposForm?.length ? tiposForm : listaTipos(tipoBase());
+const tiposElegidos = () => $('fTipo').value === 'visita' ? tiposCliente() : listaTipos(tipoBase());
 
 function botonesModalidad(actual = 'presencial') {
     return `<div class="modalidad" role="group" aria-label="Modalidad">${Object.entries(MODALIDADES).map(([k, t]) =>
@@ -2035,9 +2058,9 @@ function sugerirTipo() {
     const nombre = $('fContacto').value;
     const c = buscarMaestra(zona, nombre);
     const p = !c && buscarProyecto(zona, nombre);
-    const tipo = c ? tipoDeCliente(c) : tipoSugerido(p ? p.tipo : '');
-    if (!tipo) return;
-    if (p) { $('fTipo').value = 'nuevo'; $('fTipoNuevo').value = tipo; } else $('fTipo').value = tipo;
+    if (c) $('fTipo').value = 'visita';
+    else if (p) { $('fTipo').value = 'nuevo'; $('fTipoNuevo').value = tipoSugerido(p.tipo); }
+    else return;
     cambiarTipoProgramacion();
 }
 
@@ -2074,6 +2097,10 @@ async function guardarProgramada(e, id) {
     if (!$('fTipo').value) { toast('Elige qué vas a programar'); $('fTipo').focus(); return; }
     if (!fechaElegida) { toast('Elige la fecha'); $('fFecha').focus(); return; }
     if (esNovedad(tipo)) return guardarNovedad(id, tipo);
+    if ($('fTipo').value === 'visita' && !clienteDelForm()) {
+        toast($('fContacto').value.trim() ? 'Ese cliente no está en la Maestra de Contactos. Si es nuevo, elige "Contacto nuevo".' : 'Escoge el cliente de la visita');
+        $('fContacto').focus(); return;
+    }
     if (origenElegido() === 'nuevo' && !tipo) { toast('Elige el tipo de visita del contacto nuevo'); $('fTipoNuevo').focus(); return; }
     const interno = esTrabajoInterno(tipo);
     const nombre = $('fContacto').value.trim();
