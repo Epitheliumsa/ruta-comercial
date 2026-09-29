@@ -636,8 +636,10 @@ const opcionesProyecto = zona => proyectosDeZona(zona)
 // "Maestra de Contactos" o "Contacto nuevo": cambia la lista del buscador y abre los datos del proyecto
 
 // "Contacto nuevo" es una sola opción del menú; el tipo de visita se elige en un segundo campo
-// "Visita a cliente": el tipo de visita no se elige, sale de la clasificación del cliente (ver tiposCliente)
-const tipoBase = () => { const f = $('fTipo').value; return f === 'nuevo' ? $('fTipoNuevo').value : f === 'visita' ? tiposCliente()[0] || '' : f; };
+// Tipo de visita elegido en el menú (Visita Médica, Visita Comercial o Punto de Venta); en clientes 20 y 21 el
+// vendedor puede marcar también el otro tipo (ver tiposCliente)
+const esTipoVisita = f => !!TIPOS_VISITA[f];
+const tipoBase = () => { const f = $('fTipo').value; return f === 'nuevo' ? $('fTipoNuevo').value : esTipoVisita(f) ? tiposCliente()[0] || f : f; };
 const origenElegido = () => $('fTipo').value === 'nuevo' ? 'nuevo' : 'maestra';
 const TIPO_CONTACTO_DE_VISITA = { 'Visita Médica': 'Médico', 'Visita Comercial': 'Cliente', 'Punto de Venta': 'Punto de Venta' };
 
@@ -650,7 +652,7 @@ function cambiarTipoNuevo() {
 function elegirOrigen(origen) {
     $('lblContacto').textContent = origen === 'nuevo' ? 'Contacto nuevo' : 'Cliente (Maestra de Contactos)';
     const zona = comercial(agenda.vendedor)?.zona;
-    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : opcionesMaestra(zona);
+    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : opcionesMaestra(zona, $('fTipo').value);
     $('fContacto').placeholder = origen === 'nuevo' ? 'Nombre del contacto nuevo o búscalo si ya lo visitaste' : 'Busca el médico, cliente o punto de venta';
     revisarProyecto();
 }
@@ -1833,19 +1835,23 @@ async function abrirProgramar(id, contactoPlan) {
     const lista = contactos[zona] || [];
     const actual = v?.tipoVisita || v?.tipo;
     const opcion = t => `<option ${t === actual && !v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
-    const esVisitaCliente = !v || (TIPOS_VISITA[actual] && !v.esProyecto);
+    // Visita que viene del Visiplan o que ya estaba programada (o reprogramada): no se cambia qué se programa ni el cliente
+    const bloqueado = !!contactoPlan || (v && v.clase === 'visita');
     const opcionNuevo = t => `<option ${t === actual && v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
     abrirModal(`<form class="form-rc" novalidate onsubmit="guardarProgramada(event, '${id || ''}')">
         <h2>${v ? 'Editar programación' : 'Programar'}</h2>
         <p class="sub">${esc(nombreVendedor(agenda.vendedor))} · ${esc(zona || '')}</p>
+        <div id="cajaQue"${bloqueado ? ' hidden' : ''}>
         <label for="fTipo">¿Qué vas a programar?</label>
-        <select id="fTipo" required onchange="cambiarTipoProgramacion()">
+        <select id="fTipo" required onchange="tiposForm = null; cambiarTipoProgramacion()">
             <option value="">Elige una opción</option>
-            <optgroup label="Visitas (Maestra de Contactos)"><option value="visita" ${esVisitaCliente ? 'selected' : ''}>Visita a cliente</option></optgroup>
+            <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
             <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
             <optgroup label="Contacto nuevo"><option value="nuevo" ${v?.esProyecto ? 'selected' : ''}>Contacto nuevo</option></optgroup>
             <optgroup label="Novedades">${NOVEDADES.map(opcion).join('')}</optgroup>
         </select>
+        </div>
+        <p class="tipo-bloqueado" id="fTipoFijo" hidden></p>
         <div id="cajaTipoNuevo" hidden>
             <label for="fTipoNuevo">Tipo de visita</label>
             <select id="fTipoNuevo" onchange="cambiarTipoNuevo()">
@@ -1897,7 +1903,7 @@ async function abrirProgramar(id, contactoPlan) {
             <label>Objetivos de la visita <small>(puedes escoger varios)</small></label>
             <div class="checks" id="fObjetivos"></div>
         </div>
-        <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer?</label>
+        <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer? <small>(obligatorio · una frase corta)</small></label>
         <textarea id="fObjetivo" maxlength="100" oninput="$('fObjetivoCuenta').textContent = this.value.length + ' / 100'" placeholder="Ej: llevar lista de precios nueva">${esc(v?.clase === 'novedad' ? v.nota : v?.objetivo)}</textarea>
         <p class="ayuda cuenta-nota" id="fObjetivoCuenta">0 / 100</p>
         <p class="aviso-hora" id="fAviso" hidden></p>
@@ -1915,7 +1921,8 @@ async function abrirProgramar(id, contactoPlan) {
         $('fContacto').value = contactoPlan;
         const zona = comercial(agenda.vendedor)?.zona;
         const p = buscarProyecto(zona, contactoPlan);
-        $('fTipo').value = p ? 'nuevo' : esTrabajoInterno(contactoPlan) ? contactoPlan : 'visita';
+        const m = buscarMaestra(zona, contactoPlan);
+        $('fTipo').value = p ? 'nuevo' : esTrabajoInterno(contactoPlan) ? contactoPlan : m ? tipoDeCliente(m) : 'Visita Comercial';
         if (p) $('fTipoNuevo').value = tipoSugerido(p.tipo || '');
         tiposForm = null;
         cambiarTipoProgramacion();
@@ -1923,6 +1930,14 @@ async function abrirProgramar(id, contactoPlan) {
         $('fAviso').hidden = false;
         $('fAviso').textContent = 'Visita del Visiplan: cuenta como programada. Escoge qué vas a hacer y confirma.';
         $('fFecha').disabled = true;
+    }
+    if (bloqueado) {
+        $('fContacto').readOnly = true; $('fTipoNuevo').disabled = true;
+        const nuevoTxt = $('fTipo').value === 'nuevo' ? 'Contacto nuevo · ' + $('fTipoNuevo').value : '';
+        $('fTipoFijo').hidden = false;
+        $('fTipoFijo').dataset.nuevo = nuevoTxt;
+        $('fTipoFijo').dataset.extra = contactoPlan ? ' · del Visiplan' : v?.origen === 'reprogramada' || v?.origen === 'proxima' ? ' · reprogramada' : '';
+        pintarTipoFijo();
     }
     $('fContacto').addEventListener('change', () => { tiposForm = null; sugerirTipo(); pintarTipoCliente(); });
     $('fContacto').addEventListener('input', revisarProyecto);
@@ -1949,7 +1964,7 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('cajaHasta').hidden = !conRango;
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     // En visitas y trabajo interno es obligatorio escribir qué se va a hacer (máximo 100 caracteres)
-    $('lblNotas').textContent = novedad ? 'Detalle (opcional)' : '¿Qué vas a hacer? (obligatorio, máx. 100 caracteres)';
+    $('lblNotas').innerHTML = novedad ? 'Detalle <small>(opcional)</small>' : '¿Qué vas a hacer? <small>(obligatorio · una frase corta)</small>';
     $('fObjetivoCuenta').hidden = novedad;
     $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / 100';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
@@ -1958,38 +1973,45 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     avisoProgramacion(null);
 }
 
-// Visita a cliente: al escoger el cliente, al lado sale el tipo de visita según su clasificación. Solo si la
-// clasificación sale en Visita Médica y Visita Comercial (hoy 20 y 21) se marca una, otra o ambas.
+// Clientes con clasificación que sale en Visita Médica y Visita Comercial (hoy 20 y 21): al lado del cliente se
+// marca una, otra o ambas. Los demás clientes solo salen en el tipo de visita de su clasificación.
 let tiposForm = null;
 function clienteDelForm() {
-    if ($('fTipo')?.value !== 'visita') return null;
+    if (!esTipoVisita($('fTipo')?.value)) return null;
     return buscarMaestra(comercial(agenda.vendedor)?.zona, $('fContacto').value) || null;
 }
 function tiposCliente() {
-    const c = clienteDelForm();
-    if (!c) return [];
-    if (!permiteAmbos(c)) return [tipoDeCliente(c)];
-    const elegidos = AMBOS_TIPOS.filter(t => (tiposForm || []).includes(t));
-    return elegidos.length ? elegidos : [tipoDeCliente(c)];
+    const f = $('fTipo').value, c = clienteDelForm();
+    if (!c || !permiteAmbos(c) || !AMBOS_TIPOS.includes(f)) return [f];
+    const elegidos = AMBOS_TIPOS.filter(t => (tiposForm || [f]).includes(t));
+    return elegidos.length ? elegidos : [f];
 }
 function pintarTipoCliente(sinObjetivos) {
     const caja = $('cajaTipoCliente'), c = clienteDelForm();
-    caja.hidden = !c;
-    if (!c) caja.innerHTML = '';
-    else if (permiteAmbos(c)) {
+    const ver = !!c && permiteAmbos(c) && AMBOS_TIPOS.includes($('fTipo').value);
+    caja.hidden = !ver;
+    if (ver) {
         const ts = tiposCliente();
         caja.innerHTML = AMBOS_TIPOS.map(t => `<label class="check tipo-op"><input type="checkbox" value="${t}" ${ts.includes(t) ? 'checked' : ''} onchange="cambiarAmbos(this)"><span>${t}</span></label>`).join('')
             + `<small>Clasificación ${esc(c.cl)}: marca una o ambas</small>`;
-    } else caja.innerHTML = `<span class="tipo-fijo">${esc(tipoDeCliente(c))}</span>${c.cl ? `<small>Clasificación ${esc(c.cl)}</small>` : ''}`;
+    } else caja.innerHTML = '';
     if (!sinObjetivos) pintarObjetivos();
 }
 function cambiarAmbos(casilla) {
     const marcados = [...$('cajaTipoCliente').querySelectorAll('input:checked')].map(i => i.value);
     if (!marcados.length) { casilla.checked = true; return toast('Marca al menos un tipo de visita'); }
     tiposForm = AMBOS_TIPOS.filter(t => marcados.includes(t));
+    pintarTipoFijo();
     pintarObjetivos();
 }
-const tiposElegidos = () => $('fTipo').value === 'visita' ? tiposCliente() : listaTipos(tipoBase());
+const tiposElegidos = () => esTipoVisita($('fTipo').value) ? tiposCliente() : listaTipos(tipoBase());
+// Visita del Visiplan o ya programada: arriba sale fijo el tipo (en clientes 20 y 21, los tipos marcados)
+function pintarTipoFijo() {
+    const el = $('fTipoFijo');
+    if (el.hidden) return;
+    const t = el.dataset.nuevo || (esTipoVisita($('fTipo').value) ? tiposCliente().join(' + ') : $('fTipo').value);
+    el.innerHTML = `<b>${esc(t)}</b>${el.dataset.extra || ''}`;
+}
 
 function botonesModalidad(actual = 'presencial') {
     return `<div class="modalidad" role="group" aria-label="Modalidad">${Object.entries(MODALIDADES).map(([k, t]) =>
@@ -2009,7 +2031,7 @@ function pintarObjetivos(marcados, subsMarcados) {
     const tipo = tiposElegidos(), nuevo = origenElegido() === 'nuevo' || (permiteAmbos(clienteDelForm()) && 'medcom'), cont = $('fObjetivos');
     const actuales = marcados || leerObjetivos(cont);
     const subs = subsMarcados || leerSubs(cont);
-    const lista = objetivosDeTipos(tipo, nuevo);
+    const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : objetivosDeTipos(tipo, nuevo);
     $('cajaObjetivos').hidden = !lista.length;
     cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs });
 }
@@ -2078,7 +2100,7 @@ function sugerirTipo() {
     const nombre = $('fContacto').value;
     const c = buscarMaestra(zona, nombre);
     const p = !c && buscarProyecto(zona, nombre);
-    if (c) $('fTipo').value = 'visita';
+    if (c) $('fTipo').value = tipoDeCliente(c);
     else if (p) { $('fTipo').value = 'nuevo'; $('fTipoNuevo').value = tipoSugerido(p.tipo); }
     else return;
     cambiarTipoProgramacion();
@@ -2117,7 +2139,7 @@ async function guardarProgramada(e, id) {
     if (!$('fTipo').value) { toast('Elige qué vas a programar'); $('fTipo').focus(); return; }
     if (!fechaElegida) { toast('Elige la fecha'); $('fFecha').focus(); return; }
     if (esNovedad(tipo)) return guardarNovedad(id, tipo);
-    if ($('fTipo').value === 'visita' && !clienteDelForm()) {
+    if (esTipoVisita($('fTipo').value) && !clienteDelForm()) {
         toast($('fContacto').value.trim() ? 'Ese cliente no está en la Maestra de Contactos. Si es nuevo, elige "Contacto nuevo".' : 'Escoge el cliente de la visita');
         $('fContacto').focus(); return;
     }
