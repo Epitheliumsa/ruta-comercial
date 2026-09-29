@@ -1174,3 +1174,25 @@ a.home-btn { text-decoration: none; }
 .checks .obj-item.abierto { background: hsl(var(--h, 160) 60% 97.5%); border-color: hsl(var(--h, 160) 40% 86%); }
 .checks .obj-item.abierto > .check { background: hsl(var(--h, 160) 70% 93%); border-color: hsl(var(--h, 160) 40% 82%); }
 .checks .obj-item .check.sub { background: hsl(var(--h, 160) 80% 98.5%); border-color: hsl(var(--h, 160) 35% 89%); }
+/* Modalidad WhatsApp/Llamada/Correo */
+.modalidad button.remota.on { background: #7c3aed; border-color: #7c3aed; color: white; }
+.chip.morado { background: #efe7fd; color: #6d28d9; }
+/* Cierre de visita: pedido, productos y muestras */
+.caja-cierre { background: #f7faf9; border: 1px solid #dbe8e5; border-radius: 10px; padding: 6px 12px 10px; margin-top: 10px; }
+.caja-cierre > label { margin-top: 4px; }
+.fila-pedido { display: grid; grid-template-columns: 160px 1fr auto; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; }
+.fila-pedido span { font-weight: 600; color: #334155; }
+.fila-pedido small { color: #7a8a84; font-size: 11px; }
+.fila-pedido input { text-transform: uppercase; }
+.sel-prod { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sel-cat { display: contents; }
+.sel-cat.abierto { display: block; grid-column: 1 / -1; background: #f5faf9; border: 1px solid #d5e6e1; border-radius: 10px; padding: 4px; }
+.sel-cat small { color: #7a8a84; font-weight: 500; }
+.sel-lista { padding: 4px 6px 8px 30px; }
+.sel-busca { margin-bottom: 6px; padding: 8px !important; font-size: 13px !important; }
+.sel-ops { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px; max-height: 260px; overflow-y: auto; }
+.sel-ops label[hidden] { display: none; }
+.sel-ops b { color: #0c6660; font-size: 11.5px; margin-right: 4px; }
+.fila-muestra { display: grid; grid-template-columns: 1fr 80px auto; gap: 6px; align-items: center; margin-top: 6px; }
+.bloque-muestra .obj-grupo { margin: 8px 0 0; }
+@media (max-width: 700px) { .fila-pedido { grid-template-columns: 1fr 1fr; } .fila-pedido small { grid-column: 1 / -1; } .sel-prod { grid-template-columns: 1fr; } }
