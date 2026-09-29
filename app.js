@@ -1053,8 +1053,11 @@ function actualizarTotalesPlan() {
     const filasCli = [...tabla.querySelectorAll('tbody tr:not(.vp-int)')].filter(f => f.querySelector('.vp-x'));
     const nCli = filasCli.length, nPlan = filasCli.filter(f => f.querySelector('.vp-x.on')).length, nVis = filasCli.filter(f => f.querySelector('.vp-r.on')).length;
     if ($('vpPieN')) {
-        $('vpPieN').innerHTML = `<b>${nCli}</b> ${nCli === 1 ? 'cliente' : 'clientes'} · <span class="p">planeados <b>${nPlan}</b> (${pctPlan(nPlan, nCli) || '0%'})</span>`;
-        $('vpPieV').innerHTML = `<span class="v">visitados <b>${nVis}</b> (${pctPlan(nVis, nCli) || '0%'})</span>`;
+        $('vpPieN').innerHTML = `<b>${nCli}</b> ${nCli === 1 ? 'cliente' : 'clientes'} · <span class="p">planeados <b>${nPlan}</b> (${pctPlan(nPlan, nCli) || '0%'})</span> · <span class="v">visitados <b>${nVis}</b> (${pctPlan(nVis, nCli) || '0%'})</span>`;
+        // Barra de progreso de las visitas: reales frente a las programadas (Obj)
+        const avance = T.o ? Math.min(T.r / T.o, 1) : 0, nivel = !T.o ? '' : T.r / T.o >= 0.9 ? 'bueno' : T.r / T.o >= 0.6 ? 'medio' : 'bajo';
+        $('vpPieV').innerHTML = `<div class="vp-prog"><div class="vp-barra-prog ${nivel}" title="Visitas reales frente a las programadas"><span style="width:${Math.round(avance * 100)}%"></span></div>`
+            + `<small class="vp-barra-txt">Visitas <b>${T.r}</b> de <b>${T.o}</b> · ${pctPlan(T.r, T.o) || '0%'}</small></div>`;
     }
     // Celular: tarjetas grandes con clientes, planeados y visitados
     $('vpKpis').innerHTML = `<div><b>${nCli}</b><span>Clientes</span></div><div class="p"><b>${nPlan}</b><span>Planeados · ${pctPlan(nPlan, nCli) || '0%'}</span></div><div class="v"><b>${nVis}</b><span>Visitados · ${pctPlan(nVis, nCli) || '0%'}</span></div>`;
@@ -1129,7 +1132,12 @@ function libroVisiplanPantalla() {
         if (el.matches('.vp-x.on, .vp-r.on, .vp-r.prox')) return 'X';
         const v = el.querySelector('.vp-vend');
         if (v) return `${v.textContent.trim()} · ${el.textContent.replace(v.textContent, '').trim()}`;
-        const chico = el.querySelector('small');
+        const barra = el.querySelector('.vp-barra-prog span');
+        if (barra) {   // la barra de progreso se dibuja con bloques
+            const n = Math.round(parseFloat(barra.style.width) / 10);
+            return `${'█'.repeat(n)}${'░'.repeat(10 - n)}  ${el.querySelector('.vp-barra-txt').textContent.trim()}`;
+        }
+        const chico = el.matches('.vp-dia') && el.querySelector('small');
         if (chico) return `${el.firstChild.textContent.trim()} ${chico.textContent.trim()}`;
         const t = el.textContent.replace(/\s+/g, ' ').trim();
         if (/^\d+$/.test(t)) return Number(t);                        // números como números
