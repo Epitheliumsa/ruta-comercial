@@ -650,7 +650,7 @@ function cambiarTipoNuevo() {
 }
 
 function elegirOrigen(origen) {
-    $('lblContacto').textContent = origen === 'nuevo' ? 'Contacto nuevo' : 'Cliente (Maestra de Contactos)';
+    $('lblContacto').innerHTML = (origen === 'nuevo' ? 'Contacto nuevo ' : 'Cliente ') + REQ + (origen === 'nuevo' ? '' : ' <small>(Maestra de Contactos)</small>');
     const zona = comercial(agenda.vendedor)?.zona;
     $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : opcionesMaestra(zona, $('fTipo').value);
     $('fContacto').placeholder = origen === 'nuevo' ? 'Nombre del contacto nuevo o búscalo si ya lo visitaste' : 'Busca el médico, cliente o punto de venta';
@@ -673,7 +673,7 @@ function revisarProyecto() {
 // El nombre de contacto es obligatorio para clientes y puntos de venta; en un médico el contacto es el mismo médico
 function etiquetaPersonaProyecto() {
     const obligatorio = $('pTipo').value !== 'Médico';
-    $('lblPersona').textContent = obligatorio ? 'Nombre de contacto' : 'Nombre de contacto (opcional)';
+    $('lblPersona').innerHTML = obligatorio ? 'Nombre de contacto ' + REQ : 'Nombre de contacto <small>(opcional)</small>';
     $('pPersona').placeholder = obligatorio ? 'Persona con quien se habla (ej: administradora)' : 'Ej: asistente o secretaria';
 }
 
@@ -1841,6 +1841,11 @@ async function abrirProgramar(id, contactoPlan) {
     abrirModal(`<form class="form-rc" novalidate onsubmit="guardarProgramada(event, '${id || ''}')">
         <h2>${v ? 'Editar programación' : 'Programar'}</h2>
         <p class="sub">${esc(nombreVendedor(agenda.vendedor))} · ${esc(zona || '')}</p>
+        <div class="fila-fecha compacta">
+            <div><label for="fFecha" id="lblFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
+            <div id="cajaHora"><label for="fHora">Cita fija <small>(opcional)</small></label><input id="fHora" type="time" title="Solo si tienes una cita acordada: te avisamos 15 minutos antes" value="${esc(v?.hora)}"></div>
+            <div id="cajaHasta" hidden><label for="fHasta">Hasta</label><input id="fHasta" type="date" value="${esc(v?.hasta)}"></div>
+        </div>
         <div id="cajaQue"${bloqueado ? ' hidden' : ''}>
         <label for="fTipo">¿Qué vas a programar?</label>
         <select id="fTipo" required onchange="tiposForm = null; cambiarTipoProgramacion()">
@@ -1862,9 +1867,10 @@ async function abrirProgramar(id, contactoPlan) {
         <div id="cajaContacto">
             <label for="fContacto" id="lblContacto">Contacto</label>
             <div class="contacto-fila">
-                <input id="fContacto" list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
+                <input id="fContacto" required list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
                 <div id="cajaTipoCliente" class="tipo-cliente" hidden></div>
             </div>
+            <p class="clasif-cliente" id="fClasif" hidden></p>
             <datalist id="dlContactos"></datalist>
             <p class="ayuda" id="ayudaContacto" hidden></p>
             <div class="caja-proyecto" id="cajaProyecto" hidden>
@@ -1882,11 +1888,6 @@ async function abrirProgramar(id, contactoPlan) {
             </div>
         </div>
         <p class="aviso-festivo en-form" id="fFestivo" hidden></p>
-        <div class="fila-fecha">
-            <div><label for="fFecha" id="lblFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
-            <div id="cajaHora"><label for="fHora">Cita fija</label><input id="fHora" type="time" value="${esc(v?.hora)}"></div>
-            <div id="cajaHasta" hidden><label for="fHasta">Hasta</label><input id="fHasta" type="date" value="${esc(v?.hasta)}"></div>
-        </div>
         <div id="cajaPermiso" hidden>
             <label class="check dia-completo"><input type="checkbox" id="fDiaCompleto" ${!v || v.clase !== 'novedad' || v.diaCompleto !== false ? 'checked' : ''} onchange="cambiarTipoProgramacion()"><span>Día completo</span></label>
             <div class="dos" id="cajaHorasPermiso">
@@ -1894,7 +1895,6 @@ async function abrirProgramar(id, contactoPlan) {
                 <div><label for="fHoraFin">Hora de finalización</label><input id="fHoraFin" type="time" value="${esc(v?.horaFin)}"></div>
             </div>
         </div>
-        <p class="ayuda" id="ayudaHora">La hora es opcional: úsala solo si tienes una cita acordada. Te avisamos 15 minutos antes.</p>
         <div id="cajaModalidad">
             <label>Modalidad</label>
             ${botonesModalidad(v?.modalidad)}
@@ -1903,7 +1903,7 @@ async function abrirProgramar(id, contactoPlan) {
             <label>Objetivos de la visita <small>(puedes escoger varios)</small></label>
             <div class="checks" id="fObjetivos"></div>
         </div>
-        <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer? <small>(obligatorio · una frase corta)</small></label>
+        <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer? ${REQ} <small>(una frase corta)</small></label>
         <textarea id="fObjetivo" maxlength="100" oninput="$('fObjetivoCuenta').textContent = this.value.length + ' / 100'" placeholder="Ej: llevar lista de precios nueva">${esc(v?.clase === 'novedad' ? v.nota : v?.objetivo)}</textarea>
         <p class="ayuda cuenta-nota" id="fObjetivoCuenta">0 / 100</p>
         <p class="aviso-hora" id="fAviso" hidden></p>
@@ -1954,7 +1954,6 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('cajaContacto').hidden = interno || novedad;
     $('cajaModalidad').hidden = interno || novedad;
     $('cajaHora').hidden = novedad;
-    $('ayudaHora').hidden = novedad;
     // Permiso: día completo (con "Hasta") o por horas en un solo día
     const permiso = NOVEDAD_HORAS.includes(tipo);
     const porHoras = permiso && !$('fDiaCompleto').checked;
@@ -1964,7 +1963,7 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('cajaHasta').hidden = !conRango;
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     // En visitas y trabajo interno es obligatorio escribir qué se va a hacer (máximo 100 caracteres)
-    $('lblNotas').innerHTML = novedad ? 'Detalle <small>(opcional)</small>' : '¿Qué vas a hacer? <small>(obligatorio · una frase corta)</small>';
+    $('lblNotas').innerHTML = novedad ? 'Detalle <small>(opcional)</small>' : `¿Qué vas a hacer? ${REQ} <small>(una frase corta)</small>`;
     $('fObjetivoCuenta').hidden = novedad;
     $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / 100';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
@@ -1993,8 +1992,12 @@ function pintarTipoCliente(sinObjetivos) {
     if (ver) {
         const ts = tiposCliente();
         caja.innerHTML = AMBOS_TIPOS.map(t => `<label class="check tipo-op"><input type="checkbox" value="${t}" ${ts.includes(t) ? 'checked' : ''} onchange="cambiarAmbos(this)"><span>${t}</span></label>`).join('')
-            + `<small>Clasificación ${esc(c.cl)}: marca una o ambas</small>`;
+            + '<small>marca una o ambas</small>';
     } else caja.innerHTML = '';
+    // Debajo del cliente, su clasificación completa (número y descripción)
+    const cc = buscarMaestra(comercial(agenda.vendedor)?.zona, $('fContacto').value);
+    $('fClasif').hidden = !(cc && (cc.cl || cc.ca)) || origenElegido() === 'nuevo';
+    $('fClasif').innerHTML = cc ? `Clasificación <b>${esc(cc.cl || '')}</b>${cc.ca ? ' · ' + esc(cc.ca) : ''}` : '';
     if (!sinObjetivos) pintarObjetivos();
 }
 function cambiarAmbos(casilla) {
@@ -3157,7 +3160,19 @@ function abrirModal(html, tema = '') {
     caja.classList.remove('theme-rojo', 'theme-azul');
     if (tema) caja.classList.add(tema);
     $('modalContenido').innerHTML = html;
+    marcarObligatorios($('modalContenido'));
     $('modal').classList.add('active');
+}
+
+// Campos obligatorios de escribir: asterisco rojo en su etiqueta (antes de la aclaración en letra pequeña)
+const REQ = '<span class="req" title="Obligatorio">*</span>';
+function marcarObligatorios(raiz) {
+    raiz.querySelectorAll('input[required]:not([type=date]):not([type=month]):not([type=checkbox]):not([type=radio]), textarea[required]').forEach(campo => {
+        const lbl = campo.id && raiz.querySelector(`label[for="${campo.id}"]`);
+        if (!lbl || lbl.querySelector('.req')) return;
+        const chico = lbl.querySelector('small');
+        chico ? chico.insertAdjacentHTML('beforebegin', REQ + ' ') : lbl.insertAdjacentHTML('beforeend', ' ' + REQ);
+    });
 }
 
 function cerrarModal() {
