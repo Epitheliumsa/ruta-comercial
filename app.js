@@ -865,7 +865,10 @@ function indicadoresPlan(dias, r) {
 function planeadasDe(vendedor, fecha) {
     const plan = planDe(vendedor, mesDe(fecha));
     if (!plan) return [];
-    return Object.entries(plan.marcas || {}).filter(([, dias]) => dias.includes(fecha)).map(([contacto]) => {
+    // Si un cliente cambió de zona (nueva Maestra de Contactos), desde hoy ya no le sale al vendedor anterior
+    const zona = comercial(vendedor)?.zona;
+    const sigueEnZona = c => fecha < hoy() || esTrabajoInterno(c) || buscarMaestra(zona, c) || buscarProyecto(zona, c) || !Object.keys(contactos).length;
+    return Object.entries(plan.marcas || {}).filter(([c, dias]) => dias.includes(fecha) && sigueEnZona(c)).map(([contacto]) => {
         const visitaId = (plan.confirmadas || {})[clavePlan(contacto, fecha)];
         const estado = visitaId && registros[visitaId] && !registros[visitaId].borrado ? 'confirmada' : fecha < hoy() ? 'cerrada' : 'por confirmar';
         return { contacto, fecha, estado, visitaId };

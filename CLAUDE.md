@@ -28,3 +28,8 @@
 - Salen de un solo archivo: `datos/Matriz_objetivos_subcategorias.xlsx` → `python3 herramientas/matriz_objetivos.py` genera `objetivos.js`.
 - Para actualizarlos usa la skill `matriz-objetivos` (`.claude/skills/matriz-objetivos/SKILL.md`). No se editan a mano en `app.js`.
 - La Parrilla Promocional y las Actividades cambian cada mes: hoja "Mensual" del Excel o botón de jefes en la app.
+
+## Maestra de Contactos
+- Cada vez que llegue una Maestra de Contactos usa la skill `maestra-contactos` (`herramientas/maestra_contactos.py`).
+- Siempre: sin las columnas "Nombre" y "Lista de Precios"; "Vacante Epithelium" es de Yunelis (Zona Sur); sin "Empleados";
+  los cambios de zona rigen desde la fecha de la subida.
