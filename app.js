@@ -68,7 +68,16 @@ const OBJETIVOS_NUEVO = {
     'Visita Comercial': ['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación'],
     'Punto de Venta': ['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras']
 };
-const objetivosDeTipo = (tipo, nuevo) => (nuevo ? OBJETIVOS_NUEVO : TIPOS_VISITA)[tipo] || [];
+// Trabajo interno: también se programa con objetivos
+const INTERNO_BASE = ['Administración de Cartera', 'Plan de Trabajo Diario', 'Revisión Correos', 'Seguimiento', 'Capacitación',
+    'Trámites y Reclamos', 'Actividades Mes', 'Reunión Ventas', 'Interacción con Áreas'];
+const OBJETIVOS_INTERNO = {
+    'Trabajo Administrativo Oficina': INTERNO_BASE,
+    'Trabajo Administrativo Fuera de la Oficina': INTERNO_BASE,
+    'Planeación Mes': ['Administración de Cartera', 'Visiplan', 'Plan de Trabajo Diario', 'Diagnóstico de Zona', 'Plan de Acción', 'Revisión Correos',
+        'Capacitación', 'Trámites y Reclamos', 'Actividades Mes', 'Interacción con Áreas']
+};
+const objetivosDeTipo = (tipo, nuevo) => (OBJETIVOS_INTERNO[tipo] || (nuevo ? OBJETIVOS_NUEVO : TIPOS_VISITA)[tipo]) || [];
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
 const objetivosCierre = v => {
     const base = objetivosDeTipo(v.tipoVisita, v.esProyecto);
@@ -1269,7 +1278,6 @@ function tarjetaVisita(v, ord = null, mover = null) {
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
         : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${noProgTxt}`;
-    if (v.interno) objetivos = '';
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
         reporte = v.observaciones ? `<div class="reporte">${esc(v.observaciones)}</div>` : '';
@@ -1519,7 +1527,7 @@ const modalidadElegida = () => document.querySelector('.modalidad .on')?.dataset
 function pintarObjetivos(marcados) {
     const tipo = tipoBase();
     const actuales = marcados || [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
-    $('cajaObjetivos').hidden = !TIPOS_VISITA[tipo];
+    $('cajaObjetivos').hidden = !objetivosDeTipo(tipo, origenElegido() === 'nuevo').length;
     $('fObjetivos').innerHTML = objetivosDeTipo(tipo, origenElegido() === 'nuevo').map(o =>
         `<label class="check"><input type="checkbox" value="${esc(o)}" ${actuales.includes(o) ? 'checked' : ''}><span>${esc(o)}</span></label>`).join('');
 }
@@ -1573,8 +1581,8 @@ async function guardarProgramada(e, id) {
     const interno = esTrabajoInterno(tipo);
     const nombre = $('fContacto').value.trim();
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
-    const objetivos = interno ? [] : [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
-    if (!interno && !objetivos.length) { toast('Escoge al menos un objetivo de la visita'); return; }
+    const objetivos = [...document.querySelectorAll('#fObjetivos input:checked')].map(i => i.value);
+    if (!objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
     const zona = comercial(agenda.vendedor)?.zona;
     const nuevo = !interno && origenElegido() === 'nuevo';
     let c = interno ? {} : buscarMaestra(zona, nombre) || {};
@@ -1691,6 +1699,8 @@ function abrirRegistro(id, tipo) {
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
             <h2>Trabajo realizado</h2>${cab}
+            ${objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita los programados; marca los que lograste)</small></label>
+            <div class="checks" id="rCumplidos">${objetivosCierre(v).map(o => `<label class="check${(v.objetivos || []).includes(o) ? ' programado' : ' no-programado'}"><input type="checkbox" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div>` : ''}
             <label for="rObs">¿Qué se hizo?</label>
             <textarea id="rObs" placeholder="Ej: se enviaron 5 cotizaciones y se cerró el informe de cartera">${esc(v.estado === 'visitado' ? v.observaciones : '')}</textarea>
             <div class="form-botones">
@@ -1855,7 +1865,8 @@ function verCliente(nombre, vendedor) {
 function guardarInternoRealizado(e, id) {
     e.preventDefault();
     if (!plazoAbierto(id)) return;
-    guardarRegistro({ ...registros[id], ...LIMPIAR_NO_VISITADO, estado: 'visitado', observaciones: $('rObs').value.trim(), registrada: new Date().toISOString() });
+    guardarRegistro({ ...registros[id], ...LIMPIAR_NO_VISITADO, estado: 'visitado', observaciones: $('rObs').value.trim(),
+        objetivosCumplidos: [...document.querySelectorAll('#rCumplidos input:checked')].map(i => i.value), registrada: new Date().toISOString() });
     cerrarModal();
     toast('Trabajo registrado como realizado');
     pintarAgenda();
@@ -2271,7 +2282,7 @@ function verDetalleVisita(id) {
             ${v.interno ? '<span class="chip gris">Trabajo interno</span>' : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>`}
             ${esProgramada(v) ? '' : '<span class="chip np">No programada</span>'}${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}</div>
         ${fila('Contacto', [v.tipoContacto, v.ciudad].filter(Boolean).join(' · '))}
-        ${v.tipoVisita && !v.interno ? `<strong>${esc(v.tipoVisita)} · objetivos</strong><p class="objetivos">${(v.objetivos || []).map(o => `<span class="${v.estado === 'visitado' ? (cumplidos.includes(o) ? 'cumplido' : 'no-cumplido') : ''}">${v.estado === 'visitado' && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}</p>` : ''}
+        ${v.tipoVisita && v.objetivos?.length ? `<strong>${esc(v.tipoVisita)} · objetivos</strong><p class="objetivos">${(v.objetivos || []).map(o => `<span class="${v.estado === 'visitado' ? (cumplidos.includes(o) ? 'cumplido' : 'no-cumplido') : ''}">${v.estado === 'visitado' && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}</p>` : ''}
         ${fila('Notas de la programación', v.objetivo)}
         ${fila('Qué se hizo', v.gestion)}${fila('Atendió', v.atendio)}${fila('Productos presentados', v.productos)}${fila('Muestras', v.muestras)}
         ${v.pedido === 'si' ? fila('Pedido', 'Sí' + (v.valorPedido ? ' · ' + pesos(v.valorPedido) : '')) : ''}
