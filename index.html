@@ -225,21 +225,14 @@
                 <div class="vp-vends" id="mcZonas" role="group" aria-label="Zona y vendedor"></div>
                 <div class="mc-filtros">
                     <input id="mcBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="maestra.busca=this.value; pintarMaestra()">
-                    <select id="mcEtiqueta" onchange="maestra.etiqueta=this.value; pintarMaestra()" aria-label="Etiqueta"></select>
-                    <select id="mcCiudad" onchange="maestra.ciudad=this.value; pintarMaestra()" aria-label="Ciudad"></select>
-                    <select id="mcClasif" onchange="maestra.cl=this.value; pintarMaestra()" aria-label="Clasificación"></select>
-                    <select id="mcCategoria" onchange="maestra.ca=this.value; pintarMaestra()" aria-label="Categoría"></select>
-                    <select id="mcPlazo" onchange="maestra.pz=this.value; pintarMaestra()" aria-label="Plazo de pago"></select>
-                    <select id="mcFacturar" onchange="maestra.f=this.value; pintarMaestra()" aria-label="Cliente para facturar">
-                        <option value="">Facturar: todos</option><option value="si">Cliente para facturar: Sí</option><option value="no">Cliente para facturar: No</option>
-                    </select>
+<div class="mc-multis" id="mcFiltrosMulti"></div>
                 </div>
             </div>
             <p class="ayuda mc-ayuda" id="mcResumen"></p>
             <section class="mc-grafica" aria-label="Composición de clientes">
                 <div class="mc-grafica-cab"><h2>Composición de clientes</h2><div class="mc-dims" id="mcDims" role="group" aria-label="Agrupar por"></div></div>
                 <div id="mcBarras" class="mc-barras"></div>
-                <p class="mc-grafica-nota">Toca una barra para filtrar la lista; tócala otra vez para quitar el filtro.</p>
+                <p class="mc-grafica-nota">Toca una o varias barras para filtrar la lista; tócala otra vez para quitar el filtro.</p>
                 <p class="mc-leyenda"><span><i style="background:#2563eb"></i>Cliente</span><span><i style="background:#db2777"></i>Médico</span><span><i style="background:repeating-linear-gradient(135deg, #2563eb 0 3px, #db2777 3px 6px)"></i>Cliente y Médico</span><span><i style="background:#ca8a04"></i>Punto de Venta</span>
                     <span class="sep">Final de la barra de la tarjeta:</span><span><i style="background:#16a34a"></i>Facturable</span><span><i style="background:#dc2626"></i>No facturable</span></p>
             </section>

@@ -817,16 +817,23 @@ function guardarMensual(e) {
 
 // ---------- MAESTRA CLIENTES ----------
 // El comercial ve los clientes de su zona; los jefes los ven por zona y vendedor (una, varias o todas)
-const maestra = { zonas: null, busca: '', etiqueta: '', ciudad: '', cl: '', ca: '', pz: '', f: '', dim: 'e' };
-// Gráfica de composición: por qué columna se agrupa, qué filtro aplica al tocar una barra y cómo se nombra cada valor
+const FILTROS_MAESTRA = ['e', 'cat', 'd', 'c', 'pz', 'f', 'vis'];
+const maestra = { zonas: null, busca: '', sel: Object.fromEntries(FILTROS_MAESTRA.map(k => [k, []])), dim: 'e', abierto: null, buscaOp: '',
+    mesVis: mesDe(hoy()), visitados: new Set() };
+// Columnas por las que se filtra y se agrupa la gráfica: cómo se saca el valor de cada cliente y cómo se nombra
 const textoPlazo = pz => /^\d+$/.test(pz) ? (pz === '0' ? 'Contado' : pz + ' días') : pz;
+const departamento = p => (p || '').replace(/\s*\(CO\)$/, '');
 const DIMS_MAESTRA = {
-    e: { t: 'Etiqueta', filtro: 'etiqueta', sel: 'mcEtiqueta' },
-    ca: { t: 'Categoría', filtro: 'ca', sel: 'mcCategoria' },
-    cl: { t: 'Clasificación', filtro: 'cl', sel: 'mcClasif' },
-    c: { t: 'Ciudad', filtro: 'ciudad', sel: 'mcCiudad' },
-    pz: { t: 'Plazo de pago', filtro: 'pz', sel: 'mcPlazo', nombre: textoPlazo },
-    f: { t: 'Facturar', filtro: 'f', sel: 'mcFacturar', valor: c => c.f ? 'si' : 'no', nombre: v => v === 'si' ? 'Cliente para facturar' : 'No factura' },
+    e: { t: 'Etiqueta', todos: 'Todas las etiquetas', valor: c => c.e || '' },
+    // Clasificación y categoría son lo mismo: el número es la clasificación y el nombre la categoría
+    cat: { t: 'Clasificación', todos: 'Todas las clasificaciones', valor: c => c.cl || c.ca || '', nombre: (v, c) => c && c.ca && c.cl ? `${c.cl} · ${c.ca}` : v,
+        orden: (a, b) => Number(a) - Number(b) || a.localeCompare(b) },
+    d: { t: 'Departamento', todos: 'Todos los departamentos', valor: c => departamento(c.p) },
+    c: { t: 'Ciudad', todos: 'Todas las ciudades', valor: c => c.c || '' },
+    pz: { t: 'Plazo de pago', todos: 'Todos los plazos', valor: c => c.pz || '', nombre: textoPlazo, orden: (a, b) => parseInt(a) - parseInt(b) || a.localeCompare(b) },
+    vis: { t: 'Visitas del mes', todos: 'Visitados y no visitados', valor: c => maestra.visitados.has(normalizar(c.n)) ? 'si' : 'no',
+        nombre: v => (v === 'si' ? 'Visitado en ' : 'No visitado en ') + nombreMes(maestra.mesVis), orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
+    f: { t: 'Facturar', todos: 'Facturar: todos', valor: c => c.f ? 'si' : 'no', nombre: v => v === 'si' ? 'Cliente para facturar' : 'No factura', orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
     z: { t: 'Zona', jefe: true, valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
 };
 const MAX_BARRAS = 8;
@@ -857,6 +864,71 @@ function elegirZonaMaestra(z) {
     pintarMaestra();
 }
 
+// Meses para el filtro de visitas: el actual y los que tienen visitas, del más reciente al más antiguo
+const mesesMaestra = () => [...new Set([mesDe(hoy()), ...visibles().filter(x => x.clase === 'visita' && x.fecha).map(x => mesDe(x.fecha))])].sort().reverse();
+
+// Clientes que pasan los filtros, dejando por fuera uno (para contar las opciones de ese filtro)
+function filtrarMaestra(base, sin) {
+    const q = normalizar(maestra.busca);
+    return base.filter(c => (!q || normalizar(c.n).includes(q))
+        && FILTROS_MAESTRA.every(k => k === sin || !maestra.sel[k].length || maestra.sel[k].includes(DIMS_MAESTRA[k].valor(c))));
+}
+
+// Filtros de selección múltiple: botón con lo elegido y lista de casillas con cuántos clientes tiene cada opción
+function pintarFiltrosMaestra(base) {
+    const caja = $('mcFiltrosMulti');
+    const tecleando = document.activeElement?.classList?.contains('mc-multi-busca');
+    const antes = caja.querySelector('.mc-multi-ops');
+    const scroll = antes ? antes.scrollTop : 0;
+    caja.innerHTML = FILTROS_MAESTRA.map(k => {
+        const d = DIMS_MAESTRA[k], elegidos = maestra.sel[k];
+        const ejemplo = {};
+        base.forEach(c => { const v = d.valor(c); if (v && !ejemplo[v]) ejemplo[v] = c; });
+        const cuenta = {};
+        filtrarMaestra(base, k).forEach(c => { const v = d.valor(c); cuenta[v] = (cuenta[v] || 0) + 1; });
+        const nombre = v => d.nombre ? d.nombre(v, ejemplo[v]) : v;
+        const valores = Object.keys(ejemplo).sort(d.orden || ((a, b) => a.localeCompare(b, 'es')));
+        const texto = !elegidos.length ? d.todos : elegidos.length === 1 ? nombre(elegidos[0]) : `${d.t}: ${elegidos.length} elegidas`;
+        const abierto = maestra.abierto === k, qo = normalizar(maestra.buscaOp);
+        return `<div class="mc-multi${abierto ? ' abierto' : ''}${elegidos.length ? ' con' : ''}" data-k="${k}">
+            <button type="button" class="mc-multi-btn" onclick="abrirFiltroMaestra('${k}')" aria-expanded="${abierto}" title="${esc(d.t)}"><span>${esc(texto)}</span></button>
+            ${!abierto ? '' : `<div class="mc-multi-panel">
+                ${valores.length > 10 ? `<input class="mc-multi-busca" placeholder="Buscar ${esc(d.t.toLowerCase())}..." value="${esc(maestra.buscaOp)}" oninput="maestra.buscaOp=this.value; pintarMaestra()">` : ''}
+                ${k === 'vis' ? `<select class="mc-multi-mes" onchange="maestra.mesVis=this.value; pintarMaestra()" aria-label="Mes">${mesesMaestra().map(m => `<option value="${m}" ${m === maestra.mesVis ? 'selected' : ''}>${esc(nombreMes(m).replace(/^./, x => x.toUpperCase()))}</option>`).join('')}</select>` : ''}
+                <div class="mc-multi-acc"><b>${esc(d.t)}</b>${elegidos.length ? `<button type="button" onclick="limpiarFiltroMaestra('${k}')">Quitar filtro</button>` : '<span>Elige una o varias</span>'}</div>
+                <div class="mc-multi-ops">${valores.filter(v => !qo || normalizar(nombre(v)).includes(qo)).map(v => `<label class="${cuenta[v] ? '' : 'vacio'}">
+                    <input type="checkbox" data-v="${esc(v)}" ${elegidos.includes(v) ? 'checked' : ''} onchange="marcarFiltroMaestra('${k}', this.dataset.v)">
+                    <span>${esc(nombre(v))}</span><small>${cuenta[v] || 0}</small></label>`).join('') || '<p>Sin opciones</p>'}</div>
+            </div>`}
+        </div>`;
+    }).join('');
+    const ops = caja.querySelector('.mc-multi-ops');
+    if (ops) ops.scrollTop = scroll;
+    const bq = caja.querySelector('.mc-multi-busca');
+    if (bq && (tecleando || (maestra.enfocarBusca && !matchMedia('(hover: none)').matches))) { bq.focus(); bq.setSelectionRange(bq.value.length, bq.value.length); }
+    maestra.enfocarBusca = false;
+}
+
+function abrirFiltroMaestra(k) {
+    maestra.abierto = maestra.abierto === k ? null : k;
+    maestra.buscaOp = '';
+    maestra.enfocarBusca = true;
+    pintarMaestra();
+}
+
+function marcarFiltroMaestra(k, v) {
+    const s = maestra.sel[k];
+    maestra.sel[k] = s.includes(v) ? s.filter(x => x !== v) : [...s, v];
+    pintarMaestra();
+}
+
+function limpiarFiltroMaestra(k) { maestra.sel[k] = []; pintarMaestra(); }
+
+// Cerrar la lista de opciones al tocar fuera de ella
+document.addEventListener('click', e => {
+    if (maestra.abierto && document.contains(e.target) && !e.target.closest('.mc-multi')) { maestra.abierto = null; pintarMaestra(); }
+});
+
 function pintarMaestra() {
     const todas = zonasMaestra(), sel = maestra.zonas || [];
     if (esJefe()) {
@@ -867,23 +939,15 @@ function pintarMaestra() {
             }).join('');
     }
     const base = sel.flatMap(z => (contactos[z] || []).map(c => ({ ...c, z })));
-    const opciones = (sel2, lista, todos) => {
-        const actual = sel2.value;
-        sel2.innerHTML = `<option value="">${todos}</option>` + lista.map(x => `<option ${x === actual ? 'selected' : ''}>${esc(x)}</option>`).join('');
-    };
-    const unicos = k => [...new Set(base.map(c => c[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-    opciones($('mcEtiqueta'), unicos('e'), 'Todas las etiquetas');
-    opciones($('mcCiudad'), unicos('c'), 'Todas las ciudades');
-    opciones($('mcClasif'), unicos('cl').sort((a, b) => Number(a) - Number(b) || a.localeCompare(b)), 'Todas las clasificaciones');
-    opciones($('mcCategoria'), unicos('ca'), 'Todas las categorías');
-    opciones($('mcPlazo'), unicos('pz').sort((a, b) => Number(a) - Number(b) || a.localeCompare(b)), 'Todos los plazos');
-    maestra.etiqueta = $('mcEtiqueta').value; maestra.ciudad = $('mcCiudad').value;
-    maestra.cl = $('mcClasif').value; maestra.ca = $('mcCategoria').value; maestra.pz = $('mcPlazo').value; maestra.f = $('mcFacturar').value;
-    const q = normalizar(maestra.busca);
-    const lista = base.filter(c => (!q || normalizar(c.n).includes(q)) && (!maestra.etiqueta || c.e === maestra.etiqueta) && (!maestra.ciudad || c.c === maestra.ciudad)
-        && (!maestra.cl || c.cl === maestra.cl) && (!maestra.ca || c.ca === maestra.ca) && (!maestra.pz || c.pz === maestra.pz)
-        && (!maestra.f || (maestra.f === 'si') === !!c.f));
-    pintarComposicion(lista);
+    // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
+    maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && mesDe(x.fecha) === maestra.mesVis)
+        .map(x => normalizar(x.contacto)));
+    // Las opciones elegidas que ya no existen en las zonas elegidas se quitan
+    FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => base.some(c => DIMS_MAESTRA[k].valor(c) === v)); });
+    pintarFiltrosMaestra(base);
+    const lista = filtrarMaestra(base);
+    // La gráfica no se filtra por su propia columna: así se pueden tocar varias barras
+    pintarComposicion(FILTROS_MAESTRA.includes(maestra.dim) ? filtrarMaestra(base, maestra.dim) : lista);
     // Última visita efectiva de cada cliente
     const ultima = {};
     visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado')
@@ -894,7 +958,7 @@ function pintarMaestra() {
         const g = GRUPOS_ETIQUETA[grupoEtiqueta(c.e)];
         return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
-                <span class="mc-datos">${c.cl ? `<span>Clasificación <b>${esc(c.cl)}</b></span>` : ''}${c.ca ? `<span class="cat">${esc(c.ca)}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
+                <span class="mc-datos">${c.cl || c.ca ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
             <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
         </button>`;
     };
@@ -912,38 +976,50 @@ function pintarMaestra() {
 function pintarComposicion(lista) {
     const dims = Object.entries(DIMS_MAESTRA).filter(([, d]) => !d.jefe || esJefe());
     if (!dims.some(([k]) => k === maestra.dim)) maestra.dim = 'e';
-    const d = DIMS_MAESTRA[maestra.dim], valor = d.valor || (c => c[maestra.dim] || '');
-    const cuenta = {};
-    lista.forEach(c => { const v = valor(c) || ''; cuenta[v] = (cuenta[v] || 0) + 1; });
+    const d = DIMS_MAESTRA[maestra.dim];
+    const cuenta = {}, ejemplo = {};
+    lista.forEach(c => { const v = d.valor(c) || ''; cuenta[v] = (cuenta[v] || 0) + 1; ejemplo[v] = ejemplo[v] || c; });
     let grupos = Object.entries(cuenta).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'));
-    if (grupos.length > MAX_BARRAS) {
-        const resto = grupos.slice(MAX_BARRAS - 1);
+    // Más de 8 valores: el resto se junta en "Otros" (al pasar el mouse muestra el detalle; al tocarlo se despliega)
+    const nombreDe = v => v ? (d.nombre ? d.nombre(v, ejemplo[v]) : v) : 'Sin dato';
+    let resto = [];
+    if (grupos.length > MAX_BARRAS && !maestra.verOtros) {
+        resto = grupos.slice(MAX_BARRAS - 1);
         grupos = [...grupos.slice(0, MAX_BARRAS - 1), ['__otros', resto.reduce((s, g) => s + g[1], 0), resto.length]];
     }
     const total = lista.length, max = Math.max(1, ...grupos.map(g => g[1]));
     // Cliente y Médico: rayas de los dos colores
     const colorEtiqueta = g => g.c2 ? `repeating-linear-gradient(135deg, ${g.c} 0 6px, ${g.c2} 6px 12px)` : g.c;
     const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[grupoEtiqueta(v)])}`
-        : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : '';
-    const activo = d.filtro ? maestra[d.filtro] : (maestra.zonas || []).length === 1 ? maestra.zonas[0] : '';
-    $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; pintarMaestra()">${x.t}</button>`).join('');
+        : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
+    const elegidos = maestra.dim === 'z' ? ((maestra.zonas || []).length < zonasMaestra().length ? maestra.zonas : []) : maestra.sel[maestra.dim];
+    $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; maestra.verOtros=false; pintarMaestra()">${x.t}</button>`).join('');
+    $('mcBarras').classList.toggle('con-sel', elegidos.length > 0);
     $('mcBarras').innerHTML = !total ? '' : grupos.map(([v, n, varios]) => {
-        const otros = v === '__otros', nombre = otros ? `Otros (${varios})` : v ? (d.nombre ? d.nombre(v) : v) : 'Sin dato';
-        const pct = n / total < .005 ? '<1' : Math.round(n / total * 100), clic = !otros && v;
-        return `<button type="button" class="mc-barra${activo && v === activo ? ' activo' : ''}" ${clic ? `data-v="${esc(v)}" onclick="filtrarComposicion(this.dataset.v)"` : 'disabled'}
-                title="${esc(nombre)}: ${n} ${n === 1 ? 'cliente' : 'clientes'} (${pct}%)${clic ? (activo === v ? ' · toca para quitar el filtro' : ' · toca para filtrar') : ''}">
+        const otros = v === '__otros', nombre = otros ? `Otros (${varios})` : nombreDe(v);
+        const activo = elegidos.includes(v);
+        if (otros) return `<button type="button" class="mc-barra otros" onclick="maestra.verOtros=true; pintarMaestra()"
+                title="${esc(resto.map(([x, m]) => `${nombreDe(x)}: ${m}`).join('\n'))}\n\nToca para ver el detalle">
+            <span class="mc-barra-nombre">${esc(nombre)} <u>ver detalle</u></span>
+            <span class="mc-barra-pista"><span style="width:${Math.max(n / max * 100, 1.5)}%"></span></span>
+            <span class="mc-barra-num"><b>${n}</b> ${n / total < .005 ? '<1' : Math.round(n / total * 100)}%</span>
+        </button>`;
+        const pct = n / total < .005 ? '<1' : Math.round(n / total * 100), clic = !!v;
+        return `<button type="button" class="mc-barra${activo ? ' activo' : ''}" ${clic ? `data-v="${esc(v)}" onclick="filtrarComposicion(this.dataset.v)"` : 'disabled'}
+                title="${esc(nombre)}: ${n} ${n === 1 ? 'cliente' : 'clientes'} (${pct}%)${clic ? (activo ? ' · toca para quitar el filtro' : ' · toca para filtrar') : ''}">
             <span class="mc-barra-nombre">${esc(nombre)}</span>
             <span class="mc-barra-pista"><span style="width:${Math.max(n / max * 100, 1.5)}%${colorBarra(v)}"></span></span>
             <span class="mc-barra-num"><b>${n}</b> ${pct}%</span>
         </button>`;
-    }).join('');
+    }).join('') + (maestra.verOtros && grupos.length > MAX_BARRAS ? `<button type="button" class="mc-ver-menos" onclick="maestra.verOtros=false; pintarMaestra()">Ver menos</button>` : '');
 }
 
 function filtrarComposicion(v) {
-    const d = DIMS_MAESTRA[maestra.dim];
-    if (!d.filtro) maestra.zonas = maestra.zonas.length === 1 && maestra.zonas[0] === v ? zonasMaestra() : [v];
-    else { const nuevo = maestra[d.filtro] === v ? '' : v; maestra[d.filtro] = nuevo; $(d.sel).value = nuevo; }
-    pintarMaestra();
+    if (maestra.dim === 'z') {
+        const todas = zonasMaestra(), z = maestra.zonas || [];
+        maestra.zonas = z.length === todas.length ? [v] : z.includes(v) ? (z.length > 1 ? z.filter(x => x !== v) : todas) : todas.filter(x => x === v || z.includes(x));
+        pintarMaestra();
+    } else marcarFiltroMaestra(maestra.dim, v);
 }
 
 // ---------- VISIPLAN (plan de visitas del mes) ----------
