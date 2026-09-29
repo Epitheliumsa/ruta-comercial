@@ -1903,7 +1903,7 @@ async function abrirProgramar(id, contactoPlan) {
             <label>Objetivos de la visita <small>(puedes escoger varios)</small></label>
             <div class="checks" id="fObjetivos"></div>
         </div>
-        <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer? <small>(obligatorio)</small></label>
+        <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer? <small>(obligatorio · una frase corta)</small></label>
         <textarea id="fObjetivo" maxlength="100" oninput="$('fObjetivoCuenta').textContent = this.value.length + ' / 100'" placeholder="Ej: llevar lista de precios nueva">${esc(v?.clase === 'novedad' ? v.nota : v?.objetivo)}</textarea>
         <p class="ayuda cuenta-nota" id="fObjetivoCuenta">0 / 100</p>
         <p class="aviso-hora" id="fAviso" hidden></p>
@@ -1964,7 +1964,7 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('cajaHasta').hidden = !conRango;
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     // En visitas y trabajo interno es obligatorio escribir qué se va a hacer (máximo 100 caracteres)
-    $('lblNotas').innerHTML = novedad ? 'Detalle <small>(opcional)</small>' : '¿Qué vas a hacer? <small>(obligatorio)</small>';
+    $('lblNotas').innerHTML = novedad ? 'Detalle <small>(opcional)</small>' : '¿Qué vas a hacer? <small>(obligatorio · una frase corta)</small>';
     $('fObjetivoCuenta').hidden = novedad;
     $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / 100';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
