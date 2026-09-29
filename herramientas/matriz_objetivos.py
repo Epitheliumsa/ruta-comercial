@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Convierte la matriz de objetivos y subcategorías (Excel) en objetivos.js, que es lo que lee la app.
+
+Uso:  python3 herramientas/matriz_objetivos.py [ruta del Excel]
+      (por defecto: datos/Matriz_objetivos_subcategorias.xlsx)
+
+Reglas del archivo:
+- Hojas "Visitas" y "Trabajo interno": fila con Objetivo (columna A) = objetivo; ✓ o X en los tipos donde sale.
+  Filas de abajo con Subcategoría (columna B) = sus subcategorías; X en los tipos donde salen.
+  Subcategoría "Variable" = se carga cada mes (hoja "Mensual" o pantalla de jefes en la app).
+- Hoja "Mensual": Mes (AAAA-MM) | Objetivo | Subcategoría, para los objetivos variables.
+- Orden: objetivos y subcategorías en orden alfabético, salvo Planeación Mes, que empieza con PRIMEROS.
+"""
+import json, sys, unicodedata
+from pathlib import Path
+import openpyxl
+
+RAIZ = Path(__file__).resolve().parent.parent
+ENTRADA = Path(sys.argv[1]) if len(sys.argv) > 1 else RAIZ / 'datos' / 'Matriz_objetivos_subcategorias.xlsx'
+SALIDA = RAIZ / 'objetivos.js'
+PRIMEROS = {'Planeación Mes': ['Visiplan', 'Diagnóstico de Zona', 'Plan de Acción', 'Plan de Trabajo Diario']}
+# Nombre de la columna en el Excel -> clave del tipo en la app
+TIPOS = {
+    'Visita Médica': 'Visita Médica', 'Visita Comercial': 'Visita Comercial', 'Punto de Venta': 'Punto de Venta',
+    'Contacto nuevo · Visita Médica': 'nuevo:Visita Médica', 'Contacto nuevo · Visita Comercial': 'nuevo:Visita Comercial',
+    'Contacto nuevo · Punto de Venta': 'nuevo:Punto de Venta',
+    'Trabajo Administrativo Oficina': 'Trabajo Administrativo Oficina',
+    'Trabajo Administrativo Fuera de la Oficina': 'Trabajo Administrativo Fuera de la Oficina',
+    'Planeación Mes': 'Planeación Mes',
+}
+
+def clave(t):
+    return unicodedata.normalize('NFD', t.lower()).encode('ascii', 'ignore').decode()
+
+def limpio(v):
+    return ' '.join(str(v).split()) if v not in (None, '') else ''
+
+def ordenar(tipo, lista):
+    primeros = [o for o in PRIMEROS.get(tipo, []) if o in lista]
+    return primeros + sorted([o for o in lista if o not in primeros], key=clave)
+
+libro = openpyxl.load_workbook(ENTRADA, data_only=True)
+objetivos, subcategorias, variables, avisos = {}, {}, [], []
+for hoja in ('Visitas', 'Trabajo interno'):
+    ws = libro[hoja]
+    cab = [limpio(c.value) for c in ws[4]]
+    cols = {i: TIPOS[n] for i, n in enumerate(cab) if n in TIPOS}
+    for n in cab[2:]:
+        if n and n not in TIPOS:
+            avisos.append(f'{hoja}: columna "{n}" no es un tipo conocido (se ignora)')
+    actual = None
+    for fila in ws.iter_rows(min_row=5, values_only=True):
+        obj, sub = limpio(fila[0]), limpio(fila[1]) if len(fila) > 1 else ''
+        if obj.startswith('✓ en la'):
+            break
+        if obj:
+            actual = obj
+            for i, t in cols.items():
+                if limpio(fila[i]):
+                    objetivos.setdefault(t, []).append(obj)
+        elif sub and actual:
+            if sub.lower().startswith('variable'):
+                if actual not in variables:
+                    variables.append(actual)
+                continue
+            for i, t in cols.items():
+                if limpio(fila[i]):
+                    if actual not in objetivos.get(t, []):
+                        avisos.append(f'{hoja}: "{sub}" tiene X en {t} pero "{actual}" no sale en ese tipo')
+                    subcategorias.setdefault(t, {}).setdefault(actual, []).append(sub)
+
+objetivos = {t: ordenar(t, l) for t, l in objetivos.items()}
+subcategorias = {t: {o: sorted(set(s), key=clave) for o, s in d.items()} for t, d in subcategorias.items()}
+
+mensual = {}
+if 'Mensual' in libro.sheetnames:
+    for fila in libro['Mensual'].iter_rows(min_row=5, values_only=True):
+        mes, obj, sub = (limpio(v) for v in (list(fila) + [None] * 3)[:3])
+        if mes and obj and sub:
+            mes = mes[:7]
+            mensual.setdefault(mes, {}).setdefault(obj, []).append(sub)
+
+orden_tipos = [t for t in TIPOS.values() if t in objetivos]
+datos = {'objetivos': {t: objetivos[t] for t in orden_tipos}, 'subcategorias': subcategorias,
+         'variables': variables, 'mensual': mensual}
+SALIDA.write_text('// Generado desde datos/Matriz_objetivos_subcategorias.xlsx con herramientas/matriz_objetivos.py. No editar a mano.\n'
+                  'window.MATRIZ_OBJETIVOS = ' + json.dumps(datos, ensure_ascii=False, indent=1) + ';\n', encoding='utf-8')
+for t in orden_tipos:
+    print(f'{t}: {len(objetivos[t])} objetivos, {sum(len(v) for v in subcategorias.get(t, {}).values())} subcategorías')
+print('Variables:', ', '.join(variables) or '—', '| Meses cargados:', ', '.join(sorted(mensual)) or '—')
+for a in avisos:
+    print('AVISO:', a)

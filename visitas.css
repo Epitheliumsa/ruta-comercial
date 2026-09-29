@@ -1012,3 +1012,17 @@ a.home-btn { text-decoration: none; }
 #rCumplidos .check.no-programado span { color: #9aa5a1; font-weight: 500; }
 #rCumplidos .check.no-programado input:checked + span { color: #4b5563; }
 .objetivos span.extra { border: 1px dashed #86c5a8; }
+
+/* Objetivos con subcategorías */
+.checks .obj-item { display: contents; }
+.checks .obj-item.abierto { display: block; grid-column: 1 / -1; background: #f5faf9; border: 1px solid #d5e6e1; border-radius: 10px; padding: 4px; }
+.checks .obj-item.abierto > .check { border-color: transparent; background: transparent; }
+.obj-item .subs { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; padding: 4px 6px 8px 30px; }
+.obj-item .subs .ayuda { margin: 0; font-size: 12px; }
+.check.sub { padding: 6px 10px; font-size: 12.5px; background: white; }
+.check.sub.programado span { font-weight: 800; color: #1f2937; }
+.check.sub.no-programado span { color: #9aa5a1; font-weight: 500; }
+.sub-chip { font-weight: 500; opacity: .9; }
+.home-btn.home-btn-mensual { border-left-color: #ca8a04; background: linear-gradient(135deg, #ffffff 60%, #fef9e1 100%); }
+.home-btn.home-btn-mensual svg { background: linear-gradient(135deg, #854d0e, #eab308); }
+.home-btn.home-btn-mensual .home-btn-text strong { color: #854d0e; }
