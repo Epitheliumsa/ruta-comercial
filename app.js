@@ -1283,8 +1283,8 @@ function insigniasOrden(v, ord, mover) {
     const flechas = mover && mover.abierta && mover.puede && ord.prog && v.estado === 'pendiente'
         ? `<button class="ord-mover" onclick="moverOrden('${v.id}', -1)" ${ord.prog === 1 ? 'disabled' : ''} aria-label="Subir en el orden">▲</button><button class="ord-mover" onclick="moverOrden('${v.id}', 1)" ${ord.prog === mover.total ? 'disabled' : ''} aria-label="Bajar en el orden">▼</button>` : '';
     const abierta = mover && mover.abierta;
-    return `<span class="ordenes"><span class="ord prog${abierta ? ' abierta' : ''}" title="${ord.prog ? 'Orden programado' + (abierta ? ' (se puede cambiar hasta las 8:00 a. m.)' : '') : 'Fuera de horario: sin orden programado'}">Prog ${ord.prog || '–'}${flechas}</span>`
-        + (ord.real ? `<span class="ord real" title="Orden en que se visitó">Real ${ord.real}</span>` : '') + '</span>';
+    return `<span class="ordenes"><span class="ord prog${abierta ? ' abierta' : ''}" title="${ord.prog ? 'Orden programado' + (abierta ? ' (se puede cambiar hasta las 8:00 a. m.)' : '') : 'Fuera de horario: sin orden programado'}">${ord.prog || '–'}${flechas}</span>`
+        + (ord.real ? `<span class="ord real" title="Orden en que se visitó">${ord.real}</span>` : '') + '</span>';
 }
 
 function accionesVisita(v, txtOk, txtNo) {
