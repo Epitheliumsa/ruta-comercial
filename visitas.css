@@ -829,7 +829,7 @@ a.home-btn { text-decoration: none; }
 .vp-tabla thead .vp-et, .vp-tabla thead .vp-cli { z-index: 3; background: #f2f8f7; }
 .vp-x, .vp-r { position: relative; width: 30px; height: 26px; user-select: none; }
 .vp-x { cursor: pointer; }
-.vp-x:hover { background: #e3f5f3; }
+.vp-x:hover { background: #eef3fd; }
 .vp-r { background: #fcfbf9; }
 .vp-x.festivo, .vp-r.festivo { background: #eceeed; }
 /* X delgada dibujada con dos líneas finas */
@@ -837,15 +837,15 @@ a.home-btn { text-decoration: none; }
     content: ''; position: absolute; left: 50%; top: 50%; width: 13px; height: 1.6px; border-radius: 2px; background: currentColor; }
 .vp-x.on::before, .vp-r.on::before, .vp-r.prox::before, .vp-muestra::before { transform: translate(-50%, -50%) rotate(45deg); }
 .vp-x.on::after, .vp-r.on::after, .vp-r.prox::after, .vp-muestra::after { transform: translate(-50%, -50%) rotate(-45deg); }
-.vp-x.on { background: #e1f3f1; color: #0f766e; }
-.vp-r.on { background: #fff0e0; color: #e8700a; }
-.vp-tabla thead .vp-n.plan { color: #0f766e; }
-.vp-n.real { color: #e8700a; }
-.vp-chip-plan { background: #e1f3f1; color: #0f766e; }
-.vp-chip-real { background: #fff0e0; color: #c25c05; }
+.vp-x.on { background: #e6effd; color: #1d4ed8; }
+.vp-r.on { background: #dcf3e8; color: #15803d; }
+.vp-n.plan { color: #1d4ed8; }
+.vp-n.real { color: #15803d; }
+.vp-chip-plan { background: #e6effd; color: #1d4ed8; }
+.vp-chip-real { background: #dcf3e8; color: #15803d; }
 .vp-muestra { position: relative; display: inline-block; width: 18px; height: 14px; border-radius: 3px; vertical-align: -2px; }
-.vp-muestra.plan { background: #e1f3f1; color: #0f766e; }
-.vp-muestra.real { background: #fff0e0; color: #e8700a; margin-left: 6px; }
+.vp-muestra.plan { background: #e6effd; color: #1d4ed8; }
+.vp-muestra.real { background: #dcf3e8; color: #15803d; }
 .vp-muestra::before, .vp-muestra::after { width: 9px; }
 .vp-tabla.bloqueada .vp-x { cursor: not-allowed; }
 .vp-n { min-width: 64px; font-weight: 700; color: #333; font-variant-numeric: tabular-nums; }
@@ -868,8 +868,8 @@ a.home-btn { text-decoration: none; }
 .vp-tabla .vp-dia[colspan] small { color: #0b5c56; font-size: 11px; }
 .vp-tabla .vp-dia.festivo[colspan] { background: #e3e6e5; color: #8a9490; }
 .vp-tabla .vp-sem, .vp-tabla .fs { border-right: 2px solid #0f766e; }
-.vp-sub.plan { color: #0f766e; }
-.vp-sub.real { color: #e8700a; }
+.vp-sub.plan { color: #1d4ed8; }
+.vp-sub.real { color: #15803d; }
 
 /* Totales del Visiplan (abajo, siempre a la vista) */
 .vp-tabla tfoot td, .vp-tabla tfoot th { position: sticky; background: #f2f8f7; font-weight: 700; font-size: 11px; height: 26px; font-variant-numeric: tabular-nums; }
@@ -877,15 +877,15 @@ a.home-btn { text-decoration: none; }
 .vp-tabla tfoot tr.vp-tot-c td, .vp-tabla tfoot tr.vp-tot-c th { bottom: 26px; font-size: 10px; }
 .vp-tabla tfoot tr.vp-tot-v td, .vp-tabla tfoot tr.vp-tot-v th { bottom: 0; font-size: 10px; }
 .vp-tabla tfoot .vp-cli, .vp-tabla tfoot .vp-et { z-index: 3; color: #0b5c56; }
-.vp-tabla tfoot .vp-tp { color: #0f766e; }
-.vp-tabla tfoot .vp-tr { color: #e8700a; }
+.vp-tabla tfoot .vp-tp { color: #1d4ed8; }
+.vp-tabla tfoot .vp-tr { color: #15803d; }
 .vp-tabla tfoot .vp-tr, .vp-tabla tfoot .vp-dp, .vp-tabla tfoot .vp-dv { border-right: 2px solid #8fbfb7; }
 .vp-tabla tfoot .fs { border-right: 2px solid #0f766e; }
 .vp-pct { min-width: 64px; }
 .vp-pct.bueno, .vp-pvis.bueno, .vp-dp.bueno, .vp-dv.bueno { color: #15803d; }
 .vp-pct.medio, .vp-pvis.medio, .vp-dp.medio, .vp-dv.medio { color: #b45309; }
 .vp-pct.bajo, .vp-pvis.bajo, .vp-dp.bajo, .vp-dv.bajo { color: #c2410c; }
-.vp-chip-pct { background: #e7f0ff; color: #1d4ed8; }
+.vp-chip-pct { background: #eef2f7; color: #334155; }
 
 /* Próxima visita agendada que aún no es efectiva: X roja (no suma) */
 .vp-r.prox { background: #fdecec; color: #dc2626; }
@@ -914,7 +914,6 @@ a.home-btn { text-decoration: none; }
 .chip-filtro.activo { border-color: currentColor; box-shadow: 0 0 0 2px rgba(15, 118, 110, .2); }
 .ag-orden { width: auto; margin-left: auto; padding: 4px 8px; font-size: 12px; border-radius: 8px; }
 .filtro-activo .link-mini { font-size: 12px; }
-.orden-visita { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #0f766e; color: white; font-size: 11px; font-weight: 800; margin-right: 6px; vertical-align: 2px; }
 .visita-cab h3 { display: inline; }
 .cliente-link { cursor: pointer; }
 .cliente-link:hover { text-decoration: underline; }
@@ -927,3 +926,13 @@ a.home-btn { text-decoration: none; }
 .hist-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
 .hist-item .meta { margin: 2px 0 4px; font-size: 12px; color: #6b7c7a; }
 .hist-item .reporte { font-size: 12.5px; }
+
+/* Orden de las visitas: Prog (azul, lo pone el vendedor) y Real (verde, lo da el sistema) */
+.ordenes { display: inline-flex; gap: 5px; margin-right: 8px; vertical-align: 3px; }
+.ord { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.ord.prog { background: #e6effd; color: #1d4ed8; border: 1px solid #c7d7f8; }
+.ord.prog.abierta { background: #1d4ed8; color: white; border-color: #1d4ed8; }
+.ord.real { background: #16a34a; color: white; }
+.ord-mover { border: none; background: rgba(255, 255, 255, .22); color: inherit; font-size: 9px; line-height: 1; padding: 2px 4px; border-radius: 4px; cursor: pointer; }
+.ord-mover:disabled { opacity: .35; cursor: default; }
+.vp-vend { display: block; color: #334155; font-size: 10px; }
