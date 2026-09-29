@@ -981,7 +981,8 @@ const FILTROS_PLAN = {
     noplan: (m) => m.length === 0,
     real: (m, r) => r.size > 0,
     cump: (m, r) => m.some(d => r.has(d)),
-    visit: (m, r) => m.length > 0 && r.size > 0
+    visit: (m, r) => m.length > 0 && r.size > 0,
+    actividad: (m, r) => m.length > 0 || r.size > 0   // para el informe general: lo planeado o visitado
 };
 
 // Periodo que se ve en el Visiplan: hoy, esta semana o el mes completo (por defecto)
@@ -1062,7 +1063,7 @@ function pintarVisiplan() {
         + `<td data-d="${d}" class="vp-r h${fs(d)}${r.has(d) ? ' on' : px.has(d) ? ' prox' : ''}${nombreFestivo(d) ? ' festivo' : ''}${dp(c.v, d)}"${!r.has(d) && px.has(d) ? ' title="Reprogramada: pasa a verde cuando se visite"' : ''}></td>`).join('');
     const vacio = new Set();
     // Arriba, el trabajo interno de cada vendedor (se programa igual con X; no suma en los indicadores de clientes)
-    const filasInternas = visiplan.filtro ? '' : vista.map(ven => TRABAJO_INTERNO.map((t, i) => {
+    const filasInternas = visiplan.filtro && visiplan.filtro !== 'actividad' ? '' : vista.map(ven => TRABAJO_INTERNO.map((t, i) => {
         const c = { n: t, v: ven.id }, sg = seg[ven.id];
         return `<tr class="vp-int${i === TRABAJO_INTERNO.length - 1 ? ' vp-int-fin' : ''}"><td class="vp-et">${todos ? `<b class="vp-vend">${esc(nombreVendedor(ven.id))}</b>` : ''}Trabajo interno</td><th class="vp-cli" scope="row">${esc(t)}</th>`
             + celdas(c, sg.internos.marcas[t] || [], sg.internos.reales[t] || vacio, vacio)
@@ -1180,8 +1181,27 @@ async function descargarVisiplan(boton) {
 
 // Excel "fiel copia" del Visiplan: se arma desde la tabla que se ve en pantalla (mismos filtros, periodo,
 // vendedores, colores, X, totales y convenciones), leyendo los colores reales de cada celda
-function libroVisiplanPantalla() {
-    const libro = new ExcelJS.Workbook();
+// Arma el Visiplan de un mes y vendedores dados en la tabla de la app (sin tocar lo que el usuario está viendo)
+// y lo pasa al Excel con el mismo formato de la pantalla. Lo usa el informe general.
+function conVisiplanDe(mes, vendedores, hacer) {
+    const antes = { ...visiplan, vendedores: [...(visiplan.vendedores || [])] };
+    const filtroAntes = $('vpFiltro').value;
+    Object.assign(visiplan, { mes, vendedores, periodo: 'mes', filtro: 'actividad', busca: '', etiqueta: '', tipo: '' });
+    const tipo = $('vpTipo'), etq = $('vpEtiqueta');
+    tipo.dataset.zona = ''; etq.dataset.zona = '';
+    if (!$('vpFiltro').querySelector('option[value="actividad"]')) $('vpFiltro').insertAdjacentHTML('beforeend', '<option value="actividad" hidden>Planeados o visitados</option>');
+    try {
+        pintarVisiplan();
+        return hacer();
+    } finally {
+        Object.assign(visiplan, antes);
+        tipo.dataset.zona = ''; etq.dataset.zona = '';
+        $('vpFiltro').value = filtroAntes;
+        pintarVisiplan();
+    }
+}
+
+function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
     libro.creator = 'Epithelium Visita';
     const h = libro.addWorksheet('Visiplan', { views: [{ showGridLines: false }] });
     const argb = css => {
@@ -2775,7 +2795,8 @@ function armarLibro(mes, vend, solo) {
         conv.getCell(4).font = { italic: true, color: { argb: 'FF666666' } };
     }
     }
-    hojaVisiplan();
+    // Visiplan con el mismo formato de la pantalla (planeados o visitados del mes)
+    conVisiplanDe(mes, vendedores.map(c => c.id), () => libroVisiplanPantalla(libro));
 
     // Contactos proyecto
     const hp = hoja('Proyectos');
