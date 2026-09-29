@@ -171,9 +171,23 @@
                     <label class="vp-solo"><input type="checkbox" id="vpSoloMarcados" onchange="pintarVisiplan()"> Solo planeados</label>
                 </div>
             </div>
-            <div class="resumen-dia" id="vpResumen"></div>
-            <p class="ayuda vp-ayuda"><span class="vp-muestra plan"></span> Plan: toca la casilla para poner o quitar la X (se guarda sola). <span class="vp-muestra real"></span> Real: se marca sola cuando reportas la visita como visitada. Los festivos salen en gris.</p>
-            <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) marcarPlan(c)"></table></div>
+            <div class="vp-barra">
+                <div>
+                    <div class="resumen-dia" id="vpResumen"></div>
+                    <p class="ayuda vp-ayuda">Toca una casilla <b>P</b> para poner o quitar la X (se guarda sola). La <b>R</b> se marca sola al reportar la visita. Toca un cliente para ver su historial.</p>
+                </div>
+                <div class="vp-lado">
+                    <div class="vp-conv" aria-label="Convenciones">
+                        <strong>Convenciones</strong>
+                        <span><i class="vp-muestra plan"></i> Planeada (Obj)</span>
+                        <span><i class="vp-muestra real"></i> Visita efectiva (Real)</span>
+                        <span><i class="vp-muestra prox"></i> Próxima visita agendada · aún no efectiva, no suma</span>
+                        <span><i class="vp-muestra fest"></i> Festivo</span>
+                    </div>
+                    <button class="btn-secundario vp-excel" onclick="descargarVisiplan(this)">⬇ Descargar Excel</button>
+                </div>
+            </div>
+            <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) return marcarPlan(c); const cl=event.target.closest('tbody [data-cliente]'); if(cl) verCliente(cl.dataset.cliente, visiplan.vendedor)"></table></div>
         </div>
 
         <!-- PANEL DEL EQUIPO -->
