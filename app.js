@@ -779,6 +779,9 @@ const planEditable = mes => ETAPA_DATOS === 'pruebas' || esAdmin() || Date.now()
 const clavePlan = (contacto, fecha) => `${contacto}|${fecha}`;
 
 // Seguimiento del mes: X del plan, visitas efectivas y próximas visitas agendadas que aún no son efectivas
+// Reprogramada: viene de una visita no realizada ("Reprogramar para") o de la "Próxima visita" de un cierre
+const esReprogramada = v => v.origen === 'proxima' || v.origen === 'reprogramada' || !!v.vieneDe;
+
 // El trabajo interno (oficina, fuera de la oficina, planeación mes) va aparte: no suma en los indicadores de clientes
 function seguimientoPlan(vendedor, mes) {
     const todas = planDe(vendedor, mes)?.marcas || {}, marcas = {}, reales = {}, proximas = {};
@@ -787,7 +790,7 @@ function seguimientoPlan(vendedor, mes) {
     visibles().filter(x => x.clase === 'visita' && x.vendedor === vendedor && mesDe(x.fecha) === mes).forEach(x => {
         if (x.interno) { if (x.estado === 'visitado') (internos.reales[x.contacto] = internos.reales[x.contacto] || new Set()).add(x.fecha); return; }
         if (x.estado === 'visitado') (reales[x.contacto] = reales[x.contacto] || new Set()).add(x.fecha);
-        else if (x.origen === 'proxima') (proximas[x.contacto] = proximas[x.contacto] || new Set()).add(x.fecha);
+        else if (esReprogramada(x)) (proximas[x.contacto] = proximas[x.contacto] || new Set()).add(x.fecha);
     });
     // Días de Planeación Mes: toda la columna del día queda en azul
     const diasPlaneacion = new Set([...(internos.marcas['Planeación Mes'] || []), ...(internos.reales['Planeación Mes'] || [])]);
@@ -1239,6 +1242,7 @@ function tarjetaVisita(v, ord = null, mover = null) {
     const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visitado', 'No visitado'];
     const chip = v.estado === 'visitado' ? `<span class="chip ok">${txtOk}</span>`
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
+        : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Próxima visita' : 'Reprogramada'}</span>`
         : '<span class="chip p">Pendiente</span>';
     const meta = [v.tipoContacto, v.ciudad].filter(Boolean).map(esc).join(' · ');
     const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
@@ -1247,7 +1251,7 @@ function tarjetaVisita(v, ord = null, mover = null) {
         ? `<p class="objetivos"><b>${esc(v.tipoVisita)}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidos.length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
-        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${v.origen === 'proxima' ? '<span class="chip prox">Próxima visita</span>' : ''}${noProgTxt}`;
+        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${noProgTxt}`;
     if (v.interno) objetivos = '';
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
@@ -1267,7 +1271,8 @@ function tarjetaVisita(v, ord = null, mover = null) {
     if (v.estado === 'no_visitado') {
         reporte = `<div class="reporte"><b>${esc(v.motivo)}</b>${v.reprogramadaPara ? ` · Reprogramada para el ${esc(fechaCorta(v.reprogramadaPara))}` : ''}${v.observaciones ? '<br>' + esc(v.observaciones) : ''}</div>`;
     }
-    return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}">
+    const reprog = !v.interno && v.estado === 'pendiente' && esReprogramada(v) ? ' reprog' : '';
+    return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${reprog}">
         <div class="visita-cab"><div>${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${v.interno ? '' : insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
@@ -1858,7 +1863,7 @@ function guardarNoVisitado(e, id) {
         guardarRegistro({
             id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente',
             contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
-            fecha: repro, hora: '', objetivo: antes.objetivo, vieneDe: antes.fecha,
+            fecha: repro, hora: '', objetivo: antes.objetivo, vieneDe: antes.fecha, origen: 'reprogramada',
             modalidad: antes.modalidad, tipoVisita: antes.tipoVisita, objetivos: antes.objetivos, interno: !!antes.interno,
             programada: Date.now() < limiteProgramacion(repro),
             creado: new Date().toISOString(), creadoPor: sesion.id
