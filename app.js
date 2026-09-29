@@ -87,7 +87,7 @@ let sesion = null;              // { usuario, clave, ...datos del USUARIO }
 let contactos = {};             // { zona: [{ n, c, e }] }
 let registros = {};             // { id: visita | actividad }
 let pendientes = new Set();     // ids por subir al servidor
-let agenda = { fecha: hoy(), vendedor: null, filtro: '', orden: 'hora' };
+let agenda = { fecha: hoy(), vendedor: null, filtro: '', orden: 'prog' };
 let mesAct = mesDe(hoy());
 let mesPanel = mesDe(hoy());
 
@@ -807,19 +807,27 @@ function planeadasDe(vendedor, fecha) {
 
 function abrirVisiplan() {
     visiplan.vendedor = visiplan.vendedor || agenda.vendedor || (esComercial() ? sesion.id : COMERCIALES[0].id);
-    $('vpVendedor').innerHTML = COMERCIALES.map(c => `<option value="${c.id}" ${c.id === visiplan.vendedor ? 'selected' : ''}>${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('');
+    $('vpVendedor').innerHTML = (esJefe() ? `<option value="todos" ${visiplan.vendedor === 'todos' ? 'selected' : ''}>Todo el equipo</option>` : '')
+        + COMERCIALES.map(c => `<option value="${c.id}" ${c.id === visiplan.vendedor ? 'selected' : ''}>${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('');
     $('vpVendedor').style.display = esJefe() ? '' : 'none';
     pintarVisiplan();
     mostrarPantalla('visiplanScreen');
 }
 
+function cambiarVendedorPlan(valor) {
+    visiplan.vendedor = valor;
+    if (valor === 'todos') $('vpSoloMarcados').checked = true;   // todo el equipo: arranca solo con lo planeado
+    pintarVisiplan();
+}
+
 function moverMesPlan(n) { visiplan.mes = sumarMes(visiplan.mes, n); pintarVisiplan(); sincronizar(visiplan.mes); }
 
 function pintarVisiplan() {
-    const mes = visiplan.mes, v = comercial(visiplan.vendedor);
+    const mes = visiplan.mes;
     visiplan.vendedor = $('vpVendedor').value || visiplan.vendedor;
-    const plan = planDe(visiplan.vendedor, mes);
-    const marcas = plan?.marcas || {};
+    const todos = visiplan.vendedor === 'todos';
+    const vista = todos ? COMERCIALES : COMERCIALES.filter(c => c.id === visiplan.vendedor);
+    visiplan.vista = vista.map(c => c.id);
     const editable = planEditable(mes);
     const lim = limitePlan(mes);
     $('vpMesTxt').textContent = mayuscula(nombreMes(mes));
@@ -829,28 +837,31 @@ function pintarVisiplan() {
         : `Plan cerrado el ${fechaLarga(lim.dia)}: ya no se puede editar`;
     $('vpMesSub').classList.toggle('cerrado', !editable);
 
-    // Clientes de la zona: Maestra de Contactos y contactos nuevos
-    const zona = comercial(visiplan.vendedor)?.zona;
-    let clientes = (contactos[zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Comercial' }))
-        .concat(proyectosDeZona(zona).map(p => ({ n: p.nombre, e: 'Contacto nuevo · ' + p.tipo, t: p.tipo })));
-    const etiquetas = [...new Set(clientes.map(c => c.e).filter(Boolean))].sort();
+    // Clientes de la zona de cada vendedor: Maestra de Contactos y contactos nuevos
+    const seg = {};
+    let clientes = [];
+    vista.forEach(ven => {
+        seg[ven.id] = seguimientoPlan(ven.id, mes);
+        clientes = clientes.concat((contactos[ven.zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Comercial', v: ven.id }))
+            .concat(proyectosDeZona(ven.zona).map(p => ({ n: p.nombre, e: 'Contacto nuevo · ' + p.tipo, t: p.tipo, v: ven.id }))));
+    });
+    const claveZona = todos ? 'todos' : comercial(visiplan.vendedor)?.zona;
     const selEt = $('vpEtiqueta');
-    if (selEt.dataset.zona !== zona) {
+    if (selEt.dataset.zona !== claveZona) {
+        const etiquetas = [...new Set(clientes.map(c => c.e).filter(Boolean))].sort();
         selEt.innerHTML = '<option value="">Todas las etiquetas</option>' + etiquetas.map(e => `<option>${esc(e)}</option>`).join('');
-        selEt.dataset.zona = zona; visiplan.etiqueta = '';
+        selEt.dataset.zona = claveZona; visiplan.etiqueta = '';
     }
     const selTipo = $('vpTipo');
-    if (selTipo.dataset.zona !== zona) {
+    if (selTipo.dataset.zona !== claveZona) {
         const tiposZona = [...new Set(clientes.map(c => c.t).filter(Boolean))].sort();
         selTipo.innerHTML = '<option value="">Todos los tipos de cliente</option>' + tiposZona.map(t => `<option>${esc(t)}</option>`).join('');
-        selTipo.dataset.zona = zona; visiplan.tipo = '';
+        selTipo.dataset.zona = claveZona; visiplan.tipo = '';
     }
-    // Lo real: visitas efectivas; en rojo, las próximas visitas agendadas que aún no son efectivas
-    const { reales, proximas } = seguimientoPlan(visiplan.vendedor, mes);
     const q = normalizar(visiplan.busca);
     const soloMarcados = $('vpSoloMarcados').checked;
     clientes = clientes.filter(c => (!q || normalizar(c.n).includes(q)) && (!visiplan.etiqueta || c.e === visiplan.etiqueta) && (!visiplan.tipo || c.t === visiplan.tipo)
-        && (!soloMarcados || (marcas[c.n] || []).length || reales[c.n] || proximas[c.n]));
+        && (!soloMarcados || (seg[c.v].marcas[c.n] || []).length || seg[c.v].reales[c.n] || seg[c.v].proximas[c.n]));
 
     const dias = diasDelMes(mes);
     const semanas = [];
@@ -864,15 +875,16 @@ function pintarVisiplan() {
     const cab1 = semanas.map((s, i) => `<th colspan="${s.dias.length * 2}" class="vp-sem">Semana ${i + 1}</th>`).join('');
     const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" title="${esc(nombreFestivo(d) || fechaLarga(d))}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
     const cab3 = dias.map(d => `<th class="vp-sub plan${nombreFestivo(d) ? ' festivo' : ''}">P</th><th class="vp-sub real${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}">R</th>`).join('');
-    const filas = clientes.slice(0, 400).map(c => {
-        const m = marcas[c.n] || [], r = reales[c.n] || new Set(), px = proximas[c.n] || new Set();
-        return `<tr><td class="vp-et">${esc(c.e)}</td><th class="vp-cli" scope="row" data-cliente="${esc(c.n)}" title="Ver historial de visitas">${esc(c.n)}</th>`
-            + dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}" data-c="${esc(c.n)}" data-d="${d}"></td>`
-                + `<td data-d="${d}" class="vp-r h${fs(d)}${r.has(d) ? ' on' : px.has(d) ? ' prox' : ''}${nombreFestivo(d) ? ' festivo' : ''}"${!r.has(d) && px.has(d) ? ' title="Próxima visita agendada: aún no es efectiva"' : ''}></td>`).join('')
+    const filas = clientes.slice(0, 600).map(c => {
+        const sg = seg[c.v], m = sg.marcas[c.n] || [], r = sg.reales[c.n] || new Set(), px = sg.proximas[c.n] || new Set();
+        const etiqueta = todos ? `<b class="vp-vend">${esc(nombreVendedor(c.v))}</b>${esc(c.e)}` : esc(c.e);
+        return `<tr><td class="vp-et">${etiqueta}</td><th class="vp-cli" scope="row" data-cliente="${esc(c.n)}" data-v="${c.v}" title="Ver historial de visitas">${esc(c.n)}</th>`
+            + dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}" data-c="${esc(c.n)}" data-v="${c.v}" data-d="${d}"></td>`
+                + `<td data-d="${d}" class="vp-r h${fs(d)}${r.has(d) ? ' on' : px.has(d) ? ' prox' : ''}${nombreFestivo(d) ? ' festivo' : ''}"${!r.has(d) && px.has(d) ? ' title="Reprogramada: pasa a verde cuando se visite"' : ''}></td>`).join('')
             + `<td class="vp-n plan"></td><td class="vp-n real"></td><td class="vp-n vp-pct"></td><td class="vp-n vp-pvis"></td></tr>`;
     }).join('');
     $('vpTabla').classList.toggle('bloqueada', !editable);
-    $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">Etiqueta</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n" title="Visitas planeadas">Obj</th><th rowspan="3" class="vp-n" title="Visitas efectivas">Real</th><th rowspan="3" class="vp-n" title="Visitas efectivas en el día que se planearon / planeadas">% Cump</th><th rowspan="3" class="vp-n" title="Visitas efectivas / visitas planeadas">% Visitas</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 6}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`
+    $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">${todos ? 'Vendedor · Etiqueta' : 'Etiqueta'}</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n" title="Visitas programadas">Obj</th><th rowspan="3" class="vp-n" title="Visitas efectivas">Real</th><th rowspan="3" class="vp-n" title="Visitas efectivas en el día que se planearon / programadas">% Cump</th><th rowspan="3" class="vp-n" title="Visitas efectivas / visitas programadas">% Visitas</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 6}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`
         + `<tfoot><tr class="vp-tot"><td class="vp-et"></td><th class="vp-cli" scope="row">Obj · Real del día</th>${dias.map(d => `<td class="vp-tp${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td><td class="vp-tr${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpTotP"></td><td class="vp-n real" id="vpTotR"></td><td class="vp-n vp-pct" id="vpTotPct"></td><td class="vp-n vp-pvis" id="vpTotVis"></td></tr>`
         + `<tr class="vp-tot vp-tot-c"><td class="vp-et"></td><th class="vp-cli" scope="row">% Cump del día</th>${dias.map(d => `<td colspan="2" class="vp-dp${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="4"></td></tr>`
         + `<tr class="vp-tot vp-tot-v"><td class="vp-et"></td><th class="vp-cli" scope="row">% Visitas del día</th>${dias.map(d => `<td colspan="2" class="vp-dv${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="4"></td></tr></tfoot>`;
@@ -914,12 +926,13 @@ function actualizarTotalesPlan() {
         $('vpTotP').textContent = T.o; $('vpTotR').textContent = T.r;
         ponPct($('vpTotPct'), T.c, T.o); ponPct($('vpTotVis'), T.r, T.o);
     }
-    // Resumen del mes completo (sin filtros)
-    const { marcas, reales } = seguimientoPlan(visiplan.vendedor, visiplan.mes);
-    let obj = 0, real = 0, cump = 0;
-    Object.entries(marcas).forEach(([n, ds]) => { const k = indicadoresPlan(ds, reales[n] || new Set()); obj += k.obj; cump += k.cump; });
-    Object.values(reales).forEach(r => { real += r.size; });
-    const clientesP = Object.values(marcas).filter(d => d.length).length;
+    // Resumen del mes completo (sin filtros), del vendedor o de todo el equipo
+    let obj = 0, real = 0, cump = 0, clientesP = 0;
+    (visiplan.vista || []).forEach(vid => {
+        const { marcas, reales } = seguimientoPlan(vid, visiplan.mes);
+        Object.entries(marcas).forEach(([n, ds]) => { const k = indicadoresPlan(ds, reales[n] || new Set()); obj += k.obj; cump += k.cump; if (ds.length) clientesP++; });
+        Object.values(reales).forEach(r => { real += r.size; });
+    });
     $('vpResumen').innerHTML = `<span><b>${clientesP}</b> ${clientesP === 1 ? 'cliente planeado' : 'clientes planeados'}</span>`
         + `<span class="chip vp-chip-plan">Obj ${obj}</span><span class="chip vp-chip-real">Real ${real}</span>`
         + (obj ? `<span class="chip vp-chip-pct">${pctPlan(cump, obj)} Cump</span><span class="chip vp-chip-pct">${pctPlan(real, obj)} Visitas</span>` : '')
@@ -934,9 +947,10 @@ async function descargarVisiplan(boton) {
     try {
         await sincronizar(visiplan.mes);
         await cargarExcelJS();
-        const libro = armarLibro(visiplan.mes, visiplan.vendedor, 'visiplan');
+        const todos = visiplan.vendedor === 'todos';
+        const libro = armarLibro(visiplan.mes, todos ? '' : visiplan.vendedor, 'visiplan');
         const buffer = await libro.xlsx.writeBuffer();
-        bajarArchivo(buffer, `Visiplan_${nombreVendedor(visiplan.vendedor).replace(/\s+/g, '_')}_${visiplan.mes}.xlsx`);
+        bajarArchivo(buffer, `Visiplan_${todos ? 'Equipo' : nombreVendedor(visiplan.vendedor).replace(/\s+/g, '_')}_${visiplan.mes}.xlsx`);
         toast('Visiplan descargado');
     } catch (err) {
         console.error(err);
@@ -947,14 +961,15 @@ async function descargarVisiplan(boton) {
 }
 
 // Marcar o quitar una X (se guarda sola a los pocos segundos)
+const planesPorGuardar = new Set();
 function marcarPlan(celda) {
     const mes = visiplan.mes;
+    const { c, d, v: vend } = celda.dataset;
     if (!planEditable(mes)) return toast(`El plan de ${nombreMes(mes)} ya está cerrado`);
-    if (esJefe() && !esAdmin() && visiplan.vendedor !== sesion.id) return toast('Solo el vendedor (o el administrador) puede editar su plan');
-    const { c, d } = celda.dataset;
-    const id = idPlan(visiplan.vendedor, mes);
+    if (esJefe() && !esAdmin() && vend !== sesion.id) return toast('Solo el vendedor (o el administrador) puede editar su plan');
+    const id = idPlan(vend, mes);
     const plan = registros[id] ? { ...registros[id], marcas: { ...registros[id].marcas } }
-        : { id, clase: 'plan', vendedor: visiplan.vendedor, mes, fecha: mes + '-01', marcas: {}, confirmadas: {}, creado: new Date().toISOString(), creadoPor: sesion.id };
+        : { id, clase: 'plan', vendedor: vend, mes, fecha: mes + '-01', marcas: {}, confirmadas: {}, creado: new Date().toISOString(), creadoPor: sesion.id };
     const lista = new Set(plan.marcas[c] || []);
     if (lista.has(d)) lista.delete(d); else lista.add(d);
     plan.marcas[c] = [...lista].sort();
@@ -962,8 +977,13 @@ function marcarPlan(celda) {
     registros[id] = plan;   // se ve de inmediato; se guarda y sube después de una pausa
     celda.classList.toggle('on', lista.has(d));
     actualizarTotalesPlan();
+    planesPorGuardar.add(id);
     clearTimeout(esperaPlan);
-    esperaPlan = setTimeout(() => { guardarRegistro(registros[id]); pintarVisiplan(); toast('Plan guardado'); }, 1200);
+    esperaPlan = setTimeout(() => {
+        planesPorGuardar.forEach(pid => guardarRegistro(registros[pid]));
+        planesPorGuardar.clear();
+        pintarVisiplan(); toast('Plan guardado');
+    }, 1200);
 }
 
 // Confirmar en el día una visita planeada: abre la programación con el cliente ya puesto
@@ -1070,8 +1090,9 @@ function pintarAgenda() {
             + boton('ok', 'ok', `${k.ok} visitadas`) + boton('no', 'no', `${k.no} no visitadas`) + boton('p', 'p', `${k.p} pendientes`)
             + (internos ? boton('interno', 'gris', `${internos} trabajo interno`) : '')
             + `<select class="ag-orden" onchange="agenda.orden=this.value; pintarAgenda()" aria-label="Ordenar visitas">
-                <option value="hora" ${agenda.orden === 'hora' ? 'selected' : ''}>Orden: hora de cita</option>
-                <option value="realizada" ${agenda.orden === 'realizada' ? 'selected' : ''}>Orden: visita realizada</option></select>`
+                <option value="prog" ${agenda.orden === 'prog' ? 'selected' : ''}>Orden: visita programada</option>
+                <option value="realizada" ${agenda.orden === 'realizada' ? 'selected' : ''}>Orden: visita realizada</option>
+                <option value="hora" ${agenda.orden === 'hora' ? 'selected' : ''}>Orden: hora de cita</option></select>`
         : '';
 
     const plan = planeadasDe(v, f).filter(p => p.estado !== 'confirmada');
@@ -1093,17 +1114,41 @@ function pintarAgenda() {
         ok: x => !x.interno && x.estado === 'visitado', no: x => !x.interno && x.estado === 'no_visitado',
         p: x => !x.interno && x.estado === 'pendiente', interno: x => x.interno
     }[agenda.filtro] || (() => true);
-    let vistas = lista.filter(pasa);
-    if (agenda.orden === 'realizada') {
-        const t = x => x.estado !== 'pendiente' && !x.cierreAutomatico && x.registrada ? x.registrada : '9999';
-        vistas = vistas.slice().sort((a, b) => t(a).localeCompare(t(b)) || ordenCita(a, b));
-    }
-    const numerar = agenda.orden === 'realizada';
-    let n = 0;
-    const tarjetas = vistas.map(x => tarjetaVisita(x, numerar && x.estado !== 'pendiente' && !x.cierreAutomatico ? ++n : 0)).join('');
+    const { o: ordenes, prog: programadas } = ordenesDelDia(lista);
+    const clave = x => agenda.orden === 'prog' ? (ordenes[x.id]?.prog ?? (x.interno ? 2e9 : 1e9))
+        : agenda.orden === 'realizada' ? (ordenes[x.id]?.real ?? (x.interno ? 2e9 : 1e9)) : 0;
+    const vistas = lista.filter(pasa).sort((a, b) => clave(a) - clave(b) || ordenCita(a, b));
+    const mover = { abierta: Date.now() < limiteProgramacion(f), puede: sesion.id === v || esAdmin(), total: programadas.length };
+    const tarjetas = vistas.map(x => tarjetaVisita(x, ordenes[x.id], mover)).join('');
     const aviso = agenda.filtro ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="filtrarAgenda('${agenda.filtro}')">Quitar filtro</button></p>` : '';
     cont.innerHTML = (agenda.filtro ? '' : novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
         + (tarjetas || '<div class="no-results">No hay visitas con este filtro.</div>');
+}
+
+// Orden de las visitas del día. El programado lo pone el vendedor y lo puede cambiar hasta que cierra la
+// programación (8:00 a. m.); las visitas fuera de horario (no programadas) no tienen orden programado.
+// El real lo da el sistema según el orden en que se registran como visitadas.
+function ordenesDelDia(lista) {
+    const prog = lista.filter(x => !x.interno && esProgramada(x))
+        .sort((a, b) => (a.ordenPlan ?? 1e9) - (b.ordenPlan ?? 1e9) || (a.creado || '').localeCompare(b.creado || '') || ordenCita(a, b));
+    const real = lista.filter(x => !x.interno && x.estado === 'visitado' && !x.cierreAutomatico && x.registrada)
+        .sort((a, b) => a.registrada.localeCompare(b.registrada));
+    const o = {};
+    prog.forEach((x, i) => { o[x.id] = { prog: i + 1 }; });
+    real.forEach((x, i) => { (o[x.id] = o[x.id] || {}).real = i + 1; });
+    return { o, prog };
+}
+
+function moverOrden(id, paso) {
+    const v = registros[id];
+    if (Date.now() >= limiteProgramacion(v.fecha)) return toast('La programación del día ya cerró: el orden quedó fijo');
+    const { prog } = ordenesDelDia(visitasDe(v.vendedor, v.fecha));
+    const i = prog.findIndex(x => x.id === id), j = i + paso;
+    if (i < 0 || j < 0 || j >= prog.length) return;
+    [prog[i], prog[j]] = [prog[j], prog[i]];
+    prog.forEach((x, k) => { if (x.ordenPlan !== k + 1) guardarRegistro({ ...x, ordenPlan: k + 1 }); });
+    agenda.orden = 'prog';
+    pintarAgenda();
 }
 
 function filtrarAgenda(f) {
@@ -1111,7 +1156,7 @@ function filtrarAgenda(f) {
     pintarAgenda();
 }
 
-function tarjetaVisita(v, orden = 0) {
+function tarjetaVisita(v, ord = null, mover = null) {
     const clase = v.estado === 'visitado' ? 'ok' : v.estado === 'no_visitado' ? 'no' : '';
     const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visitado', 'No visitado'];
     const chip = v.estado === 'visitado' ? `<span class="chip ok">${txtOk}</span>`
@@ -1145,7 +1190,7 @@ function tarjetaVisita(v, orden = 0) {
         reporte = `<div class="reporte"><b>${esc(v.motivo)}</b>${v.reprogramadaPara ? ` · Reprogramada para el ${esc(fechaCorta(v.reprogramadaPara))}` : ''}${v.observaciones ? '<br>' + esc(v.observaciones) : ''}</div>`;
     }
     return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}">
-        <div class="visita-cab"><div>${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${orden ? `<span class="orden-visita" title="Orden en que se realizó">${orden}</span>` : ''}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
+        <div class="visita-cab"><div>${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${v.interno ? '' : insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
         ${objetivos}
@@ -1153,6 +1198,15 @@ function tarjetaVisita(v, orden = 0) {
         ${reporte}
         ${accionesVisita(v, txtOk, txtNo)}
     </div>`;
+}
+
+// Insignias de orden: Prog (azul, lo pone el vendedor; con flechas mientras la programación está abierta) y Real (verde)
+function insigniasOrden(v, ord, mover) {
+    const flechas = mover && mover.abierta && mover.puede && ord.prog && v.estado === 'pendiente'
+        ? `<button class="ord-mover" onclick="moverOrden('${v.id}', -1)" ${ord.prog === 1 ? 'disabled' : ''} aria-label="Subir en el orden">▲</button><button class="ord-mover" onclick="moverOrden('${v.id}', 1)" ${ord.prog === mover.total ? 'disabled' : ''} aria-label="Bajar en el orden">▼</button>` : '';
+    const abierta = mover && mover.abierta;
+    return `<span class="ordenes"><span class="ord prog${abierta ? ' abierta' : ''}" title="${ord.prog ? 'Orden programado' + (abierta ? ' (se puede cambiar hasta las 8:00 a. m.)' : '') : 'Fuera de horario: sin orden programado'}">Prog ${ord.prog || '–'}${flechas}</span>`
+        + (ord.real ? `<span class="ord real" title="Orden en que se visitó">Real ${ord.real}</span>` : '') + '</span>';
 }
 
 function accionesVisita(v, txtOk, txtNo) {
@@ -2316,11 +2370,11 @@ function armarLibro(mes, vend, solo) {
     });
     tabla(hv, 'TablaVisiplan', colsVP, filasVP);
     diasV.forEach((d, i) => { hv.getColumn(i + 6).alignment = { horizontal: 'center' }; });
-    // Planeado en verde petróleo, efectivo en naranja y próxima visita (aún no efectiva) en rojo, como en la app
+    // Programado en azul, real en verde y reprogramado (aún no efectivo) en rojo, como en la app
     hv.eachRow(fila => {
         const seg = fila.getCell(5).value;
         if (seg !== 'Plan' && seg !== 'Real') return;
-        const color = seg === 'Plan' ? 'FF0F766E' : 'FFE8700A';
+        const color = seg === 'Plan' ? 'FF1D4ED8' : 'FF15803D';
         fila.getCell(5).font = { bold: true, color: { argb: color } };
         diasV.forEach((d, i) => { const c = fila.getCell(i + 6); if (c.value === 'X') c.font = { bold: true, color: { argb: color } }; });
     });
@@ -2329,7 +2383,7 @@ function armarLibro(mes, vend, solo) {
     if (filasVP.length) {
         const T = tot.reduce((a, x) => ({ o: a.o + x.o, r: a.r + x.r, c: a.c + x.c }), { o: 0, r: 0, c: 0 });
         const base = 3 + filasVP.length + 2, n = diasV.length;
-        [['Obj del día', tot.map(x => x.o || null), 'FF0F766E', false], ['Real del día', tot.map(x => x.r || null), 'FFE8700A', false],
+        [['Obj del día', tot.map(x => x.o || null), 'FF1D4ED8', false], ['Real del día', tot.map(x => x.r || null), 'FF15803D', false],
          ['% Cump del día', tot.map(x => pctX(x.c, x.o)), 'FF1D4ED8', true], ['% Visitas del día', tot.map(x => pctX(x.r, x.o)), 'FF1D4ED8', true]].forEach(([t, vals, color, esPct], k) => {
             const fila = hv.getRow(base + k);
             fila.getCell(4).value = t;
@@ -2341,7 +2395,7 @@ function armarLibro(mes, vend, solo) {
         [T.o, T.r, pctX(T.c, T.o), pctX(T.r, T.o)].forEach((v, i) => { const c = fila.getCell(n + 6 + i); c.value = v; if (i > 1) c.numFmt = '0%'; });
         fila.font = { bold: true, color: { argb: verde } };
         const conv = hv.getRow(base + 7);
-        conv.getCell(4).value = 'Convenciones: X verde = planeada · X naranja = visita efectiva · X roja = próxima visita agendada, aún no efectiva (no suma)';
+        conv.getCell(4).value = 'Convenciones: X azul = programada · X verde = visita real (efectiva) · X roja = reprogramada / próxima visita, pasa a verde al visitarla (no suma mientras tanto)';
         conv.getCell(4).font = { italic: true, color: { argb: 'FF666666' } };
     }
     }

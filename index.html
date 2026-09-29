@@ -158,7 +158,7 @@
                 <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
             </div>
             <div class="filters filtros-rc">
-                <select id="vpVendedor" onchange="visiplan.vendedor=this.value; pintarVisiplan()" aria-label="Vendedor"></select>
+                <select id="vpVendedor" onchange="cambiarVendedorPlan(this.value)" aria-label="Vendedor"></select>
                 <div class="nav-fecha">
                     <button class="btn-nav" onclick="moverMesPlan(-1)" aria-label="Mes anterior">&lsaquo;</button>
                     <div class="nav-titulo"><strong id="vpMesTxt"></strong><small id="vpMesSub"></small></div>
@@ -179,15 +179,15 @@
                 <div class="vp-lado">
                     <div class="vp-conv" aria-label="Convenciones">
                         <strong>Convenciones</strong>
-                        <span><i class="vp-muestra plan"></i> Planeada (Obj)</span>
-                        <span><i class="vp-muestra real"></i> Visita efectiva (Real)</span>
-                        <span><i class="vp-muestra prox"></i> Próxima visita agendada · aún no efectiva, no suma</span>
+                        <span><i class="vp-muestra plan"></i> Programada (Obj)</span>
+                        <span><i class="vp-muestra real"></i> Visita real · efectiva</span>
+                        <span><i class="vp-muestra prox"></i> Reprogramada · pasa a verde al visitarla</span>
                         <span><i class="vp-muestra fest"></i> Festivo</span>
                     </div>
                     <button class="btn-secundario vp-excel" onclick="descargarVisiplan(this)">⬇ Descargar Excel</button>
                 </div>
             </div>
-            <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) return marcarPlan(c); const cl=event.target.closest('tbody [data-cliente]'); if(cl) verCliente(cl.dataset.cliente, visiplan.vendedor)"></table></div>
+            <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) return marcarPlan(c); const cl=event.target.closest('tbody [data-cliente]'); if(cl) verCliente(cl.dataset.cliente, cl.dataset.v)"></table></div>
         </div>
 
         <!-- PANEL DEL EQUIPO -->
