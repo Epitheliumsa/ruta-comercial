@@ -109,27 +109,27 @@ window.MATRIZ_OBJETIVOS = {
  "subcategorias": {
   "medcom:Visita Médica": {
    "Administración de Cartera": [
-    "Acuerdo de pago",
-    "Cobro de factura",
-    "Conciliación de cartera",
-    "Recibo de caja"
+    "Acuerdo de Pago",
+    "Cobro de Factura",
+    "Conciliación de Cartera",
+    "Recibo de Caja"
    ],
    "Codificación de Producto": [
-    "Presentación y documentación",
-    "Producto codificado",
-    "Seguimiento a la codificación",
-    "Solicitud de codificación"
+    "Presentación y Documentación",
+    "Producto Codificado",
+    "Seguimiento a la Codificación",
+    "Solicitud de Codificación"
    ],
    "Colocación": [
-    "Producto terminado",
-    "Magistral individual",
-    "Magistral de pedido",
-    "Producto nuevo"
+    "Producto Terminado",
+    "Magistral Individual",
+    "Magistral de Pedido",
+    "Producto Nuevo"
    ],
    "Desarrollo Productos": [
-    "Fórmula magistral nueva",
-    "Ajuste de fórmula",
-    "Muestra de desarrollo"
+    "Fórmula Magistral Nueva",
+    "Ajuste de Fórmula",
+    "Muestra de Desarrollo"
    ],
    "Devoluciones - PQR": [
     "Devolución",
@@ -139,61 +139,61 @@ window.MATRIZ_OBJETIVOS = {
     "Sugerencia"
    ],
    "Entrega de Muestras": [
-    "Muestra comercial",
-    "Muestra médica"
+    "Muestra Comercial",
+    "Muestra Médica"
    ],
    "Mapa del Cliente - Ampliación Portafolio": [
-    "Productos nuevos",
-    "Productos foco",
-    "Productos transición",
-    "Portafolio actual"
+    "Productos Nuevos",
+    "Productos Foco",
+    "Productos Transición",
+    "Portafolio Actual"
    ],
    "Precios": [
-    "Lista de precios",
-    "Negociación",
-    "Precios de la competencia"
+    "Chequeo de Precios",
+    "Lista de Precios",
+    "Negociación"
    ],
    "Productos Nuevos": [
-    "Presentación del producto",
-    "Entrega de muestra",
-    "Material de apoyo",
+    "Presentación del Producto",
+    "Entrega de Muestra",
+    "Material de Apoyo",
     "Codificación"
    ],
    "Protocolo Médico": [
-    "Inscripción del médico",
-    "Presentación del protocolo",
+    "Inscripción del Médico",
+    "Presentación del Protocolo",
     "Seguimiento",
-    "Solicitud y recolección de información"
+    "Solicitud y Recolección de Información"
    ]
   },
   "Visita Comercial": {
    "Administración de Cartera": [
-    "Acuerdo de pago",
-    "Cobro de factura",
-    "Conciliación de cartera",
-    "Recibo de caja"
+    "Acuerdo de Pago",
+    "Cobro de Factura",
+    "Conciliación de Cartera",
+    "Recibo de Caja"
    ],
    "Capacitación": [
     "Actividades",
     "Portafolio",
-    "Producto nuevo"
+    "Producto Nuevo"
    ],
    "Codificación de Producto": [
-    "Presentación y documentación",
-    "Producto codificado",
-    "Seguimiento a la codificación",
-    "Solicitud de codificación"
+    "Presentación y Documentación",
+    "Producto Codificado",
+    "Seguimiento a la Codificación",
+    "Solicitud de Codificación"
    ],
    "Colocación": [
-    "Producto terminado",
-    "Magistral individual",
-    "Magistral de pedido",
-    "Producto nuevo"
+    "Producto Terminado",
+    "Magistral Individual",
+    "Magistral de Pedido",
+    "Producto Nuevo"
    ],
    "Desarrollo Productos": [
-    "Fórmula magistral nueva",
-    "Ajuste de fórmula",
-    "Muestra de desarrollo"
+    "Fórmula Magistral Nueva",
+    "Ajuste de Fórmula",
+    "Muestra de Desarrollo"
    ],
    "Devoluciones - PQR": [
     "Devolución",
@@ -203,25 +203,25 @@ window.MATRIZ_OBJETIVOS = {
     "Sugerencia"
    ],
    "Entrega de Muestras": [
-    "Muestra comercial",
-    "Muestra médica",
+    "Muestra Comercial",
+    "Muestra Médica",
     "Tester"
    ],
    "Mapa del Cliente - Ampliación Portafolio": [
-    "Productos nuevos",
-    "Productos foco",
-    "Productos transición",
-    "Portafolio actual"
+    "Productos Nuevos",
+    "Productos Foco",
+    "Productos Transición",
+    "Portafolio Actual"
    ],
    "Precios": [
-    "Lista de precios",
-    "Negociación",
-    "Precios de la competencia"
+    "Chequeo de Precios",
+    "Lista de Precios",
+    "Negociación"
    ],
    "Productos Nuevos": [
-    "Presentación del producto",
-    "Entrega de muestra",
-    "Material de apoyo",
+    "Presentación del Producto",
+    "Entrega de Muestra",
+    "Material de Apoyo",
     "Codificación"
    ]
   },
@@ -229,13 +229,13 @@ window.MATRIZ_OBJETIVOS = {
    "Capacitación": [
     "Actividades",
     "Portafolio",
-    "Producto nuevo"
+    "Producto Nuevo"
    ],
    "Codificación de Producto": [
-    "Presentación y documentación",
-    "Producto codificado",
-    "Seguimiento a la codificación",
-    "Solicitud de codificación"
+    "Presentación y Documentación",
+    "Producto Codificado",
+    "Seguimiento a la Codificación",
+    "Solicitud de Codificación"
    ],
    "Devoluciones - PQR": [
     "Devolución",
@@ -245,8 +245,8 @@ window.MATRIZ_OBJETIVOS = {
     "Sugerencia"
    ],
    "Entrega de Muestras": [
-    "Muestra comercial",
-    "Muestra médica",
+    "Muestra Comercial",
+    "Muestra Médica",
     "Tester"
    ],
    "Exhibición": [
@@ -255,65 +255,65 @@ window.MATRIZ_OBJETIVOS = {
     "Vitrina"
    ],
    "Precios": [
-    "Lista de precios",
-    "Negociación",
-    "Precios de la competencia"
+    "Chequeo de Precios",
+    "Lista de Precios",
+    "Negociación"
    ],
    "Productos Nuevos": [
-    "Presentación del producto",
-    "Entrega de muestra",
-    "Material de apoyo",
+    "Presentación del Producto",
+    "Entrega de Muestra",
+    "Material de Apoyo",
     "Codificación"
    ]
   },
   "nuevo:Visita Médica": {
    "Colocación": [
-    "Producto terminado",
-    "Magistral individual",
-    "Magistral de pedido",
-    "Producto nuevo"
+    "Producto Terminado",
+    "Magistral Individual",
+    "Magistral de Pedido",
+    "Producto Nuevo"
    ],
    "Desarrollo Productos": [
-    "Fórmula magistral nueva",
-    "Ajuste de fórmula",
-    "Muestra de desarrollo"
+    "Fórmula Magistral Nueva",
+    "Ajuste de Fórmula",
+    "Muestra de Desarrollo"
    ],
    "Entrega de Muestras": [
-    "Muestra comercial",
-    "Muestra médica"
+    "Muestra Comercial",
+    "Muestra Médica"
    ],
    "Productos Nuevos": [
-    "Presentación del producto"
+    "Presentación del Producto"
    ],
    "Protocolo Médico": [
-    "Presentación del protocolo"
+    "Presentación del Protocolo"
    ]
   },
   "nuevo:Visita Comercial": {
    "Colocación": [
-    "Producto terminado",
-    "Magistral individual",
-    "Magistral de pedido",
-    "Producto nuevo"
+    "Producto Terminado",
+    "Magistral Individual",
+    "Magistral de Pedido",
+    "Producto Nuevo"
    ],
    "Desarrollo Productos": [
-    "Fórmula magistral nueva",
-    "Ajuste de fórmula",
-    "Muestra de desarrollo"
+    "Fórmula Magistral Nueva",
+    "Ajuste de Fórmula",
+    "Muestra de Desarrollo"
    ],
    "Entrega de Muestras": [
-    "Muestra comercial",
-    "Muestra médica"
+    "Muestra Comercial",
+    "Muestra Médica"
    ],
    "Productos Nuevos": [
-    "Presentación del producto"
+    "Presentación del Producto"
    ]
   },
   "Visita Médica": {
    "Desarrollo Productos": [
-    "Fórmula magistral nueva",
-    "Ajuste de fórmula",
-    "Muestra de desarrollo"
+    "Fórmula Magistral Nueva",
+    "Ajuste de Fórmula",
+    "Muestra de Desarrollo"
    ],
    "Devoluciones - PQR": [
     "Queja",
@@ -321,20 +321,20 @@ window.MATRIZ_OBJETIVOS = {
     "Sugerencia"
    ],
    "Entrega de Muestras": [
-    "Muestra comercial",
-    "Muestra médica"
+    "Muestra Comercial",
+    "Muestra Médica"
    ],
    "Productos Nuevos": [
-    "Presentación del producto",
-    "Entrega de muestra",
-    "Material de apoyo",
+    "Presentación del Producto",
+    "Entrega de Muestra",
+    "Material de Apoyo",
     "Codificación"
    ],
    "Protocolo Médico": [
-    "Inscripción del médico",
-    "Presentación del protocolo",
+    "Inscripción del Médico",
+    "Presentación del Protocolo",
     "Seguimiento",
-    "Solicitud y recolección de información"
+    "Solicitud y Recolección de Información"
    ]
   },
   "nuevo:Punto de Venta": {
@@ -342,183 +342,183 @@ window.MATRIZ_OBJETIVOS = {
     "Tester"
    ],
    "Productos Nuevos": [
-    "Presentación del producto"
+    "Presentación del Producto"
    ]
   },
   "Planeación Mes": {
    "Visiplan": [
-    "Ajustes al plan",
-    "Clientes a visitar por día",
-    "Frecuencia de visita por cliente",
-    "Revisión del cumplimiento del mes anterior"
+    "Ajustes al Plan",
+    "Clientes a Visitar por Día",
+    "Frecuencia de Visita por Cliente",
+    "Revisión del Cumplimiento del Mes Anterior"
    ],
    "Diagnóstico de Zona": [
-    "Cartera de la zona",
-    "Clientes inactivos",
-    "Clientes nuevos / potenciales",
-    "Competencia en la zona",
-    "Ventas por cliente"
+    "Cartera de la Zona",
+    "Clientes Inactivos",
+    "Clientes Nuevos / Potenciales",
+    "Competencia en la Zona",
+    "Ventas por Cliente"
    ],
    "Plan de Acción": [
-    "Actividades de impulso",
-    "Clientes prioritarios",
-    "Estrategia por producto",
-    "Metas de venta del mes"
+    "Actividades de Impulso",
+    "Clientes Prioritarios",
+    "Estrategia por Producto",
+    "Metas de Venta del Mes"
    ],
    "Plan de Trabajo Diario": [
-    "Confirmación de citas",
-    "Preparación de material y muestras",
-    "Programación de visitas",
-    "Ruta del día"
+    "Confirmación de Citas",
+    "Preparación de Material y Muestras",
+    "Programación de Visitas",
+    "Ruta del Día"
    ],
    "Actividades Mes": [
-    "Activaciones en punto de venta",
-    "Capacitaciones a clientes",
-    "Eventos y congresos",
+    "Activaciones en Punto de Venta",
+    "Capacitaciones a Clientes",
+    "Eventos y Congresos",
     "Material POP"
    ],
    "Administración de Cartera": [
-    "Acuerdos de pago",
-    "Conciliación de pagos",
-    "Llamadas de cobro",
-    "Revisión de cartera vencida"
+    "Acuerdos de Pago",
+    "Conciliación de Pagos",
+    "Llamadas de Cobro",
+    "Revisión de Cartera Vencida"
    ],
    "Capacitación": [
     "Herramientas (Epithelium Visita, Vademécum)",
     "Normatividad",
     "Producto",
-    "Técnicas de venta"
+    "Técnicas de Venta"
    ],
    "Interacción con Áreas": [
     "Calidad",
-    "Contabilidad y cartera",
-    "Dirección técnica",
-    "Logística y despachos",
+    "Contabilidad y Cartera",
+    "Dirección Técnica",
+    "Logística y Despachos",
     "Mercadeo",
     "Producción"
    ],
    "Revisión Correos": [
-    "Comunicaciones internas",
+    "Comunicaciones Internas",
     "Pedidos",
-    "Solicitudes de clientes"
+    "Solicitudes de Clientes"
    ],
    "Trámites y Reclamos": [
     "Devoluciones",
     "Garantías",
-    "Notas crédito",
-    "PQR de clientes"
+    "Notas Crédito",
+    "PQR de Clientes"
    ]
   },
   "Trabajo Administrativo Oficina": {
    "Plan de Trabajo Diario": [
-    "Confirmación de citas",
-    "Preparación de material y muestras",
-    "Programación de visitas",
-    "Ruta del día"
+    "Confirmación de Citas",
+    "Preparación de Material y Muestras",
+    "Programación de Visitas",
+    "Ruta del Día"
    ],
    "Actividades Mes": [
-    "Activaciones en punto de venta",
-    "Capacitaciones a clientes",
-    "Eventos y congresos",
+    "Activaciones en Punto de Venta",
+    "Capacitaciones a Clientes",
+    "Eventos y Congresos",
     "Material POP"
    ],
    "Administración de Cartera": [
-    "Acuerdos de pago",
-    "Conciliación de pagos",
-    "Llamadas de cobro",
-    "Revisión de cartera vencida"
+    "Acuerdos de Pago",
+    "Conciliación de Pagos",
+    "Llamadas de Cobro",
+    "Revisión de Cartera Vencida"
    ],
    "Capacitación": [
     "Herramientas (Epithelium Visita, Vademécum)",
     "Normatividad",
     "Producto",
-    "Técnicas de venta"
+    "Técnicas de Venta"
    ],
    "Interacción con Áreas": [
     "Calidad",
-    "Contabilidad y cartera",
-    "Dirección técnica",
-    "Logística y despachos",
+    "Contabilidad y Cartera",
+    "Dirección Técnica",
+    "Logística y Despachos",
     "Mercadeo",
     "Producción"
    ],
    "Reunión Ventas": [
-    "Comité comercial",
-    "Reunión semanal",
-    "Revisión de resultados"
+    "Comité Comercial",
+    "Reunión Semanal",
+    "Revisión de Resultados"
    ],
    "Revisión Correos": [
-    "Comunicaciones internas",
+    "Comunicaciones Internas",
     "Pedidos",
-    "Solicitudes de clientes"
+    "Solicitudes de Clientes"
    ],
    "Seguimiento": [
-    "Compromisos de visita",
+    "Compromisos de Visita",
     "Cotizaciones",
-    "Muestras entregadas",
-    "Pedidos pendientes"
+    "Muestras Entregadas",
+    "Pedidos Pendientes"
    ],
    "Trámites y Reclamos": [
     "Devoluciones",
     "Garantías",
-    "Notas crédito",
-    "PQR de clientes"
+    "Notas Crédito",
+    "PQR de Clientes"
    ]
   },
   "Trabajo Administrativo Fuera de la Oficina": {
    "Plan de Trabajo Diario": [
-    "Confirmación de citas",
-    "Preparación de material y muestras",
-    "Programación de visitas",
-    "Ruta del día"
+    "Confirmación de Citas",
+    "Preparación de Material y Muestras",
+    "Programación de Visitas",
+    "Ruta del Día"
    ],
    "Actividades Mes": [
-    "Activaciones en punto de venta",
-    "Capacitaciones a clientes",
-    "Eventos y congresos",
+    "Activaciones en Punto de Venta",
+    "Capacitaciones a Clientes",
+    "Eventos y Congresos",
     "Material POP"
    ],
    "Administración de Cartera": [
-    "Acuerdos de pago",
-    "Conciliación de pagos",
-    "Llamadas de cobro",
-    "Revisión de cartera vencida"
+    "Acuerdos de Pago",
+    "Conciliación de Pagos",
+    "Llamadas de Cobro",
+    "Revisión de Cartera Vencida"
    ],
    "Capacitación": [
     "Herramientas (Epithelium Visita, Vademécum)",
     "Normatividad",
     "Producto",
-    "Técnicas de venta"
+    "Técnicas de Venta"
    ],
    "Interacción con Áreas": [
     "Calidad",
-    "Contabilidad y cartera",
-    "Dirección técnica",
-    "Logística y despachos",
+    "Contabilidad y Cartera",
+    "Dirección Técnica",
+    "Logística y Despachos",
     "Mercadeo",
     "Producción"
    ],
    "Reunión Ventas": [
-    "Comité comercial",
-    "Reunión semanal",
-    "Revisión de resultados"
+    "Comité Comercial",
+    "Reunión Semanal",
+    "Revisión de Resultados"
    ],
    "Revisión Correos": [
-    "Comunicaciones internas",
+    "Comunicaciones Internas",
     "Pedidos",
-    "Solicitudes de clientes"
+    "Solicitudes de Clientes"
    ],
    "Seguimiento": [
-    "Compromisos de visita",
+    "Compromisos de Visita",
     "Cotizaciones",
-    "Muestras entregadas",
-    "Pedidos pendientes"
+    "Muestras Entregadas",
+    "Pedidos Pendientes"
    ],
    "Trámites y Reclamos": [
     "Devoluciones",
     "Garantías",
-    "Notas crédito",
-    "PQR de clientes"
+    "Notas Crédito",
+    "PQR de Clientes"
    ]
   }
  },

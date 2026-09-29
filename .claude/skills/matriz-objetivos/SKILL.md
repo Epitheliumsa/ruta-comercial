@@ -18,6 +18,9 @@ Nunca se editan los objetivos a mano en `app.js` ni en `objetivos.js`.
 - **Mensual**: Mes (AAAA-MM) | Objetivo | Subcategoría, para Parrilla Promocional y Actividades.
   Si un jefe las carga en la app (botón "Parrilla y actividades del mes"), mandan las de la app para ese mes.
 
+## Nombres
+- Objetivos y subcategorías en nombre propio (como NOMPROPIO), con de/del/la/y… en minúscula y siglas (PQR) como vienen. El script lo aplica solo.
+
 ## Reglas de orden (las aplica el script)
 - Objetivos y subcategorías en orden alfabético.
 - Excepción: **Planeación Mes** empieza con Visiplan, Diagnóstico de Zona, Plan de Acción y Plan de Trabajo Diario

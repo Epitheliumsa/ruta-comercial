@@ -30,7 +30,8 @@ ORDEN_SUBS = {
 }
 
 def ordenar_subs(obj, lista):
-    fijo = [x for x in ORDEN_SUBS.get(obj, []) if x in lista]
+    por_clave = {clave(x): x for x in lista}
+    fijo = [por_clave[clave(x)] for x in ORDEN_SUBS.get(obj, []) if clave(x) in por_clave]
     return fijo + sorted([x for x in lista if x not in fijo], key=clave)
 # Nombre de la columna en el Excel -> clave del tipo en la app
 TIPOS = {
@@ -50,6 +51,14 @@ def clave(t):
 def limpio(v):
     return ' '.join(str(v).split()) if v not in (None, '') else ''
 
+# Objetivos y subcategorías en nombre propio (como NOMPROPIO de Excel), con los conectores en minúscula
+# ("Chequeo de Precios") y las siglas como vienen (PQR, SPA)
+MENORES = {'de', 'del', 'la', 'las', 'el', 'los', 'y', 'e', 'o', 'u', 'a', 'al', 'en', 'con', 'para', 'por', 'sin', 'su', 'sus', 'un', 'una'}
+def nomprop(t):
+    palabras = t.split(' ')
+    return ' '.join(p.lower() if i and p.lower() in MENORES else p if len(p) > 1 and p.isupper() else p[:1].upper() + p[1:]
+                    for i, p in enumerate(palabras))
+
 def ordenar(tipo, lista):
     primeros = [o for o in PRIMEROS.get(tipo, []) if o in lista]
     return primeros + sorted([o for o in lista if o not in primeros], key=clave)
@@ -68,6 +77,8 @@ for hoja in ('Visitas', 'Trabajo interno'):
         obj, sub = limpio(fila[0]), limpio(fila[1]) if len(fila) > 1 else ''
         if obj.startswith('✓ en la'):
             break
+        obj = nomprop(obj) if obj else obj
+        sub = sub if not sub or sub.lower().startswith('variable') else nomprop(sub)
         if obj:
             actual = obj
             for i, t in cols.items():
