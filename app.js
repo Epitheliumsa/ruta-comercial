@@ -815,6 +815,32 @@ function guardarMensual(e) {
     toast(`Guardado para ${nombreMes(mes)}`);
 }
 
+// ---------- CHIPS DE SELECCIÓN (vendedores, zonas) ----------
+// Un clic elige solo ese chip; Ctrl (o Cmd) + clic lo suma o lo quita. En el celular: mantener presionado lo suma o lo quita.
+let chipVarios = false;
+const AYUDA_CHIPS = '<small class="vp-vends-ayuda">Ctrl + clic para elegir varios · en el celular, mantén presionado</small>';
+function eleccionChip(lista, id, todos, e) {
+    if (id === 'todos') return todos.slice();
+    if (!chipVarios && !(e && (e.ctrlKey || e.metaKey))) return [id];
+    return lista.includes(id) ? (lista.length > 1 ? lista.filter(x => x !== id) : lista) : todos.filter(x => x === id || lista.includes(x));
+}
+(() => {
+    let espera = null, largo = false, hecho = 0;
+    document.addEventListener('pointerdown', e => {
+        const b = e.target.closest('.vp-vend-btn:not(.todos)');
+        if (!b || e.pointerType === 'mouse') return;
+        clearTimeout(espera);
+        espera = setTimeout(() => { chipVarios = true; navigator.vibrate?.(25); b.click(); chipVarios = false; largo = true; }, 500);
+    });
+    ['pointerup', 'pointercancel', 'scroll'].forEach(t => document.addEventListener(t, () => {
+        clearTimeout(espera);
+        if (largo && t !== 'scroll') { largo = false; hecho = Date.now(); }
+    }, true));
+    // El toque largo ya eligió: se ignora el clic que el celular manda al soltar
+    document.addEventListener('click', e => { if (e.isTrusted && Date.now() - hecho < 400 && e.target.closest('.vp-vend-btn')) { e.preventDefault(); e.stopPropagation(); } }, true);
+    document.addEventListener('contextmenu', e => { if (e.target.closest('.vp-vend-btn')) e.preventDefault(); });
+})();
+
 // ---------- MAESTRA CLIENTES ----------
 // El comercial ve los clientes de su zona; los jefes los ven por zona y vendedor (una, varias o todas)
 const FILTROS_MAESTRA = ['e', 'cat', 'd', 'c', 'pz', 'f', 'vis'];
@@ -856,11 +882,8 @@ function abrirMaestra() {
     mostrarPantalla('maestraScreen');
 }
 
-function elegirZonaMaestra(z) {
-    const todas = zonasMaestra();
-    if (z === 'todas') maestra.zonas = maestra.zonas.length === todas.length ? [todas[0]] : todas;
-    else if (maestra.zonas.includes(z)) { if (maestra.zonas.length > 1) maestra.zonas = maestra.zonas.filter(x => x !== z); }
-    else maestra.zonas = todas.filter(x => x === z || maestra.zonas.includes(x));
+function elegirZonaMaestra(z, e) {
+    maestra.zonas = eleccionChip(maestra.zonas, z === 'todas' ? 'todos' : z, zonasMaestra(), e);
     pintarMaestra();
 }
 
@@ -932,11 +955,11 @@ document.addEventListener('click', e => {
 function pintarMaestra() {
     const todas = zonasMaestra(), sel = maestra.zonas || [];
     if (esJefe()) {
-        $('mcZonas').innerHTML = `<button type="button" class="vp-vend-btn todos${sel.length === todas.length ? ' activo' : ''}" onclick="elegirZonaMaestra('todas')">Todas las zonas</button>`
+        $('mcZonas').innerHTML = `<button type="button" class="vp-vend-btn todos${sel.length === todas.length ? ' activo' : ''}" onclick="elegirZonaMaestra('todas', event)">Todas las zonas</button>`
             + todas.map(z => {
                 const v = vendedorDeZona(z);
-                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}')">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${contactos[z].length}</small></button>`;
-            }).join('');
+                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${contactos[z].length}</small></button>`;
+            }).join('') + AYUDA_CHIPS;
     }
     const base = sel.flatMap(z => (contactos[z] || []).map(c => ({ ...c, z })));
     // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
@@ -1095,15 +1118,13 @@ function abrirVisiplan() {
 
 function pintarVendedoresPlan() {
     const sel = visiplan.vendedores, todos = sel.length === COMERCIALES.length;
-    $('vpVendedores').innerHTML = `<button type="button" class="vp-vend-btn todos${todos ? ' activo' : ''}" onclick="elegirVendedorPlan('todos')" aria-pressed="${todos}">Todo el equipo</button>`
-        + COMERCIALES.map(c => `<button type="button" class="vp-vend-btn${sel.includes(c.id) ? ' activo' : ''}" onclick="elegirVendedorPlan('${c.id}')" aria-pressed="${sel.includes(c.id)}">${sel.includes(c.id) ? '✓ ' : ''}${esc(c.nombre)} <small>${esc(c.zona)}</small></button>`).join('');
+    $('vpVendedores').innerHTML = `<button type="button" class="vp-vend-btn todos${todos ? ' activo' : ''}" onclick="elegirVendedorPlan('todos', event)" aria-pressed="${todos}">Todo el equipo</button>`
+        + COMERCIALES.map(c => `<button type="button" class="vp-vend-btn${sel.includes(c.id) ? ' activo' : ''}" onclick="elegirVendedorPlan('${c.id}', event)" aria-pressed="${sel.includes(c.id)}">${sel.includes(c.id) ? '✓ ' : ''}${esc(c.nombre)} <small>${esc(c.zona)}</small></button>`).join('') + AYUDA_CHIPS;
 }
 
-function elegirVendedorPlan(id) {
+function elegirVendedorPlan(id, e) {
     const antes = visiplan.vendedores.length;
-    if (id === 'todos') visiplan.vendedores = antes === COMERCIALES.length ? [COMERCIALES[0].id] : COMERCIALES.map(c => c.id);
-    else if (visiplan.vendedores.includes(id)) { if (antes > 1) visiplan.vendedores = visiplan.vendedores.filter(x => x !== id); }
-    else visiplan.vendedores = COMERCIALES.map(c => c.id).filter(x => x === id || visiplan.vendedores.includes(x));
+    visiplan.vendedores = eleccionChip(visiplan.vendedores, id, COMERCIALES.map(c => c.id), e);
     if (antes === 1 && visiplan.vendedores.length > 1) visiplan.filtro = 'plan';   // varios vendedores: arranca solo con lo planeado
     pintarVisiplan();
 }
