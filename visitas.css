@@ -833,7 +833,7 @@ a.home-btn { text-decoration: none; }
 .vp-r { background: #fcfbf9; }
 .vp-x.festivo, .vp-r.festivo { background: #eceeed; }
 /* X delgada dibujada con dos líneas finas */
-.vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-r.prox::before, .vp-r.prox::after, .vp-muestra:not(.fest)::before, .vp-muestra:not(.fest)::after {
+.vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-r.prox::before, .vp-r.prox::after, .vp-muestra:not(.fest):not(.planeacion)::before, .vp-muestra:not(.fest):not(.planeacion)::after {
     content: ''; position: absolute; left: 50%; top: 50%; width: 13px; height: 1.6px; border-radius: 2px; background: currentColor; }
 .vp-x.on::before, .vp-r.on::before, .vp-r.prox::before, .vp-muestra::before { transform: translate(-50%, -50%) rotate(45deg); }
 .vp-x.on::after, .vp-r.on::after, .vp-r.prox::after, .vp-muestra::after { transform: translate(-50%, -50%) rotate(-45deg); }
@@ -996,8 +996,13 @@ a.home-btn { text-decoration: none; }
 .vp-int .vp-cli { color: #475569; font-weight: 600; font-style: italic; }
 .vp-int .vp-et { color: #475569; }
 .vp-int-fin td, .vp-int-fin th { border-bottom: 2px solid #cbd5e1 !important; }
-.vp-tabla td.dia-plan, .vp-tabla th.vp-dia.dia-plan { background: #dbeafe; }
-.vp-tabla .vp-x.on.dia-plan { background: #bfdbfe; }
-.vp-tabla .vp-r.on.dia-plan { background: #bbf7d0; }
-.vp-muestra.planeacion { background: #dbeafe; }
+.vp-tabla td.dia-plan, .vp-tabla th.vp-dia.dia-plan { background: #fef3c7; }
+.vp-tabla .vp-x.on.dia-plan { background: #fde68a; }
+.vp-tabla .vp-r.on.dia-plan { background: #fde68a; }
+.vp-muestra.planeacion { background: #fde68a; }
 .ord { min-width: 22px; height: 22px; justify-content: center; padding: 0 6px; font-size: 12px; }
+
+/* Visita reprogramada pendiente: en rojo */
+.visita-card.reprog { border-left-color: #dc2626 !important; background: linear-gradient(135deg, #ffffff 60%, #fdecec 100%); }
+.visita-card.reprog .ord.prog { background: #fdecec; color: #b91c1c; border-color: #f5b5b5; }
+.visita-card.reprog .ord.prog.abierta { background: #dc2626; color: white; border-color: #dc2626; }
