@@ -848,7 +848,7 @@ a.home-btn { text-decoration: none; }
 .vp-muestra.real { background: #dcf3e8; color: #15803d; }
 .vp-muestra::before, .vp-muestra::after { width: 9px; }
 .vp-tabla.bloqueada .vp-x { cursor: not-allowed; }
-.vp-n { min-width: 64px; font-weight: 700; color: #333; font-variant-numeric: tabular-nums; }
+.vp-n { min-width: 40px; padding: 0 3px !important; font-size: 11px; font-weight: 700; color: #333; font-variant-numeric: tabular-nums; }
 .plan-dia { display: flex; flex-direction: column; gap: 10px; }
 .plan-card { border-left-color: #0e7490; background: linear-gradient(135deg, #ffffff 70%, #e2f4f8 100%); cursor: default; }
 .plan-card h3 { color: #0b5f75; }
@@ -860,7 +860,7 @@ a.home-btn { text-decoration: none; }
     }
 
 /* Vista horizontal: cada día con P (plan) y R (real) lado a lado, con una línea marcada entre días */
-.vp-x.h, .vp-r.h { width: 22px; min-width: 22px; height: 30px; }
+.vp-x.h, .vp-r.h { width: 20px; min-width: 20px; height: 30px; }
 .vp-x.h { border-right: 1px dotted #dbe6e3; }
 .vp-tabla .vp-r.h, .vp-tabla .vp-sub.real, .vp-tabla .vp-dia[colspan] { border-right: 2px solid #8fbfb7; }
 .vp-tabla thead tr:nth-child(3) th { top: 60px; height: 18px; font-size: 9px; }
@@ -881,7 +881,7 @@ a.home-btn { text-decoration: none; }
 .vp-tabla tfoot .vp-tr { color: #15803d; }
 .vp-tabla tfoot .vp-tr, .vp-tabla tfoot .vp-dp, .vp-tabla tfoot .vp-dv { border-right: 2px solid #8fbfb7; }
 .vp-tabla tfoot .fs { border-right: 2px solid #0f766e; }
-.vp-pct { min-width: 64px; }
+.vp-pct { min-width: 44px; }
 .vp-pct.bueno, .vp-pvis.bueno, .vp-dp.bueno, .vp-dv.bueno { color: #15803d; }
 .vp-pct.medio, .vp-pvis.medio, .vp-dp.medio, .vp-dv.medio { color: #b45309; }
 .vp-pct.bajo, .vp-pvis.bajo, .vp-dp.bajo, .vp-dv.bajo { color: #c2410c; }
@@ -892,7 +892,7 @@ a.home-btn { text-decoration: none; }
 .vp-muestra.prox { background: #fdecec; color: #dc2626; }
 .vp-muestra.fest { background: #e3e6e5; }
 .vp-muestra.real { margin-left: 0; }
-.vp-pvis { min-width: 64px; }
+.vp-pvis { min-width: 48px; }
 /* Barra superior: resumen a la izquierda, convenciones y Excel a la derecha */
 .vp-barra { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 0 15px; flex-wrap: wrap; }
 .vp-barra .resumen-dia { padding-left: 0; padding-right: 0; }
@@ -936,3 +936,68 @@ a.home-btn { text-decoration: none; }
 .ord-mover { border: none; background: rgba(255, 255, 255, .22); color: inherit; font-size: 9px; line-height: 1; padding: 2px 4px; border-radius: 4px; cursor: pointer; }
 .ord-mover:disabled { opacity: .35; cursor: default; }
 .vp-vend { display: block; color: #334155; font-size: 10px; }
+
+/* Banner del Visiplan: filtros a la izquierda y convenciones + Excel a la derecha (deja más espacio a la tabla) */
+.filters.filtros-rc.vp-banner { flex-direction: row; align-items: flex-start; gap: 14px; }
+.vp-banner-izq { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.vp-banner .vp-lado { margin-top: 0; width: 260px; flex: none; }
+.vp-banner .vp-conv { padding: 6px 10px; gap: 2px; font-size: 11px; box-shadow: none; }
+.vp-banner .vp-excel { padding: 6px 10px; }
+.vp-filtros { grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; }
+.vp-barra { display: block; }
+.vp-tabla thead .vp-n { font-size: 10.5px; line-height: 1.15; }
+.vp-tabla tfoot .vp-pie { font-size: 10.5px; font-weight: 600; color: #334155; white-space: nowrap; text-align: center; padding: 0 6px; }
+.vp-pie b { color: #0b5c56; }
+.vp-pie .p b { color: #1d4ed8; }
+.vp-pie .v b { color: #15803d; }
+.vp-chip-cli { background: white; color: #334155; border-color: #dbe4e2; font-weight: 600; }
+.vp-chip-cli b { font-weight: 800; }
+@media (min-width: 900px) {
+    .filters.filtros-rc.vp-banner { padding: 12px 20px; }
+}
+@media (max-width: 800px) {
+    .filters.filtros-rc.vp-banner { flex-direction: column; }
+    .vp-banner .vp-lado { width: 100%; }
+    .vp-filtros { grid-template-columns: 1fr 1fr; }
+    .vp-filtros #vpBusca { grid-column: 1 / -1; }
+}
+.vp-tabla.estirar { min-width: 100%; }
+
+/* Periodo: Hoy · Semana · Mes */
+.vp-periodo { display: inline-flex; align-self: center; background: #eef3f2; border-radius: 999px; padding: 3px; gap: 2px; }
+.vp-periodo button { border: none; background: transparent; padding: 5px 16px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 700; color: #4c615b; cursor: pointer; }
+.vp-periodo button.activo { background: #0f766e; color: white; }
+/* Tarjetas de clientes / planeados / visitados: solo en celular */
+.vp-kpis { display: none; }
+@media (max-width: 700px) {
+    .vp-banner .vp-conv, .vp-ayuda, #vpMesSub { display: none; }
+    .vp-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 4px; }
+    .vp-kpis div { background: white; border-radius: 12px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 8px rgba(0, 60, 40, .08); border-top: 3px solid #94a3b8; }
+    .vp-kpis div.p { border-top-color: #1d4ed8; }
+    .vp-kpis div.v { border-top-color: #15803d; }
+    .vp-kpis b { display: block; font-size: 24px; line-height: 1.1; color: #1f2937; }
+    .vp-kpis div.p b { color: #1d4ed8; }
+    .vp-kpis div.v b { color: #15803d; }
+    .vp-kpis span { font-size: 11px; color: #64748b; font-weight: 600; }
+    .vp-tabla .vp-cli { font-size: 13px; }
+    .vp-x.h, .vp-r.h { width: 26px; min-width: 26px; height: 36px; }
+    .vp-periodo { align-self: stretch; justify-content: space-between; }
+    .vp-periodo button { flex: 1; }
+}
+
+/* Selección de vendedores para jefes (uno, varios o todo el equipo) */
+.vp-vends { display: flex; flex-wrap: wrap; gap: 6px; }
+.vp-vend-btn { border: 1px solid #cfe0dc; background: white; color: #334155; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.vp-vend-btn small { color: #7a8a84; font-weight: 500; }
+.vp-vend-btn.activo { background: #e3f1ef; border-color: #0f766e; color: #0b5c56; }
+.vp-vend-btn.todos.activo { background: #0f766e; color: white; }
+
+/* Trabajo interno en el Visiplan y días de Planeación Mes (toda la columna en azul) */
+.vp-int .vp-cli { color: #475569; font-weight: 600; font-style: italic; }
+.vp-int .vp-et { color: #475569; }
+.vp-int-fin td, .vp-int-fin th { border-bottom: 2px solid #cbd5e1 !important; }
+.vp-tabla td.dia-plan, .vp-tabla th.vp-dia.dia-plan { background: #dbeafe; }
+.vp-tabla .vp-x.on.dia-plan { background: #bfdbfe; }
+.vp-tabla .vp-r.on.dia-plan { background: #bbf7d0; }
+.vp-muestra.planeacion { background: #dbeafe; }
+.ord { min-width: 22px; height: 22px; justify-content: center; padding: 0 6px; font-size: 12px; }
