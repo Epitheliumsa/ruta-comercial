@@ -989,6 +989,8 @@ a.home-btn { text-decoration: none; }
 .vp-vends { display: flex; flex-wrap: wrap; gap: 6px; }
 .vp-vend-btn { border: 1px solid #cfe0dc; background: white; color: #334155; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .vp-vend-btn small { color: #7a8a84; font-weight: 500; }
+.vp-vend-btn { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.vp-vends-ayuda { align-self: center; font-size: 11px; color: #8a9a95; }
 .vp-vend-btn.activo { background: #e3f1ef; border-color: #0f766e; color: #0b5c56; }
 .vp-vend-btn.todos.activo { background: #0f766e; color: white; }
 

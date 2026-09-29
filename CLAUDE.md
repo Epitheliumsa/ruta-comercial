@@ -33,3 +33,8 @@
 - Cada vez que llegue una Maestra de Contactos usa la skill `maestra-contactos` (`herramientas/maestra_contactos.py`).
 - Siempre: sin las columnas "Nombre" y "Lista de Precios"; "Vacante Epithelium" es de Yunelis (Zona Sur); sin "Empleados";
   los cambios de zona rigen desde la fecha de la subida.
+
+## Chips de selección (vendedores, zonas y cualquier filtro de este estilo)
+- Un clic elige solo ese chip y desactiva los demás. Ctrl (o Cmd) + clic suma o quita chips para elegir varios.
+- En el celular: mantener presionado suma o quita. El botón "Todo el equipo" / "Todas" elige todos.
+- Usar la función `eleccionChip` de app.js y la clase `vp-vend-btn`, con la ayuda `AYUDA_CHIPS` al final del grupo.
