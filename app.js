@@ -53,29 +53,31 @@ function abrirVademecum(e) {
 }
 
 // Tipo de visita y sus objetivos (se pueden escoger varios)
-// Objetivos por tipo de visita (matriz de objetivos definida por Hernán Reyes)
+// Objetivos por tipo de visita (matriz de objetivos definida por Hernán Reyes). Van en orden alfabético,
+// menos Planeación Mes, que empieza con Visiplan, Diagnóstico de Zona, Plan de Acción y Plan de Trabajo Diario
+const alfabetico = lista => [...lista].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
 const TIPOS_VISITA = {
-    'Visita Médica': ['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación',
-        'Administración de Cartera', 'Mapa del Cliente - Ampliación Portafolio', 'Actividades', 'Precios', 'Devoluciones - PQR', 'Codificación de Producto'],
-    'Visita Comercial': ['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación', 'Administración de Cartera',
-        'Mapa del Cliente - Ampliación Portafolio', 'Actividades', 'Precios', 'Devoluciones - PQR', 'Codificación de Producto', 'Capacitación'],
-    'Punto de Venta': ['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras', 'Actividades', 'Precios', 'Devoluciones - PQR',
-        'Codificación de Producto', 'Exhibición', 'Capacitación']
+    'Visita Médica': alfabetico(['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación',
+        'Administración de Cartera', 'Mapa del Cliente - Ampliación Portafolio', 'Actividades', 'Precios', 'Devoluciones - PQR', 'Codificación de Producto']),
+    'Visita Comercial': alfabetico(['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación', 'Administración de Cartera',
+        'Mapa del Cliente - Ampliación Portafolio', 'Actividades', 'Precios', 'Devoluciones - PQR', 'Codificación de Producto', 'Capacitación']),
+    'Punto de Venta': alfabetico(['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras', 'Actividades', 'Precios', 'Devoluciones - PQR',
+        'Codificación de Producto', 'Exhibición', 'Capacitación'])
 };
 // Contacto nuevo: objetivos propios según el tipo de visita
 const OBJETIVOS_NUEVO = {
-    'Visita Médica': ['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación'],
-    'Visita Comercial': ['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación'],
-    'Punto de Venta': ['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras']
+    'Visita Médica': alfabetico(['Parrilla Promocional', 'Productos Nuevos', 'Protocolo Médico', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación']),
+    'Visita Comercial': alfabetico(['Productos Nuevos', 'Entrega de Muestras', 'Desarrollo Productos', 'Colocación']),
+    'Punto de Venta': alfabetico(['Parrilla Promocional', 'Productos Nuevos', 'Entrega de Muestras'])
 };
 // Trabajo interno: también se programa con objetivos
-const INTERNO_BASE = ['Administración de Cartera', 'Plan de Trabajo Diario', 'Revisión Correos', 'Seguimiento', 'Capacitación',
-    'Trámites y Reclamos', 'Actividades Mes', 'Reunión Ventas', 'Interacción con Áreas'];
+const INTERNO_BASE = alfabetico(['Administración de Cartera', 'Plan de Trabajo Diario', 'Revisión Correos', 'Seguimiento', 'Capacitación',
+    'Trámites y Reclamos', 'Actividades Mes', 'Reunión Ventas', 'Interacción con Áreas']);
 const OBJETIVOS_INTERNO = {
     'Trabajo Administrativo Oficina': INTERNO_BASE,
     'Trabajo Administrativo Fuera de la Oficina': INTERNO_BASE,
-    'Planeación Mes': ['Administración de Cartera', 'Visiplan', 'Plan de Trabajo Diario', 'Diagnóstico de Zona', 'Plan de Acción', 'Revisión Correos',
-        'Capacitación', 'Trámites y Reclamos', 'Actividades Mes', 'Interacción con Áreas']
+    'Planeación Mes': ['Visiplan', 'Diagnóstico de Zona', 'Plan de Acción', 'Plan de Trabajo Diario',
+        ...alfabetico(['Administración de Cartera', 'Revisión Correos', 'Capacitación', 'Trámites y Reclamos', 'Actividades Mes', 'Interacción con Áreas'])]
 };
 const objetivosDeTipo = (tipo, nuevo) => (OBJETIVOS_INTERNO[tipo] || (nuevo ? OBJETIVOS_NUEVO : TIPOS_VISITA)[tipo]) || [];
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
@@ -84,7 +86,7 @@ const objetivosCierre = v => {
     return [...base, ...(v.objetivos || []).filter(o => !base.includes(o))];
 };
 const cumplidosProgramados = v => (v.objetivosCumplidos || []).filter(o => (v.objetivos || []).includes(o));
-// Trabajo interno: se programa igual que una visita, pero sin contacto ni objetivos
+// Trabajo interno: se programa igual que una visita (con objetivos), pero sin contacto
 // y no cuenta en los indicadores de visitas
 const TRABAJO_INTERNO = ['Trabajo Administrativo Oficina', 'Trabajo Administrativo Fuera de la Oficina', 'Planeación Mes'];
 const esTrabajoInterno = tipo => TRABAJO_INTERNO.includes(tipo);
