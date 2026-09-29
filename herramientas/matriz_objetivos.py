@@ -29,10 +29,14 @@ ORDEN_SUBS = {
     'Productos Nuevos': ['Presentación del producto', 'Entrega de muestra', 'Material de apoyo', 'Codificación'],
 }
 
+# Orden que el usuario numera en la columna A de cada subcategoría (manda sobre ORDEN_SUBS y el alfabético)
+ORDEN_NUM = {}
 def ordenar_subs(obj, lista):
-    por_clave = {clave(x): x for x in lista}
-    fijo = [por_clave[clave(x)] for x in ORDEN_SUBS.get(obj, []) if clave(x) in por_clave]
-    return fijo + sorted([x for x in lista if x not in fijo], key=clave)
+    fijo = [clave(x) for x in ORDEN_SUBS.get(obj, [])]
+    def llave(x):
+        k = clave(x)
+        return (ORDEN_NUM.get((obj, k), 999), fijo.index(k) if k in fijo else 999, k)
+    return sorted(lista, key=llave)
 # Nombre de la columna en el Excel -> clave del tipo en la app
 TIPOS = {
     'Visita Médica': 'Visita Médica', 'Visita Comercial': 'Visita Comercial', 'Punto de Venta': 'Punto de Venta',
@@ -77,6 +81,11 @@ for hoja in ('Visitas', 'Trabajo interno'):
         obj, sub = limpio(fila[0]), limpio(fila[1]) if len(fila) > 1 else ''
         if obj.startswith('✓ en la'):
             break
+        # Un número en la columna A de una subcategoría es su orden dentro del objetivo
+        if obj.replace('.0', '').isdigit() and sub:
+            if actual:
+                ORDEN_NUM[(actual, clave(nomprop(sub)))] = int(float(obj))
+            obj = ''
         obj = nomprop(obj) if obj else obj
         sub = sub if not sub or sub.lower().startswith('variable') else nomprop(sub)
         if obj:

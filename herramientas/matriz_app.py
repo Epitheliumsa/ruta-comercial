@@ -121,8 +121,8 @@ for i, (a, b) in enumerate(filas, 4):
 ix['A11'] = 'Reglas'
 ix['A11'].font = Font(bold=True, color=VERDE)
 reglas = ['Nombres en nombre propio (NOMPROPIO), con de/del/la/y en minúscula: "Chequeo de Precios".',
-          'Orden alfabético, salvo Planeación Mes y las subcategorías con orden fijo (Colocación, Desarrollo Productos, '
-          'Devoluciones - PQR, Mapa del Cliente y Productos Nuevos).',
+          'Objetivos en orden alfabético (salvo Planeación Mes). Subcategorías: el número en la columna A es su orden.',
+          'Clasificaciones 20 y 21: al programar se marca Visita Médica, Visita Médica Comercial o ambas (lista unida).',
           'No cambies los encabezados (fila 4) ni el nombre de las hojas.']
 for i, r in enumerate(reglas, 12):
     ix.cell(i, 1, '•'); ix.cell(i, 2, r); ix.cell(i, 2).alignment = Alignment(wrap_text=True)

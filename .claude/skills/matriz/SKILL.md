@@ -23,24 +23,23 @@ Toda la configuración vive en **un solo archivo**: `datos/Matriz_App.xlsx`. La 
 
 ## Reglas de la app
 - Al programar, cada tipo de visita solo muestra los clientes de las clasificaciones con X en ese tipo.
-- Clasificaciones con X en Visita Médica y Visita Comercial (hoy 20 y 21): el vendedor marca una, otra o ambas.
-  Con **las dos** marcadas sale una sola lista: la columna "Visita Médica Comercial" de Visitas. Con una sola, la de ese tipo.
+- "Visita Médica Comercial" aplica solo a las clasificaciones 20 y 21 (X en Visita Médica y Visita Comercial). Al
+  lado del cliente se marca **Visita Médica**, **Visita Médica Comercial** o ambas:
+  - Visita Médica → objetivos y subcategorías de la columna "Visita Médica".
+  - Visita Médica Comercial → los de la columna "Visita Médica Comercial".
+  - Ambas → una sola lista unida con las dos columnas (sin grupos).
+  Si el vendedor entra por "Visita Comercial" con un cliente 20 o 21, queda marcada Visita Médica Comercial.
 
 ## Nombres
 - Objetivos y subcategorías en nombre propio (como NOMPROPIO), con de/del/la/y… en minúscula y siglas (PQR) como vienen.
   El generador lo aplica solo. Si se renombra una subcategoría, agrega el nombre viejo en `SUBS_VIEJAS` de `app.js`.
 
 ## Reglas de orden (las aplica el generador)
-- Objetivos y subcategorías en orden alfabético.
-- Excepción: **Planeación Mes** empieza con Visiplan, Diagnóstico de Zona, Plan de Acción y Plan de Trabajo Diario
-  (constante `PRIMEROS` de `matriz_objetivos.py`).
-- Excepción: subcategorías con orden fijo (constante `ORDEN_SUBS`):
-  - Colocación: Producto Terminado, Magistral Individual, Magistral de Pedido, Producto Nuevo.
-  - Desarrollo Productos: Fórmula Magistral Nueva, Ajuste de Fórmula, Muestra de Desarrollo.
-  - Devoluciones - PQR: Devolución, Queja, Reclamo, Reacondicionamiento, Sugerencia.
-  - Mapa del Cliente - Ampliación Portafolio: Productos Nuevos, Productos Foco, Productos Transición, Portafolio Actual.
-  - Productos Nuevos: Presentación del Producto, Entrega de Muestra, Material de Apoyo, Codificación.
-  Si llega una subcategoría nueva en esos objetivos, va al final (alfabética) salvo que el usuario diga su lugar.
+- Objetivos en orden alfabético (Planeación Mes empieza con Visiplan, Diagnóstico de Zona, Plan de Acción y Plan de
+  Trabajo Diario: constante `PRIMEROS`).
+- **Subcategorías: el número que el usuario escribe en la columna A de cada fila de subcategoría es su orden** dentro
+  del objetivo (1, 2, 3…). Sin número: se usa `ORDEN_SUBS` y luego el orden alfabético. Si hay números repetidos,
+  avísale al usuario y pregúntale el orden.
 
 ## Pasos
 1. **Si solo pide la matriz**: corre `python3 herramientas/matriz_app.py` (refresca conteos) y entrégale
