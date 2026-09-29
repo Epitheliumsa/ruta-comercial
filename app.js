@@ -830,6 +830,14 @@ const DIMS_MAESTRA = {
     z: { t: 'Zona', jefe: true, valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
 };
 const MAX_BARRAS = 8;
+// Color por tipo de etiqueta (se unifican en Cliente, Médico y Punto de Venta) y por si es cliente para facturar
+const GRUPOS_ETIQUETA = {
+    cliente: { t: 'Cliente', c: '#2563eb', tinte: '#e3ecfd' },
+    medico: { t: 'Médico', c: '#db2777', tinte: '#fce6f0' },
+    pv: { t: 'Punto de Venta', c: '#ca8a04', tinte: '#faf0d4' }
+};
+const COLOR_FACTURA = { si: '#16a34a', no: '#dc2626' };
+const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
 const zonasMaestra = () => Object.keys(contactos).filter(z => (contactos[z] || []).length);
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
 
@@ -882,9 +890,10 @@ function pintarMaestra() {
     $('mcResumen').textContent = `${lista.length} ${lista.length === 1 ? 'cliente' : 'clientes'}${lista.length !== base.length ? ` de ${base.length}` : ''} · toca un cliente para ver su historial`;
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
-        return `<button class="mc-fila" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
+        const g = GRUPOS_ETIQUETA[grupoEtiqueta(c.e)];
+        return `<button class="mc-fila" style="--g:${g.c}; --tinte:${g.tinte}; --fx:${COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
-                <span class="mc-datos">${c.cl ? `<span>Clasificación <b>${esc(c.cl)}</b></span>` : ''}${c.ca ? `<span>${esc(c.ca)}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}<span class="${c.f ? 'fact' : ''}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
+                <span class="mc-datos">${c.cl ? `<span>Clasificación <b>${esc(c.cl)}</b></span>` : ''}${c.ca ? `<span class="cat">${esc(c.ca)}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
             <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
         </button>`;
     };
@@ -900,7 +909,7 @@ function pintarMaestra() {
 
 // Barras con la composición de los clientes filtrados. Tocar una barra filtra por ese valor; tocarla otra vez lo quita.
 function pintarComposicion(lista) {
-    const dims = Object.entries(DIMS_MAESTRA).filter(([, d]) => !d.jefe || (esJefe() && (maestra.zonas || []).length > 1));
+    const dims = Object.entries(DIMS_MAESTRA).filter(([, d]) => !d.jefe || esJefe());
     if (!dims.some(([k]) => k === maestra.dim)) maestra.dim = 'e';
     const d = DIMS_MAESTRA[maestra.dim], valor = d.valor || (c => c[maestra.dim] || '');
     const cuenta = {};
@@ -911,6 +920,8 @@ function pintarComposicion(lista) {
         grupos = [...grupos.slice(0, MAX_BARRAS - 1), ['__otros', resto.reduce((s, g) => s + g[1], 0), resto.length]];
     }
     const total = lista.length, max = Math.max(1, ...grupos.map(g => g[1]));
+    const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${GRUPOS_ETIQUETA[grupoEtiqueta(v)].c}`
+        : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : '';
     const activo = d.filtro ? maestra[d.filtro] : (maestra.zonas || []).length === 1 ? maestra.zonas[0] : '';
     $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; pintarMaestra()">${x.t}</button>`).join('');
     $('mcBarras').innerHTML = !total ? '' : grupos.map(([v, n, varios]) => {
@@ -919,7 +930,7 @@ function pintarComposicion(lista) {
         return `<button type="button" class="mc-barra${activo && v === activo ? ' activo' : ''}" ${clic ? `data-v="${esc(v)}" onclick="filtrarComposicion(this.dataset.v)"` : 'disabled'}
                 title="${esc(nombre)}: ${n} ${n === 1 ? 'cliente' : 'clientes'} (${pct}%)${clic ? (activo === v ? ' · toca para quitar el filtro' : ' · toca para filtrar') : ''}">
             <span class="mc-barra-nombre">${esc(nombre)}</span>
-            <span class="mc-barra-pista"><span style="width:${Math.max(n / max * 100, 1.5)}%"></span></span>
+            <span class="mc-barra-pista"><span style="width:${Math.max(n / max * 100, 1.5)}%${colorBarra(v)}"></span></span>
             <span class="mc-barra-num"><b>${n}</b> ${pct}%</span>
         </button>`;
     }).join('');
