@@ -817,7 +817,19 @@ function guardarMensual(e) {
 
 // ---------- MAESTRA CLIENTES ----------
 // El comercial ve los clientes de su zona; los jefes los ven por zona y vendedor (una, varias o todas)
-const maestra = { zonas: null, busca: '', etiqueta: '', ciudad: '', cl: '', ca: '', pz: '', f: '' };
+const maestra = { zonas: null, busca: '', etiqueta: '', ciudad: '', cl: '', ca: '', pz: '', f: '', dim: 'e' };
+// Gráfica de composición: por qué columna se agrupa, qué filtro aplica al tocar una barra y cómo se nombra cada valor
+const textoPlazo = pz => /^\d+$/.test(pz) ? (pz === '0' ? 'Contado' : pz + ' días') : pz;
+const DIMS_MAESTRA = {
+    e: { t: 'Etiqueta', filtro: 'etiqueta', sel: 'mcEtiqueta' },
+    ca: { t: 'Categoría', filtro: 'ca', sel: 'mcCategoria' },
+    cl: { t: 'Clasificación', filtro: 'cl', sel: 'mcClasif' },
+    c: { t: 'Ciudad', filtro: 'ciudad', sel: 'mcCiudad' },
+    pz: { t: 'Plazo de pago', filtro: 'pz', sel: 'mcPlazo', nombre: textoPlazo },
+    f: { t: 'Facturar', filtro: 'f', sel: 'mcFacturar', valor: c => c.f ? 'si' : 'no', nombre: v => v === 'si' ? 'Cliente para facturar' : 'No factura' },
+    z: { t: 'Zona', jefe: true, valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
+};
+const MAX_BARRAS = 8;
 const zonasMaestra = () => Object.keys(contactos).filter(z => (contactos[z] || []).length);
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
 
@@ -862,6 +874,7 @@ function pintarMaestra() {
     const lista = base.filter(c => (!q || normalizar(c.n).includes(q)) && (!maestra.etiqueta || c.e === maestra.etiqueta) && (!maestra.ciudad || c.c === maestra.ciudad)
         && (!maestra.cl || c.cl === maestra.cl) && (!maestra.ca || c.ca === maestra.ca) && (!maestra.pz || c.pz === maestra.pz)
         && (!maestra.f || (maestra.f === 'si') === !!c.f));
+    pintarComposicion(lista);
     // Última visita efectiva de cada cliente
     const ultima = {};
     visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado')
@@ -871,7 +884,7 @@ function pintarMaestra() {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         return `<button class="mc-fila" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
-                <span class="mc-datos">${c.cl ? `<span>Clasificación <b>${esc(c.cl)}</b></span>` : ''}${c.ca ? `<span>${esc(c.ca)}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(/^\d+$/.test(c.pz) ? (c.pz === '0' ? 'contado' : c.pz + ' días') : c.pz)}</b></span>` : ''}<span class="${c.f ? 'fact' : ''}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
+                <span class="mc-datos">${c.cl ? `<span>Clasificación <b>${esc(c.cl)}</b></span>` : ''}${c.ca ? `<span>${esc(c.ca)}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}<span class="${c.f ? 'fact' : ''}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
             <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
         </button>`;
     };
@@ -883,6 +896,40 @@ function pintarMaestra() {
             const v = vendedorDeZona(z);
             return (esJefe() ? `<p class="grupo-titulo">${esc(z)} · ${esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
         }).join('');
+}
+
+// Barras con la composición de los clientes filtrados. Tocar una barra filtra por ese valor; tocarla otra vez lo quita.
+function pintarComposicion(lista) {
+    const dims = Object.entries(DIMS_MAESTRA).filter(([, d]) => !d.jefe || (esJefe() && (maestra.zonas || []).length > 1));
+    if (!dims.some(([k]) => k === maestra.dim)) maestra.dim = 'e';
+    const d = DIMS_MAESTRA[maestra.dim], valor = d.valor || (c => c[maestra.dim] || '');
+    const cuenta = {};
+    lista.forEach(c => { const v = valor(c) || ''; cuenta[v] = (cuenta[v] || 0) + 1; });
+    let grupos = Object.entries(cuenta).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'));
+    if (grupos.length > MAX_BARRAS) {
+        const resto = grupos.slice(MAX_BARRAS - 1);
+        grupos = [...grupos.slice(0, MAX_BARRAS - 1), ['__otros', resto.reduce((s, g) => s + g[1], 0), resto.length]];
+    }
+    const total = lista.length, max = Math.max(1, ...grupos.map(g => g[1]));
+    const activo = d.filtro ? maestra[d.filtro] : (maestra.zonas || []).length === 1 ? maestra.zonas[0] : '';
+    $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; pintarMaestra()">${x.t}</button>`).join('');
+    $('mcBarras').innerHTML = !total ? '' : grupos.map(([v, n, varios]) => {
+        const otros = v === '__otros', nombre = otros ? `Otros (${varios})` : v ? (d.nombre ? d.nombre(v) : v) : 'Sin dato';
+        const pct = n / total < .005 ? '<1' : Math.round(n / total * 100), clic = !otros && v;
+        return `<button type="button" class="mc-barra${activo && v === activo ? ' activo' : ''}" ${clic ? `data-v="${esc(v)}" onclick="filtrarComposicion(this.dataset.v)"` : 'disabled'}
+                title="${esc(nombre)}: ${n} ${n === 1 ? 'cliente' : 'clientes'} (${pct}%)${clic ? (activo === v ? ' · toca para quitar el filtro' : ' · toca para filtrar') : ''}">
+            <span class="mc-barra-nombre">${esc(nombre)}</span>
+            <span class="mc-barra-pista"><span style="width:${Math.max(n / max * 100, 1.5)}%"></span></span>
+            <span class="mc-barra-num"><b>${n}</b> ${pct}%</span>
+        </button>`;
+    }).join('');
+}
+
+function filtrarComposicion(v) {
+    const d = DIMS_MAESTRA[maestra.dim];
+    if (!d.filtro) maestra.zonas = maestra.zonas.length === 1 && maestra.zonas[0] === v ? zonasMaestra() : [v];
+    else { const nuevo = maestra[d.filtro] === v ? '' : v; maestra[d.filtro] = nuevo; $(d.sel).value = nuevo; }
+    pintarMaestra();
 }
 
 // ---------- VISIPLAN (plan de visitas del mes) ----------
