@@ -1142,3 +1142,11 @@ a.home-btn { text-decoration: none; }
 .caja-ambos .ayuda { margin: 4px 0 0; font-size: 12px; }
 .obj-grupo { grid-column: 1 / -1; margin: 8px 0 2px; font-size: 12px; font-weight: 700; color: #0c6660; text-transform: uppercase; letter-spacing: .04em; }
 .obj-grupo:first-child { margin-top: 0; }
+/* Opción "Todas" de los filtros de selección múltiple */
+.mc-multi-todas { display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 8px; padding: 6px; margin-bottom: 2px; border-bottom: 1px solid #e6efed;
+    font-size: 13px; font-weight: 600; color: #0c6660; cursor: pointer; }
+.mc-multi-todas input { width: 16px !important; height: 16px; margin: 0; padding: 0 !important; accent-color: #0f766e; }
+/* Visiplan: tocar un día muestra solo ese día */
+.vp-tabla .vp-dia.ir { cursor: pointer; }
+.vp-tabla .vp-dia.ir:hover { background: #cfe8e4; color: #064e48; }
+#visiplanScreen .filters { position: relative; z-index: 20; }

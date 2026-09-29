@@ -180,16 +180,7 @@
                     </div>
                     <div class="vp-filtros">
                         <input id="vpBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="visiplan.busca=this.value; pintarVisiplan()">
-                        <select id="vpTipo" onchange="visiplan.tipo=this.value; pintarVisiplan()" aria-label="Tipo de cliente"></select>
-                        <select id="vpEtiqueta" onchange="visiplan.etiqueta=this.value; pintarVisiplan()" aria-label="Etiqueta"></select>
-                        <select id="vpFiltro" onchange="filtrarPlan(this.value, true)" aria-label="Mostrar">
-                            <option value="">Todos los clientes</option>
-                            <option value="plan">Planeados</option>
-                            <option value="noplan">No planeados</option>
-                            <option value="real">Con visita real</option>
-                            <option value="cump">Cumplidos en el día planeado</option>
-                            <option value="visit">Planeados y visitados</option>
-                        </select>
+                        <div class="mc-multis" id="vpMultis"></div>
                     </div>
                 </div>
                 <div class="vp-lado">
