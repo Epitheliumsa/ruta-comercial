@@ -836,7 +836,7 @@ a.home-btn { text-decoration: none; }
 .vp-r { background: #fcfbf9; }
 .vp-x.festivo, .vp-r.festivo { background: #fde8e8; }
 /* X delgada dibujada con dos líneas finas */
-.vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-r.prox::before, .vp-r.prox::after, .vp-muestra:not(.fest):not(.planeacion):not(.sab):not(.cumple)::before, .vp-muestra:not(.fest):not(.planeacion):not(.sab):not(.cumple)::after {
+.vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-r.prox::before, .vp-r.prox::after, .vp-muestra:not(.fest):not(.planeacion):not(.sab):not(.cumple):not(.fest-cumple):not(.sab-cumple)::before, .vp-muestra:not(.fest):not(.planeacion):not(.sab):not(.cumple):not(.fest-cumple):not(.sab-cumple)::after {
     content: ''; position: absolute; left: 50%; top: 50%; width: 13px; height: 1.6px; border-radius: 2px; background: currentColor; }
 .vp-x.on::before, .vp-r.on::before, .vp-r.prox::before, .vp-muestra::before { transform: translate(-50%, -50%) rotate(45deg); }
 .vp-x.on::after, .vp-r.on::after, .vp-r.prox::after, .vp-muestra::after { transform: translate(-50%, -50%) rotate(-45deg); }
@@ -1498,3 +1498,14 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 .vp-lead .vp-cli { color: #9a3412; }
 .vp-tot-lead th, .vp-tot-lead td { background: #fff7ed !important; color: #c2410c; }
 .vp-lead-txt { font-size: 11px; white-space: nowrap; }
+/* Cumpleaños que cae en festivo o sábado: rayas finas en diagonal con los dos colores (rosa festivo + lila cumpleaños,
+   o gris sábado + lila), y una línea lila arriba del día */
+.vp-tabla .festivo.cumple:not(.on):not(.prox), .vp-tabla thead th.festivo.cumple, .vp-tabla .vp-dia.festivo.cumple[colspan], .vp-muestra.fest-cumple {
+    background-color: #f8e4f4; background-image: repeating-linear-gradient(135deg, #fbe1e1 0 5px, #efe3fd 5px 10px); }
+.vp-tabla .sabado.cumple:not(.on):not(.prox), .vp-tabla thead th.sabado.cumple, .vp-muestra.sab-cumple {
+    background-color: #f3eefa; background-image: repeating-linear-gradient(135deg, #eef0f1 0 5px, #efe3fd 5px 10px); }
+.vp-tabla thead th.vp-dia.festivo.cumple, .vp-tabla thead th.vp-dia.sabado.cumple { box-shadow: inset 0 3px 0 #a855f7; }
+.vp-tabla thead th.vp-dia.festivo.cumple { color: #b42318 !important; }
+.vp-tabla thead th.vp-dia.cumple small { color: #7e22ce; font-weight: 700; }
+.vp-muestra.fest-cumple { box-shadow: inset 0 0 0 1px #e9c6e3; }
+.vp-muestra.sab-cumple { box-shadow: inset 0 0 0 1px #ddd3ee; }

@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301339';
+const APP_VERSION = '202609301348';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1689,7 +1689,7 @@ function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
     col = 1;
     document.querySelectorAll('.vp-conv span').forEach(sp => {
         const muestra = sp.querySelector('.vp-muestra');
-        const m = h.getCell(6, col); m.value = muestra && !muestra.matches('.fest, .planeacion') ? 'X' : '';
+        const m = h.getCell(6, col); m.value = muestra && !muestra.matches('.fest, .planeacion, .fest-cumple, .sab-cumple') ? 'X' : '';
         if (muestra) estiloDe(muestra, m);
         m.border = {};
         const t = h.getCell(6, col + 1); t.value = sp.textContent.trim(); t.font = { size: 9, color: { argb: 'FF4C615B' } };
