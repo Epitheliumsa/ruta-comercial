@@ -1257,3 +1257,11 @@ a.home-btn { text-decoration: none; }
 select.p-pref { width: auto !important; padding: 0 6px !important; }
 .p-num .n-pedido { border-radius: 0 8px 8px 0 !important; letter-spacing: .12em; font-variant-numeric: tabular-nums; max-width: 140px; }
 .fila-pedido { grid-template-columns: 200px auto; justify-content: start; }
+.p-nums { display: flex; flex-wrap: wrap; gap: 6px; }
+.p-nums[hidden] { display: none; }
+/* ⓘ pequeño y discreto */
+.info-etq { flex: 0 0 auto !important; align-self: center; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #e7d7a4;
+    background: #fffdf5; color: #b08410; font-size: 13px; line-height: 20px; text-align: center; margin-left: -2px; transition: background .15s, color .15s; }
+.info-etq:hover, .con-guia.ver .info-etq { background: #f5c542; border-color: #f5c542; color: white; }
+.sel-etqs .con-guia { gap: 4px; align-items: center; }
+.fila-pedido { grid-template-columns: 200px 1fr !important; }
