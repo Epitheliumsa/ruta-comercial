@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292335';
+const APP_VERSION = '202609292343';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -64,9 +64,9 @@ const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Comercial', '
 const VMC = 'Visita Médica Comercial';
 const claveTipo = (tipo, nuevo) => tipo === VMC ? 'medcom:Visita Médica' : (nuevo && TIPOS_VISITA[tipo] ? 'nuevo:' : '') + tipo;
 // Tipos que salen en informes y filtros (incluye la Visita Médica Comercial)
-// Visita personalizada: el vendedor o jefe escribe qué visita es (máx. 50 caracteres); no va a un cliente de la Maestra
+// Visita personalizada: último objetivo de las visitas; el vendedor o jefe escribe cuál es (máx. 50 caracteres)
 const PERSONALIZADA = 'Visita personalizada';
-const TIPOS_REPORTE = () => [...Object.keys(TIPOS_VISITA), VMC, PERSONALIZADA];
+const TIPOS_REPORTE = () => [...Object.keys(TIPOS_VISITA), VMC];
 const objetivosDeTipo = (tipo, nuevo) => MATRIZ.objetivos[claveTipo(tipo, nuevo)] || [];
 // Una visita puede ser de varios tipos a la vez (Visita Médica y Visita Comercial, según la clasificación del cliente)
 const listaTipos = t => (Array.isArray(t) ? t : [t]).filter(Boolean);
@@ -103,7 +103,7 @@ const subcategoriasDe = (tipo, nuevo, objetivo, mes) => esVariable(objetivo)
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
 // antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
 const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Mapa del Cliente': 'Mapa del Cliente - Ampliación Portafolio' };
-const objetivosCierre = v => objetivosDeTipos(tiposDe(v), v.esProyecto);
+const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto), ...((v.objetivos || []).includes(PERSONALIZADA) ? [PERSONALIZADA] : [])];
 const programadosVigentes = v => {
     const base = objetivosCierre(v);
     return (v.objetivos || []).map(o => NOMBRES_VIEJOS[o] || o).filter(o => base.includes(o));
@@ -1990,6 +1990,7 @@ async function abrirProgramar(id, contactoPlan) {
     // Jefes: lo que programan queda a su nombre; solo las novedades (vacaciones, permisos…) son del vendedor,
     // y si ve varios vendedores escoge de quién
     programandoNuevo = !v && !contactoPlan;
+    textoPersonalForm = typeof v?.personalizada === 'string' ? v.personalizada : '';
     const eligeVend = programandoNuevo && esJefe() && vendedoresAgenda().length > 1;
     // Al programar algo nuevo en un festivo (o día con novedad) primero sale la advertencia, antes del formulario
     if (!v && !contactoPlan) {
@@ -2016,7 +2017,7 @@ async function abrirProgramar(id, contactoPlan) {
         <label for="fTipo">¿Qué vas a programar?</label>
         <select id="fTipo" required onchange="limpiarPlanVisita(true)">
             <option value="">Elige una opción</option>
-            <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}${opcion(PERSONALIZADA)}</optgroup>
+            <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
             <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
             <optgroup label="Contacto nuevo"><option value="nuevo" ${v?.esProyecto ? 'selected' : ''}>Contacto nuevo</option></optgroup>
             <optgroup label="Novedades">${NOVEDADES.map(opcion).join('')}</optgroup>
@@ -2060,11 +2061,6 @@ async function abrirProgramar(id, contactoPlan) {
                 <div><label for="fHoraInicio">Hora de inicio</label><input id="fHoraInicio" type="time" value="${esc(v?.horaInicio)}"></div>
                 <div><label for="fHoraFin">Hora de finalización</label><input id="fHoraFin" type="time" value="${esc(v?.horaFin)}"></div>
             </div>
-        </div>
-        <div id="cajaPersonal" hidden>
-            <label for="fPersonal">¿Qué visita es? ${REQ} <small>(máximo 50 caracteres)</small></label>
-            <input id="fPersonal" maxlength="50" placeholder="Ej: Feria dermatológica Corferias" value="${esc(v?.personalizada ? v.contacto : '')}" oninput="$('fPersonalCuenta').textContent = this.value.length + ' / 50'">
-            <p class="cuenta-nota" id="fPersonalCuenta">${(v?.personalizada ? v.contacto.length : 0)} / 50</p>
         </div>
         <div id="cajaModalidad">
             <label>Modalidad</label>
@@ -2134,9 +2130,7 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     elegirOrigen(origenElegido());
     const interno = esTrabajoInterno(tipo);
     const novedad = esNovedad(tipo);
-    const personal = $('fTipo').value === PERSONALIZADA;
-    $('cajaContacto').hidden = interno || novedad || personal;
-    $('cajaPersonal').hidden = !personal;
+    $('cajaContacto').hidden = interno || novedad;
     // Jefes: visitas y trabajo interno a su nombre; la novedad es del vendedor que se está viendo (o el que escoja)
     if (esJefe() && programandoNuevo) {
         if ($('cajaVend')) $('cajaVend').hidden = !novedad;
@@ -2239,7 +2233,16 @@ function pintarObjetivos(marcados, subsMarcados) {
     const subs = subsMarcados || leerSubs(cont);
     const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : objetivosDeTipos(tipo, nuevo);
     $('cajaObjetivos').hidden = !lista.length;
-    cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs });
+    const textoAntes = $('fPersonal') ? $('fPersonal').value : textoPersonalForm;
+    const conPersonal = lista.length && !esTrabajoInterno(tipoBase());
+    cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs })
+        + (conPersonal ? htmlPersonal(actuales.includes(PERSONALIZADA), textoAntes) : '');
+}
+// Objetivo "Visita personalizada": al marcarlo se escribe cuál es (máximo 50 caracteres)
+let textoPersonalForm = '';
+function htmlPersonal(marcado, texto) {
+    return `<div class="obj-item personal${marcado ? ' abierto' : ''}" style="--h:200"><label class="check"><input type="checkbox" class="obj" value="${PERSONALIZADA}" ${marcado ? 'checked' : ''} onchange="abrirSubs(this)"><span>${PERSONALIZADA}</span></label>
+        <div class="subs"${marcado ? '' : ' hidden'}><input id="fPersonal" maxlength="50" placeholder="¿Cuál? Ej: acompañamiento a evento" value="${esc(texto || '')}" oninput="textoPersonalForm = this.value; $('fPersonalCuenta').textContent = this.value.length + ' / 50'"><p class="cuenta-nota" id="fPersonalCuenta">${(texto || '').length} / 50</p></div></div>`;
 }
 
 // Objetivos con sus subcategorías. Al marcar un objetivo se abren sus subcategorías.
@@ -2311,6 +2314,7 @@ const cajaCierre = v => objetivosCierre(v).length ? `<label>Objetivos cumplidos 
             <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: conTodasLasSubs(v.subobjetivos || {}, programadosVigentes(v), tiposDe(v), v.esProyecto, mesDe(v.fecha)) })}</div>` : '';
 // Texto de subcategorías junto a un objetivo (✓ en las cumplidas)
 function textoSubs(v, o) {
+    if (o === PERSONALIZADA && typeof v.personalizada === 'string' && v.personalizada) return `<small class="sub-chip">: ${esc(v.personalizada)}</small>`;
     const prog = (v.subobjetivos || {})[o] || [], cumpl = (v.subCumplidos || {})[o] || [];
     const todas = [...prog, ...cumpl.filter(x => !prog.includes(x))];
     return todas.length ? `<small class="sub-chip">: ${todas.map(x => (cumpl.includes(x) ? '✓ ' : '') + esc(x)).join(', ')}</small>` : '';
@@ -2368,19 +2372,19 @@ async function guardarProgramada(e, id) {
     }
     if (origenElegido() === 'nuevo' && !tipo) { toast('Elige el tipo de visita del contacto nuevo'); $('fTipoNuevo').focus(); return; }
     const interno = esTrabajoInterno(tipo);
-    const personal = $('fTipo').value === PERSONALIZADA;
-    const nombre = (personal ? $('fPersonal') : $('fContacto')).value.trim();
-    if (personal && !nombre) { toast('Escribe qué visita es (máximo 50 caracteres)'); $('fPersonal').focus(); return; }
+    const nombre = $('fContacto').value.trim();
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
-    const objetivos = personal ? [] : leerObjetivos($('fObjetivos'));
+    const objetivos = leerObjetivos($('fObjetivos'));
+    const textoPersonal = objetivos.includes(PERSONALIZADA) ? ($('fPersonal')?.value || '').trim() : '';
+    if (objetivos.includes(PERSONALIZADA) && !textoPersonal) { toast('Escribe cuál es la visita personalizada (máximo 50 caracteres)'); $('fPersonal')?.focus(); return; }
     const subobjetivos = conTodasLasSubs(leerSubs($('fObjetivos'), objetivos), objetivos, tiposElegidos(), origenElegido() === 'nuevo', mesDe(fechaElegida));
-    if (!personal && !objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
+    if (!objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
     if (!$('fObjetivo').value.trim()) { toast('Escribe qué vas a hacer (máximo 100 caracteres)'); $('fObjetivo').focus(); return; }
     const zona = comercial(agenda.vendedor)?.zona;
     const nuevo = !interno && origenElegido() === 'nuevo';
-    let c = interno || personal ? {} : maestraForm(nombre) || {};
+    let c = interno ? {} : maestraForm(nombre) || {};
     let proyecto = nuevo ? buscarProyecto(zona, nombre) : null;
-    if (!interno && !personal && !nuevo && !c.n) {
+    if (!interno && !nuevo && !c.n) {
         toast('No está en la Maestra de Contactos. Si es un contacto nuevo, elige "Contacto nuevo" en ¿Qué vas a programar?');
         return;
     }
@@ -2389,7 +2393,7 @@ async function guardarProgramada(e, id) {
         return;
     }
     // La clasificación del cliente dice en qué tipos de visita sale
-    if (!interno && !personal && !nuevo && !tiposDeCliente(c).includes($('fTipo').value)) {
+    if (!interno && !nuevo && !tiposDeCliente(c).includes($('fTipo').value)) {
         toast(`${c.n} (clasificación ${c.cl}) es de ${tiposDeCliente(c).join(' o ')}. Cambia el tipo de visita.`);
         return;
     }
@@ -2421,7 +2425,7 @@ async function guardarProgramada(e, id) {
     // Si al editar se cambia la fecha, la visita queda como reprogramada (en rojo) y en el Visiplan la X planeada no se mueve
     if (antes && antes.fecha !== fecha && !antes.adelantada) Object.assign(v, { origen: 'reprogramada', vieneDe: antes.vieneDe || antes.fecha });
     Object.assign(v, {
-        interno, personalizada: personal,
+        interno, personalizada: textoPersonal,
         contacto: interno ? tipo : (c.n || nombre), tipoContacto: c.e || '', ciudad: c.c || '',
         esProyecto: !!proyecto, contactoProyecto: proyecto ? proyecto.id : '',
         fecha, hora: $('fHora').value, objetivo: $('fObjetivo').value.trim(),

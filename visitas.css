@@ -1387,7 +1387,10 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 
 /* Buscar cliente en el Plan de Trabajo: en la franja de arriba, junto a la fecha */
 .fila-botones input[type=date] { flex: 0 0 180px; }
-.fila-botones .ag-buscar-in { flex: 1; min-width: 0; margin: 0; padding: 10px 12px; border: 1px solid #cfe0dc; border-radius: 10px; font: inherit; font-size: 14px; background: #fff; }
+.fila-botones .ag-buscar-in { flex: 0 1 380px; min-width: 0; margin: 0; padding: 10px 12px; border: 1px solid #cfe0dc; border-radius: 10px; font: inherit; font-size: 14px; background: #fff; }
 .fila-botones .ag-buscar-in:focus { outline: 2px solid #0f766e33; border-color: #0f766e; }
 @media (max-width: 480px) { .fila-botones .ag-buscar-in { order: 5; flex: 1 1 100%; } .fila-botones input[type=date] { flex: 1; } }
 #agLista > .filtro-activo, #agLista > .no-results { grid-column: 1 / -1; }
+.obj-item.personal .subs input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cfe0dc; border-radius: 8px; font: inherit; font-size: 13px; }
+.fila-botones .ag-buscar-in + .btn-nuevo { margin-left: auto; }
+.fila-botones .ag-buscar-in ~ .btn-nuevo:last-child { margin-left: 0; }
