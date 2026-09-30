@@ -1279,5 +1279,5 @@ select.p-pref { width: auto !important; padding: 0 6px !important; }
 .anillo-ley li i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .anillo-ley li b { margin-left: auto; font-size: 14px; color: #1f2937; padding-left: 8px; }
 .anillo-ley li.cero { color: #a8b5b2; }
-.anillo-ley li.sep { cursor: default; color: #6b7c7a; font-size: 12px; border-top: 1px dashed #dbe8e5; padding-top: 4px; }
+.anillo-ley li small { width: 38px; text-align: right; color: #6b7c7a; font-size: 12px; }
 @media (max-width: 700px) { .anillo-ley { grid-template-columns: 1fr; } .anillo-dia svg { width: 100px; height: 100px; } }

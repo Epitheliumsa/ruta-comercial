@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292022';
+const APP_VERSION = '202609292101';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2561,12 +2561,15 @@ function abrirRegistro(id, tipo) {
         const ya = v.estado === 'no_visitado';
         abrirModal(`<form class="form-rc" onsubmit="guardarNoVisitado(event, '${id}')">
             <h2>${v.interno ? 'No realizado' : 'No visitado'}</h2>${cab}
-            <label for="nMotivo">Motivo</label>
-            <select id="nMotivo">${opciones(MOTIVOS, v.motivo)}</select>
-            <label for="nRepro">Reprogramar para (opcional)</label>
-            <input id="nRepro" type="date" min="${sumarDias(v.fecha, 1)}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}>
-            <label for="nObs">Observaciones</label>
-            <textarea id="nObs" placeholder="Ej: la doctora estaba en cirugía">${esc(ya ? v.observaciones : '')}</textarea>
+            ${v.interno ? '' : `<label for="nMotivo">Motivo</label>
+            <select id="nMotivo">${opciones(MOTIVOS, v.motivo)}</select>`}
+            ${v.interno ? `<div class="fila-fecha compacta"><div><label for="nRepro">Fecha para programar <small>(opcional)</small></label>
+                <input id="nRepro" type="date" min="${sumarDias(v.fecha, 1)}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div>
+                <div><label for="nReproHora">Hora <small>(opcional)</small></label><input id="nReproHora" type="time" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div></div>`
+            : `<label for="nRepro">Reprogramar para (opcional)</label>
+            <input id="nRepro" type="date" min="${sumarDias(v.fecha, 1)}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}>`}
+            <label for="nObs">Observaciones${v.interno ? ' ' + REQ : ''}</label>
+            <textarea id="nObs" ${v.interno ? 'required' : ''} placeholder="${v.interno ? 'Ej: se movió por reunión con gerencia' : 'Ej: la doctora estaba en cirugía'}">${esc(ya ? v.observaciones : '')}</textarea>
             <div class="form-botones">
                 <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn-primario" style="background:#c2413a">Guardar</button>
@@ -2702,11 +2705,14 @@ function guardarNoVisitado(e, id) {
     if (!plazoAbierto(id)) return;
     const antes = registros[id];
     const repro = $('nRepro').disabled ? '' : $('nRepro').value;
+    const horaRepro = $('nReproHora') && !$('nReproHora').disabled ? $('nReproHora').value : '';
+    const obs = $('nObs').value.trim();
+    if (antes.interno && !obs) { toast('Escribe las observaciones'); $('nObs').focus(); return; }
     const v = {
         ...antes, ...LIMPIAR_VISITADO,
         estado: 'no_visitado',
-        motivo: $('nMotivo').value,
-        observaciones: $('nObs').value.trim(),
+        motivo: $('nMotivo') ? $('nMotivo').value : '',
+        observaciones: obs,
         reprogramadaPara: repro || antes.reprogramadaPara || '',
         registrada: new Date().toISOString()
     };
@@ -2716,14 +2722,14 @@ function guardarNoVisitado(e, id) {
         guardarRegistro({
             id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente',
             contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
-            fecha: repro, hora: '', objetivo: antes.objetivo, vieneDe: antes.fecha, origen: 'reprogramada',
+            fecha: repro, hora: horaRepro, objetivo: antes.objetivo, vieneDe: antes.fecha, origen: 'reprogramada',
             modalidad: antes.modalidad, tipoVisita: antes.tipoVisita, tiposVisita: antes.tiposVisita, objetivos: antes.objetivos, interno: !!antes.interno,
             programada: Date.now() < limiteProgramacion(repro),
             creado: new Date().toISOString(), creadoPor: sesion.id
         });
     }
     cerrarModal();
-    toast(repro ? `Reprogramada para el ${fechaCorta(repro)}` : 'Marcada como no visitada');
+    toast(repro ? `${antes.interno ? 'Programado' : 'Reprogramada'} para el ${fechaCorta(repro)}` : antes.interno ? 'Marcado como no realizado' : 'Marcada como no visitada');
     pintarAgenda();
 }
 
@@ -2875,26 +2881,26 @@ function moverMesPanel(n) {
 }
 
 // Indicadores de visitas (el trabajo interno no cuenta). Cumplimiento = visitadas de las programadas
-// Anillo del día: visitadas, no visitadas, pendientes y trabajo interno, con el número de cada una
+// Anillo del día: los mismos filtros de la agenda, con su número y porcentaje sobre el total
 function anilloDia(k, internos) {
     const partes = [
+        { t: 'Programadas', n: k.prog, c: '#0f766e', f: 'prog' }, { t: 'No programadas', n: k.noProg, c: '#9333ea', f: 'noProg' },
         { t: 'Visitadas', n: k.ok, c: '#16a34a', f: 'ok' }, { t: 'No visitadas', n: k.no, c: '#dc2626', f: 'no' },
         { t: 'Pendientes', n: k.p, c: '#d97706', f: 'p' }, { t: 'Trabajo interno', n: internos, c: '#94a3b8', f: 'interno' }
     ];
     const total = partes.reduce((s, x) => s + x.n, 0);
     if (!total) return '';
     const R = 42, C = 2 * Math.PI * R, hueco = partes.filter(x => x.n).length > 1 ? 2 : 0;
+    const porc = (n) => Math.round(n / total * 100) + '%';
     let ac = 0;
     const arcos = partes.filter(x => x.n).map(x => {
-        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)" onclick="filtrarAgenda('${x.f}')" style="cursor:pointer"><title>${x.t}: ${x.n}</title></circle>`;
+        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)" onclick="filtrarAgenda('${x.f}')" style="cursor:pointer"><title>${x.t}: ${x.n} (${porc(x.n)})</title></circle>`;
         ac += largo;
         return arco;
     }).join('');
-    const visitas = k.t;
     return `<div class="anillo-dia"><svg viewBox="0 0 110 110" role="img" aria-label="Visitas del día">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
-            <text x="55" y="53" text-anchor="middle" class="an-n">${visitas}</text><text x="55" y="68" text-anchor="middle" class="an-t">${visitas === 1 ? 'visita' : 'visitas'}</text></svg>
-        <ul class="anillo-ley">${partes.map(x => `<li class="${x.n ? '' : 'cero'}" onclick="filtrarAgenda('${x.f}')"><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b></li>`).join('')}
-            <li class="sep">Programadas<b>${k.prog}</b></li><li class="sep">No programadas<b>${k.noProg}</b></li></ul></div>`;
+            <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">total</text></svg>
+        <ul class="anillo-ley">${partes.map(x => `<li class="${x.n ? '' : 'cero'}" onclick="filtrarAgenda('${x.f}')"><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`).join('')}</ul></div>`;
 }
 
 function cuentaVisitas(todas) {
