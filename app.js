@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301352';
+const APP_VERSION = '202609301355';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2142,7 +2142,10 @@ async function confirmarDia(fecha, conDomingo) {
     const nov = novedadesDe(agenda.vendedor, fecha)[0];
     if (festivo && !await dialogo({ tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fecha)} es festivo: ${festivo}.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
     if (domingo && !await dialogo({ tono: 'aviso', titulo: 'Domingo', texto: `El ${fechaLarga(fecha)} es domingo.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
-    if (nov && !await dialogo({ tono: 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
+    // Cumpleaños del vendedor (de su ficha): también avisa, aunque el día sea festivo (salen los dos avisos)
+    const cumple = esCumple(agenda.vendedor, fecha) && nov?.tipo !== 'Cumpleaños';
+    if (cumple && !await dialogo({ tono: 'fiesta', titulo: 'Día de cumpleaños', texto: `El ${fechaLarga(fecha)} es el cumpleaños de ${nombreVendedor(agenda.vendedor)}.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
+    if (nov && !await dialogo({ tono: nov.tipo === 'Cumpleaños' ? 'fiesta' : 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
     return true;
 }
 
