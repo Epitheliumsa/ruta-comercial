@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292320';
+const APP_VERSION = '202609292322';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1700,7 +1700,9 @@ function pintarAgenda() {
     const boton = (f, clase, texto) => `<button type="button" class="chip chip-filtro ${clase}${agenda.filtro === f ? ' activo' : ''}" onclick="filtrarAgenda('${f}')" aria-pressed="${agenda.filtro === f}">${texto}</button>`;
     // Anillo del día (filtra la agenda) y, al lado, el acumulado del mes hasta ese día (solo informativo)
     const delMes = deTodos(x => visitasMes(mesDe(f), x)).filter(x => x.fecha <= f);
-    const anillos = anilloDia(lista, `Día · ${fechaCorta(f)}`) + anilloDia(delMes, `Acumulado del mes · ${mayuscula(nombreMes(mesDe(f)).split(' ')[0])}, hasta el ${deIso(f).getDate()}`, false);
+    // Semana: de lunes al día que se está viendo (solo informativo, como el del mes)
+    const deSemana = deTodos(x => [0, 1, 2, 3, 4, 5, 6].map(i => sumarDias(lunesDe(f), i)).filter(d => d <= f).flatMap(d => visitasDe(x, d)));
+    const anillos = anilloDia(lista, `Día · ${fechaCorta(f)}`) + anilloDia(deSemana, `Acumulado de la semana · ${lunesDe(f) === f ? 'Lunes ' + fechaCorta(f) : `Del ${deIso(lunesDe(f)).getDate()}${mesDe(lunesDe(f)) === mesDe(f) ? '' : ' de ' + nombreMes(mesDe(lunesDe(f))).split(' ')[0].slice(0, 3)} al ${fechaCorta(f)}`}`, false) + anilloDia(delMes, `Acumulado del mes · ${mayuscula(nombreMes(mesDe(f)).split(' ')[0])}, hasta el ${deIso(f).getDate()}`, false);
     $('agAnillo').innerHTML = anillos ? `<div class="anillos">${anillos}</div>` : '';
     // + Programar: no se programa en días que ya pasaron (en pruebas sigue abierto)
     const pasado = f < t && ETAPA_DATOS !== 'pruebas';
