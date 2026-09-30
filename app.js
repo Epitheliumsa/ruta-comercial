@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300038';
+const APP_VERSION = '202609300039';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2988,7 +2988,7 @@ function guardarNoVisitado(e, id) {
 // ---------- ACTIVIDADES-CIRCULARES ----------
 // Dos vistas: Circulares (resumen con estado, días que faltan y PDF) y Tareas del mes (lo de antes)
 let actVista = 'circulares';
-const circulares = { filtro: 'vigente', busca: '', orden: 'circular', sel: { cl: [], cli: [], g: [] } };
+const circulares = { filtro: 'vigente', busca: '', orden: 'circular', sel: { cl: [], cli: [], g: [], t: [] } };
 // Grupo de producto: se unifica cómo viene escrito en el Excel ("Terminados", "Producto terminado"…)
 function gruposCircular(c) {
     return [...new Set(String(c.grupo || '').split('/').map(x => {
@@ -3004,6 +3004,7 @@ const clientesCirc = () => { const vistos = new Set(); return (esJefe() ? Object
 function pasaFiltroCirc(c, sin) {
     const sel = circulares.sel, ning = k => sel[k].includes(NINGUNA);
     if (sin !== 'cl' && sel.cl.length && (ning('cl') || !(c.todos || c.canales.some(x => sel.cl.includes(x))))) return false;
+    if (sin !== 't' && sel.t.length && (ning('t') || !sel.t.includes(c.tipo))) return false;
     if (sin !== 'g' && sel.g.length && (ning('g') || !gruposCircular(c).some(x => sel.g.includes(x)))) return false;
     if (sin !== 'cli' && sel.cli.length) {
         if (ning('cli')) return false;
@@ -3049,12 +3050,14 @@ function pintarCirculares() {
     const cls = [...new Set(CIRCULARES.flatMap(c => c.canales))].sort((a, b) => a - b);
     const nombreCl = v => { const x = Object.values(contactos).flat().find(c => String(c.cl) === v); return x?.ca ? `${v} · ${x.ca}` : v; };
     const grupos = [...new Set(CIRCULARES.flatMap(gruposCircular))].sort();
+    const tipos = [...new Set(CIRCULARES.map(c => c.tipo).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     const clis = clientesCirc().map(c => c.n).sort((a, b) => a.localeCompare(b));
     const porNombre = Object.fromEntries(clientesCirc().map(c => [c.n, c]));
     pintarMultis($('circMultis'), 'circ', [
         { k: 'cl', t: 'Clasificación', todos: 'Todas las clasificaciones', valores: cls, nombre: nombreCl, cuenta: cuentaDe('cl', cls, (c, v) => c.todos || c.canales.includes(v)) },
         { k: 'cli', t: 'Cliente', todos: 'Todos los clientes', valores: clis, cuenta: MULTI.circ.abierto === 'cli' ? cuentaDe('cli', clis, (c, v) => aplicaCliente(c, porNombre[v])) : null },
-        { k: 'g', t: 'Grupo de producto', todos: 'Todos los grupos', valores: grupos, cuenta: cuentaDe('g', grupos, (c, v) => gruposCircular(c).includes(v)) }
+        { k: 'g', t: 'Grupo de producto', todos: 'Todos los grupos', valores: grupos, cuenta: cuentaDe('g', grupos, (c, v) => gruposCircular(c).includes(v)) },
+        { k: 't', t: 'Tipo', todos: 'Todos los tipos', valores: tipos, cuenta: cuentaDe('t', tipos, (c, v) => c.tipo === v) }
     ]);
     const chipEstado = { vigente: '<span class="chip ok">Vigente</span>', vencida: '<span class="chip no">Vencida</span>', proxima: '<span class="chip azul">Próxima</span>' };
     const tarjeta = c => {

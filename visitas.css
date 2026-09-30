@@ -1427,6 +1427,7 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .circ-pdfs { flex-wrap: wrap; gap: 8px; }
 .circ-pdf-item { display: inline-flex; align-items: center; gap: 2px; }
 /* Circulares: línea 1 = estado, buscador y orden; línea 2 = los tres filtros de lista */
-.circ-ctrl .circ-multis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; flex: 1 1 100%; }
+.circ-ctrl .circ-multis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: 1 1 100%; }
 .circ-ctrl .circ-multis .mc-multi { flex: none; }
-@media (max-width: 700px) { .circ-ctrl .circ-multis { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .circ-ctrl .circ-multis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .circ-ctrl .circ-multis { grid-template-columns: 1fr; } }
