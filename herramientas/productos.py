@@ -17,7 +17,7 @@ import openpyxl
 RAIZ = Path(__file__).resolve().parent.parent
 FUENTES = [RAIZ / 'datos' / 'Base_Productos.xlsx', RAIZ / 'datos' / 'Productos_Terminados.xlsx']
 DESPLEGABLES = ['Nuevo', 'Foco', 'Transición-Impulso']
-CERRADAS = ['Portafolio', 'Consultorio']
+CERRADAS = ['Portafolio', 'Cliente', 'Consultorio']
 
 def clave(t):
     return unicodedata.normalize('NFD', str(t or '').strip().lower()).encode('ascii', 'ignore').decode()

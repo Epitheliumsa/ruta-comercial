@@ -1463,3 +1463,10 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .visor-pdf-barra a { color: white; font-size: 13px; text-decoration: underline; }
 .visor-pdf-barra button { background: rgba(255, 255, 255, .18); color: white; border: 0; border-radius: 8px; width: 36px; height: 36px; font-size: 22px; line-height: 1; cursor: pointer; }
 .visor-pdf iframe { flex: 1; width: 100%; border: 0; background: white; }
+
+/* Descargar informe: todavía en pruebas */
+.en-pruebas { color: #dc2626; font-size: .8em; font-weight: 700; }
+/* ⓘ de las etiquetas de productos, más pequeña */
+.info-etq, .sel-etqs .info-etq { flex: 0 0 26px !important; width: 26px; height: 26px; padding: 0; font-size: 13px !important; border-radius: 50%; align-self: center; }
+/* Actividades: fecha de vencimiento de la circular */
+.circ-vence { display: block; font-size: 11px; font-weight: 600; color: #b45309; margin-top: 2px; }

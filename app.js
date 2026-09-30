@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301301';
+const APP_VERSION = '202609301306';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -584,7 +584,20 @@ function repintarPantallaActiva() {
     if (p === 'maestraScreen') pintarMaestra();
 }
 
+// Al salir de una pantalla se borran sus filtros: al volver se ve todo
+function limpiarFiltros() {
+    Object.assign(visiplan, { busca: '', sel: { t: [], e: [], f: [] } });
+    Object.keys(maestra.sel).forEach(k => { maestra.sel[k] = []; });
+    maestra.busca = '';
+    Object.assign(agenda, { filtro: '', busca: '' });
+    Object.assign(circulares, { filtro: 'vigente', busca: '', orden: 'circular', sel: { cl: [], cli: [], g: [], t: [] } });
+    Object.values(MULTI).forEach(g => { g.abierto = null; g.busca = ''; });
+    ['vpBusca', 'mcBusca', 'agBuscar', 'circBuscar'].forEach(id => { if ($(id)) $(id).value = ''; });
+    if ($('circOrden')) $('circOrden').value = 'circular';
+}
+
 function irInicio() {
+    limpiarFiltros();
     pintarInicio();
     mostrarPantalla('homeScreen');
 }
@@ -727,7 +740,13 @@ document.addEventListener('visibilitychange', () => {
 // cuando se van a volver clientes, el vendedor envía la "solicitud de creación" a los jefes y, una vez
 // creado en la Maestra, el contacto se vincula (sus visitas pasan al nombre de la Maestra).
 const TIPOS_PROYECTO = ['Médico', 'Cliente', 'Punto de Venta'];
-const ESTADO_PROYECTO = { proyecto: 'Contacto nuevo', solicitud: 'Solicitud de creación', vinculado: 'Creado en la Maestra' };
+// Los contactos nuevos se muestran siempre como "Lead" (y van al final de las listas)
+const LEAD = 'Lead';
+const etiquetaLead = tipo => `${LEAD}${tipo ? ' · ' + tipo : ''}`;
+const esEtqLead = e => /^(lead|contacto nuevo)\b/i.test(String(e || ''));
+const nombreEtq = e => esEtqLead(e) ? String(e).replace(/^contacto nuevo/i, LEAD) : e;
+const ordenLeadAlFinal = (a, b) => (esEtqLead(a) ? 1 : 0) - (esEtqLead(b) ? 1 : 0) || String(a).localeCompare(String(b), 'es');
+const ESTADO_PROYECTO = { proyecto: 'Lead', solicitud: 'Solicitud de creación', vinculado: 'Creado en la Maestra' };
 const proyectos = () => visibles().filter(r => r.clase === 'proyecto');
 const proyectosDeZona = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado');
 const buscarMaestra = (zona, nombre) => (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre));
@@ -1314,7 +1333,6 @@ function pintarVendedoresPlan() {
 function elegirVendedorPlan(id, e) {
     const antes = visiplan.vendedores.length;
     visiplan.vendedores = eleccionChip(visiplan.vendedores, id, COMERCIALES.map(c => c.id), e);
-    if (antes === 1 && visiplan.vendedores.length > 1) visiplan.sel.f = ['plan'];   // varios vendedores: arranca solo con lo planeado
     pintarVisiplan();
 }
 
@@ -1387,13 +1405,13 @@ function pintarVisiplan() {
     vista.forEach(ven => {
         seg[ven.id] = seguimientoPlan(ven.id, mes);
         clientes = clientes.concat((contactos[ven.zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
-            .concat(proyectosDeZona(ven.zona).map(p => ({ n: p.nombre, e: 'Contacto nuevo · ' + p.tipo, t: p.tipo, v: ven.id }))));
+            .concat(proyectosDeZona(ven.zona).map(p => ({ n: p.nombre, e: etiquetaLead(p.tipo), t: LEAD, v: ven.id }))));
     });
     // Filtros (selección múltiple): tipo de cliente, etiqueta (con Trabajo interno) y qué mostrar
     const claveZona = vista.map(c => c.id).join(',');
     if (visiplan.zonaFiltros !== claveZona) { visiplan.zonaFiltros = claveZona; visiplan.sel.t = []; visiplan.sel.e = []; }
     const cuentaDe = k => clientes.reduce((o, c) => (o[c[k]] = (o[c[k]] || 0) + 1, o), {});
-    const unicos = k => [...new Set(clientes.map(c => c[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    const unicos = k => [...new Set(clientes.map(c => c[k]).filter(Boolean))].sort(ordenLeadAlFinal);
     if (!visiplan.oculto) pintarMultis($('vpMultis'), 'visiplan', [
         { k: 't', t: 'Tipo de cliente', todos: 'Todos los tipos de cliente', valores: unicos('t'), cuenta: cuentaDe('t') },
         { k: 'e', t: 'Etiqueta', todos: 'Todas las etiquetas', valores: [INTERNO_ETQ, ...unicos('e')], cuenta: { ...cuentaDe('e'), [INTERNO_ETQ]: TRABAJO_INTERNO.length * vista.length } },
@@ -1917,14 +1935,14 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Próxima visita' : 'Reprogramada'}</span>`
         : '<span class="chip p">Pendiente</span>';
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
-    const meta = [mc?.cl ? `Clasificación <b>${esc(mc.cl)}</b>` : '', ...[v.tipoContacto, v.ciudad].filter(Boolean).map(esc)].filter(Boolean).join(' · ');
+    const meta = [mc?.cl ? `Clasificación <b>${esc(mc.cl)}</b>` : '', ...[nombreEtq(v.tipoContacto), v.ciudad].filter(Boolean).map(esc)].filter(Boolean).join(' · ');
     const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
     const marcaObj = o => !cumplidos ? '' : cumplidos.includes(o) ? ' class="cumplido"' : ' class="no-cumplido"';
     let objetivos = v.tipoVisita
         ? `<p class="objetivos"><b>${esc(nombreTipo(v))}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}${textoSubs(v, o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}${textoSubs(v, o)}</span>`).join('')}</p>${cumplidos && v.objetivos?.length ? `<p class="obj-resumen"><b>Objetivos cumplidos:</b> ${cumplidosProgramados(v).length} de ${v.objetivos.length}</p>` : ''}` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
-        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
+        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
         reporte = v.observaciones ? `<div class="reporte">${esc(v.observaciones)}</div>` : '';
@@ -2144,7 +2162,7 @@ async function abrirProgramar(id, contactoPlan) {
             <datalist id="dlContactos"></datalist>
             <p class="ayuda" id="ayudaContacto" hidden></p>
             <div class="caja-proyecto" id="cajaProyecto" hidden>
-                <p><span class="chip proy">Proyecto</span> Contacto nuevo que aún no está en la Maestra de Contactos. Escribe su nombre arriba.</p>
+                <p><span class="chip proy">Lead</span> Contacto nuevo que aún no está en la Maestra de Contactos. Escribe su nombre arriba.</p>
                 <div class="dos">
                     <div><label for="pTipo">Tipo</label><select id="pTipo" onchange="etiquetaPersonaProyecto()">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
                     <div><label for="pCiudad">Ciudad</label><input id="pCiudad" placeholder="Ej: Bogotá"></div>
@@ -2203,7 +2221,7 @@ async function abrirProgramar(id, contactoPlan) {
     }
     if (bloqueado) {
         $('fContacto').readOnly = true; $('fTipoNuevo').disabled = true;
-        const nuevoTxt = $('fTipo').value === 'nuevo' ? 'Contacto nuevo · ' + $('fTipoNuevo').value : '';
+        const nuevoTxt = $('fTipo').value === 'nuevo' ? etiquetaLead($('fTipoNuevo').value) : '';
         $('fTipoFijo').hidden = false;
         $('fTipoFijo').dataset.nuevo = nuevoTxt;
         $('fTipoFijo').dataset.extra = contactoPlan ? ' · del Visiplan' : v?.origen === 'reprogramada' || v?.origen === 'proxima' ? ' · reprogramada' : '';
@@ -2374,7 +2392,8 @@ function htmlCircularSub(o, x, subs, estilo, subsProg) {
     // El objetivo de la circular se lee en un desplegable; los productos se escogen
     const hijos = (c.objetivo ? `<details class="circ-obj"><summary>Ver objetivo</summary><p>${esc(c.objetivo)}</p></details>` : '')
         + (c.productos || []).map(p => hijo(hijoCircular(c, `[${p.c}]`), esc(productoPorCodigo[p.c] ? nombreProducto(p.c) : `[${p.c}]${p.n ? ' ' + p.n : ''}`))).join('');
-    return `<div class="circ-sub"><label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" data-circ="1" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`
+    const vence = `<small class="circ-vence">${c.fin ? 'Vence el ' + esc(fechaCorta(c.fin)) : 'Sin fecha de vencimiento'}</small>`;
+    return `<div class="circ-sub"><label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" data-circ="1" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}${vence}</span>${enlacePdfSub(o, x)}</label>`
         + (hijos ? `<div class="circ-hijos"${marcada ? '' : ' hidden'}>${hijos}</div>` : '') + '</div>';
 }
 document.addEventListener('change', e => {
@@ -2552,7 +2571,7 @@ async function guardarProgramada(e, id) {
             };
             guardarRegistro(proyecto);
         }
-        c = { n: proyecto.nombre, e: 'Contacto nuevo · ' + proyecto.tipo, c: proyecto.ciudad };
+        c = { n: proyecto.nombre, e: etiquetaLead(proyecto.tipo), c: proyecto.ciudad };
     }
     const antes = id ? registros[id] : null;
     const fecha = $('fFecha').value;
@@ -2763,7 +2782,7 @@ function leerMuestras() {
     return r;
 }
 const textoMuestras = m => Object.entries(m || {}).filter(([, l]) => l.length).map(([t, l]) => `${t}: ${l.map(x => `${nombreProducto(x.c)} x${x.q}`).join(', ')}`).join(' · ');
-const textoPedidos = v => (v.pedidos || []).map(p => `${p.cat} ${p.num}`).join(' · ');
+const textoPedidos = v => (v.pedidos || []).map(p => `${p.cat} ${p.num || '(sin número)'}`).join(' · ');
 
 // Muestra u oculta pedido, productos pedidos y muestras según lo que se marca en los objetivos cumplidos
 function actualizarCierreVisita() {
@@ -2831,7 +2850,7 @@ function abrirRegistro(id, tipo) {
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
             <div id="cajaPedido" class="caja-cierre" hidden>
-                <label>Pedido ${REQ} <small>(marca la categoría y escribe el número de ${DIGITOS_PEDIDO} cifras)</small></label>
+                <label>Pedido ${REQ} <small>(marca la categoría; el número de ${DIGITOS_PEDIDO} cifras es opcional)</small></label>
                 ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => {
                     const antes = ((ya && v.pedidos) || []).filter(p => p.cat === cat).map(p => partesPedido(p.num));
                     return `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}"><label class="check p-check"><input type="checkbox" class="p-cat" ${antes.length ? 'checked' : ''} onchange="this.dataset.tocada = 1; actualizarCierreVisita()"><span>${esc(cat)}</span></label>
@@ -2915,7 +2934,8 @@ function guardarVisitado(e, id) {
     for (const fila of colMarcada ? document.querySelectorAll('#cajaPedido .p-nums:not([hidden])') : []) {
         const inps = [...fila.querySelectorAll('.n-pedido')], cat = inps[0].dataset.cat;
         const llenos = inps.filter(i => Number(cifrasPedido(i.value)));
-        if (!llenos.length) { inps[0].focus(); return toast(`Escribe el número de pedido de ${cat}${inps.length > 1 ? ' (OV, OVI o ambos)' : ''}`); }
+        // El número de pedido es opcional: si falta, queda la categoría sin número
+        if (!llenos.length) { pedidos.push({ cat, num: '' }); continue; }
         llenos.forEach(i => { i.value = cifrasPedido(i.value); pedidos.push({ cat, num: i.dataset.pref + i.value }); });
     }
     const muestrasDetalle = $('cajaMuestras').hidden ? {} : leerMuestras();
@@ -3014,7 +3034,7 @@ function pintarHistorial() {
     }).join('');
     abrirModal(`<div class="form-rc ficha historial">
         <h2>${esc(nombre)}</h2>
-        <p class="sub">${esc([m?.e || (p ? 'Contacto nuevo · ' + p.tipo : ''), m?.c || p?.ciudad || ''].filter(Boolean).join(' · '))}</p>
+        <p class="sub">${esc([m?.e || (p ? etiquetaLead(p.tipo) : ''), m?.c || p?.ciudad || ''].filter(Boolean).join(' · '))}</p>
         ${m && (m.cl || m.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(m.cl || '')}</b>${m.ca ? ' · ' + esc(m.ca) : ''}</p>` : ''}
         ${chipsMes}
         <div class="resumen-dia hist-resumen">
@@ -3490,7 +3510,7 @@ function pintarPanel() {
         const cumpl = v.estado === 'visitado' && v.objetivos?.length ? ` · ${cumplidosProgramados(v).length}/${v.objetivos.length} objetivos` : '';
         return `<button class="fila-det" onclick="verDetalleVisita('${v.id}')">
             <span class="fd-fecha">${esc(fechaCorta(v.fecha))}${v.hora ? `<small>${esc(horaBonita(v.hora))}</small>` : ''}</span>
-            <span class="fd-cuerpo"><b>${esc(v.contacto)}</b><small>${esc(nombreVendedor(v.vendedor))} · ${esc(v.interno ? 'Trabajo interno' : nombreTipo(v))}${cumpl}${esProgramada(v) ? '' : ' · No programada'}${v.esProyecto ? ' · Proyecto' : ''}</small></span>
+            <span class="fd-cuerpo"><b>${esc(v.contacto)}</b><small>${esc(nombreVendedor(v.vendedor))} · ${esc(v.interno ? 'Trabajo interno' : nombreTipo(v))}${cumpl}${esProgramada(v) ? '' : ' · No programada'}${v.esProyecto ? ' · Lead' : ''}</small></span>
             ${est}
         </button>`;
     }).join('') : '<p class="no-results" style="padding:10px">No hay visitas con estos filtros.</p>';
@@ -3618,7 +3638,7 @@ function verDetalleVisita(id) {
         <p class="sub">${esc(nombreVendedor(v.vendedor))} · ${esc(mayuscula(fechaLarga(v.fecha)))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>
         <div class="marcas"><span class="chip ${v.estado === 'visitado' ? 'ok' : v.estado === 'no_visitado' ? 'no' : 'p'}">${estado}</span>
             ${v.interno ? '<span class="chip gris">Trabajo interno</span>' : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>`}
-            ${esProgramada(v) ? '' : '<span class="chip np">No programada</span>'}${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}</div>
+            ${esProgramada(v) ? '' : '<span class="chip np">No programada</span>'}${v.esProyecto ? '<span class="chip proy">Lead</span>' : ''}</div>
         ${fila('Contacto', [v.tipoContacto, v.ciudad].filter(Boolean).join(' · '))}
         ${v.tipoVisita && v.objetivos?.length ? `<strong>${esc(nombreTipo(v))} · objetivos</strong><p class="objetivos">${(v.objetivos || []).map(o => `<span class="${v.estado === 'visitado' ? (cumplidos.includes(o) ? 'cumplido' : 'no-cumplido') : ''}">${v.estado === 'visitado' && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}</p>` : ''}
         ${fila('Notas de la programación', v.objetivo)}
@@ -3808,7 +3828,7 @@ function armarLibro(mes, vend, solo) {
     const tot = diasV.map(() => ({ o: 0, r: 0, c: 0 }));
     vendedores.forEach(ven => {
         const { marcas, reales, proximas } = seguimientoPlan(ven.id, mes);
-        const etiquetaDe = n => (contactos[ven.zona] || []).find(c => c.n === n)?.e || (buscarProyecto(ven.zona, n) ? 'Contacto nuevo' : '');
+        const etiquetaDe = n => (contactos[ven.zona] || []).find(c => c.n === n)?.e || (buscarProyecto(ven.zona, n) ? LEAD : '');
         const tipoDe = n => buscarProyecto(ven.zona, n)?.tipo || tipoSugerido(etiquetaDe(n)) || 'Visita Cliente';
         [...new Set([...Object.keys(marcas), ...Object.keys(reales), ...Object.keys(proximas)])].sort((a, b) => a.localeCompare(b)).forEach(n => {
             const ds = marcas[n] || [], r = reales[n] || new Set(), px = proximas[n] || new Set();
