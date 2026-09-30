@@ -2319,6 +2319,8 @@ const TIPOS_MUESTRA = ['Muestra Médica', 'Muestra Comercial', 'Tester'];
 const normPedido = t => String(t || '').toUpperCase().replace(/[\s-]/g, '');
 const pedidoValido = (cat, num) => new RegExp(`^[${PEDIDO_CATS[cat].join('')}]\\d+$`).test(normPedido(num));
 
+// Concepto estratégico y mensaje comercial de la etiqueta (hoja "Guía de etiquetas" de la base de productos)
+const guiaEtiqueta = cat => { const g = (CATALOGO.guia || {})[cat]; return g && (g.concepto || g.mensaje) ? `<div class="guia-etq">${g.concepto ? `<p><b>Concepto estratégico:</b> ${esc(g.concepto)}</p>` : ''}${g.mensaje ? `<p><b>Mensaje comercial:</b> ${esc(g.mensaje)}</p>` : ''}</div>` : ''; };
 // Selector de productos por categoría. Nuevo, Foco y Transición: lista desplegable con buscador (código o nombre),
 // "Todos" y selección de uno o varios; lo marcado se conserva aunque se busque otro. Las cerradas solo se marcan.
 function htmlSelProductos(id, cats, sel = {}) {
@@ -2328,13 +2330,20 @@ function htmlSelProductos(id, cats, sel = {}) {
         return `<div class="dd-prod" data-cat="${esc(cat)}">
             <button type="button" class="mc-multi-btn dd-btn" onclick="abrirDdProductos(this)" ${lista.length ? '' : 'disabled'}><span></span></button>
             <div class="dd-panel" hidden>
+                ${guiaEtiqueta(cat)}
                 <input class="sel-busca" placeholder="Buscar por código o nombre..." oninput="buscarProductos(this)" autocomplete="off">
                 <label class="mc-multi-todas"><input type="checkbox" class="dd-todos" onchange="todosDdProductos(this)"><span>Todos (${lista.length})</span></label>
                 <div class="sel-ops">${lista.map(p => `<label class="check sub" data-q="${esc(normalizar(p.c + ' ' + p.n))}"><input type="checkbox" value="${esc(p.c)}" ${elegidos.includes(p.c) ? 'checked' : ''} onchange="pintarDdProductos(this.closest('.dd-prod'))"><span><b>${esc(p.c)}</b> ${esc(p.n)}</span></label>`).join('')}</div>
             </div>
             <div class="dd-elegidos"></div>
         </div>`;
-    }).join('')}${cerr.length ? `<div class="sel-cerradas">${cerr.map(cat => `<label class="check"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''}><span>${esc(cat)}</span></label>`).join('')}</div>` : ''}</div>`;
+    }).join('')}${cerr.length ? `<div class="sel-cerradas">${cerr.map(cat => `<label class="check"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''} onchange="guiaCerradas(this)"><span>${esc(cat)}</span></label>`).join('')}</div><div class="guia-cerradas"></div>` : ''}</div>`;
+}
+// Categorías cerradas: al marcarlas sale su concepto estratégico y mensaje comercial
+function guiaCerradas(casilla) {
+    const caja = casilla.closest('.sel-prod');
+    caja.querySelector('.guia-cerradas').innerHTML = [...caja.querySelectorAll('.sel-cerradas input:checked')]
+        .map(i => guiaEtiqueta(i.dataset.cat).replace('<div class="guia-etq">', `<div class="guia-etq"><p><b>${esc(i.dataset.cat)}</b></p>`)).join('');
 }
 // Texto del botón y productos elegidos debajo
 function pintarDdProductos(caja) {
@@ -2484,6 +2493,7 @@ function abrirRegistro(id, tipo) {
             </div>
         </form>`);
         document.querySelectorAll('#modalContenido .dd-prod').forEach(pintarDdProductos);
+        document.querySelectorAll('#modalContenido .sel-cerradas input').forEach(guiaCerradas);
         $('rCumplidos')?.addEventListener('change', actualizarCierreVisita);
         actualizarCierreVisita();
     } else {

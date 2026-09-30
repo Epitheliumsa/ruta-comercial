@@ -1,84 +1,68 @@
 #!/usr/bin/env python3
-"""Genera productos.js (catálogo para Productos presentados, Productos pedidos y Muestras del cierre de visita).
+"""Genera productos.js: catálogo para Productos presentados, Productos pedidos y Muestras del cierre de visita.
 
-Uso:  python3 herramientas/productos.py [archivos...]
-      (por defecto: ../vademecum-epithelium/data.json + datos/Productos_Terminados.xlsx)
-      Acepta el data.json del vademécum o Excel de Odoo (Referencia Interna | Nombre | Grupo de Producto | Etiquetas de producto).
-
-Si existe datos/Etiquetas_Productos.xlsx (Referencia Interna | Nueva Etiqueta), esas etiquetas reemplazan las del producto.
-Categorías: Nuevo, Foco y Transición se despliegan (se buscan productos por código o nombre);
-Portafolio, Estratégico y Consultorio van cerradas (solo se marcan). Transición todavía no tiene productos.
+Uso:  python3 herramientas/productos.py
+Fuentes (en datos/):
+- Base_Productos.xlsx: hoja "Base de Productos" (Referencia Interna | Nombre | Etiquetas de producto | Nueva Etiqueta).
+  La etiqueta que vale es "Nueva Etiqueta" si tiene algo; si no, "Etiquetas de producto".
+  Hoja "Guía de Etiquetas" (Etiqueta | Concepto Estratégico | Mensaje Comercial): sale al abrir la etiqueta en el cierre.
+- Productos_Terminados.xlsx: productos terminados (export de Odoo con Referencia Interna, Nombre, Etiquetas de producto).
+Categorías del cierre: Nuevo, Foco y Transición se despliegan (buscador por código o nombre);
+Portafolio, Estratégico y Consultorio van cerradas (solo se marcan).
 """
-import json, sys, unicodedata
+import collections, json, unicodedata
 from pathlib import Path
+import openpyxl
 
 RAIZ = Path(__file__).resolve().parent.parent
-ENTRADAS = [Path(a) for a in sys.argv[1:]] or [RAIZ.parent / 'vademecum-epithelium' / 'data.json', RAIZ / 'datos' / 'Productos_Terminados.xlsx']
+FUENTES = [RAIZ / 'datos' / 'Base_Productos.xlsx', RAIZ / 'datos' / 'Productos_Terminados.xlsx']
 DESPLEGABLES = ['Nuevo', 'Foco', 'Transición']
 CERRADAS = ['Portafolio', 'Estratégico', 'Consultorio']
-NOMBRES = {'nuevo': 'Nuevo', 'foco': 'Foco', 'transicion': 'Transición', 'portafolio': 'Portafolio',
-           'estrategico': 'Estratégico', 'consultorio': 'Consultorio'}
 
 def clave(t):
-    return unicodedata.normalize('NFD', str(t).strip().lower()).encode('ascii', 'ignore').decode()
+    return unicodedata.normalize('NFD', str(t or '').strip().lower()).encode('ascii', 'ignore').decode()
 
-filas = []
-for ENTRADA in ENTRADAS:
-    if not ENTRADA.exists():
-        print('AVISO: no existe', ENTRADA)
+NOMBRES = {'nuevo': 'Nuevo', 'foco': 'Foco', 'transicion': 'Transición', 'transicion-impulso': 'Transición',
+           'transicion - impulso': 'Transición', 'transicion impulso': 'Transición', 'portafolio': 'Portafolio',
+           'estrategico': 'Estratégico', 'consultorio': 'Consultorio', 'cliente': 'Cliente',
+           'a descodificar': 'A descodificar', 'en desarrollo': 'En Desarrollo', 'producto terminado': 'Producto Terminado'}
+etiquetas = lambda t: [NOMBRES[clave(x)] for x in str(t or '').replace(';', ',').split(',') if clave(x) in NOMBRES]
+
+productos, vistos, guia = [], set(), {}
+for f in FUENTES:
+    if not f.exists():
+        print('AVISO: no existe', f.relative_to(RAIZ))
         continue
-    if ENTRADA.suffix.lower() == '.json':
-        for p in json.loads(ENTRADA.read_text(encoding='utf-8')):
-            filas.append((p.get('Referencia Interna'), p.get('Nombre'), p.get('Etiquetas de producto'), p.get('Grupo de Producto')))
-    else:
-        import openpyxl
-        ws = openpyxl.load_workbook(ENTRADA, data_only=True).active
-        cab = [clave(c.value or '') for c in ws[1]]
-        col = lambda *ks: next((i for i, c in enumerate(cab) if any(k in c for k in ks)), None)
-        ic, inn, ie, ig, ia = col('referencia', 'codigo'), cab.index('nombre') if 'nombre' in cab else col('nombre'), col('etiqueta'), col('grupo'), col('activo')
+    libro = openpyxl.load_workbook(f, data_only=True)
+    for ws in libro.worksheets:
+        cab = [clave(c.value) for c in ws[1]]
+        if 'concepto estrategico' in cab:   # Guía de etiquetas
+            ie, ic, im = cab.index('etiqueta'), cab.index('concepto estrategico'), next(i for i, c in enumerate(cab) if 'mensaje' in c)
+            for r in ws.iter_rows(min_row=2, values_only=True):
+                for et in etiquetas(r[ie]):
+                    guia[et] = {'concepto': ' '.join(str(r[ic] or '').split()), 'mensaje': ' '.join(str(r[im] or '').split())}
+            continue
+        if 'referencia interna' not in cab:
+            continue
+        col = lambda n: cab.index(n) if n in cab else None
+        ic, inn, ie, inu, ia, ig = col('referencia interna'), col('nombre'), col('etiquetas de producto'), col('nueva etiqueta'), col('activo(a)'), col('grupo de producto')
         for r in ws.iter_rows(min_row=2, values_only=True):
-            if ia is not None and r[ia] in (False, 'False', 0):
+            cod = str(r[ic] or '').strip()
+            if not cod or cod in vistos or (ia is not None and r[ia] in (False, 'False', 0)):
                 continue
-            filas.append((r[ic], r[inn], r[ie] if ie is not None else '', r[ig] if ig is not None else ''))
+            nueva = r[inu] if inu is not None else None
+            vistos.add(cod)
+            productos.append({'c': cod, 'n': ' '.join(str(r[inn] or '').split()),
+                              'e': etiquetas(nueva if str(nueva or '').strip() else r[ie] if ie is not None else ''),
+                              'g': str(r[ig] or '').strip() if ig is not None else ('Producto Terminado' if cod.startswith('PT') else 'Magistral de Pedido')})
 
-productos, sin_cat = [], 0
-vistos = set()
-for c, n, e, g in filas:
-    if not c or not n:
-        continue
-    cats = [NOMBRES[clave(x)] for x in str(e or '').replace(';', ',').split(',') if clave(x) in NOMBRES]
-    if not cats:
-        sin_cat += 1
-    if str(c).strip() in vistos:
-        continue
-    vistos.add(str(c).strip())
-    productos.append({'c': str(c).strip(), 'n': ' '.join(str(n).split()), 'e': cats, 'g': str(g or '').strip()})
-# Etiquetas nuevas: datos/Etiquetas_Productos.xlsx (Referencia Interna | Nueva Etiqueta) cambia las categorías por código
-CAMBIOS = RAIZ / 'datos' / 'Etiquetas_Productos.xlsx'
-if CAMBIOS.exists():
-    import openpyxl
-    ws = openpyxl.load_workbook(CAMBIOS, data_only=True).active
-    cab = [clave(c.value or '') for c in ws[1]]
-    ic = next(i for i, c in enumerate(cab) if 'referencia' in c or 'codigo' in c)
-    ie = next(i for i, c in enumerate(cab) if 'nueva' in c and 'etiqueta' in c)
-    por_cod = {p['c']: p for p in productos}
-    cambiados, no_estan = 0, []
-    for r in ws.iter_rows(min_row=2, values_only=True):
-        cod = str(r[ic] or '').strip()
-        if not cod:
-            continue
-        if cod not in por_cod:
-            no_estan.append(cod)
-            continue
-        por_cod[cod]['e'] = [NOMBRES[clave(x)] for x in str(r[ie] or '').replace(';', ',').split(',') if clave(x) in NOMBRES]
-        cambiados += 1
-    print(f'Etiquetas nuevas: {cambiados} productos' + (f' · AVISO no están en el catálogo: {", ".join(no_estan)}' if no_estan else ''))
 productos.sort(key=lambda p: clave(p['n']))
-datos = {'desplegables': DESPLEGABLES, 'cerradas': CERRADAS, 'productos': productos}
-(RAIZ / 'productos.js').write_text('// Generado con herramientas/productos.py. No editar a mano.\n'
+datos = {'desplegables': DESPLEGABLES, 'cerradas': CERRADAS, 'productos': productos, 'guia': guia}
+(RAIZ / 'productos.js').write_text('// Generado con herramientas/productos.py desde datos/Base_Productos.xlsx y datos/Productos_Terminados.xlsx. No editar a mano.\n'
                                    'window.CATALOGO = ' + json.dumps(datos, ensure_ascii=False) + ';\n', encoding='utf-8')
+cuenta = collections.Counter(e for p in productos for e in p['e'])
 for cat in DESPLEGABLES + CERRADAS:
-    print(f'{cat}: {sum(cat in p["e"] for p in productos)}')
-import collections
-print('Grupos:', dict(collections.Counter(p['g'] for p in productos)))
-print(f'Total: {len(productos)} productos · sin categoría (Nuevo/Foco/…): {sin_cat}')
+    print(f'{cat}: {cuenta[cat]}')
+print('Otras etiquetas:', {k: v for k, v in cuenta.items() if k not in DESPLEGABLES + CERRADAS})
+print('Guía de etiquetas:', ', '.join(guia) or '—')
+print(f'Total: {len(productos)} productos')
