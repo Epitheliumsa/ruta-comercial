@@ -1349,3 +1349,7 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .vp-tabla .cumple:not(.on):not(.prox), .vp-tabla thead th.cumple { background: #f3e8ff; }
 .vp-tabla thead th.vp-dia.cumple { color: #7e22ce; }
 .vp-muestra.cumple { background: #f3e8ff; box-shadow: inset 0 0 0 1px #e4d0fb; }
+
+/* Plan de Trabajo con varios vendedores (jefes) */
+#agVendedores { width: 100%; }
+.vend-card { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: #334155; border-radius: 5px; padding: 2px 7px; margin-bottom: 4px; }

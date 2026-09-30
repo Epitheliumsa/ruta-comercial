@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Epithelium Visita</title>
-    <link rel="stylesheet" href="styles.css?v=202609292235">
-    <link rel="stylesheet" href="visitas.css?v=202609292235">
+    <link rel="stylesheet" href="styles.css?v=202609292243">
+    <link rel="stylesheet" href="visitas.css?v=202609292243">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -94,7 +94,7 @@
                 </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 29/09/2026 22:35</p>
+                <p class="version-app">Versión 29/09/2026 22:43</p>
             </div>
         </div>
 
@@ -109,7 +109,7 @@
             </div>
 
             <div class="filters filtros-rc">
-                <select id="agVendedor" class="solo-jefe" onchange="cambiarVendedorAgenda()"></select>
+                <div id="agVendedores" class="vp-vends solo-jefe" aria-label="Vendedores"></div>
                 <div class="nav-fecha">
                     <button class="btn-nav" onclick="moverDia(-1)" aria-label="Día anterior">&lsaquo;</button>
                     <div class="nav-titulo"><strong id="agFechaTxt"></strong><small id="agFechaSub"></small></div>
@@ -320,8 +320,8 @@
         </div>
     </div>
 
-    <script src="objetivos.js?v=202609292235"></script>
-    <script src="productos.js?v=202609292235"></script>
-    <script src="app.js?v=202609292235"></script>
+    <script src="objetivos.js?v=202609292243"></script>
+    <script src="productos.js?v=202609292243"></script>
+    <script src="app.js?v=202609292243"></script>
 </body>
 </html>
