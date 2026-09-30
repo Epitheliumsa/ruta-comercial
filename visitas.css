@@ -1520,3 +1520,14 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 .cf-mes.hoy { border-color: #009460; }
 .cf-mes.sel { background: #0f766e; color: #fff; font-weight: 700; }
 .cf-mes:disabled { opacity: .3; cursor: not-allowed; }
+/* Varios avisos a la vez (ej: festivo y cumpleaños): una ventana al lado de la otra; en el celular, una debajo de otra */
+.dialogo-grupo { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 780px; }
+.dialogo-fila { display: flex; gap: 14px; justify-content: center; align-items: stretch; width: 100%; }
+.dialogo-fila .dialogo-caja { flex: 1 1 0; max-width: 360px; }
+.dialogo-pie { max-width: 360px; padding: 14px 20px; border-top-color: #009460; }
+.dialogo-pie p { margin-bottom: 4px; }
+.dialogo-caja.t-aviso { border-top-color: #9aa39f; } .dialogo-caja.t-aviso h3 { color: #4c5a55; }
+.dialogo-caja.t-fiesta { border-top-color: #d9822b; } .dialogo-caja.t-fiesta h3 { color: #9a4b0c; }
+.dialogo-caja.t-playa { border-top-color: #1e8fc4; } .dialogo-caja.t-playa h3 { color: #136a94; }
+.dialogo-caja.t-permiso { border-top-color: #1e63c4; } .dialogo-caja.t-permiso h3 { color: #1552a8; }
+@media (max-width: 600px) { .dialogo-fila { flex-direction: column; align-items: center; } .dialogo-fila .dialogo-caja { width: 100%; } }
