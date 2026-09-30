@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292214';
+const APP_VERSION = '202609292218';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -220,8 +220,8 @@ function festivos(y) {
     ]);
 }
 const nombreFestivo = f => festivos(+f.slice(0, 4)).get(f) || '';
-// Resaltado de días en todos los calendarios: festivos y domingos (fuerte), sábados (suave)
-const claseDia = d => nombreFestivo(d) || deIso(d).getDay() === 0 ? ' festivo' : deIso(d).getDay() === 6 ? ' sabado' : '';
+// Resaltado de días en todos los calendarios: festivos, sábados y domingos en el mismo tono
+const claseDia = d => nombreFestivo(d) || deIso(d).getDay() % 6 === 0 ? ' festivo' : '';
 const esHabil = f => { const w = deIso(f).getDay(); return w !== 0 && w !== 6 && !festivos(+f.slice(0, 4)).has(f); };
 function siguienteHabil(f) { let d = sumarDias(f, 1); while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 const diaCierre = v => siguienteHabil(v.fecha);
@@ -3523,7 +3523,7 @@ function abrirCalFecha(inp, mes) {
     const fests = [...festivos(+m.slice(0, 4))].filter(([f]) => mesDe(f) === m).sort();
     caja.innerHTML = `<div class="cf-nav"><button type="button" onclick="abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, -1))" aria-label="Mes anterior">&lsaquo;</button>
             <b>${esc(mayuscula(nombreMes(m)))}</b><button type="button" onclick="abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, 1))" aria-label="Mes siguiente">&rsaquo;</button></div>
-        <div class="cf-grid">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x, i) => `<span class="cf-cab${i === 6 ? ' festivo' : i === 5 ? ' sabado' : ''}">${x}</span>`).join('')}${dias}</div>
+        <div class="cf-grid">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x, i) => `<span class="cf-cab${i >= 5 ? ' festivo' : ''}">${x}</span>`).join('')}${dias}</div>
         ${fests.length ? `<p class="cf-fest">${fests.map(([f, n]) => `<span><b>${deIso(f).getDate()}</b> ${esc(n)}</span>`).join('')}</p>` : ''}
         <div class="cf-pie">${(!inp.min || t >= inp.min) && (!inp.max || t <= inp.max) ? `<button type="button" onclick="elegirCalFecha('${t}')">Hoy</button>` : '<span></span>'}${inp.required || !inp.value ? '' : '<button type="button" onclick="elegirCalFecha(\'\')">Borrar</button>'}</div>`;
     // Debajo del campo (o encima si no cabe), sin salirse de la pantalla
