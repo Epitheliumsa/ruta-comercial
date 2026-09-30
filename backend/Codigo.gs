@@ -67,10 +67,10 @@ function hoja_() {
 function listar_(usuario, desde, hasta) {
   const filas = hoja_().getDataRange().getValues().slice(1);
   return filas
-    // La parrilla y las actividades del mes (clase 'mensual') las ve todo el equipo
+    // La parrilla, las actividades del mes y los PDF de las circulares (clase 'mensual') los ve todo el equipo
     .filter(f => f[0] && (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'))
-    // Los contactos proyecto se envían siempre, sin importar la fecha
-    .filter(f => f[1] === 'proyecto' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
+    // Los contactos proyecto y los PDF de las circulares se envían siempre, sin importar la fecha
+    .filter(f => f[1] === 'proyecto' || f[0] === 'circulares-pdf' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
     .map(f => JSON.parse(f[6]));
 }
 
