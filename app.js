@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301306';
+const APP_VERSION = '202609301327';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -3386,6 +3386,13 @@ function claseAnillo(x) {
     if (x.origen === 'reprogramada') return no ? 'repNo' : 'rep';
     return no ? 'no' : 'p';
 }
+// Leads dentro del anillo: cuántas de las visitas son a leads y cuántas se visitaron (por aparte)
+function leadsAnillo(lista) {
+    const l = lista.filter(v => v.esProyecto && !v.interno);
+    if (!l.length) return '';
+    const ok = l.filter(v => v.estado === 'visitado').length;
+    return `<p class="anillo-leads"><span class="chip proy">${LEAD}</span> ${l.length} ${l.length === 1 ? 'visita' : 'visitas'} a leads · ${ok} ${ok === 1 ? 'visitada' : 'visitadas'}</p>`;
+}
 function anilloDia(lista, titulo, conFiltro = true, periodo = '') {
     const total = lista.length;
     if (!total) return periodo ? `<div class="anillo-dia vacio" data-p="${periodo}"><p class="anillo-titulo">${titulo.split(' · ').map((x, i) => i ? `<b>${esc(x)}</b>` : `<span>${esc(x)}</span>`).join('')}</p><p class="ayuda">Sin visitas</p></div>` : '';
@@ -3405,7 +3412,7 @@ function anilloDia(lista, titulo, conFiltro = true, periodo = '') {
     const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${conFiltro && agenda.filtro === 'an:' + x.f ? ' activo' : ''}"${clic(x)}><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
     return `<div class="anillo-dia${conFiltro ? '' : ' fijo'}" data-p="${periodo}"><svg viewBox="0 0 110 110" role="img" aria-label="${esc(titulo)}">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
             <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">${total === 1 ? 'visita' : 'visitas'}</text></svg>
-        <div class="anillo-cuerpo"><p class="anillo-titulo">${titulo.split(' · ').map((x, i) => i ? `<b>${esc(x)}</b>` : `<span>${esc(x)}</span>`).join('')}</p><ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div></div>`;
+        <div class="anillo-cuerpo"><p class="anillo-titulo">${titulo.split(' · ').map((x, i) => i ? `<b>${esc(x)}</b>` : `<span>${esc(x)}</span>`).join('')}</p><ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul>${leadsAnillo(lista)}</div></div>`;
 }
 
 function cuentaVisitas(todas) {
@@ -3420,6 +3427,8 @@ function cuentaVisitas(todas) {
         cumpl: prog.length ? okProg / prog.length : 0,
         virtual: lista.filter(v => v.modalidad === 'virtual').length,
         pedidos: lista.filter(v => v.pedido === 'si').length,
+        // Leads (contactos nuevos): cuentan como visita, pero se muestran también por aparte
+        leads: lista.filter(v => v.esProyecto).length, leadsOk: lista.filter(v => v.esProyecto && v.estado === 'visitado').length,
         internos: todas.length - lista.length
     };
 }
@@ -3463,6 +3472,7 @@ function pintarPanel() {
         <div class="kpi p"><small>Pendientes</small><b>${c.p}</b></div>
         <div class="kpi"><small>Cumplimiento</small><b>${pct(c)}</b></div>
         <div class="kpi azul"><small>Virtuales</small><b>${c.virtual}</b></div>
+        <div class="kpi lead"><small>Leads (visitados)</small><b>${c.leads} <span>(${c.leadsOk})</span></b></div>
         <div class="kpi azul"><small>Actividades</small><b>${actHechas}/${acts.length}</b></div>`;
 
     pintarGraficaDias(vis);
@@ -3484,12 +3494,12 @@ function pintarPanel() {
                 <td class="n">${k.prog}</td><td class="n${k.noProg ? ' alerta' : ''}">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.p}</td><td class="n">${k.internos}</td></tr>`;
         }).join('') + '</tbody>';
 
-    $('panTabla').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">Visit.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Virtual</th><th class="n">Pedidos</th><th>Cumplimiento</th><th class="n">Actividades</th></tr></thead><tbody>`
+    $('panTabla').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">Visit.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Virtual</th><th class="n">Pedidos</th><th class="n">Leads</th><th>Cumplimiento</th><th class="n">Actividades</th></tr></thead><tbody>`
         + vendedores.map(v => {
             const k = cuentaVisitas(vis.filter(x => x.vendedor === v.id));
             const a = acts.filter(x => x.vendedor === v.id);
             return `<tr><td><b>${esc(v.nombre)}</b><small>${esc(v.zona)}</small></td>
-                <td class="n">${k.prog}</td><td class="n">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.p}</td><td class="n">${k.virtual}</td><td class="n">${k.pedidos}</td>
+                <td class="n">${k.prog}</td><td class="n">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.p}</td><td class="n">${k.virtual}</td><td class="n">${k.pedidos}</td><td class="n" title="Visitas a leads (visitadas)">${k.leads}${k.leads ? ` <small>(${k.leadsOk})</small>` : ''}</td>
                 <td>${barra(k)}</td><td class="n">${a.filter(x => x.hecha).length}/${a.length}</td></tr>`;
         }).join('') + '</tbody>';
 

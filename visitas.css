@@ -1470,3 +1470,6 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .info-etq, .sel-etqs .info-etq { flex: 0 0 26px !important; width: 26px; height: 26px; padding: 0; font-size: 13px !important; border-radius: 50%; align-self: center; }
 /* Actividades: fecha de vencimiento de la circular */
 .circ-vence { display: block; font-size: 11px; font-weight: 600; color: #b45309; margin-top: 2px; }
+.anillo-leads { margin: 6px 0 0; font-size: 12px; color: #475569; }
+.kpi.lead b span { font-size: .7em; color: #9a3412; }
+.kpi.lead { border-color: #fed7aa; }
