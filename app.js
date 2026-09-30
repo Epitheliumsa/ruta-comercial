@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301327';
+const APP_VERSION = '202609301332';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1114,7 +1114,7 @@ function pintarMultis(caja, grupo, defs) {
 function abrirMulti(grupo, k) {
     const g = MULTI[grupo];
     g.abierto = g.abierto === k ? null : k;
-    g.busca = ''; g.enfocar = true;
+    g.busca = ''; g.enfocar = true; g.nivel = null;
     g.repintar();
 }
 function marcarMulti(grupo, k, v) {
@@ -1141,6 +1141,37 @@ function todasMulti(grupo, k) {
     g.sel[k] = g.sel[k].length ? [] : [NINGUNA];   // marca todas (sin filtro) o las desmarca todas
     g.repintar();
 }
+// Filtro de fecha en cascada (como un menú): el botón abre los niveles (Año, Semestre...) y cada nivel abre sus opciones.
+// Usa las mismas casillas que los filtros múltiples (marcarMulti / todasMulti), un grupo de selección por nivel.
+function pintarFechaCascada(caja, grupo, defs) {
+    const g = MULTI[grupo], abierto = g.abierto === 'fecha';
+    g.valores = Object.fromEntries(defs.map(d => [d.k, d.valores]));
+    const elegidos = d => g.sel[d.k].includes(NINGUNA) ? [] : g.sel[d.k];
+    const activos = defs.filter(d => g.sel[d.k].length);
+    const texto = !activos.length ? 'Todas las fechas' : activos.length === 1 && elegidos(activos[0]).length === 1 ? activos[0].nombre(elegidos(activos[0])[0])
+        : activos.map(d => g.sel[d.k].includes(NINGUNA) ? `${d.t}: ninguno` : elegidos(d).length === 1 ? d.nombre(elegidos(d)[0]) : `${d.t} (${elegidos(d).length})`).join(' · ');
+    const d = defs.find(x => x.k === g.nivel);
+    const sub = !d ? '' : (() => {
+        const todas = !g.sel[d.k].length;
+        return `<div class="fc-sub"><button type="button" class="fc-volver" onclick="nivelFecha('${grupo}', null)">‹ ${esc(d.t)}</button>
+            <label class="mc-multi-todas"><input type="checkbox" ${todas ? 'checked' : ''} onchange="todasMulti('${grupo}', '${d.k}')"><span>${esc(d.todos)}</span></label>
+            <div class="mc-multi-ops">${d.valores.map(v => `<label class="${d.cuenta[v] ? '' : 'vacio'}">
+                <input type="checkbox" data-v="${esc(v)}" ${todas || elegidos(d).includes(v) ? 'checked' : ''} onchange="marcarMulti('${grupo}', '${d.k}', this.dataset.v)">
+                <span>${esc(d.nombre(v))}</span><small>${d.cuenta[v] || 0}</small></label>`).join('') || '<p>Sin opciones</p>'}</div></div>`;
+    })();
+    caja.innerHTML = `<div class="mc-multi fc${abierto ? ' abierto' : ''}${activos.length ? ' con' : ''}" data-k="fecha">
+        <button type="button" class="mc-multi-btn" onclick="abrirMulti('${grupo}', 'fecha')" aria-expanded="${abierto}" title="Fecha"><span>${esc(texto)}</span></button>
+        ${!abierto ? '' : `<div class="mc-multi-panel fc-panel${d ? ' con-sub' : ''}">
+            <div class="fc-niveles"><div class="mc-multi-acc"><b>Fecha</b>${activos.length ? `<button type="button" onclick="limpiarFecha('${grupo}')">Quitar filtro</button>` : ''}</div>
+            ${defs.map(x => `<button type="button" class="fc-nivel${g.nivel === x.k ? ' activo' : ''}${g.sel[x.k].length ? ' con' : ''}" onclick="nivelFecha('${grupo}', '${x.k}')"
+                onmouseenter="if (matchMedia('(hover: hover)').matches && MULTI.${grupo}.nivel !== '${x.k}') nivelFecha('${grupo}', '${x.k}')">
+                <span>${esc(x.t)}</span>${g.sel[x.k].length ? `<small>${g.sel[x.k].includes(NINGUNA) ? 0 : elegidos(x).length}</small>` : ''}</button>`).join('')}</div>
+            ${sub}
+        </div>`}
+    </div>`;
+}
+function nivelFecha(grupo, k) { MULTI[grupo].nivel = k; MULTI[grupo].repintar(); }
+function limpiarFecha(grupo) { const g = MULTI[grupo]; Object.keys(g.sel).forEach(k => g.sel[k] = []); g.repintar(); }
 // Cerrar la lista de opciones al tocar fuera de ella
 document.addEventListener('click', e => {
     if (!document.contains(e.target) || e.target.closest('.mc-multi')) return;
@@ -2991,24 +3022,26 @@ function agendarProxima(antes) {
 // Historial de un cliente: todas sus visitas con el resumen de cada una
 // Los indicadores de arriba filtran (visitas = todas, efectivas, última y próxima; otro toque quita el filtro)
 // y los meses se escogen en una lista desplegable (uno o varios)
+// Filtro de fecha en cascada: Fecha > Año / Semestre / Trimestre / Mes > opciones (en orden)
+// Dentro de un mismo nivel se suman las opciones; entre niveles se cruzan (ej: Año 2026 y TRIM III)
 let historial = { nombre: '', vendedor: '', f: '', sel: { a: [], s: [], t: [], m: [] } };
-// Periodos de una fecha: año, semestre, trimestre y mes
+const ROMANO = ['', 'I', 'II', 'III', 'IV'];
 const PERIODOS_HIST = {
     a: { t: 'Año', todos: 'Todos los años', de: f => f.slice(0, 4), nombre: v => v },
-    s: { t: 'Semestre', todos: 'Todos los semestres', de: f => `${f.slice(0, 4)}-S${+f.slice(5, 7) <= 6 ? 1 : 2}`, nombre: v => `${v.slice(-1)}.º semestre ${v.slice(0, 4)}` },
-    t: { t: 'Trimestre', todos: 'Todos los trimestres', de: f => `${f.slice(0, 4)}-T${Math.ceil(+f.slice(5, 7) / 3)}`, nombre: v => `Trimestre ${v.slice(-1)} · ${v.slice(0, 4)}` },
+    s: { t: 'Semestre', todos: 'Todos los semestres', de: f => `${f.slice(0, 4)}-S${+f.slice(5, 7) <= 6 ? 1 : 2}`, nombre: v => `SEM ${ROMANO[+v.slice(-1)]} ${v.slice(0, 4)}` },
+    t: { t: 'Trimestre', todos: 'Todos los trimestres', de: f => `${f.slice(0, 4)}-T${Math.ceil(+f.slice(5, 7) / 3)}`, nombre: v => `TRIM ${ROMANO[+v.slice(-1)]} ${v.slice(0, 4)}` },
     m: { t: 'Mes', todos: 'Todos los meses', de: f => mesDe(f), nombre: v => mayuscula(nombreMes(v)) }
 };
 function verCliente(nombre, vendedor) {
     historial = { nombre, vendedor, f: '', sel: { a: [], s: [], t: [], m: [] } };
-    MULTI.historial.abierto = null;
+    MULTI.historial.abierto = null; MULTI.historial.nivel = null;
 
     pintarHistorial();
 }
 function filtrarHistorial(f) { historial.f = historial.f === f ? '' : f; pintarHistorial(); }
 const visitasCliente = nombre => visibles().filter(x => x.clase === 'visita' && !x.interno && normalizar(x.contacto) === normalizar(nombre))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
-const valoresHistorial = k => [...new Set(visitasCliente(historial.nombre).map(x => PERIODOS_HIST[k].de(x.fecha)))].sort().reverse();
+const valoresHistorial = k => [...new Set(visitasCliente(historial.nombre).map(x => PERIODOS_HIST[k].de(x.fecha)))].sort();
 const pasaPeriodo = (k, x) => { const sel = historial.sel[k]; return !sel.length || sel.includes(PERIODOS_HIST[k].de(x.fecha)); };
 function pintarHistorial() {
     const { nombre, vendedor } = historial;
@@ -3050,7 +3083,7 @@ function pintarHistorial() {
     if ($('histMeses')) {
         // Cada filtro cuenta las visitas que pasan los demás filtros de periodo
         const todasV = visitasCliente(nombre);
-        pintarMultis($('histMeses'), 'historial', Object.entries(PERIODOS_HIST).map(([k, d]) => {
+        pintarFechaCascada($('histMeses'), 'historial', Object.entries(PERIODOS_HIST).map(([k, d]) => {
             const valores = valoresHistorial(k), base = todasV.filter(x => Object.keys(PERIODOS_HIST).every(o => o === k || pasaPeriodo(o, x)));
             return { k, t: d.t, todos: d.todos, valores, nombre: d.nombre, cuenta: Object.fromEntries(valores.map(v => [v, base.filter(x => d.de(x.fecha) === v).length])) };
         }));

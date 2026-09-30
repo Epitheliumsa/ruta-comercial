@@ -1359,9 +1359,26 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .header h1 .h1-vend { display: block; font-size: 12px; font-weight: 600; letter-spacing: .03em; opacity: .85; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
 
 /* Historial del cliente: meses que se pueden escoger */
-.hist-periodos { margin: 8px 0 4px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-@media (max-width: 600px) { .hist-periodos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.hist-periodos { margin: 8px 0 4px; display: grid; grid-template-columns: minmax(0, 260px); gap: 6px; }
+@media (max-width: 600px) { .hist-periodos { grid-template-columns: 1fr; } }
 .hist-periodos .mc-multi-panel { z-index: 20; }
+/* Fecha en cascada: niveles a la izquierda y opciones del nivel al lado (en celular, una debajo de otra) */
+.hist-periodos .fc-panel { width: 200px; padding: 6px; overflow: visible; }
+.fc-niveles { display: grid; gap: 1px; }
+.fc-nivel { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px; border: 0; border-radius: 6px; background: none; font: inherit; font-size: 14px; color: #334155; text-align: left; cursor: pointer; }
+.fc-nivel span { flex: 1; }
+.fc-nivel::after { content: ''; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 6px solid #4c615b; }
+.fc-nivel:hover, .fc-nivel.activo { background: #eef6f4; }
+.fc-nivel.con { color: #0b5c56; font-weight: 700; }
+.fc-nivel small { background: #0f766e; color: white; border-radius: 99px; padding: 0 7px; font-size: 11px; font-weight: 700; }
+.fc-sub { position: absolute; top: -1px; left: calc(100% + 4px); width: 240px; background: white; border: 1px solid #cfe0dc; border-radius: 10px; box-shadow: 0 12px 28px rgba(0, 50, 40, .18); padding: 8px; }
+.fc-volver { display: none; }
+@media (max-width: 600px) {
+    .hist-periodos .fc-panel { width: auto; }
+    .fc-panel.con-sub .fc-niveles { display: none; }
+    .fc-sub { position: static; width: auto; border: 0; box-shadow: none; padding: 0; }
+    .fc-volver { display: block; width: 100%; margin-bottom: 4px; padding: 8px 6px; border: 0; background: #eef6f4; border-radius: 6px; font: inherit; font-size: 14px; font-weight: 700; color: #0b5c56; text-align: left; cursor: pointer; }
+}
 .hist-resumen .chip-filtro { cursor: pointer; }
 .form-rc .hist-periodos label { text-transform: none; letter-spacing: 0; font-size: 13px; margin: 0; }
 .form-rc .hist-periodos .mc-multi-ops label { font-weight: 500; color: #334155; }
