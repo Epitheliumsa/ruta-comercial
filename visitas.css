@@ -1437,3 +1437,6 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .circ-hijos[hidden] { display: none; }
 .check.sub.circ-hijo { font-weight: 500; font-size: 12.5px; background: #fff; }
 .check.sub.circ-hijo b { font-weight: 700; }
+.circ-obj { font-size: 12.5px; color: #475569; background: #fff; border: 1px solid #ece3f5; border-radius: 8px; padding: 5px 9px; }
+.circ-obj summary { cursor: pointer; font-weight: 700; color: #6d28d9; }
+.circ-obj p { margin: 5px 0 1px; line-height: 1.4; }

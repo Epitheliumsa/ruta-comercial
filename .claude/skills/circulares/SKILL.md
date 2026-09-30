@@ -24,7 +24,7 @@ Estado | Días vencida / restantes | Objetivo | Resumen de la actividad | Observ
 ## Actividades (en la visita)
 - Solo salen circulares de clientes: no las internas, ni las de Tipo "Informativa", ni las de parrilla (nombre con
   "Parrilla Promocional" o un "Alcance" que cita una circular de parrilla).
-- Al marcar una circular se abren, para marcar, su **Objetivo** y sus **productos** (códigos de la columna Producto).
+- Al marcar una circular se abren sus **productos** para escoger (códigos de la columna Producto) y su **Objetivo** como desplegable de solo lectura ("Ver objetivo"), que no se marca.
 
 ## Parrilla Promocional
 - En la visita, el objetivo "Parrilla Promocional" muestra como subcategorías los productos de la circular de parrilla

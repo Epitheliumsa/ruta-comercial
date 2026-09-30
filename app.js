@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300121';
+const APP_VERSION = '202609300125';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2289,12 +2289,13 @@ const tonoObjetivo = o => TONO_OBJETIVO[o] ?? [...o].reduce((h, c) => (h * 31 + 
 // Subcategorías guardadas con el nombre anterior (antes de pasarlas a nombre propio o renombrarlas)
 const SUBS_VIEJAS = { 'precios de la competencia': 'Chequeo de Precios', 'presentacion del protocolo': 'Presentación Protocolo Médico' };
 const tieneSub = (arr, x) => (arr || []).some(y => normalizar(SUBS_VIEJAS[normalizar(y)] || y) === normalizar(x));
-// Circular en "Actividades": al marcarla se abren su objetivo y sus productos para marcar
+// Circular en "Actividades": al marcarla se abren sus productos para escoger y su objetivo (desplegable)
 const hijoCircular = (c, que) => `${c.c} › ${que}`;
 function htmlCircularSub(o, x, subs, estilo, subsProg) {
     const c = circularDeEtiqueta(x), marcada = tieneSub(subs[o], x);
     const hijo = (valor, texto) => `<label class="check sub circ-hijo${estilo(valor, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" data-padre="${esc(x)}" value="${esc(valor)}" ${tieneSub(subs[o], valor) ? 'checked' : ''}><span>${texto}</span></label>`;
-    const hijos = (c.objetivo ? hijo(hijoCircular(c, 'Objetivo'), `<b>Objetivo:</b> ${esc(c.objetivo)}`) : '')
+    // El objetivo de la circular se lee en un desplegable; los productos se escogen
+    const hijos = (c.objetivo ? `<details class="circ-obj"><summary>Ver objetivo</summary><p>${esc(c.objetivo)}</p></details>` : '')
         + (c.productos || []).map(p => hijo(hijoCircular(c, `[${p.c}]`), esc(productoPorCodigo[p.c] ? nombreProducto(p.c) : `[${p.c}]${p.n ? ' ' + p.n : ''}`))).join('');
     return `<div class="circ-sub"><label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" data-circ="1" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`
         + (hijos ? `<div class="circ-hijos"${marcada ? '' : ' hidden'}>${hijos}</div>` : '') + '</div>';
