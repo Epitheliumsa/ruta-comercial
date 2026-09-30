@@ -1487,6 +1487,14 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .info-etq, .sel-etqs .info-etq { flex: 0 0 26px !important; width: 26px; height: 26px; padding: 0; font-size: 13px !important; border-radius: 50%; align-self: center; }
 /* Actividades: fecha de vencimiento de la circular */
 .circ-vence { display: block; font-size: 11px; font-weight: 600; color: #b45309; margin-top: 2px; }
-.anillo-leads { margin: 6px 0 0; font-size: 12px; color: #475569; }
-.kpi.lead b span { font-size: .7em; color: #9a3412; }
-.kpi.lead { border-color: #fed7aa; }
+/* Leads (contactos nuevos): por aparte y en naranja */
+.kpi.lead { border-color: #fed7aa; background: #fff7ed; }
+.kpi.lead b { color: #c2410c; }
+.kpi.lead.no b { color: #9a3412; }
+td.n.lead { color: #c2410c; font-weight: 600; }
+.visita-card.lead { border-left-color: #ea580c !important; background: linear-gradient(90deg, #fff7ed, #fff 60%); }
+.vp-sep-lead td { padding: 14px 10px 6px !important; background: #fff7ed !important; border-top: 2px solid #fdba74 !important; font-size: 12px; font-weight: 600; color: #9a3412; text-align: left; }
+.vp-lead .vp-cli, .vp-lead .vp-et { background: #fff7ed !important; }
+.vp-lead .vp-cli { color: #9a3412; }
+.vp-tot-lead th, .vp-tot-lead td { background: #fff7ed !important; color: #c2410c; }
+.vp-lead-txt { font-size: 11px; white-space: nowrap; }
