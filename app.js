@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300039';
+const APP_VERSION = '202609300050';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1009,22 +1009,26 @@ function pintarMultis(caja, grupo, defs) {
     const tecleando = document.activeElement?.classList?.contains('mc-multi-busca');
     const antes = caja.querySelector('.mc-multi-ops');
     const scroll = antes ? antes.scrollTop : 0;
-    g.valores = {};
+    g.valores = {}; g.visibles = {};
     caja.innerHTML = defs.map(d => {
         g.valores[d.k] = d.valores;
         const k = d.k, nombre = v => d.nombre ? d.nombre(v) : v;
         const ninguna = g.sel[k].includes(NINGUNA), elegidos = ninguna ? [] : g.sel[k], todas = !ninguna && !elegidos.length;
         const texto = ninguna ? 'Ninguna elegida' : todas ? d.todos : elegidos.length === 1 ? nombre(elegidos[0]) : `${d.t}: ${elegidos.length} elegidas`;
-        const abierto = g.abierto === k, qo = normalizar(g.busca);
+        const abierto = g.abierto === k, qo = abierto ? normalizar(g.busca) : '';
+        // Con búsqueda, las casillas muestran solo lo elegido y "Todos" pasa a ser "todos los resultados"
+        const vis = d.valores.filter(v => !qo || normalizar(nombre(v)).includes(qo));
+        g.visibles[k] = vis;
+        const todosVis = !!qo && vis.length > 0 && vis.every(v => elegidos.includes(v));
         return `<div class="mc-multi${abierto ? ' abierto' : ''}${todas ? '' : ' con'}" data-k="${k}">
             <button type="button" class="mc-multi-btn" onclick="abrirMulti('${grupo}', '${k}')" aria-expanded="${abierto}" title="${esc(d.t)}"><span>${esc(texto)}</span></button>
             ${!abierto ? '' : `<div class="mc-multi-panel">
                 ${d.extra || ''}
                 ${d.valores.length > 10 ? `<input class="mc-multi-busca" placeholder="Buscar ${esc(d.t.toLowerCase())}..." value="${esc(g.busca)}" oninput="MULTI.${grupo}.busca=this.value; MULTI.${grupo}.repintar()">` : ''}
                 <div class="mc-multi-acc"><b>${esc(d.t)}</b><span>Elige una o varias</span></div>
-                <label class="mc-multi-todas"><input type="checkbox" ${todas ? 'checked' : ''} onchange="todasMulti('${grupo}', '${k}')"><span>${esc(d.todos)}</span></label>
-                <div class="mc-multi-ops">${d.valores.filter(v => !qo || normalizar(nombre(v)).includes(qo)).map(v => `<label class="${!d.cuenta || d.cuenta[v] ? '' : 'vacio'}">
-                    <input type="checkbox" data-v="${esc(v)}" ${todas || elegidos.includes(v) ? 'checked' : ''} onchange="marcarMulti('${grupo}', '${k}', this.dataset.v)">
+                <label class="mc-multi-todas"><input type="checkbox" ${(qo ? todosVis : todas) ? 'checked' : ''} onchange="todasMulti('${grupo}', '${k}')"><span>${qo ? `Todos los resultados (${vis.length})` : esc(d.todos)}</span></label>
+                <div class="mc-multi-ops">${vis.map(v => `<label class="${!d.cuenta || d.cuenta[v] ? '' : 'vacio'}">
+                    <input type="checkbox" data-v="${esc(v)}" ${(qo ? elegidos.includes(v) : todas || elegidos.includes(v)) ? 'checked' : ''} onchange="marcarMulti('${grupo}', '${k}', this.dataset.v)">
                     <span>${esc(nombre(v))}</span><small>${d.cuenta ? d.cuenta[v] || 0 : ''}</small></label>`).join('') || '<p>Sin opciones</p>'}</div>
             </div>`}
         </div>`;
@@ -1042,16 +1046,26 @@ function abrirMulti(grupo, k) {
     g.repintar();
 }
 function marcarMulti(grupo, k, v) {
-    const g = MULTI[grupo], todos = g.valores?.[k] || [];
-    const s = g.sel[k].includes(NINGUNA) ? [] : g.sel[k].length ? g.sel[k] : todos;   // vacío = todas marcadas
+    const g = MULTI[grupo], todos = g.valores?.[k] || [], buscando = !!normalizar(g.busca || '');
+    const explicitos = g.sel[k].includes(NINGUNA) ? [] : g.sel[k];
+    // Buscando se parte de lo elegido a mano: tocar un resultado lo deja como filtro (no quita uno de "todos")
+    const s = buscando ? explicitos : explicitos.length ? explicitos : todos;   // vacío = todas marcadas
     let nuevo = s.includes(v) ? s.filter(x => x !== v) : [...s, v];
     if (todos.length && todos.every(x => nuevo.includes(x))) nuevo = [];   // quedaron todas: sin filtro
-    else if (!nuevo.length) nuevo = [NINGUNA];
+    else if (!nuevo.length) nuevo = buscando ? [] : [NINGUNA];
     g.sel[k] = nuevo;
     g.repintar();
 }
 function todasMulti(grupo, k) {
-    const g = MULTI[grupo];
+    const g = MULTI[grupo], todos = g.valores?.[k] || [];
+    if (normalizar(g.busca || '')) {
+        // Buscando: elige (o quita) todos los resultados de la búsqueda
+        const vis = g.visibles?.[k] || [], explicitos = g.sel[k].includes(NINGUNA) ? [] : g.sel[k];
+        let nuevo = vis.every(v => explicitos.includes(v)) ? explicitos.filter(v => !vis.includes(v)) : [...new Set([...explicitos, ...vis])];
+        if (todos.length && todos.every(x => nuevo.includes(x))) nuevo = [];
+        g.sel[k] = nuevo;
+        return g.repintar();
+    }
     g.sel[k] = g.sel[k].length ? [] : [NINGUNA];   // marca todas (sin filtro) o las desmarca todas
     g.repintar();
 }
