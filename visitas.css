@@ -1422,3 +1422,7 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .circ-pdf { text-decoration: none; text-align: center; border-color: #1e63c4; color: #1e63c4; }
 .pdf-circ { margin-left: 6px; font-size: 11px; font-weight: 800; color: #b42318; text-decoration: none; border: 1px solid #f5c2c2; border-radius: 5px; padding: 0 5px; background: #fff; }
 .circ-card .vend-card { display: table; }
+.circ-ctrl .ag-orden { margin-left: 0; padding: 8px 10px; font-size: 13px; width: auto; flex: 0 0 210px; }
+.circ-ctrl .mc-multi { flex: 1 1 220px; }
+.circ-pdfs { flex-wrap: wrap; gap: 8px; }
+.circ-pdf-item { display: inline-flex; align-items: center; gap: 2px; }

@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Epithelium Visita</title>
-    <link rel="stylesheet" href="styles.css?v=202609300010">
-    <link rel="stylesheet" href="visitas.css?v=202609300010">
+    <link rel="stylesheet" href="styles.css?v=202609300033">
+    <link rel="stylesheet" href="visitas.css?v=202609300033">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -94,7 +94,7 @@
                 </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 30/09/2026 00:10</p>
+                <p class="version-app">Versión 30/09/2026 00:33</p>
             </div>
         </div>
 
@@ -150,6 +150,12 @@
                 <div id="actCircCtrl" class="circ-ctrl">
                     <div class="vp-vends" id="circFiltro"></div>
                     <input type="search" id="circBuscar" class="ag-buscar-in" placeholder="Buscar circular, producto o cliente..." aria-label="Buscar circular" oninput="circulares.busca=this.value; pintarCirculares()">
+                    <select id="circOrden" class="ag-orden" aria-label="Ordenar circulares" onchange="circulares.orden=this.value; pintarCirculares()">
+                        <option value="circular">Ordenar: circular</option>
+                        <option value="ini">Ordenar: fecha de inicio</option>
+                        <option value="fin">Ordenar: fecha final</option>
+                    </select>
+                    <div class="mc-multis circ-multis" id="circMultis"></div>
                 </div>
                 <div id="actTareasCtrl" hidden>
                 <select id="actVendedor" class="solo-jefe" onchange="pintarActividades()"></select>
@@ -331,9 +337,9 @@
         </div>
     </div>
 
-    <script src="objetivos.js?v=202609300010"></script>
-    <script src="circulares.js?v=202609300010"></script>
-    <script src="productos.js?v=202609300010"></script>
-    <script src="app.js?v=202609300010"></script>
+    <script src="objetivos.js?v=202609300033"></script>
+    <script src="circulares.js?v=202609300033"></script>
+    <script src="productos.js?v=202609300033"></script>
+    <script src="app.js?v=202609300033"></script>
 </body>
 </html>
