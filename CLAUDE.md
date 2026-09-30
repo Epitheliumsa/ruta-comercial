@@ -17,14 +17,19 @@
   cumpleaños** y guardarla en `cumple: 'AAAA-MM-DD'`: ese día sale resaltado en morado clarito en el Visiplan.
 - Responder en español, con tono sencillo, claro y conciso, tuteando.
 
-## Etapa de pruebas
+## Etapa de pruebas y datos para capacitaciones
 - La app está **en pruebas**. Todo lo que se registre ahora (visitas, actividades, novedades, contactos
-  nuevos, solicitudes) es de prueba y **se debe borrar cuando la app salga en vivo**: filas de la hoja
-  `Registros` del Google Sheet de Hernán y los datos guardados en cada celular/navegador.
-- Al salir en vivo, recordarle al usuario este borrado y confirmarlo antes de hacerlo.
-- Limpieza ya preparada en `app.js`: cambiar `ETAPA_DATOS = 'pruebas'` por `'vivo'`, correr
-  `sh actualizar-version.sh` y publicar (con confirmación). Cada celular borra una vez lo de pruebas y la app
-  ignora los registros de pruebas del servidor. Después Hernán puede borrar esas filas de `Registros`.
+  nuevos, solicitudes) queda marcado como `pruebas`.
+- **Los datos de pruebas se conservan para capacitaciones: NO se borran.** Las filas de `pruebas` de la hoja
+  `Registros` del Google Sheet de Hernán se quedan ahí al salir en vivo (la app en vivo las ignora). Si algún día
+  se quiere limpiar `Registros`, antes copiar esas filas a una hoja/pestaña "Capacitación – datos de prueba".
+- Nunca guardar esos datos en este repositorio: es público y tienen nombres reales de clientes.
+- Salir en vivo (con confirmación del usuario): cambiar `ETAPA_DATOS = 'pruebas'` por `'vivo'` en `app.js`,
+  correr `sh actualizar-version.sh` y publicar. Cada celular borra una sola vez lo de pruebas que tenga guardado
+  localmente (en la hoja no se borra nada) y la app ignora los registros de pruebas del servidor.
+- Para una capacitación: armar en ese momento un "modo capacitación" que lea solo los datos de `pruebas`
+  (copia de la app con `ETAPA_DATOS = 'pruebas'`, franja visible "MODO CAPACITACIÓN", otro nombre e ícono y
+  otras llaves de almacenamiento local, para no cruzarse con la app real en el mismo celular).
 
 ## Matriz de la app (skill `matriz`)
 - Toda la configuración está en un solo archivo: `datos/Matriz_App.xlsx` (Índice, Visitas, Trabajo interno, Mensual y
