@@ -1635,6 +1635,7 @@ function pintarAgenda() {
     const internos = lista.filter(x => x.interno).length;
     // Los indicadores del día son botones: al tocarlos filtran las visitas (otro toque quita el filtro)
     const boton = (f, clase, texto) => `<button type="button" class="chip chip-filtro ${clase}${agenda.filtro === f ? ' activo' : ''}" onclick="filtrarAgenda('${f}')" aria-pressed="${agenda.filtro === f}">${texto}</button>`;
+    $('agAnillo').innerHTML = lista.length ? anilloDia(k, internos) : '';
     $('agResumen').innerHTML = lista.length
         ? boton('prog', 'prog', `<b>${k.prog}</b> ${k.prog === 1 ? 'programada' : 'programadas'}`)
             + (k.noProg ? boton('noProg', 'np', `${k.noProg} no programadas`) : '')
@@ -1728,21 +1729,12 @@ function tarjetaVisita(v, ord = null, mover = null) {
         ? `<p class="objetivos"><b>${esc(nombreTipo(v))}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}${textoSubs(v, o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}${textoSubs(v, o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidosProgramados(v).length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
-        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${noProgTxt}`;
+        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
         reporte = v.observaciones ? `<div class="reporte">${esc(v.observaciones)}</div>` : '';
     } else if (v.estado === 'visitado') {
-        const partes = [
-            `<b>${esc(v.gestion)}</b>${v.atendio ? ` · Atendió: ${esc(v.atendio)}` : ''}`,
-            v.productos ? `Productos: ${esc(v.productos)}` : '',
-            v.muestras ? `Muestras: ${esc(v.muestras)}` : '',
-            v.pedido === 'si' ? `Pedido: ${esc(textoPedidos(v) || 'sí')}${v.valorPedido ? ' · ' + pesos(v.valorPedido) : ''}` : '',
-            textoSelProductos(v.productosPedidos) ? `Productos pedidos: ${esc(textoSelProductos(v.productosPedidos))}` : '',
-            v.compromisos ? `Compromisos: ${esc(v.compromisos)}` : '',
-            v.proximaVisita ? `Próxima visita: ${esc(fechaCorta(v.proximaVisita))}` : '',
-            v.observaciones ? esc(v.observaciones) : ''
-        ].filter(Boolean);
+        const partes = partesReporte(v);
         reporte = `<div class="reporte">${partes.join('<br>')}</div>`;
     }
     if (v.estado === 'no_visitado') {
@@ -1758,6 +1750,34 @@ function tarjetaVisita(v, ord = null, mover = null) {
         ${reporte}
         ${accionesVisita(v, txtOk, txtNo)}
     </div>`;
+}
+
+// Adelantar: la visita programada para otro día se hace hoy. Queda la fecha planeada y la fecha de la visita;
+// en el Visiplan la X planeada no se mueve.
+async function adelantarVisita(id) {
+    const v = registros[id];
+    if (!v || v.estado !== 'pendiente' || v.fecha <= hoy()) return;
+    if (!await dialogo({ titulo: `¿Adelantar la visita a hoy?`, texto: `${v.contacto} estaba planeada para el ${fechaLarga(v.fecha)}. Queda para hoy y se guarda la fecha planeada.`, aceptar: 'Adelantar' })) return;
+    guardarRegistro({ ...v, fechaPlaneada: v.fechaPlaneada || v.fecha, fecha: hoy(), adelantada: true, hora: '' });
+    toast(`${v.contacto}: adelantada a hoy`);
+    elegirFecha(hoy());
+}
+
+// Reporte de una visita cerrada: cada dato con su título resaltado
+function partesReporte(v, conObjetivos) {
+    const fila = (t, val) => val ? `<span class="rep-fila"><b>${t}:</b> ${val}</span>` : '';
+    return [
+        v.gestion ? `<b>${esc(v.gestion)}</b>` : '',
+        fila('Atendió', esc(v.atendio || '')),
+        conObjetivos && (v.objetivosCumplidos || []).length ? fila('Objetivos cumplidos', v.objetivosCumplidos.map(o => esc(o) + ((v.subCumplidos || {})[o] ? ` (${v.subCumplidos[o].map(esc).join(', ')})` : '')).join(', ')) : '',
+        v.pedido === 'si' ? fila('Pedido', esc(textoPedidos(v) || 'sí') + (v.valorPedido ? ' · ' + pesos(v.valorPedido) : '')) : '',
+        fila('Productos pedidos', esc(textoSelProductos(v.productosPedidos))),
+        fila('Productos presentados', esc(v.productos || '')),
+        fila('Muestras', esc(v.muestras || '')),
+        fila('Compromisos', esc(v.compromisos || '')),
+        v.proximaVisita ? fila('Próxima visita', esc(fechaCorta(v.proximaVisita)) + (v.proximaHora ? ' · ' + esc(horaBonita(v.proximaHora)) : '')) : '',
+        v.observaciones ? fila('Observaciones', esc(v.observaciones)) : ''
+    ].filter(Boolean);
 }
 
 // Insignias de orden: Prog (azul, lo pone el vendedor; con flechas mientras la programación está abierta) y Real (verde)
@@ -1781,7 +1801,8 @@ function accionesVisita(v, txtOk, txtNo) {
     }
     const editar = `<button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>`;
     if (v.fecha > hoy()) {
-        return `<div class="acciones"><span class="nota-cierre">Se reporta desde el ${esc(fechaCorta(v.fecha))} hasta el ${esc(textoCierre(v))}</span>${editar}${eliminar}</div>`;
+        const puede = sesion.id === v.vendedor || esAdmin();
+        return `<div class="acciones">${puede ? `<button class="bv adelantar" onclick="adelantarVisita('${v.id}')">⏩ Adelantar a hoy</button>` : ''}<span class="nota-cierre">Se reporta desde el ${esc(fechaCorta(v.fecha))} hasta el ${esc(textoCierre(v))}</span>${editar}${eliminar}</div>`;
     }
     return `<div class="acciones">
             <button class="bv ok" onclick="abrirRegistro('${v.id}','ok')">✓ ${txtOk}</button>
@@ -2241,6 +2262,8 @@ async function guardarProgramada(e, id) {
         id: nuevoId(), clase: 'visita', vendedor: agenda.vendedor, estado: 'pendiente',
         creado: new Date().toISOString(), creadoPor: sesion.id
     };
+    // Si al editar se cambia la fecha, la visita queda como reprogramada (en rojo) y en el Visiplan la X planeada no se mueve
+    if (antes && antes.fecha !== fecha && !antes.adelantada) Object.assign(v, { origen: 'reprogramada', vieneDe: antes.vieneDe || antes.fecha });
     Object.assign(v, {
         interno,
         contacto: interno ? tipo : (c.n || nombre), tipoContacto: c.e || '', ciudad: c.c || '',
@@ -2524,7 +2547,8 @@ function abrirRegistro(id, tipo) {
             <textarea id="rCompromisos" maxlength="100" ${cuentaNota('rCompromisos')} placeholder="Ej: volver el 15 con la lista de precios">${esc(ya ? v.compromisos : '')}</textarea>
             ${contadorNota('rCompromisos')}
             <label for="rProxima">Próxima visita <small>(opcional: queda programada en ese día y en el Visiplan)</small></label>
-            <input id="rProxima" type="date" min="${sumarDias(v.fecha, 1)}">
+            <div class="fila-fecha compacta"><div><label for="rProxima">Fecha</label><input id="rProxima" type="date" min="${sumarDias(v.fecha, 1)}"></div>
+                <div><label for="rProximaHora">Cita fija <small>(opcional)</small></label><input id="rProximaHora" type="time" title="Solo si es una reunión fija"></div></div>
             <div class="form-botones">
                 <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn-primario">Guardar visita</button>
@@ -2599,7 +2623,7 @@ function guardarVisitado(e, id) {
         pedidos, pedido: pedidos.length ? 'si' : 'no', valorPedido: '',
         compromisos: $('rCompromisos').value.trim(),
         observaciones: '',
-        proximaVisita: $('rProxima').value || '',
+        proximaVisita: $('rProxima').value || '', proximaHora: $('rProxima').value ? $('rProximaHora').value : '',
         registrada: new Date().toISOString()
     };
     guardarRegistro(v);
@@ -2617,7 +2641,7 @@ function agendarProxima(antes) {
         id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente', origen: 'proxima',
         contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
         esProyecto: !!antes.esProyecto, contactoProyecto: antes.contactoProyecto || '',
-        fecha, hora: '', objetivo: antes.compromisos || '', vieneDe: antes.fecha,
+        fecha, hora: antes.proximaHora || '', objetivo: antes.compromisos || '', vieneDe: antes.fecha,
         modalidad: antes.modalidad, tipoVisita: antes.tipoVisita, tiposVisita: antes.tiposVisita, objetivos: antes.objetivos || [], interno: false,
         programada: Date.now() < limiteProgramacion(fecha),
         creado: new Date().toISOString(), creadoPor: sesion.id
@@ -2640,17 +2664,7 @@ function verCliente(nombre, vendedor) {
     const estadoTxt = { visitado: ['ok', 'Visitado'], no_visitado: ['no', 'No visitado'], pendiente: ['p', 'Pendiente'] };
     const filas = lista.map(x => {
         const [cls, txt] = estadoTxt[x.estado] || ['p', x.estado];
-        const partes = x.estado === 'visitado' ? [
-            x.gestion ? `<b>${esc(x.gestion)}</b>${x.atendio ? ` · Atendió: ${esc(x.atendio)}` : ''}` : '',
-            (x.objetivosCumplidos || []).length ? `Objetivos cumplidos: ${x.objetivosCumplidos.map(o => esc(o) + ((x.subCumplidos || {})[o] ? ` (${x.subCumplidos[o].map(esc).join(', ')})` : '')).join(', ')}` : '',
-            x.productos ? `Productos: ${esc(x.productos)}` : '',
-            x.muestras ? `Muestras: ${esc(x.muestras)}` : '',
-            x.pedido === 'si' ? `Pedido: ${esc(textoPedidos(x) || 'sí')}${x.valorPedido ? ' · ' + pesos(x.valorPedido) : ''}` : '',
-            textoSelProductos(x.productosPedidos) ? `Productos pedidos: ${esc(textoSelProductos(x.productosPedidos))}` : '',
-            x.compromisos ? `Compromisos: ${esc(x.compromisos)}` : '',
-            x.proximaVisita ? `Próxima visita: ${esc(fechaCorta(x.proximaVisita))}` : '',
-            x.observaciones ? esc(x.observaciones) : ''
-        ] : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
+        const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
             <p class="meta">${esc([nombreTipo(x), modalidadDe(x), nombreVendedor(x.vendedor)].filter(Boolean).join(' · '))}</p>
@@ -2861,6 +2875,28 @@ function moverMesPanel(n) {
 }
 
 // Indicadores de visitas (el trabajo interno no cuenta). Cumplimiento = visitadas de las programadas
+// Anillo del día: visitadas, no visitadas, pendientes y trabajo interno, con el número de cada una
+function anilloDia(k, internos) {
+    const partes = [
+        { t: 'Visitadas', n: k.ok, c: '#16a34a', f: 'ok' }, { t: 'No visitadas', n: k.no, c: '#dc2626', f: 'no' },
+        { t: 'Pendientes', n: k.p, c: '#d97706', f: 'p' }, { t: 'Trabajo interno', n: internos, c: '#94a3b8', f: 'interno' }
+    ];
+    const total = partes.reduce((s, x) => s + x.n, 0);
+    if (!total) return '';
+    const R = 42, C = 2 * Math.PI * R, hueco = partes.filter(x => x.n).length > 1 ? 2 : 0;
+    let ac = 0;
+    const arcos = partes.filter(x => x.n).map(x => {
+        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)" onclick="filtrarAgenda('${x.f}')" style="cursor:pointer"><title>${x.t}: ${x.n}</title></circle>`;
+        ac += largo;
+        return arco;
+    }).join('');
+    const visitas = k.t;
+    return `<div class="anillo-dia"><svg viewBox="0 0 110 110" role="img" aria-label="Visitas del día">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
+            <text x="55" y="53" text-anchor="middle" class="an-n">${visitas}</text><text x="55" y="68" text-anchor="middle" class="an-t">${visitas === 1 ? 'visita' : 'visitas'}</text></svg>
+        <ul class="anillo-ley">${partes.map(x => `<li class="${x.n ? '' : 'cero'}" onclick="filtrarAgenda('${x.f}')"><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b></li>`).join('')}
+            <li class="sep">Programadas<b>${k.prog}</b></li><li class="sep">No programadas<b>${k.noProg}</b></li></ul></div>`;
+}
+
 function cuentaVisitas(todas) {
     const lista = todas.filter(v => !v.interno);
     const ok = lista.filter(v => v.estado === 'visitado').length;
@@ -3230,7 +3266,7 @@ function armarLibro(mes, vend, solo) {
     // Visitas
     const h = hoja('Visitas');
     const colsV = [
-        { t: 'Fecha', w: 12, f: 'dd/mm/yyyy' }, { t: 'Cita fija', w: 10 }, { t: 'Vendedor', w: 20 }, { t: 'Contacto', w: 32 },
+        { t: 'Fecha', w: 12, f: 'dd/mm/yyyy' }, { t: 'Fecha planeada', w: 12, f: 'dd/mm/yyyy' }, { t: 'Cita fija', w: 10 }, { t: 'Vendedor', w: 20 }, { t: 'Contacto', w: 32 },
         { t: 'Tipo de contacto', w: 24 }, { t: 'Ciudad', w: 14 }, { t: 'Programada', w: 12 }, { t: 'Modalidad', w: 12 },
         { t: 'Tipo de visita', w: 26 }, { t: 'Objetivos', w: 36, wrap: true }, { t: 'Subcategorías programadas', w: 40, wrap: true },
         { t: 'Objetivos cumplidos', w: 36, wrap: true }, { t: 'Subcategorías cumplidas', w: 40, wrap: true },
@@ -3244,7 +3280,7 @@ function armarLibro(mes, vend, solo) {
     // Fecha y hora de Colombia para Excel (que no maneja zonas horarias)
     const horaCol = t => t ? new Date(Date.parse(t) - 5 * 3600000) : null;
     tabla(h, 'TablaVisitas', colsV, vis.map(v => [
-        fecha(v.fecha), v.hora || '', nombreVendedor(v.vendedor), v.interno ? '' : v.contacto, v.tipoContacto || '', v.ciudad || '',
+        fecha(v.fecha), fecha(v.fechaPlaneada || (v.vieneDe && v.origen === 'reprogramada' ? v.vieneDe : v.fecha)), v.hora || '', nombreVendedor(v.vendedor), v.interno ? '' : v.contacto, v.tipoContacto || '', v.ciudad || '',
         esProgramada(v) ? 'Sí' : 'No', v.interno ? '' : modalidadDe(v), nombreTipo(v), (v.objetivos || []).join(', '), textoSubsExcel(v.subobjetivos),
         v.estado === 'visitado' ? (v.objetivosCumplidos || []).join(', ') : '', v.estado === 'visitado' ? textoSubsExcel(v.subCumplidos) : '',
         v.estado === 'visitado' && v.objetivos?.length ? cumplidosProgramados(v).length / v.objetivos.length : null,
