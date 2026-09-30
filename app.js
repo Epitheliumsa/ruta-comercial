@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292354';
+const APP_VERSION = '202609300010';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -95,9 +95,29 @@ function unirListas(listas) {
     const base = [...listas].sort((a, b) => b.length - a.length)[0] || [];
     return [...base, ...listas.flat().filter((x, i, arr) => !base.includes(x) && arr.indexOf(x) === i)];
 }
-const subcategoriasDe = (tipo, nuevo, objetivo, mes) => esVariable(objetivo)
+const subcategoriasDe = (tipo, nuevo, objetivo, mes) => objetivo === 'Actividades' && CIRCULARES.length
+    ? circularesDelCliente(ctxCircular.cliente, ctxCircular.fecha).map(etiquetaCircular)
+    : esVariable(objetivo)
     ? listasDelMes(mes)[objetivo] || []
     : unirListas(listaTipos(tipo).map(t => ((MATRIZ.subcategorias || {})[claveTipo(t, nuevo)] || {})[objetivo] || []));
+// ---------- CIRCULARES (circulares.js, desde datos/Circulares.xlsx con herramientas/circulares.py) ----------
+// En la visita, el objetivo "Actividades" muestra como subcategorías las circulares vigentes en la fecha de la
+// visita que van dirigidas a ese cliente (por su clasificación o por su nombre); las internas no salen.
+const CIRCULARES = window.CIRCULARES || [];
+let ctxCircular = { cliente: null, fecha: '' };
+const estadoCircular = (c, d = hoy()) => c.ini && c.ini > d ? 'proxima' : !c.fin || c.fin >= d ? 'vigente' : 'vencida';
+const etiquetaCircular = c => `${c.c} · ${c.nombre}`;
+const circularDeEtiqueta = t => CIRCULARES.find(c => etiquetaCircular(c) === t);
+function circularesDelCliente(cliente, fecha) {
+    const d = fecha || hoy();
+    return CIRCULARES.filter(c => !c.interna && estadoCircular(c, d) === 'vigente')
+        .filter(c => !(cliente && c.excluidos.includes(cliente.n)))
+        .filter(c => c.todos || (cliente && (c.canales.includes(String(cliente.cl || '')) || c.clientes.includes(cliente.n))));
+}
+// Enlaces al PDF (Drive) que pegan los jefes en la app; si no hay, el del Excel
+const ID_PDF_CIRC = 'circulares-pdf';
+const pdfCircular = c => (registros[ID_PDF_CIRC]?.links || {})[c.c] || c.pdf || '';
+
 // Une listas de subcategorías respetando el orden de la más completa
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
@@ -544,7 +564,8 @@ function pintarInicio() {
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     $('solicitudesTxt').textContent = sols.length ? `${sols.length} por revisar` : 'No hay solicitudes pendientes';
-    $('homeActTxt').textContent = acts.length ? `${hechas} de ${acts.length} realizadas este mes` : 'Sin actividades programadas este mes';
+    const vigentes = CIRCULARES.filter(c => estadoCircular(c) === 'vigente').length;
+    $('homeActTxt').textContent = `${vigentes} ${vigentes === 1 ? 'circular vigente' : 'circulares vigentes'}` + (acts.length ? ` · ${hechas} de ${acts.length} tareas del mes` : '');
     pintarEstadoSync();
 }
 
@@ -2241,6 +2262,7 @@ function pintarObjetivos(marcados, subsMarcados) {
     const tipo = tiposElegidos(), nuevo = origenElegido() === 'nuevo', cont = $('fObjetivos');
     const actuales = marcados || leerObjetivos(cont);
     const subs = subsMarcados || leerSubs(cont);
+    ctxCircular = { cliente: clienteDelForm() || null, fecha: $('fFecha').value || agenda.fecha };
     const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : objetivosDeTipos(tipo, nuevo);
     $('cajaObjetivos').hidden = !lista.length;
     const textoAntes = $('fPersonal') ? $('fPersonal').value : textoPersonalForm;
@@ -2272,6 +2294,11 @@ const tonoObjetivo = o => TONO_OBJETIVO[o] ?? [...o].reduce((h, c) => (h * 31 + 
 // Subcategorías guardadas con el nombre anterior (antes de pasarlas a nombre propio o renombrarlas)
 const SUBS_VIEJAS = { 'precios de la competencia': 'Chequeo de Precios', 'presentacion del protocolo': 'Presentación Protocolo Médico' };
 const tieneSub = (arr, x) => (arr || []).some(y => normalizar(SUBS_VIEJAS[normalizar(y)] || y) === normalizar(x));
+// En "Actividades", cada circular trae su PDF (si ya se pegó el enlace)
+function enlacePdfSub(o, x) {
+    const c = o === 'Actividades' && circularDeEtiqueta(x), url = c && pdfCircular(c);
+    return url ? `<a class="pdf-circ" href="${esc(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF</a>` : '';
+}
 function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {} }) {
     return lista.map(o => {
         const sc = subcategoriasDe(tipo, nuevo, o, mes);
@@ -2279,7 +2306,8 @@ function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, prog
         const abierto = marcados.includes(o) || prog;
         const estilo = (lo, de) => programados ? (tieneSub(de, lo) ? ' programado' : ' no-programado') : '';
         const cajaSubs = sc.length
-            ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span></label>`).join('')}</div>`
+            ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`).join('')}</div>`
+            : o === 'Actividades' && CIRCULARES.length ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">No hay circulares vigentes para este cliente en esta fecha.</p></div>`
             : esVariable(o) ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">Aún no se cargan ${o === 'Parrilla Promocional' ? 'los productos de la parrilla' : 'las actividades'} de ${nombreMes(mes)}.</p></div>` : '';
         return `<div class="obj-item${abierto && cajaSubs ? ' abierto' : ''}" style="--h:${tonoObjetivo(o)}"><label class="check${estilo(o, programados || [])}"><input type="checkbox" class="obj" value="${esc(o)}" ${marcados.includes(o) ? 'checked' : ''} onchange="abrirSubs(this)"><span>${esc(o)}</span></label>${cajaSubs}</div>`;
     }).join('');
@@ -2675,6 +2703,7 @@ function abrirRegistro(id, tipo) {
     const opciones = (lista, actual) => lista.map(o => `<option ${o === actual ? 'selected' : ''}>${esc(o)}</option>`).join('');
     if (!puedeReportar(v)) return toast(v.estado !== 'pendiente' ? 'Esta visita ya se cerró y no se puede modificar' : 'El plazo para reportar esta visita ya cerró');
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
+    ctxCircular = { cliente: mc || null, fecha: v.fecha };
     const cab = (v.interno ? `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`
         : `<p class="cierre-cliente">${esc(v.contacto)}</p>${mc && (mc.cl || mc.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(mc.cl || '')}</b>${mc.ca ? ' · ' + esc(mc.ca) : ''}</p>` : ''}
         <p class="sub">${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`) + `
@@ -2950,8 +2979,77 @@ function guardarNoVisitado(e, id) {
     pintarAgenda();
 }
 
-// ---------- ACTIVIDADES DEL MES ----------
+// ---------- ACTIVIDADES-CIRCULARES ----------
+// Dos vistas: Circulares (resumen con estado, días que faltan y PDF) y Tareas del mes (lo de antes)
+let actVista = 'circulares';
+const circulares = { filtro: 'vigente', busca: '' };
+function verActividades(v) {
+    actVista = v;
+    document.querySelectorAll('.act-vistas button').forEach(b => b.classList.toggle('activo', b.dataset.v === v));
+    $('actCircCtrl').hidden = v !== 'circulares';
+    $('actTareasCtrl').hidden = v !== 'tareas';
+    pintarActividades();
+}
+const diasEntre = (a, b) => Math.round((deIso(b) - deIso(a)) / 864e5);
+function diasCircular(c) {
+    const e = estadoCircular(c);
+    if (e === 'vencida') return '---';
+    if (e === 'proxima') return `Empieza en ${diasEntre(hoy(), c.ini)} d`;
+    if (!c.fin) return 'Indefinido';
+    const n = diasEntre(hoy(), c.fin);
+    return n === 0 ? 'Vence hoy' : `${n} ${n === 1 ? 'día' : 'días'}`;
+}
+const rangoCircular = c => `${fechaCorta(c.ini)}${c.fin ? (c.fin === c.ini ? '' : ' al ' + fechaCorta(c.fin)) : ' · sin fecha fin'} ${c.ini.slice(0, 4)}`;
+function pintarCirculares() {
+    const cuenta = { vigente: 0, vencida: 0, proxima: 0 };
+    CIRCULARES.forEach(c => cuenta[estadoCircular(c)]++);
+    const f = circulares.filtro, q = normalizar(circulares.busca || '');
+    const chip = (k, t, n) => `<button type="button" class="vp-vend-btn${f === k ? ' activo' : ''}" onclick="circulares.filtro='${k}'; pintarCirculares()">${t}${n !== undefined ? ` <small>${n}</small>` : ''}</button>`;
+    $('circFiltro').innerHTML = chip('vigente', 'Vigentes', cuenta.vigente) + (cuenta.proxima ? chip('proxima', 'Próximas', cuenta.proxima) : '') + chip('vencida', 'Vencidas', cuenta.vencida) + chip('todas', 'Todas', CIRCULARES.length);
+    const orden = { vigente: 0, proxima: 1, vencida: 2 };
+    const lista = CIRCULARES.filter(c => f === 'todas' || estadoCircular(c) === f)
+        .filter(c => !q || normalizar([c.c, c.nombre, c.tipo, c.dirigida, c.producto, c.resumen].join(' ')).includes(q))
+        .sort((a, b) => orden[estadoCircular(a)] - orden[estadoCircular(b)] || (a.fin || '9999').localeCompare(b.fin || '9999') || b.c.localeCompare(a.c));
+    const chipEstado = { vigente: '<span class="chip ok">Vigente</span>', vencida: '<span class="chip no">Vencida</span>', proxima: '<span class="chip azul">Próxima</span>' };
+    const tarjeta = c => {
+        const e = estadoCircular(c), url = pdfCircular(c);
+        return `<div class="producto-card circ-card ${e}">
+            <div class="visita-cab"><div><span class="vend-card">Circular ${esc(c.c)}</span><h3>${esc(c.nombre)}</h3></div>${chipEstado[e]}</div>
+            <p class="meta">${esc([c.tipo, c.grupo].filter(Boolean).join(' · '))}</p>
+            <p class="circ-fechas"><span>${esc(rangoCircular(c))}</span><b class="${e}">${esc(diasCircular(c))}</b></p>
+            <p class="nota-plan"><b>Dirigida a:</b> ${esc(c.dirigida)}${c.interna ? ' <small class="ayuda">(interna: no sale en las visitas)</small>' : ''}</p>
+            ${c.producto ? `<p class="nota-plan"><b>Producto:</b> ${esc(c.producto)}</p>` : ''}
+            ${c.objetivo ? `<p class="nota-plan"><b>Objetivo:</b> ${esc(c.objetivo)}</p>` : ''}
+            ${c.resumen ? `<details class="circ-resumen"><summary>Resumen de la actividad</summary><p>${esc(c.resumen)}</p></details>` : ''}
+            ${c.obs ? `<p class="ayuda">${esc(c.obs)}</p>` : ''}
+            <div class="acciones">${url ? `<a class="bv ok circ-pdf" href="${esc(url)}" target="_blank" rel="noopener">📄 Ver PDF</a>` : '<span class="nota-cierre">Sin PDF</span>'}
+                ${esJefe() ? `<button class="link-mini" onclick="pegarPdfCircular('${esc(c.c)}')">${url ? 'Cambiar enlace del PDF' : '+ Pegar enlace del PDF'}</button>` : ''}</div>
+        </div>`;
+    };
+    $('actLista').innerHTML = lista.length ? lista.map(tarjeta).join('') : `<div class="no-results">${CIRCULARES.length ? 'No hay circulares con este filtro.' : 'Todavía no se han cargado circulares.'}</div>`;
+}
+// El jefe sube el PDF a Google Drive y pega aquí el enlace (queda para todo el equipo)
+async function pegarPdfCircular(codigo) {
+    const c = CIRCULARES.find(x => x.c === codigo);
+    const url = await dialogo({ titulo: `PDF de la circular ${codigo}`, texto: 'Sube el PDF a Google Drive, compártelo con "Cualquier persona con el enlace" y pega aquí el enlace. Déjalo vacío para quitarlo.', campo: 'https://drive.google.com/...', aceptar: 'Guardar' });
+    if (url === null) return;
+    const limpio = url.trim();
+    if (limpio && !/^https?:\/\//i.test(limpio)) return toast('El enlace debe empezar por https://');
+    const r = registros[ID_PDF_CIRC] || { id: ID_PDF_CIRC, clase: 'mensual', creado: new Date().toISOString() };
+    const links = { ...(r.links || {}) };
+    if (limpio) links[codigo] = limpio; else delete links[codigo];
+    guardarRegistro({ ...r, vendedor: sesion.id, fecha: hoy(), links });
+    toast(limpio ? `PDF de ${c ? c.nombre : codigo} guardado` : 'Enlace quitado');
+    pintarCirculares();
+}
+// El registro de enlaces viaja con los datos del mes: si es de un mes anterior, el jefe lo renueva al abrir
+function renovarPdfCirculares() {
+    const r = registros[ID_PDF_CIRC];
+    if (esJefe() && r && !r.borrado && mesDe(r.fecha || '') !== mesDe(hoy())) guardarRegistro({ ...r, vendedor: sesion.id, fecha: hoy() });
+}
+
 function abrirActividades() {
+    renovarPdfCirculares();
     if (!esJefe()) $('actVendedor').value = sesion.id;
     else if (esComercial() && !abrirActividades.yaAbrio) $('actVendedor').value = sesion.id;
     abrirActividades.yaAbrio = true;
@@ -2970,6 +3068,7 @@ function vendedorActividades() {
 }
 
 function pintarActividades() {
+    if (actVista === 'circulares') return pintarCirculares();
     const vend = vendedorActividades();
     const lista = actividadesMes(mesAct, vend)
         .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || a.titulo.localeCompare(b.titulo));

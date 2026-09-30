@@ -1400,3 +1400,25 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .checks .obj-item.personal > .check input { accent-color: #dc2626; }
 .checks .obj-item.personal.abierto { background: #fff5f5; border-color: #fca5a5; }
 .obj-item.personal .subs input { border-color: #fca5a5; }
+
+/* Actividades-Circulares */
+.act-vistas { display: flex; gap: 4px; background: #e3ecf8; border-radius: 10px; padding: 3px; margin-bottom: 10px; }
+.act-vistas button { flex: 1; border: 0; background: transparent; padding: 8px 0; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 700; color: #1e4f96; cursor: pointer; }
+.act-vistas button.activo { background: #1e63c4; color: #fff; }
+.circ-ctrl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.circ-ctrl .ag-buscar-in { flex: 1 1 260px; min-width: 0; margin: 0; padding: 9px 12px; border: 1px solid #cfdcef; border-radius: 10px; font: inherit; font-size: 14px; }
+.circ-ctrl .vp-vend-btn small { font-weight: 800; }
+.circ-card { border-left-color: #1e63c4; }
+.circ-card.vencida { border-left-color: #e8a3a3; background: linear-gradient(135deg, #fff 70%, #fdf1f1 100%); }
+.circ-card.vencida h3 { color: #8a5a5a; }
+.circ-card .vend-card { background: #1e63c4; }
+.circ-card.vencida .vend-card { background: #9a6b6b; }
+.circ-fechas { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; padding: 6px 10px; background: #f1f5fb; border-radius: 8px; font-size: 13px; color: #334155; }
+.circ-fechas b { font-size: 15px; color: #1e63c4; }
+.circ-fechas b.vencida { color: #9aa5a2; letter-spacing: .1em; }
+.circ-resumen { margin: 6px 0; font-size: 13px; color: #475569; }
+.circ-resumen summary { cursor: pointer; font-weight: 700; color: #1e4f96; }
+.circ-resumen p { margin: 6px 0 0; line-height: 1.45; }
+.circ-pdf { text-decoration: none; text-align: center; border-color: #1e63c4; color: #1e63c4; }
+.pdf-circ { margin-left: 6px; font-size: 11px; font-weight: 800; color: #b42318; text-decoration: none; border: 1px solid #f5c2c2; border-radius: 5px; padding: 0 5px; background: #fff; }
+.circ-card .vend-card { display: table; }

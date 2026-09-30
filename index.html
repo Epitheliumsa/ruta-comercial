@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Epithelium Visita</title>
-    <link rel="stylesheet" href="styles.css?v=202609292354">
-    <link rel="stylesheet" href="visitas.css?v=202609292354">
+    <link rel="stylesheet" href="styles.css?v=202609300010">
+    <link rel="stylesheet" href="visitas.css?v=202609300010">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -66,7 +66,7 @@
                 </button>
                 <button class="home-btn home-btn-act" onclick="abrirActividades()">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 12h22M17 24h22M17 36h22"/><path d="M6 11l3 3 5-5M6 23l3 3 5-5"/><rect x="6" y="33" width="7" height="7" rx="1.5"/></svg>
-                    <span class="home-btn-text"><strong>Actividades del mes</strong><small id="homeActTxt">Lo que tienes programado este mes</small></span>
+                    <span class="home-btn-text"><strong>Actividades-Circulares</strong><small id="homeActTxt">Circulares vigentes y tareas del mes</small></span>
                 </button>
                 <button class="home-btn home-btn-maestra" onclick="abrirMaestra()">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="6" width="32" height="36" rx="3"/><circle cx="24" cy="18" r="5"/><path d="M15 32c1.5-5 5-7 9-7s7.5 2 9 7"/><path d="M15 37h18"/></svg>
@@ -94,7 +94,7 @@
                 </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 29/09/2026 23:54</p>
+                <p class="version-app">Versión 30/09/2026 00:10</p>
             </div>
         </div>
 
@@ -137,12 +137,21 @@
             <div class="header">
                 <div class="header-logo">
                     <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
-                    <h1>Actividades del mes</h1>
+                    <h1>Actividades-Circulares</h1>
                 </div>
                 <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
             </div>
 
             <div class="filters filtros-rc">
+                <div class="act-vistas" role="tablist">
+                    <button type="button" data-v="circulares" class="activo" onclick="verActividades('circulares')">Circulares</button>
+                    <button type="button" data-v="tareas" onclick="verActividades('tareas')">Tareas del mes</button>
+                </div>
+                <div id="actCircCtrl" class="circ-ctrl">
+                    <div class="vp-vends" id="circFiltro"></div>
+                    <input type="search" id="circBuscar" class="ag-buscar-in" placeholder="Buscar circular, producto o cliente..." aria-label="Buscar circular" oninput="circulares.busca=this.value; pintarCirculares()">
+                </div>
+                <div id="actTareasCtrl" hidden>
                 <select id="actVendedor" class="solo-jefe" onchange="pintarActividades()"></select>
                 <div class="nav-fecha">
                     <button class="btn-nav" onclick="moverMesAct(-1)" aria-label="Mes anterior">&lsaquo;</button>
@@ -152,6 +161,7 @@
                 <div class="progreso"><span class="barra"><i id="actBarra"></i></span><b id="actPct"></b></div>
                 <div class="fila-botones">
                     <button class="btn-nuevo active" onclick="abrirActividad()">+ Nueva actividad</button>
+                </div>
                 </div>
             </div>
 
@@ -321,8 +331,9 @@
         </div>
     </div>
 
-    <script src="objetivos.js?v=202609292354"></script>
-    <script src="productos.js?v=202609292354"></script>
-    <script src="app.js?v=202609292354"></script>
+    <script src="objetivos.js?v=202609300010"></script>
+    <script src="circulares.js?v=202609300010"></script>
+    <script src="productos.js?v=202609300010"></script>
+    <script src="app.js?v=202609300010"></script>
 </body>
 </html>
