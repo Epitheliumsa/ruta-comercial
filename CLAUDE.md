@@ -13,6 +13,8 @@
 - Servidor: `backend/Codigo.gs` en Google Apps Script (hoja de Hernán Reyes). Si cambia, Hernán debe
   pegarlo y crear una **Nueva versión** de la implementación existente (así la URL no cambia).
 - Contactos: `contactos.json` (Maestra de Contactos por zona).
+- Usuarios en `USUARIOS` (`app.js`). **Al crear un comercial (o cualquier usuario) pedir siempre su fecha de
+  cumpleaños** y guardarla en `cumple: 'AAAA-MM-DD'`: ese día sale resaltado en morado clarito en el Visiplan.
 - Responder en español, con tono sencillo, claro y conciso, tuteando.
 
 ## Etapa de pruebas

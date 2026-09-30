@@ -2,21 +2,23 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292226';
+const APP_VERSION = '202609292235';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
 const ZONA_POR_ASIGNAR = 'Zona por asignar';
 
-// Usuarios: la clave no se guarda aquí, solo su huella SHA-256 de "usuario:clave" (en minúsculas)
+// Usuarios: la clave no se guarda aquí, solo su huella SHA-256 de "usuario:clave" (en minúsculas).
+// cumple = fecha de nacimiento (AAAA-MM-DD): al crear un comercial se pide siempre; su día sale en morado en el Visiplan
 const USUARIOS = [
-    { usuario: 'L.Ramos',     huella: 'afecd958a07662fa1c466a63fa799f91873a1371f878dc6e4bd6c35ffce87617', tipo: 'comercial', id: 'lramos',     nombre: 'Lizeth Ramos',      zona: 'Zona Norte' },
-    { usuario: 'Y.Caballero', huella: 'df5769c03aec2c0300cd912335962a57617271fa86e0ef852d5d959895c6ecab', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur' },
-    { usuario: 'J.Herrera',   huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', jefe: true, cargo: 'Coordinadora Comercial' },
-    { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'comercial', id: 'mcastro',    nombre: 'M. Castro',         zona: ZONA_POR_ASIGNAR },
-    { usuario: 'H.Reyes',     huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', admin: true, cargo: 'Gerente General' }
+    { usuario: 'L.Ramos',     huella: 'afecd958a07662fa1c466a63fa799f91873a1371f878dc6e4bd6c35ffce87617', tipo: 'comercial', id: 'lramos',     nombre: 'Lizeth Ramos',      zona: 'Zona Norte', cumple: '1992-02-16' },
+    { usuario: 'Y.Caballero', huella: 'df5769c03aec2c0300cd912335962a57617271fa86e0ef852d5d959895c6ecab', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur', cumple: '1989-03-26' },
+    { usuario: 'J.Herrera',   huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', cumple: '1988-04-03', jefe: true, cargo: 'Coordinadora Comercial' },
+    { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'comercial', id: 'mcastro',    nombre: 'M. Castro',         zona: ZONA_POR_ASIGNAR, cumple: '1999-07-09' },
+    { usuario: 'H.Reyes',     huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
+const esCumple = (id, d) => { const u = USUARIOS.find(x => x.id === id); return !!u?.cumple && u.cumple.slice(5) === d.slice(5); };
 
 // Acceso directo al Vademécum Epithelium: los dos sitios están en epitheliumsa.github.io y comparten el
 // almacenamiento del navegador, así que se deja la sesión del Vademécum lista con el mismo perfil que
@@ -1274,10 +1276,12 @@ function pintarVisiplan() {
 
     const fs = d => deIso(d).getDay() === 6 ? ' fs' : '';   // último día de la semana: línea más fuerte
     const diaPlanHead = d => vista.some(v => seg[v.id].diasPlaneacion.has(d)) ? ' dia-plan' : '';
+    // Cumpleaños del vendedor: la columna del día queda en morado clarito
+    const cumpleHead = d => vista.filter(v => esCumple(v.id, d));
     const cab1 = semanas.map((s, i) => `<th colspan="${s.dias.length * 2}" class="vp-sem">Semana ${i + 1}</th>`).join('');
-    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${claseDia(d)}${diaPlanHead(d)} ir" onclick="irDiaPlan('${d}')" title="${esc(nombreFestivo(d) || (diaPlanHead(d) ? 'Planeación Mes · ' : '') + fechaLarga(d))} · toca para abrir el Plan de Trabajo${visiplan.vendedores.length > 1 ? ' de ' + esc(nombreVendedor(visiplan.vendedores[0])) : ''}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
-    const cab3 = dias.map(d => `<th class="vp-sub plan${claseDia(d)}">P</th><th class="vp-sub real${fs(d)}${claseDia(d)}">R</th>`).join('');
-    const dp = (v, d) => seg[v].diasPlaneacion.has(d) ? ' dia-plan' : '';
+    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${claseDia(d)}${diaPlanHead(d)}${cumpleHead(d).length ? ' cumple' : ''} ir" onclick="irDiaPlan('${d}')" title="${cumpleHead(d).length ? '🎂 Cumpleaños de ' + esc(cumpleHead(d).map(v => v.nombre).join(', ')) + ' · ' : ''}${esc(nombreFestivo(d) || (diaPlanHead(d) ? 'Planeación Mes · ' : '') + fechaLarga(d))} · toca para abrir el Plan de Trabajo${visiplan.vendedores.length > 1 ? ' de ' + esc(nombreVendedor(visiplan.vendedores[0])) : ''}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
+    const cab3 = dias.map(d => { const cu = cumpleHead(d).length ? ' cumple' : ''; return `<th class="vp-sub plan${claseDia(d)}${cu}">P</th><th class="vp-sub real${fs(d)}${claseDia(d)}${cu}">R</th>`; }).join('');
+    const dp = (v, d) => (seg[v].diasPlaneacion.has(d) ? ' dia-plan' : '') + (esCumple(v, d) ? ' cumple' : '');
     const celdas = (c, m, r, px) => dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${claseDia(d)}${dp(c.v, d)}" data-c="${esc(c.n)}" data-v="${c.v}" data-d="${d}"></td>`
         + `<td data-d="${d}" class="vp-r h${fs(d)}${r.has(d) ? ' on' : px.has(d) ? ' prox' : ''}${claseDia(d)}${dp(c.v, d)}"${!r.has(d) && px.has(d) ? ' title="Reprogramada: pasa a verde cuando se visite"' : ''}></td>`).join('');
     const vacio = new Set();
