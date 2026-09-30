@@ -1235,3 +1235,18 @@ a.home-btn { text-decoration: none; }
 .con-guia.ver .info-etq { background: #fde68a; }
 .sel-cerradas .con-guia { flex: 1 1 160px; }
 .sel-cerradas .btn-etq { flex: 1 1 auto; }
+/* Cierre: etiquetas en fila (botones) y la lista abre debajo */
+.sel-prod { display: block; position: relative; }
+.sel-etqs { display: flex; flex-wrap: wrap; gap: 6px; }
+.sel-etqs .con-guia { flex: 0 1 auto; }
+.sel-etqs .btn-etq { padding: 0 14px; min-height: 38px; flex: 0 1 auto; white-space: nowrap; }
+.dd-btn.btn-etq { font: inherit; font-size: 13.5px; font-weight: 600; }
+.dd-btn.con, .dd-btn.abierto { background: #e3f1ef; border-color: #0f766e; color: #0b5c56; }
+.dd-btn:disabled { color: #a8b5b2; background: #f7faf9; cursor: default; }
+.sel-prod > .dd-panel { position: static; margin-top: 6px; box-shadow: 0 6px 16px rgba(0, 50, 40, .12); }
+.dd-titulo { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #0c6660; }
+.dd-elegidos { margin-top: 6px; }
+.info-etq { flex: 0 0 34px; }
+.cierre-cliente { margin: 2px 0 0; font-size: 18px; font-weight: 800; color: #1f2937; }
+.fila-pedido { grid-template-columns: 200px 1fr auto; }
+.p-check { margin: 0 !important; }
