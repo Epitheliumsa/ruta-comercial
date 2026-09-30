@@ -2448,15 +2448,14 @@ function abrirRegistro(id, tipo) {
         </form>`);
     } else if (tipo === 'ok') {
         const ya = v.estado === 'visitado';
-        abrirModal(`<form class="form-rc" onsubmit="guardarVisitado(event, '${id}')">
+        abrirModal(`<form class="form-rc" novalidate onsubmit="guardarVisitado(event, '${id}')">
             <h2>Cierre de Visita</h2>${cab}
+            <label for="rAtendio">¿Quién atendió? ${REQ}</label>
+            <input id="rAtendio" required value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo">
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
-            <div class="dos">
-                <div><label for="rGestion">¿Qué se hizo?</label><select id="rGestion">${opciones(GESTIONES, v.gestion)}</select></div>
-                <div><label for="rAtendio">¿Quién atendió?</label><input id="rAtendio" value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo"></div>
-            </div>
+            <label for="rGestion">¿Qué se hizo?</label><select id="rGestion">${opciones(GESTIONES, v.gestion)}</select>
             <div id="cajaPedido" class="caja-cierre" hidden>
                 <label>Pedido ${REQ} <small>(número con su prefijo)</small></label>
                 ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}" hidden><span>${esc(cat)}</span>
@@ -2524,6 +2523,7 @@ function guardarVisitado(e, id) {
     e.preventDefault();
     if (!plazoAbierto(id)) return;
     actualizarCierreVisita();
+    if (!$('rAtendio').value.trim()) { $('rAtendio').focus(); return toast('Escribe quién atendió (nombre y cargo)'); }
     // Números de pedido (Colocación): obligatorios y con su prefijo
     const pedidos = [];
     for (const inp of document.querySelectorAll('#cajaPedido .fila-pedido:not([hidden]) .n-pedido')) {
