@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292317';
+const APP_VERSION = '202609292320';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2133,9 +2133,15 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('cajaHasta').hidden = !conRango;
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     // En visitas y trabajo interno es obligatorio escribir qué se va a hacer (máximo 100 caracteres)
-    // Permiso: el detalle es obligatorio; en las demás novedades es opcional
-    $('lblNotas').innerHTML = tipo === 'Permiso' ? `Detalle ${REQ} <small>(motivo del permiso)</small>` : novedad ? 'Detalle <small>(opcional)</small>' : `¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small>`;
+    // Permiso e incapacidad: el detalle es obligatorio; cumpleaños no lleva detalle; en las demás novedades es opcional
+    const cumple = tipo === 'Cumpleaños';
+    ['lblNotas', 'fObjetivo'].forEach(x => { $(x).hidden = cumple; });
+    // Al escoger Cumpleaños la fecha se pone sola en el día guardado del vendedor
+    const uc = cumple && USUARIOS.find(x => x.id === agenda.vendedor);
+    if (uc?.cumple && $('fFecha').value && !esCumple(uc.id, $('fFecha').value)) $('fFecha').value = $('fFecha').value.slice(0, 4) + uc.cumple.slice(4);
+    $('lblNotas').innerHTML = DETALLE_OBLIGATORIO[tipo] ? `Detalle ${REQ} <small>(${DETALLE_OBLIGATORIO[tipo]})</small>` : novedad ? 'Detalle <small>(opcional)</small>' : `¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small>`;
     $('fObjetivoCuenta').hidden = novedad;
+    if (tipo === 'Incapacidad') $('fObjetivo').placeholder = 'Ej: incapacidad por EPS, gripa, cirugía';
     $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / 100';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
     pintarTipoCliente(true);
@@ -2418,6 +2424,8 @@ async function guardarProgramada(e, id) {
     if (v.fecha !== agenda.fecha) elegirFecha(v.fecha); else pintarAgenda();
 }
 
+// Novedades con detalle obligatorio (y qué se pide)
+const DETALLE_OBLIGATORIO = { 'Permiso': 'motivo del permiso', 'Incapacidad': 'razón de la incapacidad' };
 function guardarNovedad(id, tipo) {
     const desde = $('fFecha').value;
     const porHoras = NOVEDAD_HORAS.includes(tipo) && !$('fDiaCompleto').checked;
@@ -2426,7 +2434,12 @@ function guardarNovedad(id, tipo) {
     if (porHoras && horaFin <= horaInicio) return toast('La hora de finalización debe ser después de la hora de inicio');
     const hasta = NOVEDAD_RANGO.includes(tipo) && !porHoras && $('fHasta').value ? $('fHasta').value : desde;
     if (hasta < desde) return toast('La fecha "Hasta" no puede ser antes de "Desde"');
-    if (tipo === 'Permiso' && !$('fObjetivo').value.trim()) { $('fObjetivo').focus(); return toast('Escribe el detalle del permiso'); }
+    if (DETALLE_OBLIGATORIO[tipo] && !$('fObjetivo').value.trim()) { $('fObjetivo').focus(); return toast(`Escribe el detalle: ${DETALLE_OBLIGATORIO[tipo]}`); }
+    // Cumpleaños: solo el día guardado del vendedor
+    const u = USUARIOS.find(x => x.id === agenda.vendedor);
+    if (tipo === 'Cumpleaños' && u?.cumple && !esCumple(u.id, desde)) {
+        return dialogo({ tono: 'fiesta', titulo: 'Esa no es la fecha', texto: `El cumpleaños de ${u.nombre} es el ${Number(u.cumple.slice(8))} de ${nombreMes(u.cumple.slice(0, 7)).split(' ')[0]}. Elige esa fecha.`, aceptar: 'Entendido', cancelar: '' });
+    }
     const n = id ? { ...registros[id] } : { id: nuevoId(), clase: 'novedad', vendedor: agenda.vendedor, creado: new Date().toISOString(), creadoPor: sesion.id };
     Object.assign(n, { tipo, fecha: desde, hasta, nota: $('fObjetivo').value.trim(),
         diaCompleto: NOVEDAD_HORAS.includes(tipo) ? !porHoras : true, horaInicio, horaFin });
