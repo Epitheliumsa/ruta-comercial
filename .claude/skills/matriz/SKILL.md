@@ -13,22 +13,22 @@ Toda la configuración vive en **un solo archivo**: `datos/Matriz_App.xlsx`. La 
 - **Índice**: qué hay en cada hoja y las reglas. Lo arma el script.
 - **Visitas**: fila con *Objetivo* (columna A, fondo verde, ✓ en los tipos donde sale) y debajo sus *Subcategorías*
   (columna B, X en los tipos donde salen). Subcategoría **Variable** = se carga cada mes (Parrilla Promocional, Actividades).
-  Columnas: Visita Médica, Visita Médica Comercial (clasificación 20 y 21), Visita Comercial, Punto de Venta y las tres de Contacto nuevo.
+  Columnas: Visita Médica, Visita Médica Comercial (clasificación 20 y 21), Visita Cliente, Punto de Venta y las tres de Contacto nuevo.
 - **Trabajo interno**: igual, con Trabajo Administrativo Oficina, Fuera de la Oficina y Planeación Mes.
 - **Mensual**: Mes (AAAA-MM) | Objetivo | Subcategoría, para Parrilla Promocional y Actividades.
   Si un jefe las carga en la app (botón "Parrilla y actividades del mes"), mandan las de la app para ese mes.
 - **Tipo de visita**: una fila por clasificación de cliente (número, categoría, clientes, etiquetas) y X en Visita
-  Médica, Visita Comercial y/o Punto de Venta. Clientes y etiquetas se recalculan con `contactos.json` cada vez que corre
+  Médica, Visita Cliente y/o Punto de Venta. Clientes y etiquetas se recalculan con `contactos.json` cada vez que corre
   el script; las X se conservan. Clasificación sin X (amarillo fuerte) = sale en todos los tipos.
 
 ## Reglas de la app
 - Al programar, cada tipo de visita solo muestra los clientes de las clasificaciones con X en ese tipo.
-- "Visita Médica Comercial" aplica solo a las clasificaciones 20 y 21 (X en Visita Médica y Visita Comercial). Al
+- "Visita Médica Comercial" aplica solo a las clasificaciones 20 y 21 (X en Visita Médica y Visita Cliente). Al
   lado del cliente se marca **Visita Médica**, **Visita Médica Comercial** o ambas:
   - Visita Médica → objetivos y subcategorías de la columna "Visita Médica".
   - Visita Médica Comercial → los de la columna "Visita Médica Comercial".
   - Ambas → una sola lista unida con las dos columnas (sin grupos).
-  Si el vendedor entra por "Visita Comercial" con un cliente 20 o 21, queda marcada Visita Médica Comercial.
+  Si el vendedor entra por "Visita Cliente" con un cliente 20 o 21, queda marcada Visita Médica Comercial.
 
 ## Nombres
 - Objetivos y subcategorías en nombre propio (como NOMPROPIO), con de/del/la/y… en minúscula y siglas (PQR) como vienen.

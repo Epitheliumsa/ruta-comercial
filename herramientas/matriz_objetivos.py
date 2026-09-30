@@ -25,7 +25,7 @@ ORDEN_SUBS = {
     'Colocación': ['Producto terminado', 'Magistral individual', 'Magistral de pedido', 'Producto nuevo'],
     'Desarrollo Productos': ['Fórmula magistral nueva', 'Ajuste de fórmula', 'Muestra de desarrollo'],
     'Devoluciones - PQR': ['Devolución', 'Queja', 'Reclamo', 'Reacondicionamiento', 'Sugerencia'],
-    'Mapa del Cliente - Ampliación Portafolio': ['Productos nuevos', 'Productos foco', 'Productos transición', 'Portafolio actual'],
+    'Mapa del Cliente': ['Productos nuevos', 'Productos foco', 'Productos transición', 'Portafolio actual'],
     'Productos Nuevos': ['Presentación del producto', 'Entrega de muestra', 'Material de apoyo', 'Codificación'],
 }
 
@@ -39,11 +39,13 @@ def ordenar_subs(obj, lista):
     return sorted(lista, key=llave)
 # Nombre de la columna en el Excel -> clave del tipo en la app
 TIPOS = {
-    'Visita Médica': 'Visita Médica', 'Visita Comercial': 'Visita Comercial', 'Punto de Venta': 'Punto de Venta',
+    'Visita Médica': 'Visita Médica', 'Visita Cliente': 'Visita Cliente', 'Punto de Venta': 'Punto de Venta',
     # Visita Médica a clientes con clasificación 20 y 21 (médico que también compra): tiene sus propios objetivos
     'Visita Médica Comercial (clasificación 20 y 21)': 'medcom:Visita Médica',
-    'Contacto nuevo · Visita Médica': 'nuevo:Visita Médica', 'Contacto nuevo · Visita Comercial': 'nuevo:Visita Comercial',
+    'Contacto nuevo · Visita Médica': 'nuevo:Visita Médica', 'Contacto nuevo · Visita Cliente': 'nuevo:Visita Cliente',
     'Contacto nuevo · Punto de Venta': 'nuevo:Punto de Venta',
+    # Nombres viejos de columnas (antes de llamarse Visita Cliente)
+    'Visita Comercial': 'Visita Cliente', 'Contacto nuevo · Visita Comercial': 'nuevo:Visita Cliente',
     'Trabajo Administrativo Oficina': 'Trabajo Administrativo Oficina',
     'Trabajo Administrativo Fuera de la Oficina': 'Trabajo Administrativo Fuera de la Oficina',
     'Planeación Mes': 'Planeación Mes',
@@ -115,13 +117,13 @@ if 'Mensual' in libro.sheetnames:
             mes = mes[:7]
             mensual.setdefault(mes, {}).setdefault(obj, []).append(sub)
 
-# Clasificación del cliente -> tipos de visita donde sale (X en la matriz). Con Visita Médica y Visita Comercial
+# Clasificación del cliente -> tipos de visita donde sale (X en la matriz). Con Visita Médica y Visita Cliente
 # a la vez, al programar el vendedor marca una, otra o ambas.
 por_clasificacion = {}
 if 'Tipo de visita' in libro.sheetnames:
     ws = libro['Tipo de visita']
     cab = [limpio(c.value) for c in ws[4]]
-    cols = {i: n for i, n in enumerate(cab) if n in ('Visita Médica', 'Visita Comercial', 'Punto de Venta')}
+    cols = {i: {'Visita Comercial': 'Visita Cliente'}.get(n, n) for i, n in enumerate(cab) if n in ('Visita Médica', 'Visita Cliente', 'Visita Comercial', 'Punto de Venta')}
     for fila in ws.iter_rows(min_row=5, values_only=True):
         cl = limpio(fila[0])
         if not cl.isdigit():
@@ -132,7 +134,7 @@ if 'Tipo de visita' in libro.sheetnames:
         else:
             avisos.append(f'Clasificación {cl} no tiene X en ningún tipo de visita (sale en todos)')
 
-orden_tipos = [t for t in TIPOS.values() if t in objetivos]
+orden_tipos = list(dict.fromkeys(t for t in TIPOS.values() if t in objetivos))
 datos = {'objetivos': {t: objetivos[t] for t in orden_tipos}, 'subcategorias': subcategorias,
          'variables': variables, 'mensual': mensual, 'tiposPorClasificacion': por_clasificacion}
 SALIDA.write_text('// Generado desde datos/Matriz_App.xlsx con herramientas/matriz_objetivos.py. No editar a mano.\n'

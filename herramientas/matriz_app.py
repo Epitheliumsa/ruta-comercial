@@ -21,7 +21,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 SALIDA = RAIZ / 'datos' / 'Matriz_App.xlsx'
 VIEJA_OBJ = RAIZ / 'datos' / 'Matriz_objetivos_subcategorias.xlsx'
 VIEJA_CLASIF = RAIZ / 'datos' / 'Matriz_tipo_visita_clasificacion.xlsx'
-TIPOS = ['Visita Médica', 'Visita Comercial', 'Punto de Venta']
+TIPOS = ['Visita Médica', 'Visita Cliente', 'Punto de Venta']
 HOJA_TIPO = 'Tipo de visita'
 VERDE = '006B4F'
 
@@ -31,7 +31,7 @@ libro = openpyxl.load_workbook(entrada)
 # X por clasificación: de la hoja del libro o, si no la tiene, del archivo viejo de clasificaciones
 def leer_x(ws):
     cab = [str(c.value or '').strip() for c in ws[4]]
-    cols = {i: n for i, n in enumerate(cab) if n in TIPOS}
+    cols = {i: {'Visita Comercial': 'Visita Cliente'}.get(n, n) for i, n in enumerate(cab) if n in TIPOS or n == 'Visita Comercial'}   # acepta el nombre viejo
     x = {}
     for fila in ws.iter_rows(min_row=5, values_only=True):
         cl = str(fila[0] or '').strip()
@@ -62,7 +62,7 @@ ws = libro.create_sheet(HOJA_TIPO)
 ws.sheet_view.showGridLines = False
 ws['A1'] = 'Tipo de visita según la clasificación del cliente'
 ws['A1'].font = Font(bold=True, size=14, color=VERDE)
-ws['A2'] = ('X en los tipos de visita donde sale cada clasificación. Con X en Visita Médica y Visita Comercial (20 y 21) el vendedor '
+ws['A2'] = ('X en los tipos de visita donde sale cada clasificación. Con X en Visita Médica y Visita Cliente (20 y 21) el vendedor '
             'marca una, otra o ambas; con las dos marcadas se usan los objetivos de "Visita Médica Comercial" (hoja Visitas).')
 ws['A2'].font = Font(italic=True, color='666666')
 ws.append([])
@@ -105,7 +105,7 @@ ix['A2'] = f'Actualizada el {datetime.date.today().strftime("%d/%m/%Y")} · es l
 ix['A2'].font = Font(italic=True, color='666666')
 filas = [('Hoja', 'Qué contiene'),
          ('Visitas', 'Objetivos (fila verde, ✓) y subcategorías (X) por tipo de visita: Visita Médica, Visita Médica Comercial '
-                     '(20 y 21 con las dos marcadas), Visita Comercial, Punto de Venta y Contacto nuevo.'),
+                     '(20 y 21 con las dos marcadas), Visita Cliente, Punto de Venta y Contacto nuevo.'),
          ('Trabajo interno', 'Objetivos y subcategorías de Oficina, Fuera de la Oficina y Planeación Mes.'),
          ('Mensual', 'Parrilla Promocional y Actividades de cada mes (subcategorías variables).'),
          (HOJA_TIPO, 'En qué tipo de visita sale cada clasificación de cliente de la Maestra.')]

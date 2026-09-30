@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292347';
+const APP_VERSION = '202609292354';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -58,7 +58,7 @@ function abrirVademecum(e) {
 // Objetivos y subcategorías por tipo: vienen de objetivos.js, que se genera desde
 // datos/Matriz_App.xlsx (skill "matriz": herramientas/matriz_app.py). No se editan aquí.
 const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, variables: [], mensual: {} };
-const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Comercial', 'Punto de Venta'].map(t => [t, MATRIZ.objetivos[t] || []]));
+const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Cliente', 'Punto de Venta'].map(t => [t, MATRIZ.objetivos[t] || []]));
 // "Visita Médica Comercial": solo para clientes 20 y 21 (médicos que también compran), con sus propios objetivos
 // en la matriz (columna "Visita Médica Comercial", clave medcom:Visita Médica). nuevo = contacto nuevo.
 const VMC = 'Visita Médica Comercial';
@@ -68,7 +68,7 @@ const claveTipo = (tipo, nuevo) => tipo === VMC ? 'medcom:Visita Médica' : (nue
 const PERSONALIZADA = 'Otros';
 const TIPOS_REPORTE = () => [...Object.keys(TIPOS_VISITA), VMC];
 const objetivosDeTipo = (tipo, nuevo) => MATRIZ.objetivos[claveTipo(tipo, nuevo)] || [];
-// Una visita puede ser de varios tipos a la vez (Visita Médica y Visita Comercial, según la clasificación del cliente)
+// Una visita puede ser de varios tipos a la vez (Visita Médica y Visita Cliente, según la clasificación del cliente)
 const listaTipos = t => (Array.isArray(t) ? t : [t]).filter(Boolean);
 const tiposDe = v => v.tiposVisita?.length ? v.tiposVisita : listaTipos(v.tipoVisita);
 const nombreTipo = v => tiposDe(v).join(' + ');
@@ -80,7 +80,7 @@ const objetivosDeTipos = (tipos, nuevo) => {
 // Tipos de visita en que sale un cliente según su clasificación (hoja "Tipo de visita" de datos/Matriz_App.xlsx).
 // Sin clasificación o sin marcar en la matriz: sale en todos.
 const tiposDeCliente = c => (MATRIZ.tiposPorClasificacion || {})[c?.cl] || Object.keys(TIPOS_VISITA);
-const AMBOS_TIPOS = ['Visita Médica', 'Visita Comercial'];
+const AMBOS_TIPOS = ['Visita Médica', 'Visita Cliente'];
 // Lo que se marca al lado del cliente 20 o 21: Visita Médica, Visita Médica Comercial o ambas
 const OPCIONES_2021 = ['Visita Médica', VMC];
 const permiteAmbos = c => !!c && AMBOS_TIPOS.every(t => tiposDeCliente(c).includes(t));
@@ -102,7 +102,7 @@ const subcategoriasDe = (tipo, nuevo, objetivo, mes) => esVariable(objetivo)
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
 // antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
-const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Visita personalizada': 'Otros', 'Mapa del Cliente': 'Mapa del Cliente - Ampliación Portafolio' };
+const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Visita personalizada': 'Otros', 'Mapa del Cliente - Ampliación Portafolio': 'Mapa del Cliente', 'Seguimiento': 'Seguimientos' };
 const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto), ...((v.objetivos || []).includes(PERSONALIZADA) ? [PERSONALIZADA] : [])];
 const programadosVigentes = v => {
     const base = objetivosCierre(v);
@@ -178,8 +178,8 @@ function tipoSugerido(etiqueta) {
     if (!e) return '';
     if (e.includes('punto de venta')) return 'Punto de Venta';
     if (e.includes('medico')) return 'Visita Médica';
-    if (e.includes('cliente')) return 'Visita Comercial';
-    return 'Visita Comercial';
+    if (e.includes('cliente')) return 'Visita Cliente';
+    return 'Visita Cliente';
 }
 const horaBonita = h => { const [H, M] = h.split(':').map(Number); return `${H % 12 || 12}:${String(M).padStart(2, '0')} ${H < 12 ? 'a. m.' : 'p. m.'}`; };
 const fechaHora = isoTxt => new Date(isoTxt).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
@@ -301,10 +301,20 @@ function limpiarSiCambioEtapa() {
     } catch (e) { /* sin almacenamiento local */ }
 }
 
+// "Visita Comercial" ahora se llama "Visita Cliente": las visitas guardadas con el nombre viejo se leen con el nuevo
+const TIPO_VIEJO = { 'Visita Comercial': 'Visita Cliente' };
+function nombreNuevoTipo(r) {
+    if (!r || r.clase !== 'visita') return r;
+    if (TIPO_VIEJO[r.tipoVisita]) r.tipoVisita = TIPO_VIEJO[r.tipoVisita];
+    if (Array.isArray(r.tiposVisita)) r.tiposVisita = r.tiposVisita.map(t => TIPO_VIEJO[t] || t);
+    return r;
+}
+
 function cargarLocal() {
     limpiarSiCambioEtapa();
     try {
         registros = JSON.parse(localStorage.getItem('rc_registros') || '{}');
+        Object.values(registros).forEach(nombreNuevoTipo);
         Object.keys(registros).forEach(id => { if (etapaDe(registros[id]) !== ETAPA_DATOS) delete registros[id]; });
         pendientes = new Set(JSON.parse(localStorage.getItem('rc_pendientes') || '[]'));
     } catch (e) {
@@ -386,7 +396,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         datos.registros.forEach(r => {
             if (etapaDe(r) !== ETAPA_DATOS) return;   // registros de otra etapa (pruebas) no entran
             const local = registros[r.id];
-            if (!pendientes.has(r.id) && (!local || (r.actualizado || '') >= (local.actualizado || ''))) registros[r.id] = r;
+            if (!pendientes.has(r.id) && (!local || (r.actualizado || '') >= (local.actualizado || ''))) registros[r.id] = nombreNuevoTipo(r);
         });
         cerrarVencidas();
         guardarLocal();
@@ -678,12 +688,12 @@ const opcionesProyecto = zona => proyectosDeZona(zona)
 // "Maestra de Contactos" o "Contacto nuevo": cambia la lista del buscador y abre los datos del proyecto
 
 // "Contacto nuevo" es una sola opción del menú; el tipo de visita se elige en un segundo campo
-// Tipo de visita elegido en el menú (Visita Médica, Visita Comercial o Punto de Venta); en clientes 20 y 21 el
+// Tipo de visita elegido en el menú (Visita Médica, Visita Cliente o Punto de Venta); en clientes 20 y 21 el
 // vendedor puede marcar también el otro tipo (ver tiposCliente)
 const esTipoVisita = f => !!TIPOS_VISITA[f];
 const tipoBase = () => { const f = $('fTipo').value; return f === 'nuevo' ? $('fTipoNuevo').value : esTipoVisita(f) ? tiposCliente()[0] || f : f; };
 const origenElegido = () => $('fTipo').value === 'nuevo' ? 'nuevo' : 'maestra';
-const TIPO_CONTACTO_DE_VISITA = { 'Visita Médica': 'Médico', 'Visita Comercial': 'Cliente', 'Punto de Venta': 'Punto de Venta' };
+const TIPO_CONTACTO_DE_VISITA = { 'Visita Médica': 'Médico', 'Visita Cliente': 'Cliente', 'Punto de Venta': 'Punto de Venta' };
 
 function cambiarTipoNuevo() {
     const t = TIPO_CONTACTO_DE_VISITA[$('fTipoNuevo').value];
@@ -1283,7 +1293,7 @@ function pintarVisiplan() {
     let clientes = [];
     vista.forEach(ven => {
         seg[ven.id] = seguimientoPlan(ven.id, mes);
-        clientes = clientes.concat((contactos[ven.zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Comercial', v: ven.id }))
+        clientes = clientes.concat((contactos[ven.zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
             .concat(proyectosDeZona(ven.zona).map(p => ({ n: p.nombre, e: 'Contacto nuevo · ' + p.tipo, t: p.tipo, v: ven.id }))));
     });
     // Filtros (selección múltiple): tipo de cliente, etiqueta (con Trabajo interno) y qué mostrar
@@ -1999,7 +2009,7 @@ async function abrirProgramar(id, contactoPlan) {
     }
     const zona = comercial(agenda.vendedor)?.zona;
     const lista = contactos[zona] || [];
-    const actual = v?.tipoVisita === VMC ? 'Visita Comercial' : v?.tipoVisita || v?.tipo;   // Médica Comercial se abre desde Visita Comercial
+    const actual = v?.tipoVisita === VMC ? 'Visita Cliente' : v?.tipoVisita || v?.tipo;   // Médica Comercial se abre desde Visita Cliente
     const opcion = t => `<option ${t === actual && !v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
     // Visita que viene del Visiplan o que ya estaba programada (o reprogramada): no se cambia qué se programa ni el cliente
     const bloqueado = !!contactoPlan || (v && v.clase === 'visita');
@@ -2089,7 +2099,7 @@ async function abrirProgramar(id, contactoPlan) {
         const zona = comercial(agenda.vendedor)?.zona;
         const p = buscarProyecto(zona, contactoPlan);
         const m = maestraForm(contactoPlan);
-        $('fTipo').value = p ? 'nuevo' : esTrabajoInterno(contactoPlan) ? contactoPlan : m ? tipoDeCliente(m) : 'Visita Comercial';
+        $('fTipo').value = p ? 'nuevo' : esTrabajoInterno(contactoPlan) ? contactoPlan : m ? tipoDeCliente(m) : 'Visita Cliente';
         if (p) $('fTipoNuevo').value = tipoSugerido(p.tipo || '');
         tiposForm = null;
         cambiarTipoProgramacion();
@@ -2165,7 +2175,7 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     avisoProgramacion(null);
 }
 
-// Clientes con clasificación que sale en Visita Médica y Visita Comercial (hoy 20 y 21): al lado del cliente se
+// Clientes con clasificación que sale en Visita Médica y Visita Cliente (hoy 20 y 21): al lado del cliente se
 // marca una, otra o ambas. Los demás clientes solo salen en el tipo de visita de su clasificación.
 let tiposForm = null;
 function clienteDelForm() {
@@ -2175,8 +2185,8 @@ function clienteDelForm() {
 function tiposCliente() {
     const f = $('fTipo').value, c = clienteDelForm();
     if (!c || !permiteAmbos(c) || !AMBOS_TIPOS.includes(f)) return [f];
-    // Cliente 20 o 21: Visita Médica, Visita Médica Comercial o ambas (Visita Comercial en el menú = Médica Comercial)
-    const porDefecto = [f === 'Visita Comercial' ? VMC : f];
+    // Cliente 20 o 21: Visita Médica, Visita Médica Comercial o ambas (Visita Cliente en el menú = Médica Comercial)
+    const porDefecto = [f === 'Visita Cliente' ? VMC : f];
     const elegidos = OPCIONES_2021.filter(t => (tiposForm || porDefecto).includes(t));
     return elegidos.length ? elegidos : porDefecto;
 }
@@ -2253,10 +2263,10 @@ const TONO_OBJETIVO = {
     'Actividades': 280, 'Actividades Mes': 280, 'Parrilla Promocional': 25, 'Exhibición': 95,
     'Administración de Cartera': 42, 'Precios': 55,
     'Codificación de Producto': 205, 'Colocación': 150, 'Productos Nuevos': 125, 'Desarrollo Productos': 255,
-    'Mapa del Cliente - Ampliación Portafolio': 180, 'Entrega de Muestras': 320, 'Protocolo Médico': 230,
+    'Mapa del Cliente': 180, 'Mapa del Cliente - Ampliación Portafolio': 180, 'Entrega de Muestras': 320, 'Protocolo Médico': 230,
     'Devoluciones - PQR': 0, 'Trámites y Reclamos': 0,
     'Visiplan': 210, 'Diagnóstico de Zona': 190, 'Plan de Acción': 30, 'Plan de Trabajo Diario': 160,
-    'Capacitación': 240, 'Interacción con Áreas': 170, 'Reunión Ventas': 300, 'Revisión Correos': 215, 'Seguimiento': 140
+    'Capacitación': 240, 'Interacción con Áreas': 170, 'Reunión Ventas': 300, 'Revisión Correos': 215, 'Seguimiento': 140, 'Seguimientos': 140
 };
 const tonoObjetivo = o => TONO_OBJETIVO[o] ?? [...o].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 // Subcategorías guardadas con el nombre anterior (antes de pasarlas a nombre propio o renombrarlas)
@@ -2522,7 +2532,7 @@ const cifrasPedido = t => { const d = String(t || '').replace(/\D/g, '').slice(-
 const partesPedido = num => { const m = String(num || '').toUpperCase().match(/^(OVI|OV)?\s*(\d*)$/); return m ? { pre: m[1] || '', dig: m[2] || '' } : { pre: '', dig: '' }; };
 const TIPOS_MUESTRA = ['Muestra Médica', 'Muestra Comercial', 'Tester'];
 // Lo que indica que se presentaron productos (objetivos o subcategorías cumplidas)
-const OBJ_PRESENTA = ['Productos Nuevos', 'Mapa del Cliente - Ampliación Portafolio'];
+const OBJ_PRESENTA = ['Productos Nuevos', 'Mapa del Cliente', 'Mapa del Cliente - Ampliación Portafolio'];
 const SUBS_PRESENTA = ['Presentación del Producto', 'Productos Nuevos', 'Productos Foco', 'Productos Transición', 'Portafolio Actual', 'Portafolio', 'Producto Nuevo'];
 
 // Concepto estratégico y mensaje comercial de la etiqueta (hoja "Guía de etiquetas" de la base de productos)
@@ -3546,7 +3556,7 @@ function armarLibro(mes, vend, solo) {
     vendedores.forEach(ven => {
         const { marcas, reales, proximas } = seguimientoPlan(ven.id, mes);
         const etiquetaDe = n => (contactos[ven.zona] || []).find(c => c.n === n)?.e || (buscarProyecto(ven.zona, n) ? 'Contacto nuevo' : '');
-        const tipoDe = n => buscarProyecto(ven.zona, n)?.tipo || tipoSugerido(etiquetaDe(n)) || 'Visita Comercial';
+        const tipoDe = n => buscarProyecto(ven.zona, n)?.tipo || tipoSugerido(etiquetaDe(n)) || 'Visita Cliente';
         [...new Set([...Object.keys(marcas), ...Object.keys(reales), ...Object.keys(proximas)])].sort((a, b) => a.localeCompare(b)).forEach(n => {
             const ds = marcas[n] || [], r = reales[n] || new Set(), px = proximas[n] || new Set();
             const k = indicadoresPlan(ds, r);

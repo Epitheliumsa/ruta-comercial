@@ -32,9 +32,9 @@
 - Para entregarla o actualizarla usa la skill `matriz` (`.claude/skills/matriz/SKILL.md`). No se edita a mano en `app.js`.
 - La Parrilla Promocional y las Actividades cambian cada mes: hoja "Mensual" o botón de jefes en la app.
 - En qué tipo de visita sale cada cliente depende de su clasificación (hoja "Tipo de visita"). Los clientes 20 y 21
-  (X en Visita Médica y Visita Comercial) al programar marcan **Visita Médica**, **Visita Médica Comercial** o ambas:
+  (X en Visita Médica y Visita Cliente) al programar marcan **Visita Médica**, **Visita Médica Comercial** o ambas:
   Visita Médica = columna "Visita Médica"; Visita Médica Comercial = columna "Visita Médica Comercial"; ambas = una
-  sola lista unida con las dos. Si el vendedor entra por "Visita Comercial", se marca Visita Médica Comercial.
+  sola lista unida con las dos. Si el vendedor entra por "Visita Cliente", se marca Visita Médica Comercial.
 - El orden de las subcategorías lo da el número que el usuario pone en la columna A de cada subcategoría.
 - Objetivos y subcategorías van en nombre propio (NOMPROPIO, conectores en minúscula: "Chequeo de Precios").
 
