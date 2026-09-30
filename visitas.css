@@ -559,8 +559,8 @@
 .marcas { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 6px; }
 
 .producto-card p.objetivos { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 6px 0; }
-.producto-card p.objetivos b { color: #006b4f; font-size: 13px; margin-right: 2px; }
-.objetivos span { background: #eaf6ef; color: #006b4f; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+.producto-card p.objetivos b { color: #1f2937; font-size: 13px; margin-right: 2px; }
+.objetivos span { background: #fff; color: #1f2937; border: 1px solid #d5dcda; border-radius: 6px; padding: 2px 8px; font-size: 12.5px; font-weight: 700; }
 
 .visita-card.interno { border-left-color: #7c8e88; }
 .visita-card.interno h3 { color: #4c615b; }
@@ -630,8 +630,8 @@
 .solicitud .form-botones { margin-top: 10px; }
 
 /* Objetivos cumplidos */
-.objetivos span.cumplido { background: #e3f5ea; color: #0f6b43; box-shadow: inset 0 0 0 1px #b6e0c8; }
-.objetivos span.no-cumplido { background: #f1f3f2; color: #8a9a94; text-decoration: line-through; }
+.objetivos span.cumplido { background: #fff; color: #1f2937; }
+.objetivos span.no-cumplido { background: #fff; color: #9aa5a2; border-color: #e5e9e8; text-decoration: line-through; }
 .producto-card p.objetivos small { color: #7a8a84; font-size: 12px; font-weight: 600; }
 
 /* Contactos proyecto */
@@ -686,9 +686,11 @@
 .aviso-version.visible { display: flex; }
 .aviso-version button { background: #3fa83a; color: white; border: 0; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-weight: 700; cursor: pointer; }
 
-/* Festivos (gris claro) y novedades */
-.sd.festivo { background: #eceeed; border-color: #dcdfdd; }
-.sd.festivo span { color: #8a9490; }
+/* Festivos y domingos (rosado), sábados (rosado suave) y novedades */
+.sd.festivo { background: #fde8e8; border-color: #f5c2c2; }
+.sd.festivo span, .sd.festivo b { color: #b42318; }
+.sd.sabado { background: #fef5f5; border-color: #f9dede; }
+.sd.sabado span { color: #c2410c; }
 .sd em { font-style: normal; font-size: 9px; font-weight: 700; color: #7c8783; line-height: 1; }
 .sd.con-novedad em { color: #1552a8; }
 .aviso-festivo { margin: 12px 15px 0; padding: 10px 12px; border-radius: 8px; background: #eceeed; color: #5f6a66; font-size: 14px; font-weight: 700; }
@@ -703,12 +705,13 @@
     display: flex; flex-direction: column; gap: 2px; font-family: inherit; cursor: pointer; min-width: 0; overflow: hidden; }
 .cal-dia b { font-size: 13px; color: #333; }
 .cal-dia.fuera { opacity: .45; }
-.cal-dia.domingo b { color: #8a9490; }
-.cal-dia.festivo { background: #eceeed; border-color: #dcdfdd; }
-.cal-dia.festivo b { color: #8a9490; }
+.cal-dia.festivo { background: #fde8e8; border-color: #f5c2c2; }
+.cal-dia.festivo b { color: #b42318; }
+.cal-dia.sabado { background: #fef5f5; border-color: #f9dede; }
+.cal-dia.sabado b { color: #c2410c; }
 .cal-dia.hoy { border-color: #009460; }
 .cal-dia.sel { box-shadow: inset 0 0 0 2px #009460; }
-.cal-fest { font-size: 9.5px; line-height: 1.15; color: #6f7a76; font-weight: 600; overflow-wrap: anywhere; }
+.cal-fest { font-size: 9.5px; line-height: 1.15; color: #b42318; font-weight: 600; overflow-wrap: anywhere; }
 .cal-nov { font-size: 9.5px; line-height: 1.15; color: #1552a8; font-weight: 700; }
 .cal-n { margin-top: auto; font-size: 9.5px; font-weight: 700; color: #006b4f; }
 .cal-festivos { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #5f6a66; }
@@ -823,7 +826,9 @@ a.home-btn { text-decoration: none; }
 .vp-sem { height: 26px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .vp-dia { min-width: 30px; height: 34px; font-size: 11px; }
 .vp-dia small { display: block; font-size: 10px; color: #7a8a84; font-weight: 600; }
-.vp-dia.festivo, .vp-x.festivo { background: #eceeed; color: #8a9490; }
+.vp-dia.festivo, .vp-x.festivo { background: #fde8e8; color: #b42318; }
+.vp-dia.sabado, .vp-x.sabado, .vp-r.sabado { background: #fef5f5; }
+.vp-dia.sabado { color: #c2410c; }
 .vp-et { position: sticky; left: 0; background: white; z-index: 1; min-width: 110px; max-width: 110px; font-size: 10px; color: #7a8a84; text-align: left !important; padding: 4px 6px !important; }
 .vp-cli { position: sticky; left: 110px; background: white; z-index: 1; min-width: 190px; max-width: 190px; text-align: left !important; padding: 6px 8px !important; font-weight: 600; color: #333; box-shadow: 2px 0 0 #e6eeec; }
 .vp-tabla thead .vp-et, .vp-tabla thead .vp-cli { z-index: 3; background: #f2f8f7; }
@@ -831,7 +836,7 @@ a.home-btn { text-decoration: none; }
 .vp-x { cursor: pointer; }
 .vp-x:hover { background: #eef3fd; }
 .vp-r { background: #fcfbf9; }
-.vp-x.festivo, .vp-r.festivo { background: #eceeed; }
+.vp-x.festivo, .vp-r.festivo { background: #fde8e8; }
 /* X delgada dibujada con dos líneas finas */
 .vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-r.prox::before, .vp-r.prox::after, .vp-muestra:not(.fest):not(.planeacion)::before, .vp-muestra:not(.fest):not(.planeacion)::after {
     content: ''; position: absolute; left: 50%; top: 50%; width: 13px; height: 1.6px; border-radius: 2px; background: currentColor; }
@@ -866,7 +871,7 @@ a.home-btn { text-decoration: none; }
 .vp-tabla thead tr:nth-child(3) th { top: 60px; height: 18px; font-size: 9px; }
 .vp-tabla .vp-dia[colspan] { background: #e4f1ef; color: #0b5c56; font-size: 12px; }
 .vp-tabla .vp-dia[colspan] small { color: #0b5c56; font-size: 11px; }
-.vp-tabla .vp-dia.festivo[colspan] { background: #e3e6e5; color: #8a9490; }
+.vp-tabla .vp-dia.festivo[colspan] { background: #fbdada; color: #b42318; }
 .vp-tabla .vp-sem, .vp-tabla .fs { border-right: 2px solid #0f766e; }
 .vp-sub.plan { color: #1d4ed8; }
 .vp-sub.real { color: #15803d; }
@@ -890,7 +895,8 @@ a.home-btn { text-decoration: none; }
 /* Próxima visita agendada que aún no es efectiva: X roja (no suma) */
 .vp-r.prox { background: #fdecec; color: #dc2626; }
 .vp-muestra.prox { background: #fdecec; color: #dc2626; }
-.vp-muestra.fest { background: #e3e6e5; }
+.vp-muestra.fest { background: #fbdada; }
+.vp-muestra.sab { background: #fef5f5; box-shadow: inset 0 0 0 1px #f9dede; }
 .vp-muestra.real { margin-left: 0; }
 .vp-pvis { min-width: 48px; }
 /* Barra superior: resumen a la izquierda, convenciones y Excel a la derecha */
@@ -1013,7 +1019,7 @@ a.home-btn { text-decoration: none; }
 #rCumplidos .check.programado span { font-weight: 800; color: #1f2937; }
 #rCumplidos .check.no-programado span { color: #9aa5a1; font-weight: 500; }
 #rCumplidos .check.no-programado input:checked + span { color: #4b5563; }
-.objetivos span.extra { border: 1px dashed #86c5a8; }
+.objetivos span.extra { border-style: dashed; }
 
 /* Objetivos con subcategorías */
 .checks .obj-item { display: contents; }
@@ -1024,7 +1030,7 @@ a.home-btn { text-decoration: none; }
 .check.sub { padding: 6px 10px; font-size: 12.5px; background: white; }
 .check.sub.programado span { font-weight: 800; color: #1f2937; }
 .check.sub.no-programado span { color: #9aa5a1; font-weight: 500; }
-.sub-chip { font-weight: 500; color: #4c7a64; }
+.sub-chip { font-weight: 500; color: #64748b; font-size: 12px; }
 .home-btn.home-btn-mensual { border-left-color: #ca8a04; background: linear-gradient(135deg, #ffffff 60%, #fef9e1 100%); }
 .home-btn.home-btn-mensual svg { background: linear-gradient(135deg, #854d0e, #eab308); }
 .home-btn.home-btn-mensual .home-btn-text strong { color: #854d0e; }
@@ -1270,7 +1276,11 @@ select.p-pref { width: auto !important; padding: 0 6px !important; }
 /* Adelantar visita */
 .bv.adelantar { border-color: #1e63c4; color: #1e63c4; }
 /* Anillo del día */
-.anillo-dia { display: flex; align-items: center; gap: 18px; max-width: 1240px; margin: 10px auto 0; padding: 10px 15px; }
+.anillos { display: flex; flex-wrap: wrap; gap: 10px 40px; max-width: 1240px; margin: 10px auto 0; padding: 10px 15px; }
+.anillo-dia { display: flex; align-items: center; gap: 18px; flex: 1 1 420px; max-width: 600px; }
+.anillo-titulo { margin: 0 0 4px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6b7c7a; }
+.anillo-dia.fijo .anillo-ley li { cursor: default; }
+.anillo-cuerpo { flex: 1; min-width: 0; }
 .anillo-dia svg { width: 120px; height: 120px; flex: 0 0 auto; }
 .anillo-dia .an-n { font-size: 24px; font-weight: 800; fill: #1f2937; }
 .anillo-dia .an-t { font-size: 10px; fill: #6b7c7a; }
@@ -1286,3 +1296,32 @@ select.p-pref { width: auto !important; padding: 0 6px !important; }
 .anillo-ley li.activo { text-decoration: underline; }
 .anillo-ley li small { width: 38px; text-align: right; color: #6b7c7a; font-size: 12px; }
 @media (max-width: 700px) { .anillo-ley { grid-template-columns: 1fr; } .anillo-dia svg { width: 100px; height: 100px; } }
+
+/* Tarjeta: resumen de objetivos, plan de visita y categoría de productos */
+.producto-card p.obj-resumen, .producto-card p.nota-plan { margin: 4px 0; font-size: 13px; color: #475569; }
+.producto-card p.obj-resumen b, .producto-card p.nota-plan b { color: #1f2937; }
+.cat-prod { color: #0b5c56; background: #e3f1ef; border-radius: 5px; padding: 0 5px; font-weight: 800; }
+.btn-nuevo:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.6); box-shadow: none; }
+.bv.reprogramar { border-color: #7c3aed; color: #6d28d9; }
+
+/* Calendario propio de los campos de fecha */
+input[type=date] { cursor: pointer; }
+input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
+.cal-fecha { position: fixed; z-index: 3000; width: 280px; background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 40, 30, .22); padding: 10px; font-size: 13px; }
+.cal-fecha[hidden] { display: none; }
+.cf-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cf-nav b { color: #0b5c56; }
+.cf-nav button { border: 0; background: #eef5f3; color: #0b5c56; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; cursor: pointer; }
+.cf-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cf-cab { text-align: center; font-size: 11px; font-weight: 700; color: #7a8a84; }
+.cf-cab.festivo { color: #b42318; } .cf-cab.sabado { color: #c2410c; }
+.cf-dia { height: 32px; border: 1px solid transparent; border-radius: 7px; background: #fff; font: inherit; color: #1f2937; cursor: pointer; }
+.cf-dia:hover:not(:disabled) { border-color: #0f766e; }
+.cf-dia.festivo { background: #fde8e8; color: #b42318; font-weight: 700; }
+.cf-dia.sabado { background: #fef5f5; color: #c2410c; }
+.cf-dia.hoy { border-color: #009460; }
+.cf-dia.sel { background: #0f766e; color: #fff; }
+.cf-dia:disabled { opacity: .3; cursor: not-allowed; }
+.cf-fest { margin: 8px 0 0; display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: #b42318; }
+.cf-pie { display: flex; justify-content: space-between; margin-top: 8px; }
+.cf-pie button { border: 0; background: none; color: #0f766e; font: inherit; font-weight: 700; cursor: pointer; }

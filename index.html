@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Epithelium Visita</title>
-    <link rel="stylesheet" href="styles.css?v=202609292109">
-    <link rel="stylesheet" href="visitas.css?v=202609292109">
+    <link rel="stylesheet" href="styles.css?v=202609292214">
+    <link rel="stylesheet" href="visitas.css?v=202609292214">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -94,7 +94,7 @@
                 </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 29/09/2026 21:09</p>
+                <p class="version-app">Versión 29/09/2026 22:14</p>
             </div>
         </div>
 
@@ -120,7 +120,7 @@
                     <button class="btn-nuevo" onclick="irHoy()">Hoy</button>
                     <input type="date" id="agFechaPick" onchange="elegirFecha(this.value)" aria-label="Elegir fecha">
                     <button class="btn-nuevo" onclick="abrirCalendario()" aria-label="Ver el mes">Mes</button>
-                    <button class="btn-nuevo active" onclick="abrirProgramar()">+ Programar</button>
+                    <button class="btn-nuevo active btn-programar" onclick="abrirProgramar()">+ Programar</button>
                 </div>
             </div>
 
@@ -180,7 +180,7 @@
                         <button data-p="mes" class="activo" onclick="periodoPlan('mes')">Mes</button>
                         <label class="vp-cal" title="Ir a un día">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-                            <input type="date" id="vpFechaPick" aria-label="Ir a un día" onchange="verDiaPlan(this.value)" onclick="try { this.showPicker() } catch (e) {}">
+                            <input type="date" id="vpFechaPick" aria-label="Ir a un día" onchange="verDiaPlan(this.value)">
                         </label>
                     </div>
                     <div class="vp-filtros">
@@ -195,7 +195,7 @@
                         <span><i class="vp-muestra real"></i> Visita real · efectiva</span>
                         <span><i class="vp-muestra prox"></i> Reprogramada · pasa a verde al visitarla</span>
                         <span><i class="vp-muestra planeacion"></i> Día de Planeación Mes</span>
-                        <span><i class="vp-muestra fest"></i> Festivo</span>
+                        <span><i class="vp-muestra fest"></i> Festivo / domingo</span><span><i class="vp-muestra sab"></i> Sábado</span>
                     </div>
                     <button class="btn-secundario vp-excel" onclick="descargarVisiplan(this)">⬇ Descargar Excel</button>
                 </div>
@@ -320,8 +320,8 @@
         </div>
     </div>
 
-    <script src="objetivos.js?v=202609292109"></script>
-    <script src="productos.js?v=202609292109"></script>
-    <script src="app.js?v=202609292109"></script>
+    <script src="objetivos.js?v=202609292214"></script>
+    <script src="productos.js?v=202609292214"></script>
+    <script src="app.js?v=202609292214"></script>
 </body>
 </html>

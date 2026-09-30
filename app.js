@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292109';
+const APP_VERSION = '202609292214';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -220,6 +220,8 @@ function festivos(y) {
     ]);
 }
 const nombreFestivo = f => festivos(+f.slice(0, 4)).get(f) || '';
+// Resaltado de días en todos los calendarios: festivos y domingos (fuerte), sábados (suave)
+const claseDia = d => nombreFestivo(d) || deIso(d).getDay() === 0 ? ' festivo' : deIso(d).getDay() === 6 ? ' sabado' : '';
 const esHabil = f => { const w = deIso(f).getDay(); return w !== 0 && w !== 6 && !festivos(+f.slice(0, 4)).has(f); };
 function siguienteHabil(f) { let d = sumarDias(f, 1); while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 const diaCierre = v => siguienteHabil(v.fecha);
@@ -1273,11 +1275,11 @@ function pintarVisiplan() {
     const fs = d => deIso(d).getDay() === 6 ? ' fs' : '';   // último día de la semana: línea más fuerte
     const diaPlanHead = d => vista.some(v => seg[v.id].diasPlaneacion.has(d)) ? ' dia-plan' : '';
     const cab1 = semanas.map((s, i) => `<th colspan="${s.dias.length * 2}" class="vp-sem">Semana ${i + 1}</th>`).join('');
-    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}${diaPlanHead(d)} ir" onclick="irDiaPlan('${d}')" title="${esc(nombreFestivo(d) || (diaPlanHead(d) ? 'Planeación Mes · ' : '') + fechaLarga(d))} · toca para abrir el Plan de Trabajo${visiplan.vendedores.length > 1 ? ' de ' + esc(nombreVendedor(visiplan.vendedores[0])) : ''}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
-    const cab3 = dias.map(d => `<th class="vp-sub plan${nombreFestivo(d) ? ' festivo' : ''}">P</th><th class="vp-sub real${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}">R</th>`).join('');
+    const cab2 = dias.map(d => `<th colspan="2" class="vp-dia${fs(d)}${claseDia(d)}${diaPlanHead(d)} ir" onclick="irDiaPlan('${d}')" title="${esc(nombreFestivo(d) || (diaPlanHead(d) ? 'Planeación Mes · ' : '') + fechaLarga(d))} · toca para abrir el Plan de Trabajo${visiplan.vendedores.length > 1 ? ' de ' + esc(nombreVendedor(visiplan.vendedores[0])) : ''}">${DIAS[deIso(d).getDay()][0]}<small>${deIso(d).getDate()}</small></th>`).join('');
+    const cab3 = dias.map(d => `<th class="vp-sub plan${claseDia(d)}">P</th><th class="vp-sub real${fs(d)}${claseDia(d)}">R</th>`).join('');
     const dp = (v, d) => seg[v].diasPlaneacion.has(d) ? ' dia-plan' : '';
-    const celdas = (c, m, r, px) => dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${nombreFestivo(d) ? ' festivo' : ''}${dp(c.v, d)}" data-c="${esc(c.n)}" data-v="${c.v}" data-d="${d}"></td>`
-        + `<td data-d="${d}" class="vp-r h${fs(d)}${r.has(d) ? ' on' : px.has(d) ? ' prox' : ''}${nombreFestivo(d) ? ' festivo' : ''}${dp(c.v, d)}"${!r.has(d) && px.has(d) ? ' title="Reprogramada: pasa a verde cuando se visite"' : ''}></td>`).join('');
+    const celdas = (c, m, r, px) => dias.map(d => `<td class="vp-x h${m.includes(d) ? ' on' : ''}${claseDia(d)}${dp(c.v, d)}" data-c="${esc(c.n)}" data-v="${c.v}" data-d="${d}"></td>`
+        + `<td data-d="${d}" class="vp-r h${fs(d)}${r.has(d) ? ' on' : px.has(d) ? ' prox' : ''}${claseDia(d)}${dp(c.v, d)}"${!r.has(d) && px.has(d) ? ' title="Reprogramada: pasa a verde cuando se visite"' : ''}></td>`).join('');
     const vacio = new Set();
     // Arriba, el trabajo interno de cada vendedor (se programa igual con X; no suma en los indicadores de clientes)
     // Trabajo interno: sale con "Todas las etiquetas" o si se elige en Etiqueta, y sin filtros de clientes en "Mostrar"
@@ -1298,9 +1300,9 @@ function pintarVisiplan() {
     $('vpTabla').classList.toggle('bloqueada', !editable);
     $('vpTabla').classList.toggle('estirar', visiplan.periodo === 'mes');   // el mes llena el ancho; hoy y semana quedan compactos
     $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">${todos ? 'Vendedor · Etiqueta' : 'Etiqueta'}</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n" title="Visitas programadas">Obj</th><th rowspan="3" class="vp-n" title="Visitas efectivas">Real</th><th rowspan="3" class="vp-n" title="Visitas efectivas en el día que se planearon / programadas">% Cump</th><th rowspan="3" class="vp-n" title="Visitas efectivas / visitas programadas">% Visitas</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 6}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`
-        + `<tfoot><tr class="vp-tot"><td class="vp-et"></td><th class="vp-cli" scope="row">Obj · Real del día</th>${dias.map(d => `<td class="vp-tp${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td><td class="vp-tr${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpTotP"></td><td class="vp-n real" id="vpTotR"></td><td class="vp-n vp-pct" id="vpTotPct"></td><td class="vp-n vp-pvis" id="vpTotVis"></td></tr>`
-        + `<tr class="vp-tot vp-tot-c"><td class="vp-et"></td><th class="vp-cli" scope="row">% Cump del día</th>${dias.map(d => `<td colspan="2" class="vp-dp${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpPieN"></td></tr>`
-        + `<tr class="vp-tot vp-tot-v"><td class="vp-et"></td><th class="vp-cli" scope="row">% Visitas del día</th>${dias.map(d => `<td colspan="2" class="vp-dv${fs(d)}${nombreFestivo(d) ? ' festivo' : ''}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpPieV"></td></tr></tfoot>`;
+        + `<tfoot><tr class="vp-tot"><td class="vp-et"></td><th class="vp-cli" scope="row">Obj · Real del día</th>${dias.map(d => `<td class="vp-tp${claseDia(d)}" data-d="${d}"></td><td class="vp-tr${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpTotP"></td><td class="vp-n real" id="vpTotR"></td><td class="vp-n vp-pct" id="vpTotPct"></td><td class="vp-n vp-pvis" id="vpTotVis"></td></tr>`
+        + `<tr class="vp-tot vp-tot-c"><td class="vp-et"></td><th class="vp-cli" scope="row">% Cump del día</th>${dias.map(d => `<td colspan="2" class="vp-dp${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpPieN"></td></tr>`
+        + `<tr class="vp-tot vp-tot-v"><td class="vp-et"></td><th class="vp-cli" scope="row">% Visitas del día</th>${dias.map(d => `<td colspan="2" class="vp-dv${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpPieV"></td></tr></tfoot>`;
     actualizarTotalesPlan();
 }
 
@@ -1579,7 +1581,7 @@ function abrirCalendario(mes) {
         const fest = nombreFestivo(d);
         const nov = novedadesDe(v, d)[0];
         const n = visitasDe(v, d).filter(x => !x.interno).length;
-        celdas += `<button class="cal-dia${fuera ? ' fuera' : ''}${fest ? ' festivo' : ''}${d === t ? ' hoy' : ''}${d === agenda.fecha ? ' sel' : ''}${deIso(d).getDay() === 0 ? ' domingo' : ''}" onclick="irDelCalendario('${d}')">
+        celdas += `<button class="cal-dia${fuera ? ' fuera' : ''}${claseDia(d)}${d === t ? ' hoy' : ''}${d === agenda.fecha ? ' sel' : ''}" onclick="irDelCalendario('${d}')">
             <b>${deIso(d).getDate()}</b>
             ${fest ? `<small class="cal-fest">${esc(fest)}</small>` : ''}
             ${nov ? `<small class="cal-nov" title="${esc(nov.tipo)}"><span class="largo">${esc(nov.tipo)}</span><span class="corto">${esc(CORTO_NOVEDAD[nov.tipo])}</span></small>` : ''}
@@ -1622,7 +1624,7 @@ function pintarAgenda() {
         const fest = nombreFestivo(d);
         const nov = novedadesDe(v, d)[0];
         const marca = nov ? `<em>${CORTO_NOVEDAD[nov.tipo]}</em>` : fest ? '<em>Festivo</em>' : '';
-        return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}${fest ? ' festivo' : ''}${nov ? ' con-novedad' : ''}" onclick="elegirFecha('${d}')" title="${esc(fest || nov?.tipo || '')}"><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span>${marca}<span class="puntos">${puntos}</span></button>`;
+        return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}${claseDia(d)}${nov ? ' con-novedad' : ''}" onclick="elegirFecha('${d}')" title="${esc(fest || nov?.tipo || '')}"><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span>${marca}<span class="puntos">${puntos}</span></button>`;
     }).join('');
 
     $('agAvisoZona').hidden = comercial(v)?.zona !== ZONA_POR_ASIGNAR;
@@ -1635,12 +1637,16 @@ function pintarAgenda() {
     const internos = lista.filter(x => x.interno).length;
     // Los indicadores del día son botones: al tocarlos filtran las visitas (otro toque quita el filtro)
     const boton = (f, clase, texto) => `<button type="button" class="chip chip-filtro ${clase}${agenda.filtro === f ? ' activo' : ''}" onclick="filtrarAgenda('${f}')" aria-pressed="${agenda.filtro === f}">${texto}</button>`;
-    $('agAnillo').innerHTML = anilloDia(lista);
+    // Anillo del día (filtra la agenda) y, al lado, el acumulado del mes hasta ese día (solo informativo)
+    const delMes = visitasMes(mesDe(f), v).filter(x => x.fecha <= f);
+    const anillos = anilloDia(lista, `Día · ${fechaCorta(f)}`) + anilloDia(delMes, `Acumulado de ${nombreMes(mesDe(f)).split(' ')[0]} · hasta el ${deIso(f).getDate()}`, false);
+    $('agAnillo').innerHTML = anillos ? `<div class="anillos">${anillos}</div>` : '';
+    // + Programar: no se programa en días que ya pasaron (en pruebas sigue abierto)
+    const pasado = f < t && ETAPA_DATOS !== 'pruebas';
+    document.querySelectorAll('.btn-programar').forEach(b => { b.disabled = pasado; b.title = pasado ? 'Este día ya pasó: no se puede programar' : ''; });
     $('agResumen').innerHTML = lista.length
         ? boton('prog', 'prog', `<b>${k.prog}</b> ${k.prog === 1 ? 'programada' : 'programadas'}`)
             + (k.noProg ? boton('noProg', 'np', `${k.noProg} no programadas`) : '')
-            + boton('ok', 'ok', `${k.ok} visitadas`) + boton('no', 'no', `${k.no} no visitadas`) + boton('p', 'p', `${k.p} pendientes`)
-            + (internos ? boton('interno', 'gris', `${internos} trabajo interno`) : '')
             + `<select class="ag-orden" onchange="agenda.orden=this.value; pintarAgenda()" aria-label="Ordenar visitas">
                 <option value="prog" ${agenda.orden === 'prog' ? 'selected' : ''}>Orden: visita programada</option>
                 <option value="realizada" ${agenda.orden === 'realizada' ? 'selected' : ''}>Orden: visita realizada</option>
@@ -1663,7 +1669,7 @@ function pintarAgenda() {
     const bloqueCerradas = cerradas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${cerradas.length} ${cerradas.length === 1 ? 'planeado no confirmado' : 'planeados no confirmados'}</p>${cerradas.map(tarjetaPlan).join('')}</div>` : '';
     const cont = $('agLista');
     if (!lista.length && !novs.length && !plan.length) {
-        cont.innerHTML = `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo" style="margin-top:15px" onclick="abrirProgramar()">+ Programar</button></div>`;
+        cont.innerHTML = `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t && ETAPA_DATOS !== 'pruebas' ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>`;
         return;
     }
     // Filtro por indicador y orden (por hora de cita o por el orden en que se reportaron las visitas)
@@ -1722,11 +1728,12 @@ function tarjetaVisita(v, ord = null, mover = null) {
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
         : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Próxima visita' : 'Reprogramada'}</span>`
         : '<span class="chip p">Pendiente</span>';
-    const meta = [v.tipoContacto, v.ciudad].filter(Boolean).map(esc).join(' · ');
+    const mc = !v.interno && buscarMaestra(comercial(v.vendedor)?.zona, v.contacto);
+    const meta = [mc?.cl ? `Clasificación <b>${esc(mc.cl)}</b>` : '', ...[v.tipoContacto, v.ciudad].filter(Boolean).map(esc)].filter(Boolean).join(' · ');
     const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
     const marcaObj = o => !cumplidos ? '' : cumplidos.includes(o) ? ' class="cumplido"' : ' class="no-cumplido"';
     let objetivos = v.tipoVisita
-        ? `<p class="objetivos"><b>${esc(nombreTipo(v))}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}${textoSubs(v, o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}${textoSubs(v, o)}</span>`).join('')}${cumplidos && v.objetivos?.length ? `<small>${cumplidosProgramados(v).length} de ${v.objetivos.length} cumplidos</small>` : ''}</p>` : '';
+        ? `<p class="objetivos"><b>${esc(nombreTipo(v))}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}${textoSubs(v, o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}${textoSubs(v, o)}</span>`).join('')}</p>${cumplidos && v.objetivos?.length ? `<p class="obj-resumen"><b>Objetivos cumplidos:</b> ${cumplidosProgramados(v).length} de ${v.objetivos.length}</p>` : ''}` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
         : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? '<span class="chip proy">Proyecto</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
@@ -1746,7 +1753,7 @@ function tarjetaVisita(v, ord = null, mover = null) {
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
         ${objetivos}
-        ${v.objetivo ? `<p>${esc(v.objetivo)}</p>` : ''}
+        ${v.objetivo ? `<p class="nota-plan"><b>${v.interno ? 'Qué se iba a hacer' : 'Plan de visita'}:</b> ${esc(v.objetivo)}</p>` : ''}
         ${reporte}
         ${accionesVisita(v, txtOk, txtNo)}
     </div>`;
@@ -1763,6 +1770,33 @@ async function adelantarVisita(id) {
     elegirFecha(hoy());
 }
 
+// Reprogramar una visita futura para otro día: queda como reprogramada y en el Visiplan la X planeada no se mueve
+function abrirReprogramar(id) {
+    const v = registros[id];
+    if (!v || v.estado !== 'pendiente') return;
+    abrirModal(`<form class="form-rc" onsubmit="guardarReprogramar(event, '${id}')">
+        <h2>Reprogramar</h2><p class="sub">${esc(v.contacto)} · planeada el ${esc(fechaCorta(v.fechaPlaneada || v.fecha))}</p>
+        <div class="fila-fecha compacta"><div><label for="aReproFecha">Nueva fecha</label><input id="aReproFecha" type="date" required min="${ETAPA_DATOS === 'pruebas' ? '' : hoy()}"></div>
+            <div><label for="aReproHora">Hora <small>(opcional)</small></label><input id="aReproHora" type="time" value="${esc(v.hora || '')}"></div></div>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario">Reprogramar</button>
+        </div>
+    </form>`);
+}
+
+function guardarReprogramar(e, id) {
+    e.preventDefault();
+    const v = registros[id], fecha = $('aReproFecha').value;
+    if (!fecha) { toast('Elige la nueva fecha'); return; }
+    if (fecha === v.fecha) { toast('Elige un día distinto al que ya tiene'); return; }
+    guardarRegistro({ ...v, fecha, hora: $('aReproHora').value, origen: 'reprogramada', vieneDe: v.vieneDe || v.fecha,
+        fechaPlaneada: v.fechaPlaneada || v.fecha, adelantada: false, programada: Date.now() < limiteProgramacion(fecha) });
+    cerrarModal();
+    toast(`${v.contacto}: reprogramada para el ${fechaCorta(fecha)}`);
+    pintarAgenda();
+}
+
 // Reporte de una visita cerrada: cada dato con su título resaltado
 function partesReporte(v, conObjetivos) {
     const fila = (t, val) => val ? `<span class="rep-fila"><b>${t}:</b> ${val}</span>` : '';
@@ -1771,8 +1805,8 @@ function partesReporte(v, conObjetivos) {
         fila('Atendió', esc(v.atendio || '')),
         conObjetivos && (v.objetivosCumplidos || []).length ? fila('Objetivos cumplidos', v.objetivosCumplidos.map(o => esc(o) + ((v.subCumplidos || {})[o] ? ` (${v.subCumplidos[o].map(esc).join(', ')})` : '')).join(', ')) : '',
         v.pedido === 'si' ? fila('Pedido', esc(textoPedidos(v) || 'sí') + (v.valorPedido ? ' · ' + pesos(v.valorPedido) : '')) : '',
-        fila('Productos pedidos', esc(textoSelProductos(v.productosPedidos))),
-        fila('Productos presentados', esc(v.productos || '')),
+        fila('Productos pedidos', htmlProductosReporte(v.productosPedidos)),
+        fila('Productos presentados', Object.keys(v.productosPresentados || {}).length ? htmlProductosReporte(v.productosPresentados) : esc(v.productos || '')),
         fila('Muestras', esc(v.muestras || '')),
         fila('Compromisos', esc(v.compromisos || '')),
         v.proximaVisita ? fila('Próxima visita', esc(fechaCorta(v.proximaVisita)) + (v.proximaHora ? ' · ' + esc(horaBonita(v.proximaHora)) : '')) : '',
@@ -1802,7 +1836,7 @@ function accionesVisita(v, txtOk, txtNo) {
     const editar = `<button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>`;
     if (v.fecha > hoy()) {
         const puede = sesion.id === v.vendedor || esAdmin();
-        return `<div class="acciones">${puede ? `<button class="bv adelantar" onclick="adelantarVisita('${v.id}')">⏩ Adelantar a hoy</button>` : ''}<span class="nota-cierre">Se reporta desde el ${esc(fechaCorta(v.fecha))} hasta el ${esc(textoCierre(v))}</span>${editar}${eliminar}</div>`;
+        return `<div class="acciones">${puede ? `<button class="bv adelantar" onclick="adelantarVisita('${v.id}')">⏩ Adelantar a hoy</button><button class="bv reprogramar" onclick="abrirReprogramar('${v.id}')">📅 Reprogramar</button>` : ''}<span class="nota-cierre">Se reporta desde el ${esc(fechaCorta(v.fecha))} hasta el ${esc(textoCierre(v))}</span>${editar}${eliminar}</div>`;
     }
     return `<div class="acciones">
             <button class="bv ok" onclick="abrirRegistro('${v.id}','ok')">✓ ${txtOk}</button>
@@ -1846,10 +1880,11 @@ function enviarSolicitud(e, id) {
 
 // Formulario para programar (o editar) una visita o un trabajo interno
 // Pregunta antes de programar en un festivo o en un día con novedad; devuelve true si se continúa
-async function confirmarDia(fecha) {
-    const festivo = nombreFestivo(fecha);
+async function confirmarDia(fecha, conDomingo) {
+    const festivo = nombreFestivo(fecha), domingo = conDomingo && !festivo && deIso(fecha).getDay() === 0;
     const nov = novedadesDe(agenda.vendedor, fecha)[0];
     if (festivo && !await dialogo({ tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fecha)} es festivo: ${festivo}.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
+    if (domingo && !await dialogo({ tono: 'aviso', titulo: 'Domingo', texto: `El ${fechaLarga(fecha)} es domingo.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
     if (nov && !await dialogo({ tono: 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
     return true;
 }
@@ -2432,6 +2467,7 @@ function leerSelProductos(id) {
     document.querySelectorAll(`#${id} .sel-etqs input.cat:checked`).forEach(i => { r[i.dataset.cat] = true; });
     return r;
 }
+const htmlProductosReporte = sel => Object.entries(sel || {}).map(([cat, v]) => `<b class="cat-prod">${esc(cat)}${Array.isArray(v) && v.length ? ':' : ''}</b>${Array.isArray(v) && v.length ? ' ' + v.map(p => esc(nombreProducto(p))).join(', ') : ''}`).join(' · ');
 const textoSelProductos = sel => Object.entries(sel || {}).map(([cat, v]) => Array.isArray(v) && v.length ? `${cat}: ${v.map(nombreProducto).join(', ')}` : cat).join(' · ');
 
 // Muestras: por cada tipo entregado, producto (buscado por código o nombre) y cantidad
@@ -2896,23 +2932,26 @@ function claseAnillo(x) {
     if (x.origen === 'reprogramada') return no ? 'repNo' : 'rep';
     return no ? 'no' : 'p';
 }
-function anilloDia(lista) {
+function anilloDia(lista, titulo, conFiltro = true) {
     const total = lista.length;
     if (!total) return '';
-    const partes = PARTES_ANILLO.map(x => ({ ...x, n: lista.filter(v => claseAnillo(v) === x.f).length }));
+    // Visitadas y no visitadas siempre se ven; lo demás solo si tiene visitas
+    const partes = PARTES_ANILLO.map(x => ({ ...x, n: lista.filter(v => claseAnillo(v) === x.f).length }))
+        .filter(x => x.n || x.f === 'ok' || x.f === 'no');
     const R = 42, C = 2 * Math.PI * R, hueco = partes.filter(x => x.n).length > 1 ? 2 : 0;
     const porc = (n) => Math.round(n / total * 100) + '%';
+    const clic = x => conFiltro ? ` onclick="filtrarAgenda('an:${x.f}')"` : '';
     let ac = 0;
     const arcos = partes.filter(x => x.n).map(x => {
-        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)" onclick="filtrarAgenda('an:${x.f}')" style="cursor:pointer"><title>${x.t}: ${x.n} (${porc(x.n)})</title></circle>`;
+        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)"${clic(x)}${conFiltro ? ' style="cursor:pointer"' : ''}><title>${x.t}: ${x.n} (${porc(x.n)})</title></circle>`;
         ac += largo;
         return arco;
     }).join('');
     const [vis, ...resto] = partes;
-    const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${agenda.filtro === 'an:' + x.f ? ' activo' : ''}" onclick="filtrarAgenda('an:${x.f}')"><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
-    return `<div class="anillo-dia"><svg viewBox="0 0 110 110" role="img" aria-label="Visitas del día">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
+    const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${conFiltro && agenda.filtro === 'an:' + x.f ? ' activo' : ''}"${clic(x)}><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
+    return `<div class="anillo-dia${conFiltro ? '' : ' fijo'}"><svg viewBox="0 0 110 110" role="img" aria-label="${esc(titulo)}">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
             <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">${total === 1 ? 'visita' : 'visitas'}</text></svg>
-        <ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div>`;
+        <div class="anillo-cuerpo"><p class="anillo-titulo">${esc(titulo)}</p><ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div></div>`;
 }
 
 function cuentaVisitas(todas) {
@@ -3451,6 +3490,67 @@ function abrirModal(html, tema = '') {
     $('modalContenido').innerHTML = html;
     marcarObligatorios($('modalContenido'));
     $('modal').classList.add('active');
+}
+
+// ---------- CALENDARIO DE LOS CAMPOS DE FECHA ----------
+// Reemplaza el calendario del navegador: festivos y domingos resaltados, sábados más suaves.
+// Al programar o reprogramar en un festivo (o domingo) sale el aviso de siempre antes de tomar la fecha.
+const FECHAS_CON_AVISO = ['fFecha', 'rProxima', 'nRepro', 'aReproFecha'];
+let calFecha = null;   // { inp, mes }
+
+document.addEventListener('click', e => {
+    const inp = e.target.closest && e.target.closest('input[type=date]');
+    if (inp) { e.preventDefault(); if (!inp.disabled && !inp.readOnly) abrirCalFecha(inp); return; }
+    if (calFecha && !e.target.closest('#calFecha')) cerrarCalFecha();
+}, true);
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && calFecha) { cerrarCalFecha(); return; }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('input[type=date]')) { e.preventDefault(); abrirCalFecha(e.target); }
+}, true);
+
+function abrirCalFecha(inp, mes) {
+    calFecha = { inp, mes: mes || mesDe(inp.value || (inp.min > hoy() ? inp.min : hoy())) };
+    let caja = $('calFecha');
+    if (!caja) { caja = document.createElement('div'); caja.id = 'calFecha'; caja.className = 'cal-fecha'; document.body.appendChild(caja); }
+    const m = calFecha.mes, t = hoy(), inicio = lunesDe(m + '-01'), ultimo = finDeMes(m);
+    let dias = '';
+    for (let d = inicio; d <= ultimo || deIso(d).getDay() !== 1; d = sumarDias(d, 1)) {
+        if (mesDe(d) !== m) { dias += '<span></span>'; continue; }
+        const fuera = (inp.min && d < inp.min) || (inp.max && d > inp.max);
+        const fest = nombreFestivo(d);
+        dias += `<button type="button" class="cf-dia${claseDia(d)}${d === t ? ' hoy' : ''}${d === inp.value ? ' sel' : ''}" ${fuera ? 'disabled' : ''} onclick="elegirCalFecha('${d}')" title="${esc(fest || fechaLarga(d))}">${deIso(d).getDate()}</button>`;
+    }
+    const fests = [...festivos(+m.slice(0, 4))].filter(([f]) => mesDe(f) === m).sort();
+    caja.innerHTML = `<div class="cf-nav"><button type="button" onclick="abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, -1))" aria-label="Mes anterior">&lsaquo;</button>
+            <b>${esc(mayuscula(nombreMes(m)))}</b><button type="button" onclick="abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, 1))" aria-label="Mes siguiente">&rsaquo;</button></div>
+        <div class="cf-grid">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x, i) => `<span class="cf-cab${i === 6 ? ' festivo' : i === 5 ? ' sabado' : ''}">${x}</span>`).join('')}${dias}</div>
+        ${fests.length ? `<p class="cf-fest">${fests.map(([f, n]) => `<span><b>${deIso(f).getDate()}</b> ${esc(n)}</span>`).join('')}</p>` : ''}
+        <div class="cf-pie">${(!inp.min || t >= inp.min) && (!inp.max || t <= inp.max) ? `<button type="button" onclick="elegirCalFecha('${t}')">Hoy</button>` : '<span></span>'}${inp.required || !inp.value ? '' : '<button type="button" onclick="elegirCalFecha(\'\')">Borrar</button>'}</div>`;
+    // Debajo del campo (o encima si no cabe), sin salirse de la pantalla
+    const r = inp.getBoundingClientRect(), ancho = 280;
+    caja.style.left = Math.max(8, Math.min(r.left, innerWidth - ancho - 8)) + 'px';
+    caja.style.top = '0px';
+    caja.hidden = false;
+    const alto = caja.offsetHeight;
+    caja.style.top = (r.bottom + alto + 8 > innerHeight && r.top - alto - 6 > 0 ? r.top - alto - 6 : Math.min(r.bottom + 4, innerHeight - alto - 8)) + 'px';
+}
+
+function cerrarCalFecha() {
+    if ($('calFecha')) $('calFecha').hidden = true;
+    calFecha = null;
+}
+
+async function elegirCalFecha(d) {
+    const inp = calFecha?.inp;
+    if (!inp) return;
+    cerrarCalFecha();
+    if (d && FECHAS_CON_AVISO.includes(inp.id) && d !== inp.value) {
+        if (!await confirmarDia(d, true)) return;
+        if (inp.id === 'fFecha') advertenciaAceptada = d;
+    }
+    inp.value = d;
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 // Campos obligatorios de escribir: asterisco rojo en su etiqueta (antes de la aclaración en letra pequeña)
