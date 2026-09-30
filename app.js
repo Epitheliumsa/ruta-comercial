@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301426';
+const APP_VERSION = '202609301436';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -844,17 +844,48 @@ function abrirProyectos(filtro) {
             ${botones.length ? `<div class="form-botones">${botones.join('')}</div>` : ''}`;
     };
     abrirModal(`<div class="form-rc">
-        <h2>${filtro === 'solicitud' ? 'Solicitudes de creación' : 'Leads'}</h2>
+        <div class="leads-cab"><h2>${filtro === 'solicitud' ? 'Solicitudes de creación' : 'Leads'}</h2>${filtro ? '' : '<button type="button" class="btn-primario" onclick="crearLead()">+ Crear Lead</button>'}</div>
         <p class="sub">${filtro === 'solicitud'
             ? 'Leads que los vendedores piden crear en la Maestra de Contactos. Cuando lo crees, vincúlalo aquí.'
             : 'Contactos nuevos que aún no están en la Maestra de Contactos, con su seguimiento. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>
         ${lista.length ? gruposProyectos(lista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
             <div class="visita-cab"><strong class="cliente-link" data-c="${esc(p.nombre)}" onclick="verCliente(this.dataset.c, '${p.vendedor}')" title="Ver historial de visitas">${esc(p.nombre)}</strong>${chip(p)}</div>
-            <small>${esc([p.tipo, p.persona, p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
+            <small>${esc([p.tipo, nombrePropio(p.persona), p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
             ${seguimientoLead(p)}
             ${acciones(p)}
-        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay leads. Se crean al programar una visita marcando "Contacto nuevo".'}</p>`}
+        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
     </div>`);
+}
+
+// Crear un lead desde el módulo Leads (sin programar visita). Los jefes escogen de qué vendedor (zona) es.
+function crearLead() {
+    const vends = esJefe() ? COMERCIALES : COMERCIALES.filter(c => c.id === sesion.id);
+    abrirModal(`<form class="form-rc" onsubmit="guardarLeadNuevo(event)">
+        <h2>Crear Lead</h2>
+        <p class="sub">Contacto nuevo que aún no está en la Maestra de Contactos.</p>
+        ${vends.length > 1 ? `<label for="lVend">Vendedor</label><select id="lVend" required>${vends.map(c => `<option value="${c.id}">${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('')}</select>` : ''}
+        <label for="lNombre">Nombre del Lead ${REQ}</label><input id="lNombre" required placeholder="Médico, cliente o punto de venta" onblur="this.value = nombrePropio(this.value)">
+        <div class="dos">
+            <div><label for="lTipo">Tipo</label><select id="lTipo">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
+            <div><label for="lCiudad">Ciudad</label>${campoCiudad('lCiudad', '', true)}</div>
+        </div>
+        <label for="lPersona">Nombre de contacto ${REQ}</label><input id="lPersona" required placeholder="Persona con quien se habla (si es médico, puede ser el mismo)" onblur="this.value = nombrePropio(this.value)">
+        <label for="lDir">Dirección (opcional)</label><input id="lDir" placeholder="Ej: Cra 15 # 93-60, consultorio 402">
+        <label for="lTel">Teléfono ${REQ}</label><input id="lTel" type="tel" inputmode="tel" required placeholder="Ej: 300 123 4567">
+        <div class="form-botones"><button type="button" class="btn-secundario" onclick="abrirProyectos()">Cancelar</button><button class="btn-primario">Crear Lead</button></div>
+    </form>`);
+}
+function guardarLeadNuevo(e) {
+    e.preventDefault();
+    const vendedor = $('lVend')?.value || sesion.id, zona = comercial(vendedor)?.zona;
+    const nombre = nombrePropio($('lNombre').value);
+    if ($('lTel').value.replace(/\D/g, '').length < 7) { $('lTel').focus(); return toast('Escribe el teléfono del Lead'); }
+    if (buscarMaestra(zona, nombre) || buscarProyecto(zona, nombre)) { $('lNombre').focus(); return toast(`${nombre} ya está en la Maestra o en los Leads de ${zona}`); }
+    guardarRegistro({ id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre, tipo: $('lTipo').value, ciudad: $('lCiudad').value.trim(),
+        telefono: $('lTel').value.trim(), persona: nombrePropio($('lPersona').value), direccion: $('lDir').value.trim(),
+        zona, vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id });
+    toast(`${nombre}: Lead creado`);
+    abrirProyectos();
 }
 
 // Seguimiento del lead: días desde que se creó, visitas (efectivas), la última y la próxima
@@ -1026,10 +1057,10 @@ const maestra = { zonas: null, busca: '', sel: Object.fromEntries(FILTROS_MAESTR
 const textoPlazo = pz => /^\d+$/.test(pz) ? (pz === '0' ? 'Contado' : pz + ' días') : pz;
 const departamento = p => (p || '').replace(/\s*\(CO\)$/, '');
 const DIMS_MAESTRA = {
-    e: { t: 'Etiqueta', todos: 'Todas las etiquetas', valor: c => c.e || '' },
+    e: { t: 'Etiqueta', todos: 'Todas las etiquetas', valor: c => c.e || '', orden: ordenLeadAlFinal },   // Leads al final
     // Clasificación y categoría son lo mismo: el número es la clasificación y el nombre la categoría
     cat: { t: 'Clasificación', todos: 'Todas las clasificaciones', valor: c => c.cl || c.ca || '', nombre: (v, c) => c && c.ca && c.cl ? `${c.cl} · ${c.ca}` : v,
-        orden: (a, b) => Number(a) - Number(b) || a.localeCompare(b) },
+        orden: (a, b) => (a === LEAD) - (b === LEAD) || Number(a) - Number(b) || a.localeCompare(b) },
     d: { t: 'Departamento', todos: 'Todos los departamentos', valor: c => departamento(c.p) },
     c: { t: 'Ciudad', todos: 'Todas las ciudades', valor: c => c.c || '' },
     pz: { t: 'Plazo de pago', todos: 'Todos los plazos', valor: c => c.pz || '', nombre: textoPlazo, orden: (a, b) => parseInt(a) - parseInt(b) || a.localeCompare(b) },
@@ -1044,11 +1075,15 @@ const GRUPOS_ETIQUETA = {
     cliente: { t: 'Cliente', c: '#2563eb', tinte: '#e3ecfd' },
     medico: { t: 'Médico', c: '#db2777', tinte: '#fce6f0' },
     ambos: { t: 'Cliente y Médico', c: '#2563eb', c2: '#db2777', tinte: '#f1e6f6' },
-    pv: { t: 'Punto de Venta', c: '#ca8a04', tinte: '#faf0d4' }
+    pv: { t: 'Punto de Venta', c: '#ca8a04', tinte: '#faf0d4' },
+    lead: { t: 'Lead', c: '#0891b2', tinte: '#e0f4f8' }
 };
+// Un lead como si fuera un contacto de la Maestra (misma búsqueda y filtros); la ciudad viene "Municipio - Departamento"
+const leadComoContacto = (p, z) => { const [c, d] = String(p.ciudad || '').split(' - ');
+    return { n: p.nombre, e: etiquetaLead(p.tipo), c: c || '', p: d || (c === 'Bogotá D.C.' ? 'Bogotá D.C.' : ''), ca: LEAD, f: false, z, lead: true }; };
 const COLOR_FACTURA = { si: '#16a34a', no: '#dc2626' };
-const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
-const zonasMaestra = () => Object.keys(contactos).filter(z => (contactos[z] || []).length);
+const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('lead') ? 'lead' : n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
+const zonasMaestra = () => [...new Set([...Object.keys(contactos), ...proyectos().filter(p => p.estado !== 'vinculado').map(p => p.zona)])].filter(z => z && ((contactos[z] || []).length || proyectosDeZona(z).length));
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
 
 function abrirMaestra() {
@@ -1202,10 +1237,10 @@ function pintarMaestra() {
         $('mcZonas').innerHTML = `<button type="button" class="vp-vend-btn todos${sel.length === todas.length ? ' activo' : ''}" onclick="elegirZonaMaestra('todas', event)">Todas las zonas</button>`
             + todas.map(z => {
                 const v = vendedorDeZona(z);
-                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${contactos[z].length}</small></button>`;
+                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${(contactos[z] || []).length + proyectosDeZona(z).length}</small></button>`;
             }).join('') + AYUDA_CHIPS;
     }
-    const base = sel.flatMap(z => (contactos[z] || []).map(c => ({ ...c, z })));
+    const base = sel.flatMap(z => [...(contactos[z] || []).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
     // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
     maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && mesDe(x.fecha) === maestra.mesVis)
         .map(x => normalizar(x.contacto)));
@@ -1223,9 +1258,9 @@ function pintarMaestra() {
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[grupoEtiqueta(c.e)];
-        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
+        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
-                <span class="mc-datos">${c.cl || c.ca ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span></span></span>
+                <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span></span>
             <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
         </button>`;
     };
@@ -2485,7 +2520,7 @@ const TONO_OBJETIVO = {
     'Mapa del Cliente': 180, 'Mapa del Cliente - Ampliación Portafolio': 180, 'Entrega de Muestras': 320, 'Protocolo Médico': 230,
     'Devoluciones - PQR': 0, 'Trámites y Reclamos': 0,
     'Visiplan': 210, 'Diagnóstico de Zona': 190, 'Plan de Acción': 30, 'Plan de Trabajo Diario': 160,
-    'Lead': 20, 'Capacitación': 240, 'Interacción con Áreas': 170, 'Reunión Ventas': 300, 'Revisión Correos': 215, 'Seguimiento': 140, 'Seguimientos': 140
+    'Lead': 195, 'Capacitación': 240, 'Interacción con Áreas': 170, 'Reunión Ventas': 300, 'Revisión Correos': 215, 'Seguimiento': 140, 'Seguimientos': 140
 };
 const tonoObjetivo = o => TONO_OBJETIVO[o] ?? [...o].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 // Subcategorías guardadas con el nombre anterior (antes de pasarlas a nombre propio o renombrarlas)
