@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292322';
+const APP_VERSION = '202609292325';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1702,8 +1702,11 @@ function pintarAgenda() {
     const delMes = deTodos(x => visitasMes(mesDe(f), x)).filter(x => x.fecha <= f);
     // Semana: de lunes al día que se está viendo (solo informativo, como el del mes)
     const deSemana = deTodos(x => [0, 1, 2, 3, 4, 5, 6].map(i => sumarDias(lunesDe(f), i)).filter(d => d <= f).flatMap(d => visitasDe(x, d)));
-    const anillos = anilloDia(lista, `Día · ${fechaCorta(f)}`) + anilloDia(deSemana, `Acumulado de la semana · ${lunesDe(f) === f ? 'Lunes ' + fechaCorta(f) : `Del ${deIso(lunesDe(f)).getDate()}${mesDe(lunesDe(f)) === mesDe(f) ? '' : ' de ' + nombreMes(mesDe(lunesDe(f))).split(' ')[0].slice(0, 3)} al ${fechaCorta(f)}`}`, false) + anilloDia(delMes, `Acumulado del mes · ${mayuscula(nombreMes(mesDe(f)).split(' ')[0])}, hasta el ${deIso(f).getDate()}`, false);
-    $('agAnillo').innerHTML = anillos ? `<div class="anillos">${anillos}</div>` : '';
+    const anillos = anilloDia(lista, `Día · ${fechaCorta(f)}`, true, 'dia') + anilloDia(deSemana, `Acumulado de la semana · ${lunesDe(f) === f ? 'Lunes ' + fechaCorta(f) : `Del ${deIso(lunesDe(f)).getDate()}${mesDe(lunesDe(f)) === mesDe(f) ? '' : ' de ' + nombreMes(mesDe(lunesDe(f))).split(' ')[0].slice(0, 3)} al ${fechaCorta(f)}`}`, false, 'semana') + anilloDia(delMes, `Acumulado del mes · ${mayuscula(nombreMes(mesDe(f)).split(' ')[0])}, hasta el ${deIso(f).getDate()}`, false, 'mes');
+    // En el celular se ve un solo anillo a la vez: botones Día · Semana · Mes (en el computador salen los tres)
+    const verAn = agenda.anillo || 'dia';
+    const tabsAn = ['dia', 'semana', 'mes'].map(x => `<button type="button" class="${x === verAn ? 'activo' : ''}" onclick="agenda.anillo='${x}'; pintarAgenda()">${{ dia: 'Día', semana: 'Semana', mes: 'Mes' }[x]}</button>`).join('');
+    $('agAnillo').innerHTML = delMes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '';
     // + Programar: no se programa en días que ya pasaron (en pruebas sigue abierto)
     const pasado = f < t && ETAPA_DATOS !== 'pruebas';
     document.querySelectorAll('.btn-programar').forEach(b => { b.disabled = pasado; b.title = pasado ? 'Este día ya pasó: no se puede programar' : ''; });
@@ -3080,9 +3083,9 @@ function claseAnillo(x) {
     if (x.origen === 'reprogramada') return no ? 'repNo' : 'rep';
     return no ? 'no' : 'p';
 }
-function anilloDia(lista, titulo, conFiltro = true) {
+function anilloDia(lista, titulo, conFiltro = true, periodo = '') {
     const total = lista.length;
-    if (!total) return '';
+    if (!total) return periodo ? `<div class="anillo-dia vacio" data-p="${periodo}"><p class="anillo-titulo">${titulo.split(' · ').map((x, i) => i ? `<b>${esc(x)}</b>` : `<span>${esc(x)}</span>`).join('')}</p><p class="ayuda">Sin visitas</p></div>` : '';
     // Visitadas y no visitadas siempre se ven; lo demás solo si tiene visitas
     const partes = PARTES_ANILLO.map(x => ({ ...x, n: lista.filter(v => claseAnillo(v) === x.f).length }))
         .filter(x => x.n || x.f === 'ok' || x.f === 'no');
@@ -3097,7 +3100,7 @@ function anilloDia(lista, titulo, conFiltro = true) {
     }).join('');
     const [vis, ...resto] = partes;
     const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${conFiltro && agenda.filtro === 'an:' + x.f ? ' activo' : ''}"${clic(x)}><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
-    return `<div class="anillo-dia${conFiltro ? '' : ' fijo'}"><svg viewBox="0 0 110 110" role="img" aria-label="${esc(titulo)}">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
+    return `<div class="anillo-dia${conFiltro ? '' : ' fijo'}" data-p="${periodo}"><svg viewBox="0 0 110 110" role="img" aria-label="${esc(titulo)}">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
             <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">${total === 1 ? 'visita' : 'visitas'}</text></svg>
         <div class="anillo-cuerpo"><p class="anillo-titulo">${titulo.split(' · ').map((x, i) => i ? `<b>${esc(x)}</b>` : `<span>${esc(x)}</span>`).join('')}</p><ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div></div>`;
 }
