@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301404';
+const APP_VERSION = '202609301426';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -220,6 +220,14 @@ const fechaCorta = s => deIso(s).toLocaleDateString('es-CO', { day: 'numeric', m
 const nombreMes = m => deIso(m + '-01').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Nombre propio (como NOMPROPIO de Excel): "PEdro perez DE la cruz" -> "Pedro Perez de la Cruz"; siglas con punto (S.A.S.) en mayúscula
+const CONECTORES_NOMBRE = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e']);
+const nombrePropio = t => String(t || '').trim().replace(/\s+/g, ' ').split(' ').map((w, i) => {
+    const l = w.toLocaleLowerCase('es');
+    if (i && CONECTORES_NOMBRE.has(l)) return l;
+    if (/\./.test(w) && w.replace(/\./g, '').length <= 4) return w.toLocaleUpperCase('es');
+    return l.replace(/(^|[-'(])(\p{L})/gu, (m, a, b) => a + b.toLocaleUpperCase('es'));
+}).join(' ');
 const normalizar = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const $ = id => document.getElementById(id);
 // Ven a todo el equipo: los jefes (Hernán Reyes, M. Castro) y la jefe comercial (Jennifer Herrera),
@@ -804,11 +812,10 @@ function revisarProyecto() {
     }
 }
 
-// El nombre de contacto es obligatorio para clientes y puntos de venta; en un médico el contacto es el mismo médico
+// El nombre de contacto es obligatorio siempre (en un médico puede ser el mismo médico)
 function etiquetaPersonaProyecto() {
-    const obligatorio = $('pTipo').value !== 'Médico';
-    $('lblPersona').innerHTML = obligatorio ? 'Nombre de contacto ' + REQ : 'Nombre de contacto <small>(opcional)</small>';
-    $('pPersona').placeholder = obligatorio ? 'Persona con quien se habla (ej: administradora)' : 'Ej: asistente o secretaria';
+    $('lblPersona').innerHTML = 'Nombre de contacto ' + REQ;
+    $('pPersona').placeholder = $('pTipo').value === 'Médico' ? 'Persona con quien se habla (puede ser el mismo médico)' : 'Persona con quien se habla (ej: administradora)';
 }
 
 function abrirProyectos(filtro) {
@@ -908,7 +915,7 @@ function solicitarCreacion(id) {
             <div><label for="sTipo">Tipo</label><select id="sTipo">${TIPOS_PROYECTO.map(t => `<option ${t === p.tipo ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
             <div><label for="sCiudad">Ciudad</label>${campoCiudad('sCiudad', p.ciudad, true)}</div>
         </div>
-        <label for="sPersona">Nombre de contacto</label><input id="sPersona" value="${esc(p.persona)}">
+        <label for="sPersona">Nombre de contacto</label><input id="sPersona" required value="${esc(p.persona)}" onblur="this.value = nombrePropio(this.value)">
         <label for="sDir">Dirección</label><input id="sDir" required value="${esc(p.direccion)}">
         <label for="sTel">Teléfono</label><input id="sTel" type="tel" required value="${esc(p.telefono)}">
         <label for="sNota">Observaciones para la creación (opcional)</label>
@@ -923,7 +930,7 @@ function solicitarCreacion(id) {
 function enviarSolicitudCreacion(e, id) {
     e.preventDefault();
     guardarRegistro({ ...registros[id], estado: 'solicitud', tipo: $('sTipo').value, ciudad: $('sCiudad').value.trim(),
-        persona: $('sPersona').value.trim(), direccion: $('sDir').value.trim(), telefono: $('sTel').value.trim(),
+        persona: nombrePropio($('sPersona').value), direccion: $('sDir').value.trim(), telefono: $('sTel').value.trim(),
         solicitud: { fecha: new Date().toISOString(), por: sesion.id, nota: $('sNota').value.trim() }, rechazo: null });
     toast('Solicitud de creación enviada a los jefes');
     abrirProyectos();
@@ -2044,7 +2051,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         reporte = `<div class="reporte"><b>${esc(v.motivo)}</b>${v.reprogramadaPara ? ` · Reprogramada para el ${esc(fechaCorta(v.reprogramadaPara))}` : ''}${v.observaciones ? '<br>' + esc(v.observaciones) : ''}</div>`;
     }
     const reprog = !v.interno && v.estado === 'pendiente' && esReprogramada(v) ? ' reprog' : '';
-    return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${v.esProyecto && !v.interno ? ' lead' : ''}${reprog}">
+    return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${v.esProyecto && !v.interno ? (v.estado === 'visitado' ? ' lead lead-ok' : ' lead lead-no') : ''}${reprog}">
         <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${v.interno ? '' : insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
@@ -2267,8 +2274,8 @@ async function abrirProgramar(id, contactoPlan) {
                     <div><label for="pTipo">Tipo</label><select id="pTipo" onchange="etiquetaPersonaProyecto()">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
                     <div><label for="pCiudad">Ciudad</label>${campoCiudad('pCiudad')}</div>
                 </div>
-                <label for="pPersona" id="lblPersona">Nombre de contacto (opcional)</label>
-                <input id="pPersona" placeholder="Persona con quien se habla">
+                <label for="pPersona" id="lblPersona">Nombre de contacto ${REQ}</label>
+                <input id="pPersona" placeholder="Persona con quien se habla" onblur="this.value = nombrePropio(this.value)">
                 <label for="pDir">Dirección (opcional)</label>
                 <input id="pDir" placeholder="Ej: Cra 15 # 93-60, consultorio 402">
                 <label for="pTel">Teléfono ${REQ}</label>
@@ -2478,7 +2485,7 @@ const TONO_OBJETIVO = {
     'Mapa del Cliente': 180, 'Mapa del Cliente - Ampliación Portafolio': 180, 'Entrega de Muestras': 320, 'Protocolo Médico': 230,
     'Devoluciones - PQR': 0, 'Trámites y Reclamos': 0,
     'Visiplan': 210, 'Diagnóstico de Zona': 190, 'Plan de Acción': 30, 'Plan de Trabajo Diario': 160,
-    'Capacitación': 240, 'Interacción con Áreas': 170, 'Reunión Ventas': 300, 'Revisión Correos': 215, 'Seguimiento': 140, 'Seguimientos': 140
+    'Lead': 20, 'Capacitación': 240, 'Interacción con Áreas': 170, 'Reunión Ventas': 300, 'Revisión Correos': 215, 'Seguimiento': 140, 'Seguimientos': 140
 };
 const tonoObjetivo = o => TONO_OBJETIVO[o] ?? [...o].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 // Subcategorías guardadas con el nombre anterior (antes de pasarlas a nombre propio o renombrarlas)
@@ -2662,17 +2669,17 @@ async function guardarProgramada(e, id) {
         toast('Escoge la ciudad de la lista (Municipio - Departamento)');
         return;
     }
-    if (nuevo && !proyecto && $('pTipo').value !== 'Médico' && !$('pPersona').value.trim()) {
+    if (nuevo && !proyecto && !$('pPersona').value.trim()) {
         $('pPersona').focus();
-        toast('Escribe el nombre de contacto del cliente o punto de venta');
+        toast('Escribe el nombre de contacto (si es un médico, puede ser el mismo médico)');
         return;
     }
     if (nuevo) {
         if (!proyecto) {
             proyecto = {
-                id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre, tipo: $('pTipo').value,
+                id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre: nombrePropio(nombre), tipo: $('pTipo').value,
                 ciudad: $('pCiudad').value.trim(), telefono: $('pTel').value.trim(),
-                persona: $('pPersona').value.trim(), direccion: $('pDir').value.trim(),
+                persona: nombrePropio($('pPersona').value), direccion: $('pDir').value.trim(),
                 zona, vendedor: esJefe() ? sesion.id : agenda.vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id
             };
             guardarRegistro(proyecto);
@@ -3486,7 +3493,7 @@ const PARTES_ANILLO = [
     { f: 'no', t: 'No visitadas', c: '#dc2626' }, { f: 'rep', t: 'Reprogramadas', c: '#7c3aed' },
     { f: 'repNo', t: 'Reprogramadas no visitadas', c: '#9f1239' }, { f: 'int', t: 'Trabajo interno', c: '#94a3b8' },
     { f: 'intNo', t: 'Trabajo interno no realizado', c: '#475569' },
-    { f: 'lead', t: 'Lead visitado', c: '#9a3412' }, { f: 'leadNo', t: 'Lead no visitado', c: '#fdba74' }
+    { f: 'lead', t: 'Lead visitado', c: '#0891b2' }, { f: 'leadNo', t: 'Lead no visitado', c: '#7dd3e8' }
 ];
 function claseAnillo(x) {
     if (x.esProyecto && !x.interno) return x.estado === 'visitado' ? 'lead' : 'leadNo';   // los leads van por aparte

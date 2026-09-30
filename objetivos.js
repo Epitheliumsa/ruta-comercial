@@ -51,21 +51,18 @@ window.MATRIZ_OBJETIVOS = {
    "Protocolo Médico"
   ],
   "nuevo:Visita Médica": [
-   "Colocación",
    "Desarrollo Productos",
    "Entrega de Muestras",
-   "Productos Nuevos",
-   "Protocolo Médico"
+   "Lead"
   ],
   "nuevo:Visita Cliente": [
-   "Colocación",
    "Desarrollo Productos",
    "Entrega de Muestras",
-   "Productos Nuevos"
+   "Lead"
   ],
   "nuevo:Punto de Venta": [
    "Entrega de Muestras",
-   "Productos Nuevos"
+   "Lead"
   ],
   "Trabajo Administrativo Oficina": [
    "Actividades Mes",
@@ -255,53 +252,6 @@ window.MATRIZ_OBJETIVOS = {
     "Material de Apoyo"
    ]
   },
-  "nuevo:Visita Médica": {
-   "Colocación": [
-    "Producto Nuevo",
-    "Producto Terminado",
-    "Magistral Individual",
-    "Magistral de Pedido",
-    "Presentación Portafolio",
-    "Creación Cliente"
-   ],
-   "Desarrollo Productos": [
-    "Fórmula Magistral Nueva",
-    "Ajuste de Fórmula",
-    "Muestra de Desarrollo"
-   ],
-   "Entrega de Muestras": [
-    "Muestra Comercial",
-    "Muestra Médica"
-   ],
-   "Productos Nuevos": [
-    "Presentación del Producto"
-   ],
-   "Protocolo Médico": [
-    "Presentación Protocolo Médico"
-   ]
-  },
-  "nuevo:Visita Cliente": {
-   "Colocación": [
-    "Producto Nuevo",
-    "Producto Terminado",
-    "Magistral Individual",
-    "Magistral de Pedido",
-    "Presentación Portafolio",
-    "Creación Cliente"
-   ],
-   "Desarrollo Productos": [
-    "Fórmula Magistral Nueva",
-    "Ajuste de Fórmula",
-    "Muestra de Desarrollo"
-   ],
-   "Entrega de Muestras": [
-    "Muestra Comercial",
-    "Muestra Médica"
-   ],
-   "Productos Nuevos": [
-    "Presentación del Producto"
-   ]
-  },
   "Visita Médica": {
    "Desarrollo Productos": [
     "Fórmula Magistral Nueva",
@@ -330,12 +280,56 @@ window.MATRIZ_OBJETIVOS = {
     "Solicitud y Recolección de Información"
    ]
   },
+  "nuevo:Visita Médica": {
+   "Desarrollo Productos": [
+    "Fórmula Magistral Nueva",
+    "Ajuste de Fórmula",
+    "Muestra de Desarrollo"
+   ],
+   "Entrega de Muestras": [
+    "Muestra Comercial",
+    "Muestra Médica"
+   ],
+   "Lead": [
+    "Presentación Compañía",
+    "Condiciones Comerciales",
+    "Presentación Portafolio",
+    "Actividades",
+    "Protocolo Médico",
+    "Solicitud de Creación",
+    "Otros"
+   ]
+  },
+  "nuevo:Visita Cliente": {
+   "Desarrollo Productos": [
+    "Fórmula Magistral Nueva",
+    "Ajuste de Fórmula",
+    "Muestra de Desarrollo"
+   ],
+   "Entrega de Muestras": [
+    "Muestra Comercial",
+    "Muestra Médica"
+   ],
+   "Lead": [
+    "Presentación Compañía",
+    "Condiciones Comerciales",
+    "Presentación Portafolio",
+    "Actividades",
+    "Protocolo Médico",
+    "Solicitud de Creación",
+    "Otros"
+   ]
+  },
   "nuevo:Punto de Venta": {
    "Entrega de Muestras": [
     "Tester"
    ],
-   "Productos Nuevos": [
-    "Presentación del Producto"
+   "Lead": [
+    "Presentación Compañía",
+    "Presentación Portafolio",
+    "Actividades",
+    "Solicitud de Creación",
+    "Otros"
    ]
   },
   "Planeación Mes": {

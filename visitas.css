@@ -1492,7 +1492,10 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .kpi.lead b { color: #c2410c; }
 .kpi.lead.no b { color: #9a3412; }
 td.n.lead { color: #c2410c; font-weight: 600; }
-.visita-card.lead { border-left-color: #ea580c !important; background: linear-gradient(90deg, #fff7ed, #fff 60%); }
+.visita-card.lead { background: linear-gradient(90deg, #fff7ed, #fff 60%); }
+/* Borde del Lead con el color del anillo: visitado (cian fuerte) o no visitado (cian claro) */
+.visita-card.lead.lead-ok { border-left-color: #0891b2 !important; }
+.visita-card.lead.lead-no { border-left-color: #7dd3e8 !important; }
 .vp-sep-lead td { padding: 14px 10px 6px !important; background: #fff7ed !important; border-top: 2px solid #fdba74 !important; font-size: 12px; font-weight: 600; color: #9a3412; text-align: left; }
 .vp-lead .vp-cli, .vp-lead .vp-et { background: #fff7ed !important; }
 .vp-lead .vp-cli { color: #9a3412; }
