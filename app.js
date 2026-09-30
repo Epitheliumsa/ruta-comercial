@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300137';
+const APP_VERSION = '202609300141';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -794,12 +794,25 @@ function abrirProyectos(filtro) {
         <p class="sub">${filtro === 'solicitud'
             ? 'Contactos nuevos que los vendedores piden crear en la Maestra de Contactos. Cuando lo crees, vincúlalo aquí.'
             : 'Contactos que aún no están en la Maestra de Contactos. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>
-        ${lista.length ? lista.map(p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
+        ${lista.length ? gruposProyectos(lista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
             <div class="visita-cab"><strong>${esc(p.nombre)}</strong>${chip(p)}</div>
-            <small>${esc([p.tipo, p.persona, p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}${esJefe() ? ' · ' + esc(nombreVendedor(p.vendedor)) : ''} · ${visitasDeProyecto(p.id).length} ${visitasDeProyecto(p.id).length === 1 ? 'visita' : 'visitas'}</small>
+            <small>${esc([p.tipo, p.persona, p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))} · ${visitasDeProyecto(p.id).length} ${visitasDeProyecto(p.id).length === 1 ? 'visita' : 'visitas'}</small>
             ${acciones(p)}
-        </div>`).join('') : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay contactos nuevos. Se crean al programar una visita marcando "Contacto nuevo".'}</p>`}
+        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay contactos nuevos. Se crean al programar una visita marcando "Contacto nuevo".'}</p>`}
     </div>`);
+}
+
+// Jefes: primero lo propio y luego cada comercial con su zona, por aparte. El comercial ve solo lo suyo.
+function gruposProyectos(lista, tarjeta) {
+    if (!esJefe()) return lista.map(tarjeta).join('');
+    const orden = [sesion.id, ...COMERCIALES.map(c => c.id).filter(id => id !== sesion.id)];
+    const vends = [...new Set(lista.map(p => p.vendedor))].sort((a, b) => (orden.indexOf(a) + 1 || 999) - (orden.indexOf(b) + 1 || 999));
+    return vends.map(v => {
+        const suyos = lista.filter(p => p.vendedor === v);
+        const zona = comercial(v)?.zona || suyos[0]?.zona || '';
+        const titulo = v === sesion.id ? `Tus contactos${zona ? ' · ' + zona : ''}` : `${nombreVendedor(v)}${zona ? ' · ' + zona : ''}`;
+        return `<p class="grupo-titulo grupo-vend">${esc(titulo)} · ${suyos.length}</p>` + suyos.map(tarjeta).join('');
+    }).join('');
 }
 
 // El vendedor revisa los datos del contacto y envía la solicitud de creación a los jefes
