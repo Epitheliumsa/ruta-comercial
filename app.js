@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301829';
+const APP_VERSION = '202609301833';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1849,26 +1849,44 @@ function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
     h.getCell('A2').font = { color: { argb: 'FF555555' } };
     h.getCell('A3').value = `${periodo}${filtros ? ' · ' + filtros : ''} · Descargado el ${fechaHora(new Date().toISOString())}`;
     h.getCell('A3').font = { italic: true, color: { argb: 'FF777777' }, size: 9 };
-    // Resumen (los indicadores de arriba) con sus colores
-    let col = 1;
+    // Anchos parecidos a la pantalla (primero, para repartir el resumen y las convenciones según el espacio)
+    const tabla = $('vpTabla');
+    const cab = tabla.querySelector('thead tr');
+    const cols = [...(tabla.querySelector('tbody tr:not(.vp-sep-lead)') || tabla.querySelector('tfoot tr')).children];
+    const anchos = [24, 36];
+    cols.forEach((td, i) => { if (i >= 2) anchos[i] = td.classList.contains('vp-n') ? 9 : 3.6; });
+    anchos.forEach((w, i) => { h.getColumn(i + 1).width = w; });
+    const anchoDe = c => anchos[c - 1] || 9;
+    // Cuántas columnas (desde c) hacen falta para que quepa un texto de n letras en una sola línea
+    const columnasPara = (c, n) => { let k = 0, w = 0; while (w < n * 1.1 + 2) { w += anchoDe(c + k); k++; } return k; };
+    // Resumen (los indicadores de arriba) con sus colores, en una fila, cada uno con el espacio que necesita
+    h.getCell(5, 1).value = 'Resumen'; h.getCell(5, 1).font = { bold: true, size: 10, color: { argb: 'FF0B5C56' } };
+    let col = 2;
     document.querySelectorAll('#vpResumen > *').forEach(chip => {
-        const c = h.getCell(5, col); c.value = chip.textContent.replace(/\s+/g, ' ').trim(); estiloDe(chip, c, { size: 10 });
-        c.border = {}; h.mergeCells(5, col, 5, col + 1); col += 2;
+        const t = chip.textContent.replace(/\s+/g, ' ').trim(), k = columnasPara(col, t.length);
+        const c = h.getCell(5, col); c.value = t; estiloDe(chip, c, { size: 10 });
+        c.border = {}; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
+        if (k > 1) h.mergeCells(5, col, 5, col + k - 1);
+        col += k + (col === 2 ? 0 : 1);
     });
-    // Convenciones
-    col = 1;
+    h.getRow(5).height = 20;
+    // Convenciones: la muestra (X centrada, con su color) en una casilla y al lado el texto completo
+    h.getCell(6, 1).value = 'Convenciones'; h.getCell(6, 1).font = { bold: true, size: 10, color: { argb: 'FF0B5C56' } };
+    col = 3;
     document.querySelectorAll('.vp-conv span').forEach(sp => {
         const muestra = sp.querySelector('.vp-muestra');
         const m = h.getCell(6, col); m.value = muestra && !muestra.matches('.fest, .planeacion, .fest-cumple, .sab-cumple') ? 'X' : '';
         if (muestra) estiloDe(muestra, m);
-        m.border = {};
-        const t = h.getCell(6, col + 1); t.value = sp.textContent.trim(); t.font = { size: 9, color: { argb: 'FF4C615B' } };
-        h.mergeCells(6, col + 1, 6, col + 4); col += 5;
+        m.border = {}; m.alignment = { horizontal: 'center', vertical: 'middle' };
+        const t = sp.textContent.trim(), k = columnasPara(col + 1, t.length * 0.9);
+        const tc = h.getCell(6, col + 1); tc.value = t; tc.font = { size: 9, color: { argb: 'FF4C615B' } }; tc.alignment = { vertical: 'middle', wrapText: false };
+        if (k > 1) h.mergeCells(6, col + 1, 6, col + k);
+        col += k + 2;
     });
+    h.getRow(6).height = 20;
     // La tabla, celda por celda (respeta columnas y filas combinadas)
-    const inicio = 8, ocupadas = new Set();
+    const inicio = 8, ocupadas = new Set(), altos = {};
     let fila = inicio;
-    const tabla = $('vpTabla');
     [...tabla.querySelectorAll('thead tr, tbody tr, tfoot tr')].forEach(tr => {
         let c = 1;
         [...tr.children].forEach(td => {
@@ -1879,6 +1897,12 @@ function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
             celda.value = valor && valor.pct !== undefined ? valor.pct : valor;
             estiloDe(td, celda);
             if (valor && valor.pct !== undefined) celda.numFmt = '0%';
+            if (valor === 'X') celda.alignment = { ...celda.alignment, horizontal: 'center' };   // la X siempre centrada
+            // Alto de la fila: que se lea completo el texto de etiqueta y cliente (en Excel no se ajusta solo)
+            if (typeof valor === 'string' && cs === 1 && c <= 2 && tr.closest('tbody')) {
+                const lineas = Math.ceil(valor.length / (anchoDe(c) * 1.05));
+                altos[fila] = Math.max(altos[fila] || 1, lineas);
+            }
             if (cs > 1 || rs > 1) {
                 h.mergeCells(fila, c, fila + rs - 1, c + cs - 1);
                 for (let i = 0; i < rs; i++) for (let j = 0; j < cs; j++) ocupadas.add(`${fila + i},${c + j}`);
@@ -1887,15 +1911,8 @@ function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
         });
         fila++;
     });
-    // Anchos parecidos a la pantalla
-    const cab = tabla.querySelector('thead tr');
-    const cols = [...tabla.querySelectorAll('tbody tr:first-child > *')];
-    h.getColumn(1).width = 24; h.getColumn(2).width = 36;
-    cols.forEach((td, i) => {
-        if (i < 2) return;
-        h.getColumn(i + 1).width = td.classList.contains('vp-n') ? 9 : 3.6;
-    });
-    h.getRow(inicio).height = 18;
+    Object.entries(altos).forEach(([f, n]) => { h.getRow(Number(f)).height = Math.max(18, n * 12.5 + 4); });
+    h.getRow(inicio).height = 18; h.getRow(inicio + 1).height = 28;   // semana · día (letra y número) 
     h.views = [{ showGridLines: false, state: 'frozen', xSplit: 2, ySplit: inicio + (cab ? 2 : 0) }];
     return libro;
 }
