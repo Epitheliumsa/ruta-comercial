@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292307';
+const APP_VERSION = '202609292317';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -230,13 +230,25 @@ const esHabil = f => { const w = deIso(f).getDay(); return w !== 0 && w !== 6 &&
 function siguienteHabil(f) { let d = sumarDias(f, 1); while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 const diaCierre = v => siguienteHabil(v.fecha);
 const limiteCierre = v => Date.parse(`${diaCierre(v)}T${HORA_CIERRE}:59-05:00`);
-const puedeReportar = v => v.estado === 'pendiente' && v.fecha <= hoy() && Date.now() <= limiteCierre(v);
+// En pruebas no hay plazo para reportar (ni cierre automático); en vivo aplican todas las restricciones
+const puedeReportar = v => v.estado === 'pendiente' && v.fecha <= hoy() && (ETAPA_DATOS === 'pruebas' || Date.now() <= limiteCierre(v));
 const textoCierre = v => `${fechaCorta(diaCierre(v))}, ${horaBonita(HORA_CIERRE)}`;
 
 // Pasa a NO visitado lo que no se reportó a tiempo (el jefe cierra las de todo el equipo)
 function cerrarVencidas() {
     if (!sesion) return 0;
     const ahora = Date.now();
+    if (ETAPA_DATOS === 'pruebas') {
+        // En pruebas se reabren las que el sistema cerró por no reportarse a tiempo
+        const cerradas = visibles().filter(v => v.clase === 'visita' && v.cierreAutomatico && v.estado === 'no_visitado' && (esJefe() || v.vendedor === sesion.id));
+        cerradas.forEach(v => {
+            const cuando = new Date(ahora).toISOString();
+            registros[v.id] = { ...v, estado: 'pendiente', motivo: '', cierreAutomatico: false, registrada: '', actualizado: cuando, actualizadoPor: 'sistema' };
+            pendientes.add(v.id);
+        });
+        if (cerradas.length) guardarLocal();
+        return 0;
+    }
     const vencidas = visibles().filter(v => v.clase === 'visita' && v.estado === 'pendiente'
         && (esJefe() || v.vendedor === sesion.id) && ahora > limiteCierre(v));
     vencidas.forEach(v => {
@@ -2121,7 +2133,8 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     $('cajaHasta').hidden = !conRango;
     $('lblFecha').textContent = conRango ? 'Desde' : 'Fecha';
     // En visitas y trabajo interno es obligatorio escribir qué se va a hacer (máximo 100 caracteres)
-    $('lblNotas').innerHTML = novedad ? 'Detalle <small>(opcional)</small>' : `¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small>`;
+    // Permiso: el detalle es obligatorio; en las demás novedades es opcional
+    $('lblNotas').innerHTML = tipo === 'Permiso' ? `Detalle ${REQ} <small>(motivo del permiso)</small>` : novedad ? 'Detalle <small>(opcional)</small>' : `¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small>`;
     $('fObjetivoCuenta').hidden = novedad;
     $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / 100';
     $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
@@ -2413,6 +2426,7 @@ function guardarNovedad(id, tipo) {
     if (porHoras && horaFin <= horaInicio) return toast('La hora de finalización debe ser después de la hora de inicio');
     const hasta = NOVEDAD_RANGO.includes(tipo) && !porHoras && $('fHasta').value ? $('fHasta').value : desde;
     if (hasta < desde) return toast('La fecha "Hasta" no puede ser antes de "Desde"');
+    if (tipo === 'Permiso' && !$('fObjetivo').value.trim()) { $('fObjetivo').focus(); return toast('Escribe el detalle del permiso'); }
     const n = id ? { ...registros[id] } : { id: nuevoId(), clase: 'novedad', vendedor: agenda.vendedor, creado: new Date().toISOString(), creadoPor: sesion.id };
     Object.assign(n, { tipo, fecha: desde, hasta, nota: $('fObjetivo').value.trim(),
         diaCompleto: NOVEDAD_HORAS.includes(tipo) ? !porHoras : true, horaInicio, horaFin });
@@ -2779,21 +2793,28 @@ function agendarProxima(antes) {
 // Historial de un cliente: todas sus visitas con el resumen de cada una
 // Los indicadores de arriba filtran (visitas = todas, efectivas, última y próxima; otro toque quita el filtro)
 // y los meses se escogen en una lista desplegable (uno o varios)
-let historial = { nombre: '', vendedor: '', f: '', sel: { m: [] } };
+let historial = { nombre: '', vendedor: '', f: '', sel: { a: [], s: [], t: [], m: [] } };
+// Periodos de una fecha: año, semestre, trimestre y mes
+const PERIODOS_HIST = {
+    a: { t: 'Año', todos: 'Todos los años', de: f => f.slice(0, 4), nombre: v => v },
+    s: { t: 'Semestre', todos: 'Todos los semestres', de: f => `${f.slice(0, 4)}-S${+f.slice(5, 7) <= 6 ? 1 : 2}`, nombre: v => `${v.slice(-1)}.º semestre ${v.slice(0, 4)}` },
+    t: { t: 'Trimestre', todos: 'Todos los trimestres', de: f => `${f.slice(0, 4)}-T${Math.ceil(+f.slice(5, 7) / 3)}`, nombre: v => `Trimestre ${v.slice(-1)} · ${v.slice(0, 4)}` },
+    m: { t: 'Mes', todos: 'Todos los meses', de: f => mesDe(f), nombre: v => mayuscula(nombreMes(v)) }
+};
 function verCliente(nombre, vendedor) {
-    historial = { nombre, vendedor, f: '', sel: { m: [] } };
+    historial = { nombre, vendedor, f: '', sel: { a: [], s: [], t: [], m: [] } };
     MULTI.historial.abierto = null;
     pintarHistorial();
 }
 function filtrarHistorial(f) { historial.f = historial.f === f ? '' : f; pintarHistorial(); }
 const visitasCliente = nombre => visibles().filter(x => x.clase === 'visita' && !x.interno && normalizar(x.contacto) === normalizar(nombre))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
-const mesesHistorial = () => [...new Set(visitasCliente(historial.nombre).map(x => mesDe(x.fecha)))].sort().reverse();
+const valoresHistorial = k => [...new Set(visitasCliente(historial.nombre).map(x => PERIODOS_HIST[k].de(x.fecha)))].sort().reverse();
+const pasaPeriodo = (k, x) => { const sel = historial.sel[k]; return !sel.length || sel.includes(PERIODOS_HIST[k].de(x.fecha)); };
 function pintarHistorial() {
     const { nombre, vendedor } = historial;
-    const meses = mesesHistorial(), elegidos = historial.sel.m;
-    const selM = elegidos.includes(NINGUNA) ? [] : elegidos.length ? elegidos : meses;
-    const lista = visitasCliente(nombre).filter(x => selM.includes(mesDe(x.fecha)));
+    const conFiltroPeriodo = Object.values(historial.sel).some(l => l.length);
+    const lista = visitasCliente(nombre).filter(x => Object.keys(PERIODOS_HIST).every(k => pasaPeriodo(k, x)));
     const zona = comercial(vendedor)?.zona;
     const m = buscarMaestra(zona, nombre) || buscarEnTodas(nombre), p = buscarProyecto(zona, nombre);
     const efectivas = lista.filter(x => x.estado === 'visitado');
@@ -2802,7 +2823,7 @@ function pintarHistorial() {
     const filtro = { ok: x => x.estado === 'visitado', ultima: x => x === efectivas[0], prox: x => x === proxima }[historial.f] || (() => true);
     const vistas = lista.filter(filtro);
     const boton = (f, clase, html) => `<button type="button" class="chip chip-filtro ${clase}${historial.f === f ? ' activo' : ''}" onclick="filtrarHistorial('${f}')" aria-pressed="${historial.f === f}">${html}</button>`;
-    const chipsMes = meses.length > 1 ? '<div class="mc-multis hist-meses" id="histMeses"></div>' : '';
+    const chipsMes = visitasCliente(nombre).length > 1 ? '<div class="hist-periodos" id="histMeses"></div>' : '';
     const filas = vistas.map(x => {
         const [cls, txt] = estadoTxt[x.estado] || ['p', x.estado];
         const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
@@ -2823,14 +2844,17 @@ function pintarHistorial() {
             ${efectivas[0] ? boton('ultima', 'gris', `Última: ${esc(fechaCorta(efectivas[0].fecha))}`) : ''}
             ${proxima ? boton('prox', 'prox', `Próxima: ${esc(fechaCorta(proxima.fecha))}`) : ''}
         </div>
-        ${historial.f || elegidos.length ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${visitasCliente(nombre).length}</p>` : ''}
+        ${historial.f || conFiltroPeriodo ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${visitasCliente(nombre).length}</p>` : ''}
         ${filas || `<div class="no-results">${visitasCliente(nombre).length ? 'No hay visitas con este filtro.' : 'Todavía no hay visitas registradas para este cliente.'}</div>`}
         <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
     </div>`);
     if ($('histMeses')) {
+        // Cada filtro cuenta las visitas que pasan los demás filtros de periodo
         const todasV = visitasCliente(nombre);
-        pintarMultis($('histMeses'), 'historial', [{ k: 'm', t: 'Mes', todos: 'Todos los meses', valores: meses, nombre: m => mayuscula(nombreMes(m)),
-            cuenta: Object.fromEntries(meses.map(m => [m, todasV.filter(x => mesDe(x.fecha) === m).length])) }]);
+        pintarMultis($('histMeses'), 'historial', Object.entries(PERIODOS_HIST).map(([k, d]) => {
+            const valores = valoresHistorial(k), base = todasV.filter(x => Object.keys(PERIODOS_HIST).every(o => o === k || pasaPeriodo(o, x)));
+            return { k, t: d.t, todos: d.todos, valores, nombre: d.nombre, cuenta: Object.fromEntries(valores.map(v => [v, base.filter(x => d.de(x.fecha) === v).length])) };
+        }));
     }
 }
 
