@@ -1546,3 +1546,8 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 .leads-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .leads-cab .btn-primario { padding: 8px 14px; font-size: 14px; }
 .chip.lead-chip { background: #e0f4f8; color: #0e7490; font-size: 11px; padding: 1px 8px; vertical-align: middle; }
+/* Solicitud de creación: formato oficial para descargar y subir diligenciado */
+.caja-formato { margin: 12px 0 4px; padding: 12px; border: 1px dashed #7dd3e8; border-radius: 10px; background: #f0fafc; }
+.caja-formato p { margin: 0 0 8px; font-size: 13px; color: #334155; line-height: 1.45; }
+.caja-formato a.btn-secundario { display: inline-block; text-decoration: none; padding: 8px 14px; margin-bottom: 4px; }
+.caja-formato input[type=file] { width: 100%; padding: 8px; background: #fff; border: 1px solid #cfe0dc; border-radius: 8px; }

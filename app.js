@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301436';
+const APP_VERSION = '202609301458';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -754,7 +754,26 @@ const etiquetaLead = tipo => `${LEAD}${tipo ? ' · ' + tipo : ''}`;
 const esEtqLead = e => /^(lead|contacto nuevo)\b/i.test(String(e || ''));
 const nombreEtq = e => esEtqLead(e) ? String(e).replace(/^contacto nuevo/i, LEAD) : e;
 const ordenLeadAlFinal = (a, b) => (esEtqLead(a) ? 1 : 0) - (esEtqLead(b) ? 1 : 0) || String(a).localeCompare(String(b), 'es');
-const ESTADO_PROYECTO = { proyecto: 'Lead', solicitud: 'Solicitud de creación', vinculado: 'Creado en la Maestra' };
+const ESTADO_PROYECTO = { proyecto: 'Lead', solicitud: 'Ganada · solicitud de creación', vinculado: 'Creado en la Maestra' };
+// Clasificaciones del cliente (hoja "Bases" del formato oficial FTO-CME-002-1). Las de gerencia también le llegan al administrador.
+const CLASIFICACIONES_CLIENTE = [
+    ['10', 'Tienda de piel pura con más de 3 puntos de venta'], ['11', 'Tienda de piel pura con 3 o menos puntos de venta'],
+    ['12', 'Punto de Venta Tienda Dermatológica'], ['13', 'Consultorio con razón social perteneciente a médico con venta al público'],
+    ['14', 'Centro médico o consultorio especializado en manejo de pies'], ['20', 'Socio Epithelium incluido en el panel'],
+    ['21', 'Médico comprador que no es socio y no tiene tienda de piel'], ['22', 'Médico a visitar incluido en el panel'],
+    ['30', 'Cadena de droguerías con más de 5 puntos de venta'], ['31', 'Droguería con menos de 5 puntos de venta'],
+    ['40', 'Supermercado con droguería propia o en arriendo, con reconocimiento nacional'], ['50', 'Establecimiento comercial tipo SPA donde se maneje la categoría'],
+    ['51', 'Establecimiento comercial tipo peluquería o barbería donde se maneje la categoría'], ['52', 'Persona natural que compra sin establecimiento comercial'],
+    ['53', 'Establecimiento comercial de oportunidad donde se maneje la categoría (eventos)'], ['60', 'Asociaciones, clínicas, etc., cuyo capital es de origen privado'],
+    ['61', 'Entidad gubernamental con citación a cotizar o licitación'], ['70', 'Cliente con bodega que hace distribución local (fuerza de ventas y visitadores)'],
+    ['80', 'Persona natural que pertenece a la nómina de Epithelium'], ['90', 'Accionista Epithelium S.A. con tienda de piel o punto de venta']
+];
+const CLASIF_GERENCIA = ['10', '20', '30', '60', '61', '70', '71'];   // "Aprobación de Gerencia" del formato
+const FORMATO_CREACION = 'formatos/FTO-CME-002-1_Formato_vinculacion_clientes.xlsx';
+// El administrador solo ve las solicitudes de las clasificaciones de gerencia; la jefe comercial las ve todas
+const veSolicitud = p => !esAdmin() || sesion.id === JEFE_COMERCIAL?.id || p.solicitud?.gerencia !== false;
+// Un lead ganado (con solicitud de creación) sale del Visiplan desde el mes siguiente a la solicitud
+const leadEnPlan = (p, mes) => !(p.estado === 'solicitud' && p.solicitud?.fecha && mes > mesDe(p.solicitud.fecha.slice(0, 10)));
 const proyectos = () => visibles().filter(r => r.clase === 'proyecto');
 const proyectosDeZona = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado');
 const buscarMaestra = (zona, nombre) => (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre));
@@ -762,7 +781,7 @@ const buscarMaestra = (zona, nombre) => (contactos[zona] || []).find(x => normal
 const buscarEnTodas = nombre => Object.keys(contactos).map(z => buscarMaestra(z, nombre)).find(Boolean);
 const maestraForm = nombre => buscarMaestra(comercial(agenda.vendedor)?.zona, nombre) || (esJefe() ? buscarEnTodas(nombre) : undefined);
 const buscarProyecto = (zona, nombre) => proyectosDeZona(zona).find(p => normalizar(p.nombre) === normalizar(nombre));
-const solicitudesCreacion = () => proyectos().filter(p => p.estado === 'solicitud');
+const solicitudesCreacion = () => proyectos().filter(p => p.estado === 'solicitud' && veSolicitud(p));
 const JEFE_COMERCIAL = USUARIOS.find(u => u.jefe);
 const visitasDeProyecto = id => visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id);
 
@@ -822,6 +841,7 @@ function abrirProyectos(filtro) {
     const lista = proyectos()
         .filter(p => esJefe() || p.vendedor === sesion.id)
         .filter(p => !filtro || p.estado === filtro)
+        .filter(p => p.estado !== 'solicitud' || !esJefe() || veSolicitud(p))
         .sort((a, b) => ['solicitud', 'proyecto', 'vinculado'].indexOf(a.estado) - ['solicitud', 'proyecto', 'vinculado'].indexOf(b.estado) || a.nombre.localeCompare(b.nombre));
     const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? 'np' : 'proy'}">${ESTADO_PROYECTO[p.estado]}</span>`;
     const acciones = p => {
@@ -832,9 +852,10 @@ function abrirProyectos(filtro) {
         if (esJefe()) botones.push(`<button class="btn-primario" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular a la Maestra</button>`);
         // Quien creó el lead programa desde aquí su próxima visita
         if (p.vendedor === sesion.id) botones.unshift(`<button class="btn-primario btn-programar-lead" onclick="programarLead('${p.id}')">📅 Programar visita</button>`);
-        return `${p.solicitud && p.estado === 'solicitud' ? `<p class="nota-sol">Solicitada el ${esc(fechaHora(p.solicitud.fecha))} por ${esc(nombreVendedor(p.solicitud.por))}${p.solicitud.nota ? ': ' + esc(p.solicitud.nota) : ''}</p>` : ''}
+        return `${p.solicitud && p.estado === 'solicitud' ? `<p class="nota-sol">Solicitada el ${esc(fechaHora(p.solicitud.fecha))} por ${esc(nombreVendedor(p.solicitud.por))}${p.solicitud.clasificacion ? ` · Clasificación <b>${esc(p.solicitud.clasificacion)}</b>${p.solicitud.gerencia ? ' (gerencia)' : ''}` : ''}${p.solicitud.nota ? ': ' + esc(p.solicitud.nota) : ''}</p>
+                ${p.solicitud.formato?.url ? `<p class="nota-sol"><a href="${esc(p.solicitud.formato.url)}" target="_blank" rel="noopener">📎 Formato de creación: ${esc(p.solicitud.formato.nombre || 'ver archivo')}</a></p>` : ''}` : ''}
             ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol">Solicitud rechazada${p.rechazo.motivo ? ': ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
-            ${p.estado === 'solicitud' && !esJefe() ? '<p class="nota-sol">Enviada a los jefes. Cuando se cree en la Maestra de Contactos quedará vinculado.</p>' : ''}
+            ${p.estado === 'solicitud' && !esJefe() ? '<p class="nota-sol">Lead ganada: la solicitud se envió. Cuando se cree en la Maestra de Contactos quedará vinculada.</p>' : ''}
             <div class="vincular" id="vin-${p.id}" hidden>
                 <label for="vinInput-${p.id}">Contacto creado en la Maestra de Contactos</label>
                 <input id="vinInput-${p.id}" list="dlMaestra-${p.id}" autocomplete="off" placeholder="Busca el contacto en la Maestra">
@@ -936,12 +957,17 @@ function gruposProyectos(lista, tarjeta) {
     }).join('');
 }
 
-// El vendedor revisa los datos del contacto y envía la solicitud de creación a los jefes
+// El vendedor revisa los datos del contacto, escoge la clasificación, anexa el formato oficial diligenciado y envía la solicitud.
+// Llega a la jefe comercial; si la clasificación es de gerencia (10-20-30-60-61-70-71), también al administrador.
+// Al enviarla, la Lead queda ganada.
+const quienRecibe = cl => CLASIF_GERENCIA.includes(cl) ? `${JEFE_COMERCIAL?.nombre || 'la jefe comercial'} y a ${ADMIN.nombre} (aprobación de gerencia)` : (JEFE_COMERCIAL?.nombre || 'la jefe comercial');
 function solicitarCreacion(id) {
     const p = registros[id];
     abrirModal(`<form class="form-rc" onsubmit="enviarSolicitudCreacion(event, '${id}')">
         <h2>Solicitud de creación</h2>
-        <p class="sub">${esc(p.nombre)} se va a volver cliente. Revisa sus datos: la solicitud le llega a ${esc(JEFE_COMERCIAL?.nombre || 'la jefe comercial')} y a ${esc(ADMIN.nombre)}.</p>
+        <p class="sub">${esc(p.nombre)} se va a volver cliente. Revisa sus datos: la solicitud le llega a <b id="sQuien">${esc(quienRecibe(''))}</b>.</p>
+        <label for="sClasif">Clasificación del cliente ${REQ}</label>
+        <select id="sClasif" required onchange="$('sQuien').textContent = quienRecibe(this.value)"><option value="">Elige la clasificación</option>${CLASIFICACIONES_CLIENTE.map(([n, t]) => `<option value="${n}">${n} · ${esc(t)}</option>`).join('')}</select>
         <div class="dos">
             <div><label for="sTipo">Tipo</label><select id="sTipo">${TIPOS_PROYECTO.map(t => `<option ${t === p.tipo ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
             <div><label for="sCiudad">Ciudad</label>${campoCiudad('sCiudad', p.ciudad, true)}</div>
@@ -949,21 +975,51 @@ function solicitarCreacion(id) {
         <label for="sPersona">Nombre de contacto</label><input id="sPersona" required value="${esc(p.persona)}" onblur="this.value = nombrePropio(this.value)">
         <label for="sDir">Dirección</label><input id="sDir" required value="${esc(p.direccion)}">
         <label for="sTel">Teléfono</label><input id="sTel" type="tel" required value="${esc(p.telefono)}">
+        <div class="caja-formato">
+            <p><b>Formato de vinculación de clientes (FTO-CME-002-1)</b><br>1. Descárgalo · 2. Diligéncialo con el cliente y fírmalo · 3. Súbelo aquí (Excel, PDF o foto).</p>
+            <a class="btn-secundario" href="${encodeURI(FORMATO_CREACION)}" download="FTO-CME-002-1 Formato de vinculacion clientes.xlsx">⬇ Descargar formato</a>
+            <label for="sFormato">Formato diligenciado ${REQ}</label>
+            <input id="sFormato" type="file" required accept=".xlsx,.xls,.pdf,image/*">
+        </div>
         <label for="sNota">Observaciones para la creación (opcional)</label>
-        <textarea id="sNota" placeholder="Ej: NIT, correo de facturación, condiciones acordadas"></textarea>
+        <textarea id="sNota" placeholder="Ej: condiciones acordadas"></textarea>
         <div class="form-botones">
             <button type="button" class="btn-secundario" onclick="abrirProyectos()">Cancelar</button>
-            <button class="btn-primario">Enviar solicitud</button>
+            <button class="btn-primario" id="sEnviar">Enviar solicitud</button>
         </div>
     </form>`);
 }
 
-function enviarSolicitudCreacion(e, id) {
+// Sube el archivo al Drive del servidor (Apps Script) y devuelve su enlace
+const MAX_ARCHIVO = 15 * 1024 * 1024;
+async function subirArchivo(archivo, carpeta) {
+    const datos = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = mal; r.readAsDataURL(archivo); });
+    const res = await llamarApi({ accion: 'subirArchivo', carpeta, nombre: archivo.name, tipo: archivo.type || 'application/octet-stream', datos });
+    return { url: res.url, nombre: archivo.name };
+}
+
+async function enviarSolicitudCreacion(e, id) {
     e.preventDefault();
-    guardarRegistro({ ...registros[id], estado: 'solicitud', tipo: $('sTipo').value, ciudad: $('sCiudad').value.trim(),
+    if (!validarCiudad($('sCiudad'))) { $('sCiudad').focus(); return toast('Escoge la ciudad de la lista (Municipio - Departamento)'); }
+    const archivo = $('sFormato').files[0], clasificacion = $('sClasif').value;
+    if (!clasificacion) { $('sClasif').focus(); return toast('Escoge la clasificación del cliente'); }
+    if (!archivo) { $('sFormato').focus(); return toast('Sube el formato de vinculación diligenciado'); }
+    if (archivo.size > MAX_ARCHIVO) return toast('El archivo pesa más de 15 MB. Sube una foto o PDF más liviano.');
+    const p = registros[id];
+    $('sEnviar').disabled = true; $('sEnviar').textContent = 'Subiendo formato…';
+    let formato;
+    try {
+        formato = await subirArchivo(archivo, 'Formatos de creación de clientes');
+    } catch (err) {
+        console.error(err);
+        $('sEnviar').disabled = false; $('sEnviar').textContent = 'Enviar solicitud';
+        return toast('No se pudo subir el formato. Revisa tu conexión e intenta de nuevo.');
+    }
+    guardarRegistro({ ...p, estado: 'solicitud', tipo: $('sTipo').value, ciudad: $('sCiudad').value.trim(),
         persona: nombrePropio($('sPersona').value), direccion: $('sDir').value.trim(), telefono: $('sTel').value.trim(),
-        solicitud: { fecha: new Date().toISOString(), por: sesion.id, nota: $('sNota').value.trim() }, rechazo: null });
-    toast('Solicitud de creación enviada a los jefes');
+        solicitud: { fecha: new Date().toISOString(), por: sesion.id, nota: $('sNota').value.trim(), clasificacion,
+            gerencia: CLASIF_GERENCIA.includes(clasificacion), formato }, rechazo: null });
+    toast(`${p.nombre}: Lead ganada. Solicitud enviada a ${quienRecibe(clasificacion)}`);
     abrirProyectos();
     pintarInicio();
 }
@@ -1478,7 +1534,7 @@ function pintarVisiplan() {
     vista.forEach(ven => {
         seg[ven.id] = seguimientoPlan(ven.id, mes);
         clientes = clientes.concat((contactos[ven.zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
-            .concat(proyectosDeZona(ven.zona).map(p => ({ n: p.nombre, e: etiquetaLead(p.tipo), t: LEAD, v: ven.id }))));
+            .concat(proyectosDeZona(ven.zona).filter(p => leadEnPlan(p, mes)).map(p => ({ n: p.nombre, e: etiquetaLead(p.tipo), t: LEAD, v: ven.id }))));
     });
     // Filtros (selección múltiple): tipo de cliente, etiqueta (con Trabajo interno) y qué mostrar
     const claveZona = vista.map(c => c.id).join(',');

@@ -33,6 +33,15 @@
   (copia de la app con `ETAPA_DATOS = 'pruebas'`, franja visible "MODO CAPACITACIÓN", otro nombre e ícono y
   otras llaves de almacenamiento local, para no cruzarse con la app real en el mismo celular).
 
+## Leads y solicitud de creación
+- Lead = contacto nuevo (registro `proyecto`). Se crea desde el módulo Leads (+ Crear Lead) o al programar (Contacto nuevo > Lead).
+  Sale en la Maestra Clientes con los mismos filtros (al final, en cian) y va por aparte en todos los indicadores.
+- Solicitud de creación: clasificación obligatoria + formato oficial `formatos/FTO-CME-002-1_Formato_vinculacion_clientes.xlsx`
+  (se descarga, se diligencia y se sube; el servidor lo guarda en el Drive de Hernán, carpeta "Ruta Comercial - Formatos de creación de clientes").
+  Llega a la jefe comercial; a Hernán solo si la clasificación es de gerencia (10-20-30-60-61-70-71).
+- Al enviar la solicitud la Lead queda **ganada** y sale del Visiplan desde el mes siguiente. Cuando el cliente ya está en la
+  Maestra, la jefe la vincula ("Vincular a la Maestra"): sus visitas pasan al cliente (quedan marcadas `eraProyecto`).
+
 ## Matriz de la app (skill `matriz`)
 - Toda la configuración está en un solo archivo: `datos/Matriz_App.xlsx` (Índice, Visitas, Trabajo interno, Mensual y
   Tipo de visita) → `python3 herramientas/matriz_app.py` la refresca y genera `objetivos.js`.

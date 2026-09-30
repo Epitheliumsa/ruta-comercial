@@ -31,6 +31,7 @@ function doPost(e) {
     if (!usuario) return responder_({ ok: false, error: 'Usuario o clave incorrectos' });
     if (pedido.accion === 'listar') return responder_({ ok: true, registros: listar_(usuario, pedido.desde, pedido.hasta) });
     if (pedido.accion === 'guardar') return responder_({ ok: true, guardados: guardar_(usuario, pedido.registros || []) });
+    if (pedido.accion === 'subirArchivo') return responder_({ ok: true, url: subirArchivo_(usuario, pedido) });
     return responder_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
     return responder_({ ok: false, error: String(err) });
@@ -120,6 +121,22 @@ function guardar_(usuario, registros) {
   } finally {
     bloqueo.releaseLock();
   }
+}
+
+// Guarda un archivo (ej: el formato de vinculación diligenciado) en una carpeta del Drive del dueño de la hoja.
+// Queda con enlace de solo lectura para abrirlo desde la app. Máximo 15 MB.
+function subirArchivo_(usuario, pedido) {
+  const bytes = Utilities.base64Decode(String(pedido.datos || ''));
+  if (!bytes.length) throw new Error('Archivo vacío');
+  if (bytes.length > 15 * 1024 * 1024) throw new Error('El archivo pesa más de 15 MB');
+  const nombreCarpeta = 'Ruta Comercial - ' + String(pedido.carpeta || 'Archivos').replace(/[\\/]/g, '-');
+  const carpetas = DriveApp.getFoldersByName(nombreCarpeta);
+  const carpeta = carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(nombreCarpeta);
+  const fecha = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd HH.mm');
+  const nombre = fecha + ' · ' + usuario.id + ' · ' + String(pedido.nombre || 'archivo').replace(/[\\/]/g, '-');
+  const archivo = carpeta.createFile(Utilities.newBlob(bytes, pedido.tipo || 'application/octet-stream', nombre));
+  archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return archivo.getUrl();
 }
 
 function responder_(obj) {
