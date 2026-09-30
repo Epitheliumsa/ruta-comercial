@@ -2316,6 +2316,9 @@ const nombreProducto = c => productoPorCodigo[c] ? `[${c}] ${productoPorCodigo[c
 // El número de pedido lleva prefijo A (Producto Terminado), B (Magistral de Pedido) o A/B (Magistral Individual).
 const PEDIDO_CATS = { 'Producto Terminado': ['A'], 'Magistral Individual': ['A', 'B'], 'Magistral de Pedido': ['B'] };
 const TIPOS_MUESTRA = ['Muestra Médica', 'Muestra Comercial', 'Tester'];
+// Lo que indica que se presentaron productos (objetivos o subcategorías cumplidas)
+const OBJ_PRESENTA = ['Productos Nuevos', 'Mapa del Cliente - Ampliación Portafolio'];
+const SUBS_PRESENTA = ['Presentación del Producto', 'Productos Nuevos', 'Productos Foco', 'Productos Transición', 'Portafolio Actual', 'Portafolio', 'Producto Nuevo'];
 const normPedido = t => String(t || '').toUpperCase().replace(/[\s-]/g, '');
 const pedidoValido = (cat, num) => new RegExp(`^[${PEDIDO_CATS[cat].join('')}]\\d+$`).test(normPedido(num));
 
@@ -2326,18 +2329,21 @@ const guiaEtiqueta = cat => { const g = (CATALOGO.guia || {})[cat]; return g && 
 // "Todos" y selección de uno o varios; lo marcado se conserva aunque se busque otro. Las cerradas solo se marcan.
 function htmlSelProductos(id, cats, sel = {}) {
     const abre = cats.filter(c => CATALOGO.desplegables.includes(c)), cerr = cats.filter(c => !CATALOGO.desplegables.includes(c));
-    return `<div class="sel-prod" id="${id}">${abre.map(cat => {
-        const elegidos = Array.isArray(sel[cat]) ? sel[cat] : [], lista = CATALOGO.productos.filter(p => p.e.includes(cat));
-        return `<div class="dd-prod" data-cat="${esc(cat)}">
-            <div class="con-guia"><button type="button" class="mc-multi-btn dd-btn" onclick="abrirDdProductos(this)" ${lista.length ? '' : 'disabled'}><span></span></button>${guiaEtiqueta(cat)}</div>
-            <div class="dd-panel" hidden>
+    // Fila de etiquetas: las desplegables abren su lista al tocarlas (▾); las cerradas se marcan con un toque. Cada una con ⓘ.
+    return `<div class="sel-prod" id="${id}"><div class="sel-etqs">${abre.map(cat => {
+        const lista = CATALOGO.productos.filter(p => p.e.includes(cat));
+        return `<div class="con-guia dd-prod" data-cat="${esc(cat)}"><button type="button" class="btn-etq dd-btn" onclick="abrirDdProductos(this)" ${lista.length ? '' : 'disabled'}><span></span> ▾</button>${guiaEtiqueta(cat)}</div>`;
+    }).join('')}${cerr.map(cat => `<div class="con-guia"><label class="btn-etq"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''}><span>${esc(cat)}</span></label>${guiaEtiqueta(cat)}</div>`).join('')}</div>
+        ${abre.map(cat => {
+            const elegidos = Array.isArray(sel[cat]) ? sel[cat] : [], lista = CATALOGO.productos.filter(p => p.e.includes(cat));
+            return `<div class="dd-panel" data-cat="${esc(cat)}" hidden>
+                <p class="dd-titulo">${esc(cat)}</p>
                 <input class="sel-busca" placeholder="Buscar por código o nombre..." oninput="buscarProductos(this)" autocomplete="off">
                 <label class="mc-multi-todas"><input type="checkbox" class="dd-todos" onchange="todosDdProductos(this)"><span>Todos (${lista.length})</span></label>
-                <div class="sel-ops dd-lista">${lista.map(p => `<label data-q=""${esc(normalizar(p.c + ' ' + p.n))}"><input type="checkbox" value="${esc(p.c)}" ${elegidos.includes(p.c) ? 'checked' : ''} onchange="pintarDdProductos(this.closest('.dd-prod'))"><span><b>${esc(p.c)}</b> ${esc(p.n)}</span></label>`).join('')}</div>
-            </div>
-            <div class="dd-elegidos"></div>
-        </div>`;
-    }).join('')}${cerr.length ? `<div class="sel-cerradas">${cerr.map(cat => `<div class="con-guia"><label class="btn-etq"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''}><span>${esc(cat)}</span></label>${guiaEtiqueta(cat)}</div>`).join('')}</div>` : ''}</div>`;
+                <div class="sel-ops dd-lista">${lista.map(p => `<label data-q="${esc(normalizar(p.c + ' ' + p.n))}"><input type="checkbox" value="${esc(p.c)}" ${elegidos.includes(p.c) ? 'checked' : ''} onchange="pintarSelProductos(this.closest('.sel-prod'))"><span><b>${esc(p.c)}</b> ${esc(p.n)}</span></label>`).join('')}</div>
+            </div>`;
+        }).join('')}
+        <div class="dd-elegidos"></div></div>`;
 }
 function verGuia(e, boton) {
     e.preventDefault(); e.stopPropagation();
@@ -2346,43 +2352,52 @@ function verGuia(e, boton) {
     caja.classList.toggle('ver', abrir);
 }
 document.addEventListener('click', e => { if (!e.target.closest('.con-guia')) document.querySelectorAll('.con-guia.ver').forEach(c => c.classList.remove('ver')); });
-// Texto del botón y productos elegidos debajo
-function pintarDdProductos(caja) {
-    const cat = caja.dataset.cat, total = caja.querySelectorAll('.sel-ops input').length;
-    const marcados = [...caja.querySelectorAll('.sel-ops input:checked')];
-    caja.querySelector('.dd-btn span').textContent = !total ? `${cat}: aún no hay productos` : !marcados.length ? `${cat}: elige uno o varios` : marcados.length === total ? `${cat}: todos (${total})` : `${cat}: ${marcados.length} ${marcados.length === 1 ? 'elegido' : 'elegidos'}`;
-    caja.querySelector('.dd-btn').classList.toggle('con', marcados.length > 0);
-    const todos = caja.querySelector('.dd-todos');
-    if (todos) todos.checked = !!total && marcados.length === total;
-    caja.querySelector('.dd-elegidos').innerHTML = marcados.length && marcados.length < total
-        ? marcados.map(i => `<span>${esc(nombreProducto(i.value))}</span>`).join('') : '';
+// Texto de cada botón (cuántos elegidos) y productos elegidos debajo de las etiquetas
+function pintarSelProductos(caja) {
+    caja.querySelectorAll('.dd-panel').forEach(panel => {
+        const cat = panel.dataset.cat, total = panel.querySelectorAll('.sel-ops input').length;
+        const n = panel.querySelectorAll('.sel-ops input:checked').length;
+        const btn = caja.querySelector(`.dd-prod[data-cat="${cat}"] .dd-btn`);
+        btn.querySelector('span').textContent = !total ? `${cat} (sin productos)` : !n ? cat : n === total ? `${cat} · todos` : `${cat} · ${n}`;
+        btn.classList.toggle('con', n > 0);
+        panel.querySelector('.dd-todos').checked = !!total && n === total;
+    });
+    caja.querySelector('.dd-elegidos').innerHTML = [...caja.querySelectorAll('.dd-panel')].map(panel => {
+        const marcados = [...panel.querySelectorAll('.sel-ops input:checked')], total = panel.querySelectorAll('.sel-ops input').length;
+        if (!marcados.length) return '';
+        return marcados.length === total ? `<span>${esc(panel.dataset.cat)}: todos</span>` : marcados.map(i => `<span>${esc(nombreProducto(i.value))}</span>`).join('');
+    }).join('');
 }
 function abrirDdProductos(boton) {
-    const panel = boton.closest('.dd-prod').querySelector('.dd-panel'), abrir = panel.hidden;
+    const caja = boton.closest('.sel-prod'), cat = boton.closest('.dd-prod').dataset.cat;
+    const panel = caja.querySelector(`.dd-panel[data-cat="${cat}"]`), abrir = panel.hidden;
     document.querySelectorAll('.dd-panel').forEach(p => { p.hidden = true; });
+    document.querySelectorAll('.dd-btn.abierto').forEach(b => b.classList.remove('abierto'));
     panel.hidden = !abrir;
+    boton.classList.toggle('abierto', abrir);
     if (abrir) panel.querySelector('.sel-busca').focus();
 }
 function todosDdProductos(casilla) {
-    const caja = casilla.closest('.dd-prod');
-    caja.querySelectorAll('.sel-ops input').forEach(i => { i.checked = casilla.checked; });
-    pintarDdProductos(caja);
+    const panel = casilla.closest('.dd-panel');
+    panel.querySelectorAll('.sel-ops input').forEach(i => { i.checked = casilla.checked; });
+    pintarSelProductos(panel.closest('.sel-prod'));
 }
 function buscarProductos(input) {
     const q = normalizar(input.value);
     input.parentElement.querySelectorAll('.sel-ops label').forEach(l => { l.hidden = !!q && !l.dataset.q.includes(q); });
 }
 document.addEventListener('click', e => {
-    if (!document.contains(e.target) || e.target.closest('.dd-prod')) return;
+    if (!document.contains(e.target) || e.target.closest('.dd-prod') || e.target.closest('.dd-panel')) return;
     document.querySelectorAll('.dd-panel').forEach(p => { p.hidden = true; });
+    document.querySelectorAll('.dd-btn.abierto').forEach(b => b.classList.remove('abierto'));
 });
 function leerSelProductos(id) {
     const r = {};
-    document.querySelectorAll(`#${id} .dd-prod`).forEach(c => {
+    document.querySelectorAll(`#${id} .dd-panel`).forEach(c => {
         const cod = [...c.querySelectorAll('.sel-ops input:checked')].map(i => i.value);
         if (cod.length) r[c.dataset.cat] = cod;
     });
-    document.querySelectorAll(`#${id} .sel-cerradas input.cat:checked`).forEach(i => { r[i.dataset.cat] = true; });
+    document.querySelectorAll(`#${id} .sel-etqs input.cat:checked`).forEach(i => { r[i.dataset.cat] = true; });
     return r;
 }
 const textoSelProductos = sel => Object.entries(sel || {}).map(([cat, v]) => Array.isArray(v) && v.length ? `${cat}: ${v.map(nombreProducto).join(', ')}` : cat).join(' · ');
@@ -2412,15 +2427,22 @@ function actualizarCierreVisita() {
     const cont = $('rCumplidos');
     if (!cont || !$('cajaPedido')) return;
     const { objetivosCumplidos: objs, subCumplidos: subs } = leerCierre();
-    const col = objs.includes('Colocación') ? (subs['Colocación'] || []) : [];
+    // Pedido: sale al marcar Colocación. Se elige la categoría del pedido (las subcategorías marcadas vienen elegidas)
+    const conColocacion = objs.includes('Colocación');
+    $('cajaPedido').hidden = !conColocacion;
+    const col = subs['Colocación'] || [];
     let hay = false;
     Object.keys(PEDIDO_CATS).forEach(cat => {
-        const ver = col.includes(cat);
-        $('pedido-' + cat.replace(/\s/g, '')).hidden = !ver;
-        hay = hay || ver;
+        const fila = $('pedido-' + cat.replace(/\s/g, '')), casilla = fila.querySelector('.p-cat');
+        if (col.includes(cat) && !casilla.dataset.tocada) casilla.checked = true;
+        fila.querySelector('.n-pedido').hidden = !casilla.checked;
+        fila.querySelector('small').hidden = !casilla.checked;
+        hay = hay || (conColocacion && casilla.checked);
     });
-    $('cajaPedido').hidden = !hay;
     $('cajaProdPedidos').hidden = !hay;
+    // Productos presentados: solo si en lo cumplido hay algo de presentar productos
+    const presento = objs.some(o => OBJ_PRESENTA.includes(o)) || Object.values(subs).flat().some(x => SUBS_PRESENTA.includes(x));
+    $('cajaProdPresentados').hidden = !presento;
     const mu = objs.includes('Entrega de Muestras') ? (subs['Entrega de Muestras'] || []) : [];
     let hayM = false;
     TIPOS_MUESTRA.forEach(t => {
@@ -2439,7 +2461,10 @@ function abrirRegistro(id, tipo) {
     const v = registros[id];
     const opciones = (lista, actual) => lista.map(o => `<option ${o === actual ? 'selected' : ''}>${esc(o)}</option>`).join('');
     if (!puedeReportar(v)) return toast(v.estado !== 'pendiente' ? 'Esta visita ya se cerró y no se puede modificar' : 'El plazo para reportar esta visita ya cerró');
-    const cab = `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>
+    const mc = !v.interno && buscarMaestra(comercial(v.vendedor)?.zona, v.contacto);
+    const cab = (v.interno ? `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`
+        : `<p class="cierre-cliente">${esc(v.contacto)}</p>${mc && (mc.cl || mc.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(mc.cl || '')}</b>${mc.ca ? ' · ' + esc(mc.ca) : ''}</p>` : ''}
+        <p class="sub">${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`) + `
         <p class="aviso-hora">Plazo: ${esc(textoCierre(v))}. Después de guardar, el reporte no se puede modificar.</p>`;
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
@@ -2462,18 +2487,19 @@ function abrirRegistro(id, tipo) {
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
-            <label for="rGestion">¿Qué se hizo?</label><select id="rGestion">${opciones(GESTIONES, v.gestion)}</select>
             <div id="cajaPedido" class="caja-cierre" hidden>
-                <label>Pedido ${REQ} <small>(número con su prefijo)</small></label>
-                ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}" hidden><span>${esc(cat)}</span>
+                <label>Pedido ${REQ} <small>(marca la categoría y escribe el número con su prefijo)</small></label>
+                ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}"><label class="check p-check"><input type="checkbox" class="p-cat" ${((ya && v.pedidos) || []).some(p => p.cat === cat) ? 'checked' : ''} onchange="this.dataset.tocada = 1; actualizarCierreVisita()"><span>${esc(cat)}</span></label>
                     <input class="n-pedido" data-cat="${esc(cat)}" placeholder="${pre.join(' ó ')}12345" autocomplete="off" value="${esc(((ya && v.pedidos) || []).find(p => p.cat === cat)?.num || '')}">
                     <small>Prefijo ${pre.join(' ó ')}</small></div>`).join('')}
             </div>
-            <label>Productos presentados</label>
-            ${htmlSelProductos('rProdPresentados', [...CATALOGO.desplegables, ...CATALOGO.cerradas], ya ? v.productosPresentados : {})}
+            <div id="cajaProdPresentados" hidden>
+                <label>Productos presentados</label>
+                ${htmlSelProductos('rProdPresentados', [...CATALOGO.desplegables, ...CATALOGO.cerradas], ya ? v.productosPresentados : {})}
+            </div>
             <div id="cajaProdPedidos" hidden>
                 <label>Productos pedidos</label>
-                ${htmlSelProductos('rProdPedidos', CATALOGO.desplegables, ya ? v.productosPedidos : {})}
+                ${htmlSelProductos('rProdPedidos', [...CATALOGO.desplegables, ...CATALOGO.cerradas], ya ? v.productosPedidos : {})}
             </div>
             <div id="cajaMuestras" class="caja-cierre" hidden>
                 <label>Muestras entregadas ${REQ} <small>(producto y cantidad)</small></label>
@@ -2492,7 +2518,7 @@ function abrirRegistro(id, tipo) {
                 <button class="btn-primario">Guardar visita</button>
             </div>
         </form>`);
-        document.querySelectorAll('#modalContenido .dd-prod').forEach(pintarDdProductos);
+        document.querySelectorAll('#modalContenido .sel-prod').forEach(pintarSelProductos);
         $('rCumplidos')?.addEventListener('change', actualizarCierreVisita);
         actualizarCierreVisita();
     } else {
@@ -2533,7 +2559,9 @@ function guardarVisitado(e, id) {
     if (!$('rAtendio').value.trim()) { $('rAtendio').focus(); return toast('Escribe quién atendió (nombre y cargo)'); }
     // Números de pedido (Colocación): obligatorios y con su prefijo
     const pedidos = [];
-    for (const inp of document.querySelectorAll('#cajaPedido .fila-pedido:not([hidden]) .n-pedido')) {
+    const colMarcada = !$('cajaPedido').hidden;
+    if (colMarcada && !document.querySelector('#cajaPedido .p-cat:checked')) return toast('Marca la categoría del pedido: Producto Terminado, Magistral Individual o Magistral de Pedido');
+    for (const inp of colMarcada ? document.querySelectorAll('#cajaPedido .fila-pedido .n-pedido:not([hidden])') : []) {
         const cat = inp.dataset.cat, num = normPedido(inp.value);
         if (!num) { inp.focus(); return toast(`Escribe el número de pedido de ${cat}`); }
         if (!pedidoValido(cat, num)) { inp.focus(); return toast(`El pedido de ${cat} debe empezar por ${PEDIDO_CATS[cat].join(' o ')} seguido de números (ej: ${PEDIDO_CATS[cat][0]}12345)`); }
@@ -2546,13 +2574,13 @@ function guardarVisitado(e, id) {
         if (malo) return toast(`"${malo.c}" no está en el catálogo: búscalo por código o nombre`);
     }
     if (!$('rCompromisos').value.trim()) { $('rCompromisos').focus(); return toast('Escribe los compromisos, próximos pasos u observaciones (máximo 100 caracteres)'); }
-    const productosPresentados = leerSelProductos('rProdPresentados'), productosPedidos = pedidos.length ? leerSelProductos('rProdPedidos') : {};
+    const productosPresentados = $('cajaProdPresentados').hidden ? {} : leerSelProductos('rProdPresentados'), productosPedidos = pedidos.length ? leerSelProductos('rProdPedidos') : {};
     const v = {
         ...registros[id], ...LIMPIAR_NO_VISITADO,
         estado: 'visitado',
         modalidad: modalidadElegida(),
         ...leerCierre(),
-        gestion: $('rGestion').value,
+        gestion: '',
         atendio: $('rAtendio').value.trim(),
         productosPresentados, productos: textoSelProductos(productosPresentados),
         productosPedidos, muestrasDetalle, muestras: textoMuestras(muestrasDetalle),
