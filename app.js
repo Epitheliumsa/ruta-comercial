@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300924';
+const APP_VERSION = '202609301133';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1539,7 +1539,7 @@ function conVisiplanDe(mes, vendedores, hacer) {
 }
 
 function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
-    libro.creator = 'Epithelium Visita';
+    libro.creator = 'Visita Comercial';
     const h = libro.addWorksheet('Visiplan', { views: [{ showGridLines: false }] });
     const argb = css => {
         const m = String(css).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
@@ -3673,7 +3673,7 @@ function bajarArchivo(buffer, nombre) {
 
 function armarLibro(mes, vend, solo) {
     const libro = new ExcelJS.Workbook();
-    libro.creator = 'Epithelium Visita';
+    libro.creator = 'Visita Comercial';
     const verde = 'FF006B4F';
     const estadoTxt = { visitado: 'Visitado', no_visitado: 'No visitado', pendiente: 'Pendiente' };
     // ExcelJS guarda las fechas en UTC: se arman en UTC para que no se corran de día
