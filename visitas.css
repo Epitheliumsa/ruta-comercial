@@ -1359,7 +1359,7 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .header h1 .h1-vend { display: block; font-size: 12px; font-weight: 600; letter-spacing: .03em; opacity: .85; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
 
 /* Historial del cliente: meses que se pueden escoger */
-.hist-periodos { margin: 8px 0 4px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.hist-periodos { margin: 8px 0 4px; display: grid; grid-template-columns: minmax(0, 360px); gap: 6px; }
 @media (max-width: 600px) { .hist-periodos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .hist-periodos .mc-multi-panel { z-index: 20; }
 .hist-resumen .chip-filtro { cursor: pointer; }
@@ -1470,3 +1470,6 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .info-etq, .sel-etqs .info-etq { flex: 0 0 26px !important; width: 26px; height: 26px; padding: 0; font-size: 13px !important; border-radius: 50%; align-self: center; }
 /* Actividades: fecha de vencimiento de la circular */
 .circ-vence { display: block; font-size: 11px; font-weight: 600; color: #b45309; margin-top: 2px; }
+.anillo-leads { margin: 6px 0 0; font-size: 12px; color: #475569; }
+.kpi.lead b span { font-size: .7em; color: #9a3412; }
+.kpi.lead { border-color: #fed7aa; }
