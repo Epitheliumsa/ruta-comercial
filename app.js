@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300113';
+const APP_VERSION = '202609300119';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -96,7 +96,7 @@ function unirListas(listas) {
     return [...base, ...listas.flat().filter((x, i, arr) => !base.includes(x) && arr.indexOf(x) === i)];
 }
 const subcategoriasDe = (tipo, nuevo, objetivo, mes) => objetivo === 'Actividades' && CIRCULARES.length
-    ? circularesDelCliente(ctxCircular.cliente, ctxCircular.fecha).map(etiquetaCircular)
+    ? circularesDelCliente(ctxCircular.cliente, ctxCircular.fecha).filter(esActividadCliente).map(etiquetaCircular)
     : objetivo === 'Parrilla Promocional' && parrillaCircular().length ? parrillaCircular()
     : esVariable(objetivo)
     ? listasDelMes(mes)[objetivo] || []
@@ -108,6 +108,11 @@ const CIRCULARES = window.CIRCULARES || [];
 let ctxCircular = { cliente: null, fecha: '' };
 const estadoCircular = (c, d = hoy()) => c.ini && c.ini > d ? 'proxima' : !c.fin || c.fin >= d ? 'vigente' : 'vencida';
 const etiquetaCircular = c => `${c.c} · ${c.nombre}`;
+// Parrilla: su nombre dice "Parrilla Promocional" o es un alcance (prórroga) de una circular de parrilla
+const esParrilla = c => /parrilla promocional/i.test(c.nombre)
+    || (normalizar(c.tipo) === 'alcance' && CIRCULARES.some(x => x !== c && /parrilla promocional/i.test(x.nombre) && (c.nombre + ' ' + c.resumen).includes(x.c)));
+// En "Actividades" solo van las circulares de clientes: ni internas, ni informativas, ni las de parrilla
+const esActividadCliente = c => !c.interna && normalizar(c.tipo) !== 'informativa' && !esParrilla(c);
 const circularDeEtiqueta = t => CIRCULARES.find(c => etiquetaCircular(c) === t);
 function circularesDelCliente(cliente, fecha) {
     const d = fecha || hoy();
@@ -118,7 +123,7 @@ function circularesDelCliente(cliente, fecha) {
 // Parrilla Promocional: los productos de la circular de parrilla vigente para el cliente, en el orden de la circular
 function parrillaCircular() {
     const lista = circularesDelCliente(ctxCircular.cliente, ctxCircular.fecha)
-        .filter(c => /parrilla promocional/i.test(c.nombre) && (c.productos || []).length)
+        .filter(c => esParrilla(c) && (c.productos || []).length)
         .flatMap(c => c.productos.map(p => productoPorCodigo[p.c] ? nombreProducto(p.c) : `[${p.c}]${p.n ? ' ' + p.n : ''}`));
     return [...new Set(lista)];
 }
@@ -2321,6 +2326,26 @@ const tonoObjetivo = o => TONO_OBJETIVO[o] ?? [...o].reduce((h, c) => (h * 31 + 
 // Subcategorías guardadas con el nombre anterior (antes de pasarlas a nombre propio o renombrarlas)
 const SUBS_VIEJAS = { 'precios de la competencia': 'Chequeo de Precios', 'presentacion del protocolo': 'Presentación Protocolo Médico' };
 const tieneSub = (arr, x) => (arr || []).some(y => normalizar(SUBS_VIEJAS[normalizar(y)] || y) === normalizar(x));
+// Circular en "Actividades": al marcarla se abren su objetivo y sus productos para marcar
+const hijoCircular = (c, que) => `${c.c} › ${que}`;
+function htmlCircularSub(o, x, subs, estilo, subsProg) {
+    const c = circularDeEtiqueta(x), marcada = tieneSub(subs[o], x);
+    const hijo = (valor, texto) => `<label class="check sub circ-hijo${estilo(valor, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" data-padre="${esc(x)}" value="${esc(valor)}" ${tieneSub(subs[o], valor) ? 'checked' : ''}><span>${texto}</span></label>`;
+    const hijos = (c.objetivo ? hijo(hijoCircular(c, 'Objetivo'), `<b>Objetivo:</b> ${esc(c.objetivo)}`) : '')
+        + (c.productos || []).map(p => hijo(hijoCircular(c, `[${p.c}]`), esc(productoPorCodigo[p.c] ? nombreProducto(p.c) : `[${p.c}]${p.n ? ' ' + p.n : ''}`))).join('');
+    return `<div class="circ-sub"><label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" data-circ="1" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`
+        + (hijos ? `<div class="circ-hijos"${marcada ? '' : ' hidden'}>${hijos}</div>` : '') + '</div>';
+}
+document.addEventListener('change', e => {
+    const t = e.target;
+    if (t.matches?.('.circ-sub input[data-circ]')) {
+        const caja = t.closest('.circ-sub').querySelector('.circ-hijos');
+        if (caja) { caja.hidden = !t.checked; if (!t.checked) caja.querySelectorAll('input').forEach(i => { i.checked = false; }); }
+    } else if (t.matches?.('.circ-hijos input') && t.checked) {
+        const padre = t.closest('.circ-sub').querySelector('input[data-circ]');
+        if (padre) padre.checked = true;
+    }
+}, true);
 // En "Actividades", cada circular trae su PDF (si ya se pegó el enlace)
 function enlacePdfSub(o, x) {
     const c = o === 'Actividades' && circularDeEtiqueta(x), pdfs = c ? pdfsCircular(c) : [];
@@ -2332,8 +2357,9 @@ function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, prog
         const prog = programados && programados.includes(o);
         const abierto = marcados.includes(o) || prog;
         const estilo = (lo, de) => programados ? (tieneSub(de, lo) ? ' programado' : ' no-programado') : '';
+        const labelSub = x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`;
         const cajaSubs = sc.length
-            ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`).join('')}</div>`
+            ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => o === 'Actividades' && circularDeEtiqueta(x) ? htmlCircularSub(o, x, subs, estilo, subsProg) : labelSub(x)).join('')}</div>`
             : o === 'Actividades' && CIRCULARES.length ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">No hay circulares vigentes para este cliente en esta fecha.</p></div>`
             : o === 'Parrilla Promocional' && CIRCULARES.length ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">No hay parrilla promocional vigente para este cliente en esta fecha.</p></div>`
             : esVariable(o) ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">Aún no se cargan ${o === 'Parrilla Promocional' ? 'los productos de la parrilla' : 'las actividades'} de ${nombreMes(mes)}.</p></div>` : '';

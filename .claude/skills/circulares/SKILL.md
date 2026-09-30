@@ -21,6 +21,11 @@ Estado | Días vencida / restantes | Objetivo | Resumen de la actividad | Observ
 - "(no aplica X)" → quita esos clientes.  "Todos" → todos.  "Médicos…" sin números → 20, 21 y 22.
 - Internas (Fuerza de Ventas, Equipo…, Coordinadora, Canal 80 colaboradores) → solo en el módulo, no en visitas.
 
+## Actividades (en la visita)
+- Solo salen circulares de clientes: no las internas, ni las de Tipo "Informativa", ni las de parrilla (nombre con
+  "Parrilla Promocional" o un "Alcance" que cita una circular de parrilla).
+- Al marcar una circular se abren, para marcar, su **Objetivo** y sus **productos** (códigos de la columna Producto).
+
 ## Parrilla Promocional
 - En la visita, el objetivo "Parrilla Promocional" muestra como subcategorías los productos de la circular de parrilla
   vigente para el cliente (nombre con "Parrilla Promocional"), **en el orden de la columna Producto**. Los códigos
