@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300755';
+const APP_VERSION = '202609300924';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -573,7 +573,7 @@ function pintarInicio() {
     const acts = actividadesMes(mesDe(hoy()), vend);
     const hechas = acts.filter(a => a.hecha).length;
     const proys = proyectos().filter(p => p.estado !== 'vinculado' && (esJefe() || p.vendedor === sesion.id)).length;
-    $('proyectosTxt').textContent = proys ? `${proys} sin crear en la Maestra de Contactos` : 'Proyectos que aún no están en la Maestra de Contactos';
+    $('proyectosTxt').textContent = proys ? `${proys} ${proys === 1 ? 'lead' : 'leads'} en seguimiento` : 'Contactos nuevos y su seguimiento';
     const solsCreacion = solicitudesCreacion().length;
     $('btnCreacion').style.display = esJefe() ? '' : 'none';
     $('creacionTxt').textContent = solsCreacion ? `${solsCreacion} por revisar` : 'No hay solicitudes pendientes';
@@ -778,6 +778,8 @@ function abrirProyectos(filtro) {
         if (p.estado === 'proyecto') botones.push(`<button class="btn-secundario" onclick="solicitarCreacion('${p.id}')">Solicitud de creación</button>`);
         if (p.estado === 'solicitud' && esJefe()) botones.push(`<button class="btn-secundario btn-peligro" onclick="rechazarCreacion('${p.id}')">Rechazar</button>`);
         if (esJefe()) botones.push(`<button class="btn-primario" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular a la Maestra</button>`);
+        // Quien creó el lead programa desde aquí su próxima visita
+        if (p.vendedor === sesion.id) botones.unshift(`<button class="btn-primario btn-programar-lead" onclick="programarLead('${p.id}')">📅 Programar visita</button>`);
         return `${p.solicitud && p.estado === 'solicitud' ? `<p class="nota-sol">Solicitada el ${esc(fechaHora(p.solicitud.fecha))} por ${esc(nombreVendedor(p.solicitud.por))}${p.solicitud.nota ? ': ' + esc(p.solicitud.nota) : ''}</p>` : ''}
             ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol">Solicitud rechazada${p.rechazo.motivo ? ': ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
             ${p.estado === 'solicitud' && !esJefe() ? '<p class="nota-sol">Enviada a los jefes. Cuando se cree en la Maestra de Contactos quedará vinculado.</p>' : ''}
@@ -790,16 +792,52 @@ function abrirProyectos(filtro) {
             ${botones.length ? `<div class="form-botones">${botones.join('')}</div>` : ''}`;
     };
     abrirModal(`<div class="form-rc">
-        <h2>${filtro === 'solicitud' ? 'Solicitudes de creación' : 'Contactos nuevos'}</h2>
+        <h2>${filtro === 'solicitud' ? 'Solicitudes de creación' : 'Leads'}</h2>
         <p class="sub">${filtro === 'solicitud'
-            ? 'Contactos nuevos que los vendedores piden crear en la Maestra de Contactos. Cuando lo crees, vincúlalo aquí.'
-            : 'Contactos que aún no están en la Maestra de Contactos. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>
+            ? 'Leads que los vendedores piden crear en la Maestra de Contactos. Cuando lo crees, vincúlalo aquí.'
+            : 'Contactos nuevos que aún no están en la Maestra de Contactos, con su seguimiento. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>
         ${lista.length ? gruposProyectos(lista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
-            <div class="visita-cab"><strong>${esc(p.nombre)}</strong>${chip(p)}</div>
-            <small>${esc([p.tipo, p.persona, p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))} · ${visitasDeProyecto(p.id).length} ${visitasDeProyecto(p.id).length === 1 ? 'visita' : 'visitas'}</small>
+            <div class="visita-cab"><strong class="cliente-link" data-c="${esc(p.nombre)}" onclick="verCliente(this.dataset.c, '${p.vendedor}')" title="Ver historial de visitas">${esc(p.nombre)}</strong>${chip(p)}</div>
+            <small>${esc([p.tipo, p.persona, p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
+            ${seguimientoLead(p)}
             ${acciones(p)}
-        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay contactos nuevos. Se crean al programar una visita marcando "Contacto nuevo".'}</p>`}
+        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay leads. Se crean al programar una visita marcando "Contacto nuevo".'}</p>`}
     </div>`);
+}
+
+// Seguimiento del lead: días desde que se creó, visitas (efectivas), la última y la próxima
+function seguimientoLead(p) {
+    const vs = visitasDeProyecto(p.id).filter(v => !v.borrado).sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const ef = vs.filter(v => v.estado === 'visitado');
+    const ultima = [...vs].reverse().find(v => v.estado !== 'pendiente' && v.fecha <= hoy());
+    const proxima = vs.find(v => v.estado === 'pendiente' && v.fecha >= hoy());
+    const dias = p.fecha ? Math.max(0, Math.round((deIso(hoy()) - deIso(p.fecha)) / 864e5)) : null;
+    const estadoTxt = { visitado: 'visitado', no_visitado: 'no visitado' };
+    return `<div class="lead-seg">
+        ${dias !== null ? `<span>Creado hace <b>${dias}</b> ${dias === 1 ? 'día' : 'días'}</span>` : ''}
+        <span><b>${vs.length}</b> ${vs.length === 1 ? 'visita' : 'visitas'} · <b>${ef.length}</b> ${ef.length === 1 ? 'efectiva' : 'efectivas'}</span>
+        ${ultima ? `<span>Última: <b>${esc(fechaCorta(ultima.fecha))}</b> (${estadoTxt[ultima.estado] || ultima.estado})</span>` : ''}
+        ${proxima ? `<span class="prox">Próxima: <b>${esc(fechaCorta(proxima.fecha))}</b></span>` : p.estado !== 'vinculado' ? '<span class="sin-prox">Sin próxima visita</span>' : ''}
+    </div>`;
+}
+
+// Programar la visita de un lead: abre el Plan de Visita con el contacto nuevo ya escogido
+async function programarLead(id) {
+    const p = registros[id];
+    if (!p) return;
+    cerrarModal();
+    agenda.vendedor = sesion.id;
+    if (esJefe()) agenda.vendedores = [sesion.id];
+    if (agenda.fecha < hoy()) agenda.fecha = hoy();
+    await abrirProgramar();
+    if (!$('fTipo')) return;
+    $('fTipo').value = 'nuevo';
+    $('fTipoNuevo').value = tipoSugerido(p.tipo || '') || Object.keys(TIPOS_VISITA)[0];
+    tiposForm = null;
+    cambiarTipoProgramacion();
+    $('fContacto').value = p.nombre;
+    revisarProyecto();
+    pintarObjetivos();
 }
 
 // Jefes: primero lo propio y luego cada comercial con su zona, por aparte. El comercial ve solo lo suyo.
