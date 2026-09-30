@@ -5,6 +5,7 @@ Uso:  python3 herramientas/productos.py [archivos...]
       (por defecto: ../vademecum-epithelium/data.json + datos/Productos_Terminados.xlsx)
       Acepta el data.json del vademécum o Excel de Odoo (Referencia Interna | Nombre | Grupo de Producto | Etiquetas de producto).
 
+Si existe datos/Etiquetas_Productos.xlsx (Referencia Interna | Nueva Etiqueta), esas etiquetas reemplazan las del producto.
 Categorías: Nuevo, Foco y Transición se despliegan (se buscan productos por código o nombre);
 Portafolio, Estratégico y Consultorio van cerradas (solo se marcan). Transición todavía no tiene productos.
 """
@@ -52,6 +53,26 @@ for c, n, e, g in filas:
         continue
     vistos.add(str(c).strip())
     productos.append({'c': str(c).strip(), 'n': ' '.join(str(n).split()), 'e': cats, 'g': str(g or '').strip()})
+# Etiquetas nuevas: datos/Etiquetas_Productos.xlsx (Referencia Interna | Nueva Etiqueta) cambia las categorías por código
+CAMBIOS = RAIZ / 'datos' / 'Etiquetas_Productos.xlsx'
+if CAMBIOS.exists():
+    import openpyxl
+    ws = openpyxl.load_workbook(CAMBIOS, data_only=True).active
+    cab = [clave(c.value or '') for c in ws[1]]
+    ic = next(i for i, c in enumerate(cab) if 'referencia' in c or 'codigo' in c)
+    ie = next(i for i, c in enumerate(cab) if 'nueva' in c and 'etiqueta' in c)
+    por_cod = {p['c']: p for p in productos}
+    cambiados, no_estan = 0, []
+    for r in ws.iter_rows(min_row=2, values_only=True):
+        cod = str(r[ic] or '').strip()
+        if not cod:
+            continue
+        if cod not in por_cod:
+            no_estan.append(cod)
+            continue
+        por_cod[cod]['e'] = [NOMBRES[clave(x)] for x in str(r[ie] or '').replace(';', ',').split(',') if clave(x) in NOMBRES]
+        cambiados += 1
+    print(f'Etiquetas nuevas: {cambiados} productos' + (f' · AVISO no están en el catálogo: {", ".join(no_estan)}' if no_estan else ''))
 productos.sort(key=lambda p: clave(p['n']))
 datos = {'desplegables': DESPLEGABLES, 'cerradas': CERRADAS, 'productos': productos}
 (RAIZ / 'productos.js').write_text('// Generado con herramientas/productos.py. No editar a mano.\n'

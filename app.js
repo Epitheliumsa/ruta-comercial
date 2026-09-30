@@ -2319,34 +2319,60 @@ const TIPOS_MUESTRA = ['Muestra Médica', 'Muestra Comercial', 'Tester'];
 const normPedido = t => String(t || '').toUpperCase().replace(/[\s-]/g, '');
 const pedidoValido = (cat, num) => new RegExp(`^[${PEDIDO_CATS[cat].join('')}]\\d+$`).test(normPedido(num));
 
-// Selector de productos por categoría: las desplegables abren una lista con buscador; las cerradas solo se marcan
+// Selector de productos por categoría. Nuevo, Foco y Transición: lista desplegable con buscador (código o nombre),
+// "Todos" y selección de uno o varios; lo marcado se conserva aunque se busque otro. Las cerradas solo se marcan.
 function htmlSelProductos(id, cats, sel = {}) {
-    return `<div class="sel-prod" id="${id}">${cats.map(cat => {
-        const abre = CATALOGO.desplegables.includes(cat), elegidos = Array.isArray(sel[cat]) ? sel[cat] : [];
-        const marcada = !!sel[cat], lista = CATALOGO.productos.filter(p => p.e.includes(cat));
-        return `<div class="sel-cat${marcada && abre ? ' abierto' : ''}" data-cat="${esc(cat)}">
-            <label class="check"><input type="checkbox" class="cat" ${marcada ? 'checked' : ''} onchange="abrirCatProductos(this)"><span>${esc(cat)}${abre ? ` <small>(${lista.length})</small>` : ''}</span></label>
-            ${abre ? `<div class="sel-lista"${marcada ? '' : ' hidden'}>${lista.length ? `<input class="sel-busca" placeholder="Buscar por código o nombre..." oninput="buscarProductos(this)">
-                <div class="sel-ops">${lista.map(p => `<label class="check sub" data-q="${esc(normalizar(p.c + ' ' + p.n))}"><input type="checkbox" value="${esc(p.c)}" ${elegidos.includes(p.c) ? 'checked' : ''}><span><b>${esc(p.c)}</b> ${esc(p.n)}</span></label>`).join('')}</div>`
-                : `<p class="ayuda">Aún no hay productos en ${esc(cat)}.</p>`}</div>` : ''}
+    const abre = cats.filter(c => CATALOGO.desplegables.includes(c)), cerr = cats.filter(c => !CATALOGO.desplegables.includes(c));
+    return `<div class="sel-prod" id="${id}">${abre.map(cat => {
+        const elegidos = Array.isArray(sel[cat]) ? sel[cat] : [], lista = CATALOGO.productos.filter(p => p.e.includes(cat));
+        return `<div class="dd-prod" data-cat="${esc(cat)}">
+            <button type="button" class="mc-multi-btn dd-btn" onclick="abrirDdProductos(this)" ${lista.length ? '' : 'disabled'}><span></span></button>
+            <div class="dd-panel" hidden>
+                <input class="sel-busca" placeholder="Buscar por código o nombre..." oninput="buscarProductos(this)" autocomplete="off">
+                <label class="mc-multi-todas"><input type="checkbox" class="dd-todos" onchange="todosDdProductos(this)"><span>Todos (${lista.length})</span></label>
+                <div class="sel-ops">${lista.map(p => `<label class="check sub" data-q="${esc(normalizar(p.c + ' ' + p.n))}"><input type="checkbox" value="${esc(p.c)}" ${elegidos.includes(p.c) ? 'checked' : ''} onchange="pintarDdProductos(this.closest('.dd-prod'))"><span><b>${esc(p.c)}</b> ${esc(p.n)}</span></label>`).join('')}</div>
+            </div>
+            <div class="dd-elegidos"></div>
         </div>`;
-    }).join('')}</div>`;
+    }).join('')}${cerr.length ? `<div class="sel-cerradas">${cerr.map(cat => `<label class="check"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''}><span>${esc(cat)}</span></label>`).join('')}</div>` : ''}</div>`;
 }
-function abrirCatProductos(casilla) {
-    const caja = casilla.closest('.sel-cat'), lista = caja.querySelector('.sel-lista');
-    if (lista) { lista.hidden = !casilla.checked; caja.classList.toggle('abierto', casilla.checked); }
+// Texto del botón y productos elegidos debajo
+function pintarDdProductos(caja) {
+    const cat = caja.dataset.cat, total = caja.querySelectorAll('.sel-ops input').length;
+    const marcados = [...caja.querySelectorAll('.sel-ops input:checked')];
+    caja.querySelector('.dd-btn span').textContent = !total ? `${cat}: aún no hay productos` : !marcados.length ? `${cat}: elige uno o varios` : marcados.length === total ? `${cat}: todos (${total})` : `${cat}: ${marcados.length} ${marcados.length === 1 ? 'elegido' : 'elegidos'}`;
+    caja.querySelector('.dd-btn').classList.toggle('con', marcados.length > 0);
+    const todos = caja.querySelector('.dd-todos');
+    if (todos) todos.checked = !!total && marcados.length === total;
+    caja.querySelector('.dd-elegidos').innerHTML = marcados.length && marcados.length < total
+        ? marcados.map(i => `<span>${esc(nombreProducto(i.value))}</span>`).join('') : '';
+}
+function abrirDdProductos(boton) {
+    const panel = boton.nextElementSibling, abrir = panel.hidden;
+    document.querySelectorAll('.dd-panel').forEach(p => { p.hidden = true; });
+    panel.hidden = !abrir;
+    if (abrir) panel.querySelector('.sel-busca').focus();
+}
+function todosDdProductos(casilla) {
+    const caja = casilla.closest('.dd-prod');
+    caja.querySelectorAll('.sel-ops input').forEach(i => { i.checked = casilla.checked; });
+    pintarDdProductos(caja);
 }
 function buscarProductos(input) {
     const q = normalizar(input.value);
-    input.parentElement.querySelectorAll('.sel-ops label').forEach(l => { l.hidden = q && !l.dataset.q.includes(q); });
+    input.parentElement.querySelectorAll('.sel-ops label').forEach(l => { l.hidden = !!q && !l.dataset.q.includes(q); });
 }
+document.addEventListener('click', e => {
+    if (!document.contains(e.target) || e.target.closest('.dd-prod')) return;
+    document.querySelectorAll('.dd-panel').forEach(p => { p.hidden = true; });
+});
 function leerSelProductos(id) {
     const r = {};
-    document.querySelectorAll(`#${id} .sel-cat`).forEach(c => {
-        if (!c.querySelector('input.cat').checked) return;
+    document.querySelectorAll(`#${id} .dd-prod`).forEach(c => {
         const cod = [...c.querySelectorAll('.sel-ops input:checked')].map(i => i.value);
-        r[c.dataset.cat] = CATALOGO.desplegables.includes(c.dataset.cat) ? cod : true;
+        if (cod.length) r[c.dataset.cat] = cod;
     });
+    document.querySelectorAll(`#${id} .sel-cerradas input.cat:checked`).forEach(i => { r[i.dataset.cat] = true; });
     return r;
 }
 const textoSelProductos = sel => Object.entries(sel || {}).map(([cat, v]) => Array.isArray(v) && v.length ? `${cat}: ${v.map(nombreProducto).join(', ')}` : cat).join(' · ');
@@ -2457,6 +2483,7 @@ function abrirRegistro(id, tipo) {
                 <button class="btn-primario">Guardar visita</button>
             </div>
         </form>`);
+        document.querySelectorAll('#modalContenido .dd-prod').forEach(pintarDdProductos);
         $('rCumplidos')?.addEventListener('change', actualizarCierreVisita);
         actualizarCierreVisita();
     } else {

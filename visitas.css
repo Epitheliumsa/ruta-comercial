@@ -1184,15 +1184,23 @@ a.home-btn { text-decoration: none; }
 .fila-pedido span { font-weight: 600; color: #334155; }
 .fila-pedido small { color: #7a8a84; font-size: 11px; }
 .fila-pedido input { text-transform: uppercase; }
-.sel-prod { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.sel-cat { display: contents; }
-.sel-cat.abierto { display: block; grid-column: 1 / -1; background: #f5faf9; border: 1px solid #d5e6e1; border-radius: 10px; padding: 4px; }
-.sel-cat small { color: #7a8a84; font-weight: 500; }
-.sel-lista { padding: 4px 6px 8px 30px; }
+.sel-prod { display: grid; gap: 6px; }
+.dd-prod { position: relative; }
+.dd-btn { font-size: 13.5px; }
+.dd-btn:disabled { color: #a8b5b2; cursor: default; background: #f7faf9; }
+.dd-btn.con { background: #e3f1ef; border-color: #0f766e; color: #0b5c56; font-weight: 600; }
+.dd-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40; background: white; border: 1px solid #cfe0dc;
+    border-radius: 10px; box-shadow: 0 12px 28px rgba(0, 50, 40, .18); padding: 8px; }
+.dd-elegidos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.dd-elegidos span { font-size: 11.5px; background: #e3f1ef; color: #0b5c56; border-radius: 99px; padding: 2px 8px; }
 .sel-busca { margin-bottom: 6px; padding: 8px !important; font-size: 13px !important; }
 .sel-ops { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px; max-height: 260px; overflow-y: auto; }
 .sel-ops label[hidden] { display: none; }
 .sel-ops b { color: #0c6660; font-size: 11.5px; margin-right: 4px; }
+.sel-cerradas { display: flex; flex-wrap: wrap; gap: 6px; }
+.sel-cerradas .check { flex: 1 1 140px; }
 .fila-muestra { display: grid; grid-template-columns: 1fr 80px auto; gap: 6px; align-items: center; margin-top: 6px; }
 .bloque-muestra .obj-grupo { margin: 8px 0 0; }
-@media (max-width: 700px) { .fila-pedido { grid-template-columns: 1fr 1fr; } .fila-pedido small { grid-column: 1 / -1; } .sel-prod { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .fila-pedido { grid-template-columns: 1fr 1fr; } .fila-pedido small { grid-column: 1 / -1; } .dd-panel { position: static; margin-top: 4px; } }
+.dd-panel .mc-multi-todas { text-transform: none; letter-spacing: 0; margin: 0 0 4px; font-size: 13px; }
+.dd-panel .mc-multi-todas input { margin: 0; }
