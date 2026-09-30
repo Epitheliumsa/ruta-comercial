@@ -2320,8 +2320,8 @@ const normPedido = t => String(t || '').toUpperCase().replace(/[\s-]/g, '');
 const pedidoValido = (cat, num) => new RegExp(`^[${PEDIDO_CATS[cat].join('')}]\\d+$`).test(normPedido(num));
 
 // Concepto estratégico y mensaje comercial de la etiqueta (hoja "Guía de etiquetas" de la base de productos)
-// Sale solo al poner el mouse encima (o al tocar y mantener en el celular) de la etiqueta
-const guiaEtiqueta = cat => { const g = (CATALOGO.guia || {})[cat]; return g && (g.concepto || g.mensaje) ? `<span class="guia-etq" role="tooltip"><b>${esc(cat)}</b>${g.concepto ? `<span><b>Concepto estratégico:</b> ${esc(g.concepto)}</span>` : ''}${g.mensaje ? `<span><b>Mensaje comercial:</b> ${esc(g.mensaje)}</span>` : ''}</span>` : ''; };
+// Sale al tocar el ⓘ que va al lado de cada etiqueta (sirve igual en computador y celular)
+const guiaEtiqueta = cat => { const g = (CATALOGO.guia || {})[cat]; return g && (g.concepto || g.mensaje) ? `<button type="button" class="info-etq" title="Ver concepto y mensaje de ${esc(cat)}" aria-label="Información de ${esc(cat)}" onclick="verGuia(event, this)">ⓘ</button><span class="guia-etq" role="tooltip"><b>${esc(cat)}</b>${g.concepto ? `<span><b>Concepto estratégico:</b> ${esc(g.concepto)}</span>` : ''}${g.mensaje ? `<span><b>Mensaje comercial:</b> ${esc(g.mensaje)}</span>` : ''}</span>` : ''; };
 // Selector de productos por categoría. Nuevo, Foco y Transición: lista desplegable con buscador (código o nombre),
 // "Todos" y selección de uno o varios; lo marcado se conserva aunque se busque otro. Las cerradas solo se marcan.
 function htmlSelProductos(id, cats, sel = {}) {
@@ -2337,8 +2337,15 @@ function htmlSelProductos(id, cats, sel = {}) {
             </div>
             <div class="dd-elegidos"></div>
         </div>`;
-    }).join('')}${cerr.length ? `<div class="sel-cerradas">${cerr.map(cat => `<label class="btn-etq con-guia"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''}><span>${esc(cat)}</span>${guiaEtiqueta(cat)}</label>`).join('')}</div>` : ''}</div>`;
+    }).join('')}${cerr.length ? `<div class="sel-cerradas">${cerr.map(cat => `<div class="con-guia"><label class="btn-etq"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''}><span>${esc(cat)}</span></label>${guiaEtiqueta(cat)}</div>`).join('')}</div>` : ''}</div>`;
 }
+function verGuia(e, boton) {
+    e.preventDefault(); e.stopPropagation();
+    const caja = boton.closest('.con-guia'), abrir = !caja.classList.contains('ver');
+    document.querySelectorAll('.con-guia.ver').forEach(c => c.classList.remove('ver'));
+    caja.classList.toggle('ver', abrir);
+}
+document.addEventListener('click', e => { if (!e.target.closest('.con-guia')) document.querySelectorAll('.con-guia.ver').forEach(c => c.classList.remove('ver')); });
 // Texto del botón y productos elegidos debajo
 function pintarDdProductos(caja) {
     const cat = caja.dataset.cat, total = caja.querySelectorAll('.sel-ops input').length;
