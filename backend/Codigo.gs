@@ -139,6 +139,12 @@ function subirArchivo_(usuario, pedido) {
   return archivo.getUrl();
 }
 
+// Ejecútala una vez desde el editor (▶ Ejecutar) para que Google pida el permiso de Drive
+function probarDrive() {
+  const carpetas = DriveApp.getFoldersByName('Ruta Comercial - Formatos de creación de clientes');
+  Logger.log(carpetas.hasNext() ? 'La carpeta ya existe' : 'Drive OK: la carpeta se crea con el primer formato');
+}
+
 function responder_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }

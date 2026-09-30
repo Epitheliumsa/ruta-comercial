@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301705';
+const APP_VERSION = '202609301758';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -434,14 +434,17 @@ let sincronizarOtraVez = false;   // hubo cambios mientras se sincronizaba: se r
 let ultimaSync = null;
 let errorSync = '';
 
-async function llamarApi(cuerpo) {
+async function llamarApi(cuerpo, espera = 0) {
+    // espera (ms): si el servidor no responde en ese tiempo se cancela (ej: subir un archivo)
+    const corte = espera ? new AbortController() : null, reloj = corte && setTimeout(() => corte.abort(), espera);
     const resp = await fetch(API_URL, {
-        method: 'POST',
+        method: 'POST', signal: corte?.signal,
         // text/plain evita la verificación previa (CORS) de Apps Script
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ ...cuerpo, usuario: sesion.usuario, clave: sesion.clave })
     });
-    const datos = await resp.json();
+    clearTimeout(reloj);
+    const datos = await resp.json().catch(() => { throw new Error('el servidor no respondió bien (revisa la implementación de Apps Script)'); });
     if (!datos.ok) throw new Error(datos.error || 'Error del servidor');
     return datos;
 }
@@ -848,6 +851,7 @@ function abrirProyectos(filtro) {
     const acciones = p => {
         if (p.estado === 'vinculado') return `<p>Creado en la Maestra como <b>${esc(p.vinculadoA)}</b></p>`;
         const botones = [];
+        if (p.estado === 'proyecto' && (esJefe() || p.vendedor === sesion.id)) botones.push(`<button class="btn-secundario" onclick="crearLead('${p.id}')">✏️ Editar</button>`);
         if (p.estado === 'proyecto') botones.push(`<button class="btn-secundario" onclick="solicitarCreacion('${p.id}')">Solicitud de creación</button>`);
         if (p.estado === 'solicitud' && esJefe()) botones.push(`<button class="btn-secundario btn-peligro" onclick="rechazarCreacion('${p.id}')">Rechazar</button>`);
         if (esJefe()) botones.push(`<button class="${p.estado === 'solicitud' && candidatosVinculo(p).length ? 'btn-secundario' : 'btn-primario'}" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular a la Maestra</button>`);
@@ -877,41 +881,62 @@ function abrirProyectos(filtro) {
             : 'Contactos nuevos que aún no están en la Maestra de Contactos, con su seguimiento. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>
         ${lista.length ? gruposProyectos(lista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
             <div class="visita-cab"><strong class="cliente-link" data-c="${esc(p.nombre)}" onclick="verCliente(this.dataset.c, '${p.vendedor}')" title="Ver historial de visitas">${esc(p.nombre)}</strong>${chip(p)}</div>
-            <small>${esc([p.tipo, nombrePropio(p.persona), p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
+            <small>${esc([p.tipo, p.clasificacion && 'Clasificación ' + p.clasificacion, nombrePropio(p.persona), p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
             ${seguimientoLead(p)}
             ${acciones(p)}
         </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
     </div>`);
 }
 
-// Crear un lead desde el módulo Leads (sin programar visita). Los jefes escogen de qué vendedor (zona) es.
-function crearLead() {
+// Lista de clasificaciones del cliente (la del formato oficial) para escoger en la Lead y en la solicitud de creación
+const selectClasif = (id, valor = '', requerido = false, extra = '') => `<select id="${id}" ${requerido ? 'required' : ''} ${extra}><option value="">${requerido ? 'Elige la clasificación' : 'Sin clasificación todavía'}</option>${CLASIFICACIONES_CLIENTE.map(([n, t]) => `<option value="${n}" ${n === valor ? 'selected' : ''}>${n} · ${esc(t)}</option>`).join('')}</select>`;
+
+// Crear un lead desde el módulo Leads (sin programar visita) o editar uno existente (id). Los jefes escogen de qué vendedor (zona) es.
+function crearLead(id) {
+    const p = id ? registros[id] : {};
     const vends = esJefe() ? COMERCIALES : COMERCIALES.filter(c => c.id === sesion.id);
-    abrirModal(`<form class="form-rc" onsubmit="guardarLeadNuevo(event)">
-        <h2>Crear Lead</h2>
-        <p class="sub">Contacto nuevo que aún no está en la Maestra de Contactos.</p>
-        ${vends.length > 1 ? `<label for="lVend">Vendedor</label><select id="lVend" required>${vends.map(c => `<option value="${c.id}">${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('')}</select>` : ''}
-        <label for="lNombre">Nombre del Lead ${REQ}</label><input id="lNombre" required placeholder="Médico, cliente o punto de venta" onblur="this.value = nombrePropio(this.value)">
+    abrirModal(`<form class="form-rc" onsubmit="guardarLeadNuevo(event${id ? `, '${id}'` : ''})">
+        <h2>${id ? 'Editar Lead' : 'Crear Lead'}</h2>
+        <p class="sub">${id ? 'Corrige o completa los datos de la Lead.' : 'Contacto nuevo que aún no está en la Maestra de Contactos.'}</p>
+        ${!id && vends.length > 1 ? `<label for="lVend">Vendedor</label><select id="lVend" required>${vends.map(c => `<option value="${c.id}">${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('')}</select>` : ''}
+        <label for="lNombre">Nombre del Lead ${REQ}</label><input id="lNombre" required value="${esc(p.nombre || '')}" placeholder="Médico, cliente o punto de venta" onblur="this.value = nombrePropio(this.value)">
         <div class="dos">
-            <div><label for="lTipo">Tipo</label><select id="lTipo">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
-            <div><label for="lCiudad">Ciudad</label>${campoCiudad('lCiudad', '', true)}</div>
+            <div><label for="lTipo">Tipo</label><select id="lTipo">${TIPOS_PROYECTO.map(t => `<option ${t === p.tipo ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+            <div><label for="lCiudad">Ciudad</label>${campoCiudad('lCiudad', p.ciudad || '', true)}</div>
         </div>
-        <label for="lPersona">Nombre de contacto ${REQ}</label><input id="lPersona" required placeholder="Persona con quien se habla (si es médico, puede ser el mismo)" onblur="this.value = nombrePropio(this.value)">
-        <label for="lDir">Dirección (opcional)</label><input id="lDir" placeholder="Ej: Cra 15 # 93-60, consultorio 402">
-        <label for="lTel">Teléfono ${REQ}</label><input id="lTel" type="tel" inputmode="tel" required placeholder="Ej: 300 123 4567">
-        <div class="form-botones"><button type="button" class="btn-secundario" onclick="abrirProyectos()">Cancelar</button><button class="btn-primario">Crear Lead</button></div>
+        <label for="lClasif">Clasificación del cliente</label>${selectClasif('lClasif', p.clasificacion)}
+        <label for="lPersona">Nombre de contacto ${REQ}</label><input id="lPersona" required value="${esc(nombrePropio(p.persona || ''))}" placeholder="Persona con quien se habla (si es médico, puede ser el mismo)" onblur="this.value = nombrePropio(this.value)">
+        <label for="lDir">Dirección (opcional)</label><input id="lDir" value="${esc(p.direccion || '')}" placeholder="Ej: Cra 15 # 93-60, consultorio 402">
+        <label for="lTel">Teléfono ${REQ}</label><input id="lTel" type="tel" inputmode="tel" required value="${esc(p.telefono || '')}" placeholder="Ej: 300 123 4567">
+        <div class="form-botones"><button type="button" class="btn-secundario" onclick="abrirProyectos()">Cancelar</button><button class="btn-primario">${id ? 'Guardar cambios' : 'Crear Lead'}</button></div>
     </form>`);
 }
-function guardarLeadNuevo(e) {
+// Si la Lead cambia de nombre, sus visitas y lo planeado en el Visiplan pasan al nombre nuevo
+function renombrarLead(p, nuevo) {
+    if (!p.nombre || normalizar(p.nombre) === normalizar(nuevo)) return;
+    visitasDeProyecto(p.id).forEach(v => guardarRegistro({ ...v, contacto: nuevo }));
+    Object.values(registros).filter(r => r.clase === 'plan' && r.vendedor === p.vendedor && r.marcas?.[p.nombre])
+        .forEach(r => { const marcas = { ...r.marcas, [nuevo]: r.marcas[p.nombre] }; delete marcas[p.nombre]; guardarRegistro({ ...r, marcas }); });
+}
+function guardarLeadNuevo(e, id) {
     e.preventDefault();
-    const vendedor = $('lVend')?.value || sesion.id, zona = comercial(vendedor)?.zona;
+    const antes = id ? registros[id] : null;
+    const vendedor = antes?.vendedor || $('lVend')?.value || sesion.id, zona = antes?.zona || comercial(vendedor)?.zona;
     const nombre = nombrePropio($('lNombre').value);
+    if (!validarCiudad($('lCiudad'))) { $('lCiudad').focus(); return toast('Escoge la ciudad de la lista (Municipio - Departamento)'); }
     if ($('lTel').value.replace(/\D/g, '').length < 7) { $('lTel').focus(); return toast('Escribe el teléfono del Lead'); }
-    if (buscarMaestra(zona, nombre) || buscarProyecto(zona, nombre)) { $('lNombre').focus(); return toast(`${nombre} ya está en la Maestra o en los Leads de ${zona}`); }
-    guardarRegistro({ id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre, tipo: $('lTipo').value, ciudad: $('lCiudad').value.trim(),
-        telefono: $('lTel').value.trim(), persona: nombrePropio($('lPersona').value), direccion: $('lDir').value.trim(),
-        zona, vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id });
-    toast(`${nombre}: Lead creado`);
+    const otro = buscarProyecto(zona, nombre);
+    if (buscarMaestra(zona, nombre) || (otro && otro.id !== id)) { $('lNombre').focus(); return toast(`${nombre} ya está en la Maestra o en los Leads de ${zona}`); }
+    const datos = { nombre, tipo: $('lTipo').value, ciudad: $('lCiudad').value.trim(), clasificacion: $('lClasif').value,
+        telefono: $('lTel').value.trim(), persona: nombrePropio($('lPersona').value), direccion: $('lDir').value.trim() };
+    if (antes) {
+        renombrarLead(antes, nombre);
+        guardarRegistro({ ...antes, ...datos });
+        toast(`${nombre}: Lead actualizada`);
+    } else {
+        guardarRegistro({ id: nuevoId(), clase: 'proyecto', estado: 'proyecto', ...datos, zona, vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id });
+        toast(`${nombre}: Lead creado`);
+    }
     abrirProyectos();
 }
 
@@ -971,9 +996,10 @@ function solicitarCreacion(id) {
     const p = registros[id];
     abrirModal(`<form class="form-rc" onsubmit="enviarSolicitudCreacion(event, '${id}')">
         <h2>Solicitud de creación</h2>
-        <p class="sub">${esc(p.nombre)} se va a volver cliente. Revisa sus datos: la solicitud le llega a <b id="sQuien">${esc(quienRecibe(''))}</b>.</p>
+        <p class="sub">${esc(p.nombre)} se va a volver cliente. Revisa sus datos: la solicitud le llega a <b id="sQuien">${esc(quienRecibe(p.clasificacion || ''))}</b>.</p>
         <label for="sClasif">Clasificación del cliente ${REQ}</label>
-        <select id="sClasif" required onchange="$('sQuien').textContent = quienRecibe(this.value)"><option value="">Elige la clasificación</option>${CLASIFICACIONES_CLIENTE.map(([n, t]) => `<option value="${n}">${n} · ${esc(t)}</option>`).join('')}</select>
+        ${selectClasif('sClasif', p.clasificacion, true, `onchange="$('sQuien').textContent = quienRecibe(this.value)"`)}
+        <label for="sNombre">Nombre del Lead</label><input id="sNombre" required value="${esc(p.nombre)}" onblur="this.value = nombrePropio(this.value)">
         <div class="dos">
             <div><label for="sTipo">Tipo</label><select id="sTipo">${TIPOS_PROYECTO.map(t => `<option ${t === p.tipo ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
             <div><label for="sCiudad">Ciudad</label>${campoCiudad('sCiudad', p.ciudad, true)}</div>
@@ -1000,7 +1026,8 @@ function solicitarCreacion(id) {
 const MAX_ARCHIVO = 15 * 1024 * 1024;
 async function subirArchivo(archivo, carpeta) {
     const datos = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = mal; r.readAsDataURL(archivo); });
-    const res = await llamarApi({ accion: 'subirArchivo', carpeta, nombre: archivo.name, tipo: archivo.type || 'application/octet-stream', datos });
+    const res = await llamarApi({ accion: 'subirArchivo', carpeta, nombre: archivo.name, tipo: archivo.type || 'application/octet-stream', datos }, 90000)
+        .catch(e => { throw e.name === 'AbortError' ? new Error('el servidor no respondió en 90 segundos') : e; });
     return { url: res.url, nombre: archivo.name };
 }
 
@@ -1019,13 +1046,15 @@ async function enviarSolicitudCreacion(e, id) {
     } catch (err) {
         console.error(err);
         $('sEnviar').disabled = false; $('sEnviar').textContent = 'Enviar solicitud';
-        return toast('No se pudo subir el formato. Revisa tu conexión e intenta de nuevo.');
+        return toast(`No se pudo subir el formato: ${err.message || err}`);
     }
-    guardarRegistro({ ...p, estado: 'solicitud', tipo: $('sTipo').value, ciudad: $('sCiudad').value.trim(),
+    const nombre = nombrePropio($('sNombre').value) || p.nombre;
+    renombrarLead(p, nombre);
+    guardarRegistro({ ...p, nombre, clasificacion, estado: 'solicitud', tipo: $('sTipo').value, ciudad: $('sCiudad').value.trim(),
         persona: nombrePropio($('sPersona').value), direccion: $('sDir').value.trim(), telefono: $('sTel').value.trim(),
         solicitud: { fecha: new Date().toISOString(), por: sesion.id, nota: $('sNota').value.trim(), clasificacion,
             gerencia: CLASIF_GERENCIA.includes(clasificacion), formato }, rechazo: null });
-    toast(`${p.nombre}: Lead ganada. Solicitud enviada a ${quienRecibe(clasificacion)}`);
+    toast(`${nombre}: Lead ganada. Solicitud enviada a ${quienRecibe(clasificacion)}`);
     abrirProyectos();
     pintarInicio();
 }
@@ -1178,7 +1207,7 @@ const GRUPOS_ETIQUETA = {
 };
 // Un lead como si fuera un contacto de la Maestra (misma búsqueda y filtros); la ciudad viene "Municipio - Departamento"
 const leadComoContacto = (p, z) => { const [c, d] = String(p.ciudad || '').split(' - ');
-    return { n: p.nombre, e: etiquetaLead(p.tipo), c: c || '', p: d || (c === 'Bogotá D.C.' ? 'Bogotá D.C.' : ''), ca: LEAD, f: false, z, lead: true }; };
+    return { n: p.nombre, e: etiquetaLead(p.tipo), c: c || '', p: d || (c === 'Bogotá D.C.' ? 'Bogotá D.C.' : ''), ca: LEAD, f: false, z, lead: true, clLead: p.clasificacion || '' }; };
 const COLOR_FACTURA = { si: '#16a34a', no: '#dc2626' };
 const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('lead') ? 'lead' : n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
 const zonasMaestra = () => [...new Set([...Object.keys(contactos), ...proyectos().filter(p => p.estado !== 'vinculado').map(p => p.zona)])].filter(z => z && ((contactos[z] || []).length || proyectosDeZona(z).length));
@@ -2407,6 +2436,7 @@ async function abrirProgramar(id, contactoPlan) {
                     <div><label for="pTipo">Tipo</label><select id="pTipo" onchange="etiquetaPersonaProyecto()">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
                     <div><label for="pCiudad">Ciudad</label>${campoCiudad('pCiudad')}</div>
                 </div>
+                <label for="pClasif">Clasificación del cliente</label>${selectClasif('pClasif')}
                 <label for="pPersona" id="lblPersona">Nombre de contacto ${REQ}</label>
                 <input id="pPersona" placeholder="Persona con quien se habla" onblur="this.value = nombrePropio(this.value)">
                 <label for="pDir">Dirección (opcional)</label>
@@ -2811,7 +2841,7 @@ async function guardarProgramada(e, id) {
         if (!proyecto) {
             proyecto = {
                 id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre: nombrePropio(nombre), tipo: $('pTipo').value,
-                ciudad: $('pCiudad').value.trim(), telefono: $('pTel').value.trim(),
+                ciudad: $('pCiudad').value.trim(), telefono: $('pTel').value.trim(), clasificacion: $('pClasif').value,
                 persona: nombrePropio($('pPersona').value), direccion: $('pDir').value.trim(),
                 zona, vendedor: esJefe() ? sesion.id : agenda.vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id
             };
