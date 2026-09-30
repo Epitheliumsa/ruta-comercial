@@ -13,6 +13,12 @@ window.CIRCULARES = [
   "resumen": "Concurso para médicos de Protocolo Médico: quien más formule Revival en 2026 gana patrocinio económico para el Congreso Nacional de Dermatología 2026. Se presenta Revival cada mes en la visita y el médico entrega su reporte de ventas en los tiempos de la circular.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0003",
+    "n": "Revival Crema x 50 g"
+   }
+  ],
   "canales": [
    "20",
    "21",
@@ -36,6 +42,12 @@ window.CIRCULARES = [
   "resumen": "Concurso de la fuerza de ventas: incentivo por unidades colocadas de Capilplus Acondicionador. Zona Norte/Sur: 60, 70 u 80 uds = $150.000, $300.000 o $500.000; Clientes Especiales: 20, 30 o 40 uds. Los bonificados no suman. Liquidación en julio de 2026.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0014",
+    "n": "Capilplus Acondicionador"
+   }
+  ],
   "canales": [],
   "clientes": [],
   "excluidos": [],
@@ -55,6 +67,12 @@ window.CIRCULARES = [
   "resumen": "Por cada 6 unidades de Capilplus Cuidado Capilar o Capilplus DS, el cliente recibe 1 Capilplus Acondicionador bonificado. No aplica para Bella Piel (la coordinadora lo retira manualmente). Los bonificados no suman en las unidades vendidas.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0014",
+    "n": "Capilplus Acondicionador"
+   }
+  ],
   "canales": [
    "10",
    "11",
@@ -242,6 +260,16 @@ window.CIRCULARES = [
   "resumen": "Parrilla de febrero-marzo en Protocolo Médico: el médico gana $8.000 por unidad de Revival y $3.000 por unidad de Sensibath evacuada y reportada. En estos productos se suspende el 5% habitual del programa durante la actividad.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0003",
+    "n": "Revival"
+   },
+   {
+    "c": "PT0012",
+    "n": "Sensibath"
+   }
+  ],
   "canales": [
    "20",
    "21",
@@ -265,6 +293,12 @@ window.CIRCULARES = [
   "resumen": "Complementa el concurso de Capilplus Acondicionador (circular 2026-002): la Coordinadora de Ventas recibe adicional el 50% de los premios de Zona Norte y/o Sur. Se liquida en julio de 2026 con el informe de cierre del semestre.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0014",
+    "n": "Capilplus Acondicionador"
+   }
+  ],
   "canales": [],
   "clientes": [],
   "excluidos": [],
@@ -284,6 +318,16 @@ window.CIRCULARES = [
   "resumen": "Venta cruzada: por la compra de 2 unidades de Crema Hidratante Face & Body x 250 g [MP0821], el cliente recibe gratis 1 Gel Anticelulitis x 250 g [MP0856]. Aplica a todos los canales para magistral de pedido.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MP0821",
+    "n": "Face & Body"
+   },
+   {
+    "c": "MP0856",
+    "n": "Gel Anticelulitis"
+   }
+  ],
   "canales": [],
   "clientes": [],
   "excluidos": [],
@@ -303,6 +347,7 @@ window.CIRCULARES = [
   "resumen": "Informa a la fuerza de ventas el cronograma anual de la parrilla promocional de producto terminado. Mercadeo entrega mes a mes la información de cada producto para generar recordación en los médicos y mayor ganancia en Protocolo Médico.",
   "obs": "",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [],
   "excluidos": [],
@@ -322,6 +367,28 @@ window.CIRCULARES = [
   "resumen": "Parrilla febrero-marzo para canales 20, 21 y 22: Capilplus Acondicionador, Mentafort, Diclofenaco+Nicotinamida, Face & Body y Revival. Visita mensual (presencial en Bogotá, virtual en regiones), refuerzo semanal y mensaje unificado.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0014",
+    "n": ""
+   },
+   {
+    "c": "MP0137",
+    "n": ""
+   },
+   {
+    "c": "MP0534",
+    "n": ""
+   },
+   {
+    "c": "MP0821",
+    "n": ""
+   },
+   {
+    "c": "PT0003",
+    "n": ""
+   }
+  ],
   "canales": [
    "20",
    "21",
@@ -345,6 +412,32 @@ window.CIRCULARES = [
   "resumen": "Parrilla abril-junio para canales 20, 21 y 22: Capilplus Acondicionador, Revival, Hydrafort, Despigmentante Íntimo, Loción Tónica y Cobiolift. Visita mensual (presencial en Bogotá, virtual en regiones), refuerzo semanal y argumentación unificada.",
   "obs": "Prorrogada un mes por la circular 2026-019",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0014",
+    "n": ""
+   },
+   {
+    "c": "PT0003",
+    "n": ""
+   },
+   {
+    "c": "PT0004",
+    "n": ""
+   },
+   {
+    "c": "MP0676",
+    "n": ""
+   },
+   {
+    "c": "MP0738",
+    "n": ""
+   },
+   {
+    "c": "MP0570",
+    "n": ""
+   }
+  ],
   "canales": [
    "20",
    "21",
@@ -368,6 +461,12 @@ window.CIRCULARES = [
   "resumen": "Apoyo comercial a Boston Medical Group: por cada 120 unidades de [MP0473] Anestésico Boston Crema x 30 g se bonifican 24 unidades adicionales en el mismo pedido. Se calcula automáticamente en Odoo en cada orden de compra.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MP0473",
+    "n": "Anestésico Boston Crema x 30 g"
+   }
+  ],
   "canales": [],
   "clientes": [
    "Boston Medical Group de Colombia S.A.S."
@@ -389,6 +488,12 @@ window.CIRCULARES = [
   "resumen": "Cliente: lleva 1 Revival gratis por cada 10 protectores Sunskin (emulsión, Oil Free o gel). Médico (clasificaciones 20-21): formulando 10 unidades de Sunskin recibe 1 Revival gratis. El bonificado no suma para el pedido.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0003",
+    "n": "Revival Crema x 50 g"
+   }
+  ],
   "canales": [
    "10",
    "11",
@@ -416,6 +521,7 @@ window.CIRCULARES = [
   "resumen": "6 días de descuento del 25% sobre el costo de venta antes de IVA, en las fechas que defina Bella Piel en mayo. El cliente envía las ventas POS al cierre y Epithelium liquida con Nota Crédito antes del 15 de junio de 2026.",
   "obs": "El PDF dice año 2025 en la fecha final; se asumió 2026",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [
    "Bella Piel S.A.S.",
@@ -595,6 +701,7 @@ window.CIRCULARES = [
   "resumen": "Concurso individual para colaboradores de planta con un video corto (30 a 90 s) sobre productos o el laboratorio; mínimo 10 videos. El ganador recibe $150.000 y su video se publica. Inscripción del 6 al 12 de mayo; ganador el 9 de junio.",
   "obs": "",
   "pdf": "",
+  "productos": [],
   "canales": [
    "80"
   ],
@@ -616,6 +723,20 @@ window.CIRCULARES = [
   "resumen": "6 días de descuento del 25% sobre el costo de venta antes de IVA, del 25 al 30 de mayo, en Sensibath, Capilplus DS y Capilplus Biotina. Dermatodo envía las ventas POS y se liquida con Nota Crédito entre el 9 y el 16 de junio de 2026.",
   "obs": "El PDF dice año 2025 en la fecha final; se asumió 2026",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0012",
+    "n": "Sensibath"
+   },
+   {
+    "c": "PT0002",
+    "n": "Capilplus DS"
+   },
+   {
+    "c": "PT0011",
+    "n": "Capilplus Biotina"
+   }
+  ],
   "canales": [],
   "clientes": [
    "Ciruderma S.A.S., Dermatodo C.C. Avenida Chile",
@@ -654,6 +775,16 @@ window.CIRCULARES = [
   "resumen": "Combo cruzado: por la compra de 12 unidades de Despigmentante Íntimo [MP0676] se otorgan sin costo 4 unidades de Loción Tónica Espuma [MP0738]. Se gestiona en Odoo con aprobación de Gerencia General.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MP0676",
+    "n": "Despigmentante Íntimo"
+   },
+   {
+    "c": "MP0738",
+    "n": "Loción Tónica"
+   }
+  ],
   "canales": [
    "10",
    "11",
@@ -683,6 +814,12 @@ window.CIRCULARES = [
   "resumen": "Bonificación 8+2 por compra de Cobiolift Epithelium Crema x 15 g; los canales 20 y 90 reciben 8+3. También aplica a clientes que ya lo tienen codificado. Se aplica en Odoo con aprobación de Gerencia General.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MP0570",
+    "n": "Cobiolift Epithelium Crema x 15 g"
+   }
+  ],
   "canales": [
    "10",
    "11",
@@ -713,6 +850,7 @@ window.CIRCULARES = [
   "resumen": "Solo para el primer pedido de CMX S.A.S. (Línea Estética), que busca codificar el 100% del producto terminado: bonificación 12+3 en cada referencia y plazo especial de 90 días. Vigencia de un solo día (29 de mayo).",
   "obs": "Vigencia de un solo día",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [
    "CMX S.A.S, Linea Estetica Centro Comercial Titán Plaza"
@@ -734,6 +872,7 @@ window.CIRCULARES = [
   "resumen": "Crea las clasificaciones 12, 13, 14, 70 y 71 y sus condiciones: 13 y 14 plazo 30 días, dcto 8% y bonificación 6+1; 70 dcto 25% en terminados y 16% en magistrales, 10+2; 71 dcto 12% y 6+1; 12 no factura.",
   "obs": "",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [],
   "excluidos": [],
@@ -753,6 +892,32 @@ window.CIRCULARES = [
   "resumen": "Alcance a la circular 2026-009: extiende durante julio de 2026 la parrilla promocional de abril-junio para los canales 20, 21 y 22, con los mismos productos y condiciones.",
   "obs": "Prórroga de 2026-009",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0014",
+    "n": ""
+   },
+   {
+    "c": "PT0003",
+    "n": ""
+   },
+   {
+    "c": "PT0004",
+    "n": ""
+   },
+   {
+    "c": "MP0676",
+    "n": ""
+   },
+   {
+    "c": "MP0738",
+    "n": ""
+   },
+   {
+    "c": "MP0570",
+    "n": ""
+   }
+  ],
   "canales": [
    "20",
    "21",
@@ -776,6 +941,7 @@ window.CIRCULARES = [
   "resumen": "Meta de crecer 15%-25% sobre las ventas de 2025 con rebates de 3%, 5% o 7% por crecimiento, 1% en NC trimestral por información de Sell In/Sell Out y 6 jornadas comerciales al año (Aniversario y Black). Incluye descuento por pronto pago.",
   "obs": "",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [
    "Bella Piel S.A.S.",
@@ -955,6 +1121,7 @@ window.CIRCULARES = [
   "resumen": "Epithelium aporta $3.000.000 a la estrategia de mercadeo 360° del aniversario de Bella Piel, que incluye la marca (producto terminado) en los medios de la campaña. Bella Piel entrega informe de cierre y con él se genera la Nota Crédito.",
   "obs": "Aporte de $3.000.000 de Epithelium",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [
    "Bella Piel S.A.S.",
@@ -1134,6 +1301,7 @@ window.CIRCULARES = [
   "resumen": "Semana de descuentos del 4 al 9 de agosto en Dermatology S.A.S.: 10% sobre el costo de venta antes de IVA vía POS. Requiere inventario inicial y final y tirillas de venta; datos a más tardar el 15/08 y Nota Crédito el 28 de agosto de 2026.",
   "obs": "Descuento 10%; NC el 28/08/2026",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [
    "Dermatology S.A.S."
@@ -1155,6 +1323,7 @@ window.CIRCULARES = [
   "resumen": "Descuento de 15% sobre el costo de venta antes de IVA los viernes y sábados de agosto y septiembre en Más Piel, Dermatology y Dermomedic. El cliente reporta ventas POS y se liquida con Nota Crédito entre el 15 y el 16 de octubre de 2026.",
   "obs": "Descuento 15% viernes y sábado; NC el 15-16/10/2026",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [
    "Dermatology S.A.S.",
@@ -1178,6 +1347,12 @@ window.CIRCULARES = [
   "resumen": "El médico recibe $10.000 en Protocolo Médico por cada unidad de Revival formulada y reportada (duplica la retribución). Se apoya con visita presencial, tester, WhatsApp y redes. Dirigida a subcanales 20, 21 y 22.",
   "obs": "Meta 100 unidades; $10.000 por unidad en Protocolo Médico",
   "pdf": "",
+  "productos": [
+   {
+    "c": "PT0003",
+    "n": "Revival Crema x 50 g"
+   }
+  ],
   "canales": [
    "20",
    "21",
@@ -1201,6 +1376,32 @@ window.CIRCULARES = [
   "resumen": "Parrilla agosto-octubre para canales 20, 21 y 22: Bimatoprost, Flutamida, Capilplus Acondicionador, Serum Cejas y Pestañas, Minobit N y Revival. Visita mensual (presencial en Bogotá, virtual en regiones) y refuerzo semanal.",
   "obs": "",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MA0373",
+    "n": "Bimatoprost"
+   },
+   {
+    "c": "MA0156",
+    "n": "Flutamida"
+   },
+   {
+    "c": "PT0014",
+    "n": ""
+   },
+   {
+    "c": "MP0912",
+    "n": ""
+   },
+   {
+    "c": "MP0734",
+    "n": ""
+   },
+   {
+    "c": "PT0003",
+    "n": ""
+   }
+  ],
   "canales": [
    "20",
    "21",
@@ -1224,6 +1425,16 @@ window.CIRCULARES = [
   "resumen": "El médico recibe $4.000 por unidad de Serum Reparador Cejas y Pestañas y $12.000 por unidad de Minobit N Espuma, evacuada y reportada en Protocolo Médico. Reemplaza el porcentaje habitual y no se acumula con otros beneficios.",
   "obs": "$4.000 y $12.000 por unidad en Protocolo Médico",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MP0912",
+    "n": "Serum Cejas y Pestañas"
+   },
+   {
+    "c": "MP0734",
+    "n": "Minobit N Espuma"
+   }
+  ],
   "canales": [
    "20",
    "21",
@@ -1247,6 +1458,12 @@ window.CIRCULARES = [
   "resumen": "Clientes con compras de magistrales de pedido desde $1.500.000 reciben 1 Gel Antibacterial x 1000 ml de obsequio (una por factura) hasta agotar 100 unidades. Se carga en Odoo con nota interna.",
   "obs": "El PDF dice año 2025; se asumió 2026. Compras desde $1.500.000; 100 unidades",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MP0640",
+    "n": "Gel Antibacterial x 1000 ml (obsequio)"
+   }
+  ],
   "canales": [
    "11",
    "13",
@@ -1278,6 +1495,12 @@ window.CIRCULARES = [
   "resumen": "Bonificación de lanzamiento de Minobit N Espuma x 200 ml: 5+2 en canales 20 y 90 y 5+1 en los demás canales. Se gestiona en Odoo con aprobación de Gerencia General.",
   "obs": "Bonificación 5+2 (canal 90) y 5+1 (demás)",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MP0734",
+    "n": "Minobit N Espuma x 200 ml"
+   }
+  ],
   "canales": [
    "10",
    "11",
@@ -1307,6 +1530,7 @@ window.CIRCULARES = [
   "resumen": "4 días de descuento del 20% sobre el costo de venta antes de IVA, del 28 al 31 de agosto, en todo el portafolio de terminados, en tienda y online. El cliente envía ventas POS y se liquida con Nota Crédito entre el 9 y el 16 de septiembre.",
   "obs": "Descuento 20%",
   "pdf": "",
+  "productos": [],
   "canales": [],
   "clientes": [
    "CMX S.A.S, Linea Estetica Centro Comercial Titán Plaza"
@@ -1328,6 +1552,12 @@ window.CIRCULARES = [
   "resumen": "Alcance a la circular 2026-027: corrige en las argumentaciones de médico y cliente el código del obsequio [MP0640] Gel Antibacterial x 1000 ml (compras desde $1.500.000, hasta agotar 100 unidades).",
   "obs": "El PDF dice año 2025; se asumió 2026. Corrige código del producto",
   "pdf": "",
+  "productos": [
+   {
+    "c": "MP0640",
+    "n": "Gel Antibacterial x 1000 ml"
+   }
+  ],
   "canales": [
    "11",
    "13",

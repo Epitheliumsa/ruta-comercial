@@ -21,6 +21,12 @@ Estado | Días vencida / restantes | Objetivo | Resumen de la actividad | Observ
 - "(no aplica X)" → quita esos clientes.  "Todos" → todos.  "Médicos…" sin números → 20, 21 y 22.
 - Internas (Fuerza de Ventas, Equipo…, Coordinadora, Canal 80 colaboradores) → solo en el módulo, no en visitas.
 
+## Parrilla Promocional
+- En la visita, el objetivo "Parrilla Promocional" muestra como subcategorías los productos de la circular de parrilla
+  vigente para el cliente (nombre con "Parrilla Promocional"), **en el orden de la columna Producto**. Los códigos
+  `[XX0000]` se leen de esa columna; el nombre sale del catálogo (productos.js) o, si no está, del texto de la circular.
+- Si no hay parrilla vigente para el cliente, se usa la lista del mes (pantalla de jefes) o sale el aviso.
+
 ## Pasos
 1. En una rama aparte: `python3 herramientas/circulares.py <ruta del Excel>` (copia el Excel a `datos/Circulares.xlsx`).
 2. Revisa lo que imprime: a quién va cada circular y los `AVISO:` (dirigida a un cliente que no está en la Maestra).

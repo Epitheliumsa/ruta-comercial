@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300050';
+const APP_VERSION = '202609300113';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -97,6 +97,7 @@ function unirListas(listas) {
 }
 const subcategoriasDe = (tipo, nuevo, objetivo, mes) => objetivo === 'Actividades' && CIRCULARES.length
     ? circularesDelCliente(ctxCircular.cliente, ctxCircular.fecha).map(etiquetaCircular)
+    : objetivo === 'Parrilla Promocional' && parrillaCircular().length ? parrillaCircular()
     : esVariable(objetivo)
     ? listasDelMes(mes)[objetivo] || []
     : unirListas(listaTipos(tipo).map(t => ((MATRIZ.subcategorias || {})[claveTipo(t, nuevo)] || {})[objetivo] || []));
@@ -113,6 +114,13 @@ function circularesDelCliente(cliente, fecha) {
     return CIRCULARES.filter(c => !c.interna && estadoCircular(c, d) === 'vigente')
         .filter(c => !(cliente && c.excluidos.includes(cliente.n)))
         .filter(c => c.todos || (cliente && (c.canales.includes(String(cliente.cl || '')) || c.clientes.includes(cliente.n))));
+}
+// Parrilla Promocional: los productos de la circular de parrilla vigente para el cliente, en el orden de la circular
+function parrillaCircular() {
+    const lista = circularesDelCliente(ctxCircular.cliente, ctxCircular.fecha)
+        .filter(c => /parrilla promocional/i.test(c.nombre) && (c.productos || []).length)
+        .flatMap(c => c.productos.map(p => productoPorCodigo[p.c] ? nombreProducto(p.c) : `[${p.c}]${p.n ? ' ' + p.n : ''}`));
+    return [...new Set(lista)];
 }
 // Enlaces al PDF (Drive) que pegan los jefes en la app; si no hay, el del Excel
 const ID_PDF_CIRC = 'circulares-pdf';
@@ -2327,6 +2335,7 @@ function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, prog
         const cajaSubs = sc.length
             ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`).join('')}</div>`
             : o === 'Actividades' && CIRCULARES.length ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">No hay circulares vigentes para este cliente en esta fecha.</p></div>`
+            : o === 'Parrilla Promocional' && CIRCULARES.length ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">No hay parrilla promocional vigente para este cliente en esta fecha.</p></div>`
             : esVariable(o) ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">Aún no se cargan ${o === 'Parrilla Promocional' ? 'los productos de la parrilla' : 'las actividades'} de ${nombreMes(mes)}.</p></div>` : '';
         return `<div class="obj-item${abierto && cajaSubs ? ' abierto' : ''}" style="--h:${tonoObjetivo(o)}"><label class="check${estilo(o, programados || [])}"><input type="checkbox" class="obj" value="${esc(o)}" ${marcados.includes(o) ? 'checked' : ''} onchange="abrirSubs(this)"><span>${esc(o)}</span></label>${cajaSubs}</div>`;
     }).join('');

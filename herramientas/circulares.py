@@ -29,6 +29,9 @@ def clave(t):
         t = t.replace(q, ' ')
     return ' '.join(re.sub(r'[^a-z0-9 ]', ' ', t).split())
 
+def productos_de(t):
+    return [{'c': m.group(1), 'n': m.group(2).strip(' ,;')} for m in re.finditer(r'\[([A-Z]{2}\d{3,})\]\s*([^\[;,]*)', str(t or ''))]
+
 def fecha(v):
     if isinstance(v, datetime.datetime):
         return v.date().isoformat()
@@ -78,6 +81,8 @@ for fila in ws.iter_rows(min_row=2, values_only=True):
         'ini': fecha(dato(fila, 'fecha inicio')), 'fin': fecha(dato(fila, 'fecha fin')),
         'objetivo': str(dato(fila, 'objetivo') or '').strip(), 'resumen': str(dato(fila, 'resumen') or '').strip(),
         'obs': str(dato(fila, 'observacion') or '').strip(), 'pdf': str(dato(fila, 'enlace') or '').strip(),
+        # Productos con código, en el orden de la circular: [{c: 'PT0003', n: 'Revival'}] (n = lo que dice la circular)
+        'productos': productos_de(dato(fila, 'producto')),
         'canales': canales, 'clientes': nombres, 'excluidos': excluidos, 'todos': todos, 'interna': interna,
     }
     if not c['ini']:
