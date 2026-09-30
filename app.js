@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292248';
+const APP_VERSION = '202609292256';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -948,7 +948,9 @@ function filtrarMaestra(base, sin) {
 }
 
 // Filtros de selección múltiple (Maestra Clientes y Visiplan): botón con lo elegido y lista de casillas con cuántos
-// clientes tiene cada opción. "Todas" deja el filtro sin elegir nada (salen todos). Cada pantalla es un grupo.
+// clientes tiene cada opción. "Todas" marca todas las casillas y no filtra (se guarda vacío = salen todos); otro toque
+// las desmarca todas (NINGUNA) para escoger desde cero. Quitar una casilla con todas marcadas deja las demás. Cada pantalla es un grupo.
+const NINGUNA = '__ninguna__';
 const MULTI = {
     maestra: { get sel() { return maestra.sel; }, abierto: null, busca: '', enfocar: false, repintar: () => pintarMaestra() },
     visiplan: { get sel() { return visiplan.sel; }, abierto: null, busca: '', enfocar: false, repintar: () => pintarVisiplan() }
@@ -958,19 +960,22 @@ function pintarMultis(caja, grupo, defs) {
     const tecleando = document.activeElement?.classList?.contains('mc-multi-busca');
     const antes = caja.querySelector('.mc-multi-ops');
     const scroll = antes ? antes.scrollTop : 0;
+    g.valores = {};
     caja.innerHTML = defs.map(d => {
-        const k = d.k, elegidos = g.sel[k], nombre = v => d.nombre ? d.nombre(v) : v;
-        const texto = !elegidos.length ? d.todos : elegidos.length === 1 ? nombre(elegidos[0]) : `${d.t}: ${elegidos.length} elegidas`;
+        g.valores[d.k] = d.valores;
+        const k = d.k, nombre = v => d.nombre ? d.nombre(v) : v;
+        const ninguna = g.sel[k].includes(NINGUNA), elegidos = ninguna ? [] : g.sel[k], todas = !ninguna && !elegidos.length;
+        const texto = ninguna ? 'Ninguna elegida' : todas ? d.todos : elegidos.length === 1 ? nombre(elegidos[0]) : `${d.t}: ${elegidos.length} elegidas`;
         const abierto = g.abierto === k, qo = normalizar(g.busca);
-        return `<div class="mc-multi${abierto ? ' abierto' : ''}${elegidos.length ? ' con' : ''}" data-k="${k}">
+        return `<div class="mc-multi${abierto ? ' abierto' : ''}${todas ? '' : ' con'}" data-k="${k}">
             <button type="button" class="mc-multi-btn" onclick="abrirMulti('${grupo}', '${k}')" aria-expanded="${abierto}" title="${esc(d.t)}"><span>${esc(texto)}</span></button>
             ${!abierto ? '' : `<div class="mc-multi-panel">
                 ${d.extra || ''}
                 ${d.valores.length > 10 ? `<input class="mc-multi-busca" placeholder="Buscar ${esc(d.t.toLowerCase())}..." value="${esc(g.busca)}" oninput="MULTI.${grupo}.busca=this.value; MULTI.${grupo}.repintar()">` : ''}
                 <div class="mc-multi-acc"><b>${esc(d.t)}</b><span>Elige una o varias</span></div>
-                <label class="mc-multi-todas"><input type="checkbox" ${elegidos.length ? '' : 'checked'} onchange="todasMulti('${grupo}', '${k}')"><span>${esc(d.todos)}</span></label>
+                <label class="mc-multi-todas"><input type="checkbox" ${todas ? 'checked' : ''} onchange="todasMulti('${grupo}', '${k}')"><span>${esc(d.todos)}</span></label>
                 <div class="mc-multi-ops">${d.valores.filter(v => !qo || normalizar(nombre(v)).includes(qo)).map(v => `<label class="${!d.cuenta || d.cuenta[v] ? '' : 'vacio'}">
-                    <input type="checkbox" data-v="${esc(v)}" ${elegidos.includes(v) ? 'checked' : ''} onchange="marcarMulti('${grupo}', '${k}', this.dataset.v)">
+                    <input type="checkbox" data-v="${esc(v)}" ${todas || elegidos.includes(v) ? 'checked' : ''} onchange="marcarMulti('${grupo}', '${k}', this.dataset.v)">
                     <span>${esc(nombre(v))}</span><small>${d.cuenta ? d.cuenta[v] || 0 : ''}</small></label>`).join('') || '<p>Sin opciones</p>'}</div>
             </div>`}
         </div>`;
@@ -988,11 +993,19 @@ function abrirMulti(grupo, k) {
     g.repintar();
 }
 function marcarMulti(grupo, k, v) {
-    const g = MULTI[grupo], s = g.sel[k];
-    g.sel[k] = s.includes(v) ? s.filter(x => x !== v) : [...s, v];
+    const g = MULTI[grupo], todos = g.valores?.[k] || [];
+    const s = g.sel[k].includes(NINGUNA) ? [] : g.sel[k].length ? g.sel[k] : todos;   // vacío = todas marcadas
+    let nuevo = s.includes(v) ? s.filter(x => x !== v) : [...s, v];
+    if (todos.length && todos.every(x => nuevo.includes(x))) nuevo = [];   // quedaron todas: sin filtro
+    else if (!nuevo.length) nuevo = [NINGUNA];
+    g.sel[k] = nuevo;
     g.repintar();
 }
-function todasMulti(grupo, k) { MULTI[grupo].sel[k] = []; MULTI[grupo].repintar(); }
+function todasMulti(grupo, k) {
+    const g = MULTI[grupo];
+    g.sel[k] = g.sel[k].length ? [] : [NINGUNA];   // marca todas (sin filtro) o las desmarca todas
+    g.repintar();
+}
 // Cerrar la lista de opciones al tocar fuera de ella
 document.addEventListener('click', e => {
     if (!document.contains(e.target) || e.target.closest('.mc-multi')) return;
@@ -1024,7 +1037,7 @@ function pintarMaestra() {
     maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && mesDe(x.fecha) === maestra.mesVis)
         .map(x => normalizar(x.contacto)));
     // Las opciones elegidas que ya no existen en las zonas elegidas se quitan
-    FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => base.some(c => DIMS_MAESTRA[k].valor(c) === v)); });
+    FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => v === NINGUNA || base.some(c => DIMS_MAESTRA[k].valor(c) === v)); });
     pintarFiltrosMaestra(base);
     const lista = filtrarMaestra(base);
     // La gráfica no se filtra por su propia columna: así se pueden tocar varias barras
@@ -1196,7 +1209,7 @@ function filtrarPlan(f) {
     pintarVisiplan();
 }
 // Un cliente pasa el filtro "Mostrar" si cumple cualquiera de las opciones elegidas
-const pasaFiltrosPlan = (m, r) => !visiplan.sel.f.length || visiplan.sel.f.some(f => FILTROS_PLAN[f](m, r));
+const pasaFiltrosPlan = (m, r) => !visiplan.sel.f.length || visiplan.sel.f.some(f => FILTROS_PLAN[f]?.(m, r));
 const FILTROS_PLAN = {
     plan: (m) => m.length > 0,
     noplan: (m) => m.length === 0,
@@ -1473,8 +1486,9 @@ function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
     // Encabezado: título, vendedores, periodo y filtros
     const vend = COMERCIALES.filter(c => visiplan.vendedores.includes(c.id)).map(c => `${c.nombre} · ${c.zona}`).join(', ');
     const periodo = visiplan.periodo === 'hoy' ? (visiplan.dia === hoy() ? 'Hoy' : mayuscula(fechaLarga(visiplan.dia))) : { semana: 'Esta semana', mes: 'Mes completo' }[visiplan.periodo];
-    const filtros = [visiplan.busca && `Búsqueda: ${visiplan.busca}`, visiplan.sel.t.join(', '), visiplan.sel.e.join(', '),
-        visiplan.sel.f.map(f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o visitados').join(', ')].filter(Boolean).join(' · ');
+    const txt = l => l.includes(NINGUNA) ? 'Ninguna' : l.join(', ');
+    const filtros = [visiplan.busca && `Búsqueda: ${visiplan.busca}`, txt(visiplan.sel.t), txt(visiplan.sel.e),
+        visiplan.sel.f.includes(NINGUNA) ? 'Ninguno' : visiplan.sel.f.map(f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o visitados').join(', ')].filter(Boolean).join(' · ');
     h.getCell('A1').value = `Visiplan del mes · ${mayuscula(nombreMes(visiplan.mes))}`;
     h.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0B5C56' } };
     h.getCell('A2').value = vend;
