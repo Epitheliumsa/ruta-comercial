@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301348';
+const APP_VERSION = '202609301352';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1453,6 +1453,7 @@ function pintarVisiplan() {
     const otroDia = visiplan.periodo === 'hoy' && visiplan.dia !== hoy();
     $('vpPeriodo').querySelector('[data-p="hoy"]').textContent = otroDia ? mayuscula(fechaCorta(visiplan.dia)) : 'Hoy';
     $('vpFechaPick').value = visiplan.periodo === 'hoy' ? visiplan.dia : '';
+    $('vpFechaPick').dataset.mes = visiplan.mes;   // el calendario abre en el mes que se está viendo
     const dias = diasVistaPlan(mes), enVista = new Set(dias);
     visiplan.dias = dias;
     const soloVista = (m, r) => [m.filter(d => enVista.has(d)), new Set([...r].filter(d => enVista.has(d)))];
@@ -4022,24 +4023,44 @@ document.addEventListener('keydown', e => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('input[type=date]')) { e.preventDefault(); abrirCalFecha(e.target); }
 }, true);
 
-function abrirCalFecha(inp, mes) {
-    calFecha = { inp, mes: mes || mesDe(inp.value || (inp.min > hoy() ? inp.min : hoy())) };
+// Tocando el título se escoge el mes (y tocando el año, el año) con un solo clic, sin pasar mes por mes
+const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+function abrirCalFecha(inp, mes, vista = 'dias') {
+    // Sin fecha escrita abre en el mes que se está viendo (data-mes) o en el de hoy
+    calFecha = { inp, vista, mes: mes || mesDe(inp.value || (inp.dataset.mes ? inp.dataset.mes + '-01' : inp.min > hoy() ? inp.min : hoy())) };
     let caja = $('calFecha');
     if (!caja) { caja = document.createElement('div'); caja.id = 'calFecha'; caja.className = 'cal-fecha'; document.body.appendChild(caja); }
-    const m = calFecha.mes, t = hoy(), inicio = lunesDe(m + '-01'), ultimo = finDeMes(m);
-    let dias = '';
-    for (let d = inicio; d <= ultimo || deIso(d).getDay() !== 1; d = sumarDias(d, 1)) {
-        if (mesDe(d) !== m) { dias += '<span></span>'; continue; }
-        const fuera = (inp.min && d < inp.min) || (inp.max && d > inp.max);
-        const fest = nombreFestivo(d);
-        dias += `<button type="button" class="cf-dia${claseDia(d)}${d === t ? ' hoy' : ''}${d === inp.value ? ' sel' : ''}" ${fuera ? 'disabled' : ''} onclick="elegirCalFecha('${d}')" title="${esc(fest || fechaLarga(d))}">${deIso(d).getDate()}</button>`;
+    const m = calFecha.mes, t = hoy(), inicio = lunesDe(m + '-01'), ultimo = finDeMes(m), ano = +m.slice(0, 4);
+    const mesFuera = x => (inp.min && finDeMes(x) < inp.min) || (inp.max && x + '-01' > inp.max);
+    const anoFuera = a => (inp.min && +inp.min.slice(0, 4) > a) || (inp.max && +inp.max.slice(0, 4) < a);
+    const nav = (atras, adelante, titulo) => `<div class="cf-nav"><button type="button" onclick="${atras}" aria-label="Anterior">&lsaquo;</button>
+            ${titulo}<button type="button" onclick="${adelante}" aria-label="Siguiente">&rsaquo;</button></div>`;
+    const pie = `<div class="cf-pie">${(!inp.min || t >= inp.min) && (!inp.max || t <= inp.max) ? `<button type="button" onclick="elegirCalFecha('${t}')">Hoy</button>` : '<span></span>'}${inp.required || !inp.value ? '' : '<button type="button" onclick="elegirCalFecha(\'\')">Borrar</button>'}</div>`;
+    if (vista === 'meses') {
+        caja.innerHTML = nav(`abrirCalFecha(calFecha.inp, '${ano - 1}-${m.slice(5)}', 'meses')`, `abrirCalFecha(calFecha.inp, '${ano + 1}-${m.slice(5)}', 'meses')`,
+                `<button type="button" class="cf-titulo" onclick="abrirCalFecha(calFecha.inp, '${m}', 'anos')" title="Escoger el año">${ano}</button>`)
+            + `<div class="cf-meses">${MESES_CORTOS.map((n, i) => { const x = `${ano}-${String(i + 1).padStart(2, '0')}`;
+                return `<button type="button" class="cf-mes${x === mesDe(t) ? ' hoy' : ''}${x === m ? ' sel' : ''}" ${mesFuera(x) ? 'disabled' : ''} onclick="abrirCalFecha(calFecha.inp, '${x}')">${n}</button>`; }).join('')}</div>` + pie;
+    } else if (vista === 'anos') {
+        const desde = ano - 5;
+        caja.innerHTML = nav(`abrirCalFecha(calFecha.inp, '${ano - 12}-${m.slice(5)}', 'anos')`, `abrirCalFecha(calFecha.inp, '${ano + 12}-${m.slice(5)}', 'anos')`,
+                `<b>${desde} – ${desde + 11}</b>`)
+            + `<div class="cf-meses">${Array.from({ length: 12 }, (_, i) => desde + i).map(a =>
+                `<button type="button" class="cf-mes${a === +t.slice(0, 4) ? ' hoy' : ''}${a === ano ? ' sel' : ''}" ${anoFuera(a) ? 'disabled' : ''} onclick="abrirCalFecha(calFecha.inp, '${a}-${m.slice(5)}', 'meses')">${a}</button>`).join('')}</div>` + pie;
+    } else {
+        let dias = '';
+        for (let d = inicio; d <= ultimo || deIso(d).getDay() !== 1; d = sumarDias(d, 1)) {
+            if (mesDe(d) !== m) { dias += '<span></span>'; continue; }
+            const fuera = (inp.min && d < inp.min) || (inp.max && d > inp.max);
+            const fest = nombreFestivo(d);
+            dias += `<button type="button" class="cf-dia${claseDia(d)}${d === t ? ' hoy' : ''}${d === inp.value ? ' sel' : ''}" ${fuera ? 'disabled' : ''} onclick="elegirCalFecha('${d}')" title="${esc(fest || fechaLarga(d))}">${deIso(d).getDate()}</button>`;
+        }
+        const fests = [...festivos(ano)].filter(([f]) => mesDe(f) === m).sort();
+        caja.innerHTML = nav('abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, -1))', 'abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, 1))',
+                `<button type="button" class="cf-titulo" onclick="abrirCalFecha(calFecha.inp, '${m}', 'meses')" title="Escoger el mes y el año">${esc(mayuscula(nombreMes(m)))} <i></i></button>`)
+            + `<div class="cf-grid">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x, i) => `<span class="cf-cab${i === 6 ? ' festivo' : i === 5 ? ' sabado' : ''}">${x}</span>`).join('')}${dias}</div>
+            ${fests.length ? `<p class="cf-fest">${fests.map(([f, n]) => `<span><b>${deIso(f).getDate()}</b> ${esc(n)}</span>`).join('')}</p>` : ''}` + pie;
     }
-    const fests = [...festivos(+m.slice(0, 4))].filter(([f]) => mesDe(f) === m).sort();
-    caja.innerHTML = `<div class="cf-nav"><button type="button" onclick="abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, -1))" aria-label="Mes anterior">&lsaquo;</button>
-            <b>${esc(mayuscula(nombreMes(m)))}</b><button type="button" onclick="abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, 1))" aria-label="Mes siguiente">&rsaquo;</button></div>
-        <div class="cf-grid">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x, i) => `<span class="cf-cab${i === 6 ? ' festivo' : i === 5 ? ' sabado' : ''}">${x}</span>`).join('')}${dias}</div>
-        ${fests.length ? `<p class="cf-fest">${fests.map(([f, n]) => `<span><b>${deIso(f).getDate()}</b> ${esc(n)}</span>`).join('')}</p>` : ''}
-        <div class="cf-pie">${(!inp.min || t >= inp.min) && (!inp.max || t <= inp.max) ? `<button type="button" onclick="elegirCalFecha('${t}')">Hoy</button>` : '<span></span>'}${inp.required || !inp.value ? '' : '<button type="button" onclick="elegirCalFecha(\'\')">Borrar</button>'}</div>`;
     // Debajo del campo (o encima si no cabe), sin salirse de la pantalla
     const r = inp.getBoundingClientRect(), ancho = 280;
     caja.style.left = Math.max(8, Math.min(r.left, innerWidth - ancho - 8)) + 'px';

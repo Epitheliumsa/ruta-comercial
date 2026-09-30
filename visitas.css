@@ -1509,3 +1509,14 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 .vp-tabla thead th.vp-dia.cumple small { color: #7e22ce; font-weight: 700; }
 .vp-muestra.fest-cumple { box-shadow: inset 0 0 0 1px #e9c6e3; }
 .vp-muestra.sab-cumple { box-shadow: inset 0 0 0 1px #ddd3ee; }
+/* Calendario: el título abre la lista de meses y la de años (un clic para ir lejos) */
+.cf-titulo { border: 0; background: none; font: inherit; font-weight: 700; color: #0b5c56; cursor: pointer; padding: 4px 10px; border-radius: 8px;
+    display: inline-flex; align-items: center; gap: 6px; width: auto !important; height: auto !important; font-size: 15px !important; }
+.cf-titulo:hover { background: #eef5f3; }
+.cf-titulo i { width: 6px; height: 6px; border-right: 2px solid #0b5c56; border-bottom: 2px solid #0b5c56; transform: rotate(45deg) translateY(-2px); }
+.cf-meses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 4px; }
+.cf-mes { height: 40px; border: 1px solid transparent; border-radius: 8px; background: #f6faf9; font: inherit; font-size: 14px; color: #1f2937; cursor: pointer; }
+.cf-mes:hover:not(:disabled) { border-color: #0f766e; }
+.cf-mes.hoy { border-color: #009460; }
+.cf-mes.sel { background: #0f766e; color: #fff; font-weight: 700; }
+.cf-mes:disabled { opacity: .3; cursor: not-allowed; }
