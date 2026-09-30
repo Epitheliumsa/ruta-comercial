@@ -689,8 +689,7 @@
 /* Festivos y domingos (rosado), sábados (rosado suave) y novedades */
 .sd.festivo { background: #fde8e8; border-color: #f5c2c2; }
 .sd.festivo span, .sd.festivo b { color: #b42318; }
-.sd.sabado { background: #fef5f5; border-color: #f9dede; }
-.sd.sabado span { color: #c2410c; }
+.sd.sabado { background: #f4f5f5; border-color: #e6e8e8; }
 .sd em { font-style: normal; font-size: 9px; font-weight: 700; color: #7c8783; line-height: 1; }
 .sd.con-novedad em { color: #1552a8; }
 .aviso-festivo { margin: 12px 15px 0; padding: 10px 12px; border-radius: 8px; background: #eceeed; color: #5f6a66; font-size: 14px; font-weight: 700; }
@@ -707,8 +706,7 @@
 .cal-dia.fuera { opacity: .45; }
 .cal-dia.festivo { background: #fde8e8; border-color: #f5c2c2; }
 .cal-dia.festivo b { color: #b42318; }
-.cal-dia.sabado { background: #fef5f5; border-color: #f9dede; }
-.cal-dia.sabado b { color: #c2410c; }
+.cal-dia.sabado { background: #f4f5f5; border-color: #e6e8e8; }
 .cal-dia.hoy { border-color: #009460; }
 .cal-dia.sel { box-shadow: inset 0 0 0 2px #009460; }
 .cal-fest { font-size: 9.5px; line-height: 1.15; color: #b42318; font-weight: 600; overflow-wrap: anywhere; }
@@ -827,8 +825,7 @@ a.home-btn { text-decoration: none; }
 .vp-dia { min-width: 30px; height: 34px; font-size: 11px; }
 .vp-dia small { display: block; font-size: 10px; color: #7a8a84; font-weight: 600; }
 .vp-dia.festivo, .vp-x.festivo { background: #fde8e8; color: #b42318; }
-.vp-dia.sabado, .vp-x.sabado, .vp-r.sabado { background: #fef5f5; }
-.vp-dia.sabado { color: #c2410c; }
+.vp-dia.sabado, .vp-x.sabado, .vp-r.sabado { background: #f4f5f5; }
 .vp-et { position: sticky; left: 0; background: white; z-index: 1; min-width: 110px; max-width: 110px; font-size: 10px; color: #7a8a84; text-align: left !important; padding: 4px 6px !important; }
 .vp-cli { position: sticky; left: 110px; background: white; z-index: 1; min-width: 190px; max-width: 190px; text-align: left !important; padding: 6px 8px !important; font-weight: 600; color: #333; box-shadow: 2px 0 0 #e6eeec; }
 .vp-tabla thead .vp-et, .vp-tabla thead .vp-cli { z-index: 3; background: #f2f8f7; }
@@ -838,7 +835,7 @@ a.home-btn { text-decoration: none; }
 .vp-r { background: #fcfbf9; }
 .vp-x.festivo, .vp-r.festivo { background: #fde8e8; }
 /* X delgada dibujada con dos líneas finas */
-.vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-r.prox::before, .vp-r.prox::after, .vp-muestra:not(.fest):not(.planeacion)::before, .vp-muestra:not(.fest):not(.planeacion)::after {
+.vp-x.on::before, .vp-x.on::after, .vp-r.on::before, .vp-r.on::after, .vp-r.prox::before, .vp-r.prox::after, .vp-muestra:not(.fest):not(.planeacion):not(.sab)::before, .vp-muestra:not(.fest):not(.planeacion):not(.sab)::after {
     content: ''; position: absolute; left: 50%; top: 50%; width: 13px; height: 1.6px; border-radius: 2px; background: currentColor; }
 .vp-x.on::before, .vp-r.on::before, .vp-r.prox::before, .vp-muestra::before { transform: translate(-50%, -50%) rotate(45deg); }
 .vp-x.on::after, .vp-r.on::after, .vp-r.prox::after, .vp-muestra::after { transform: translate(-50%, -50%) rotate(-45deg); }
@@ -896,7 +893,7 @@ a.home-btn { text-decoration: none; }
 .vp-r.prox { background: #fdecec; color: #dc2626; }
 .vp-muestra.prox { background: #fdecec; color: #dc2626; }
 .vp-muestra.fest { background: #fbdada; }
-.vp-muestra.sab { background: #fef5f5; box-shadow: inset 0 0 0 1px #f9dede; }
+.vp-muestra.sab { background: #f4f5f5; box-shadow: inset 0 0 0 1px #e3e6e6; }
 .vp-muestra.real { margin-left: 0; }
 .vp-pvis { min-width: 48px; }
 /* Barra superior: resumen a la izquierda, convenciones y Excel a la derecha */
@@ -1276,9 +1273,13 @@ select.p-pref { width: auto !important; padding: 0 6px !important; }
 /* Adelantar visita */
 .bv.adelantar { border-color: #1e63c4; color: #1e63c4; }
 /* Anillo del día */
-.anillos { display: flex; flex-wrap: wrap; gap: 10px 40px; max-width: 1240px; margin: 10px auto 0; padding: 10px 15px; }
+.anillos { display: flex; flex-wrap: wrap; gap: 14px 24px; max-width: 1240px; margin: 10px auto 0; padding: 10px 15px; }
 .anillo-dia { display: flex; align-items: center; gap: 18px; flex: 1 1 420px; max-width: 600px; }
-.anillo-titulo { margin: 0 0 4px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6b7c7a; }
+.anillo-titulo { margin: 0 0 8px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.anillo-titulo span { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #fff; background: #0f766e; border-radius: 6px; padding: 3px 8px; }
+.anillo-dia.fijo .anillo-titulo span { background: #334155; }
+.anillo-titulo b { font-size: 17px; font-weight: 800; color: #1f2937; }
+.anillos .anillo-dia { background: #fff; border: 1px solid #e3ebe7; border-radius: 12px; padding: 12px 16px; box-shadow: 0 2px 8px rgba(0, 60, 40, .06); }
 .anillo-dia.fijo .anillo-ley li { cursor: default; }
 .anillo-cuerpo { flex: 1; min-width: 0; }
 .anillo-dia svg { width: 120px; height: 120px; flex: 0 0 auto; }
@@ -1314,14 +1315,32 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .cf-nav button { border: 0; background: #eef5f3; color: #0b5c56; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; cursor: pointer; }
 .cf-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .cf-cab { text-align: center; font-size: 11px; font-weight: 700; color: #7a8a84; }
-.cf-cab.festivo { color: #b42318; } .cf-cab.sabado { color: #c2410c; }
+.cf-cab.festivo { color: #b42318; }
 .cf-dia { height: 32px; border: 1px solid transparent; border-radius: 7px; background: #fff; font: inherit; color: #1f2937; cursor: pointer; }
 .cf-dia:hover:not(:disabled) { border-color: #0f766e; }
 .cf-dia.festivo { background: #fde8e8; color: #b42318; font-weight: 700; }
-.cf-dia.sabado { background: #fef5f5; color: #c2410c; }
+.cf-dia.sabado { background: #f4f5f5; }
 .cf-dia.hoy { border-color: #009460; }
 .cf-dia.sel { background: #0f766e; color: #fff; }
 .cf-dia:disabled { opacity: .3; cursor: not-allowed; }
 .cf-fest { margin: 8px 0 0; display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: #b42318; }
 .cf-pie { display: flex; justify-content: space-between; margin-top: 8px; }
 .cf-pie button { border: 0; background: none; color: #0f766e; font: inherit; font-weight: 700; cursor: pointer; }
+.anillos .anillo-dia { gap: 14px; max-width: none; }
+.anillos .anillo-dia svg { width: 104px; height: 104px; }
+.anillos .anillo-ley { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 14px; font-size: 12.5px; }
+.anillos .anillo-ley li { white-space: nowrap; }
+.anillos .anillo-ley li small { width: 32px; }
+.anillos .anillo-ley li i { flex: 0 0 auto; }
+.anillos .anillo-ley li.principal small { width: 48px; }
+@media (max-width: 700px) { .anillos .anillo-ley { grid-template-columns: 1fr; } .anillos .anillo-ley li { white-space: normal; } }
+
+/* Leyenda de los anillos en una sola línea por concepto */
+.anillos .anillo-dia { gap: 14px; max-width: none; }
+.anillos .anillo-dia svg { width: 104px; height: 104px; }
+.anillos .anillo-ley { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 14px; font-size: 12.5px; }
+.anillos .anillo-ley li { white-space: nowrap; }
+.anillos .anillo-ley li small { width: 32px; }
+.anillos .anillo-ley li i { flex: 0 0 auto; }
+.anillos .anillo-ley li.principal small { width: 48px; }
+@media (max-width: 700px) { .anillos .anillo-ley { grid-template-columns: 1fr; } .anillos .anillo-ley li { white-space: normal; } }

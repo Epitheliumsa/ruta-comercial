@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292218';
+const APP_VERSION = '202609292226';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -220,8 +220,8 @@ function festivos(y) {
     ]);
 }
 const nombreFestivo = f => festivos(+f.slice(0, 4)).get(f) || '';
-// Resaltado de días en todos los calendarios: festivos, sábados y domingos en el mismo tono
-const claseDia = d => nombreFestivo(d) || deIso(d).getDay() % 6 === 0 ? ' festivo' : '';
+// Resaltado de días en todos los calendarios: festivos y domingos (rosado), sábados (gris muy claro)
+const claseDia = d => nombreFestivo(d) || deIso(d).getDay() === 0 ? ' festivo' : deIso(d).getDay() === 6 ? ' sabado' : '';
 const esHabil = f => { const w = deIso(f).getDay(); return w !== 0 && w !== 6 && !festivos(+f.slice(0, 4)).has(f); };
 function siguienteHabil(f) { let d = sumarDias(f, 1); while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 const diaCierre = v => siguienteHabil(v.fecha);
@@ -1639,7 +1639,7 @@ function pintarAgenda() {
     const boton = (f, clase, texto) => `<button type="button" class="chip chip-filtro ${clase}${agenda.filtro === f ? ' activo' : ''}" onclick="filtrarAgenda('${f}')" aria-pressed="${agenda.filtro === f}">${texto}</button>`;
     // Anillo del día (filtra la agenda) y, al lado, el acumulado del mes hasta ese día (solo informativo)
     const delMes = visitasMes(mesDe(f), v).filter(x => x.fecha <= f);
-    const anillos = anilloDia(lista, `Día · ${fechaCorta(f)}`) + anilloDia(delMes, `Acumulado de ${nombreMes(mesDe(f)).split(' ')[0]} · hasta el ${deIso(f).getDate()}`, false);
+    const anillos = anilloDia(lista, `Día · ${fechaCorta(f)}`) + anilloDia(delMes, `Acumulado del mes · ${mayuscula(nombreMes(mesDe(f)).split(' ')[0])}, hasta el ${deIso(f).getDate()}`, false);
     $('agAnillo').innerHTML = anillos ? `<div class="anillos">${anillos}</div>` : '';
     // + Programar: no se programa en días que ya pasaron (en pruebas sigue abierto)
     const pasado = f < t && ETAPA_DATOS !== 'pruebas';
@@ -2951,7 +2951,7 @@ function anilloDia(lista, titulo, conFiltro = true) {
     const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${conFiltro && agenda.filtro === 'an:' + x.f ? ' activo' : ''}"${clic(x)}><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
     return `<div class="anillo-dia${conFiltro ? '' : ' fijo'}"><svg viewBox="0 0 110 110" role="img" aria-label="${esc(titulo)}">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
             <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">${total === 1 ? 'visita' : 'visitas'}</text></svg>
-        <div class="anillo-cuerpo"><p class="anillo-titulo">${esc(titulo)}</p><ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div></div>`;
+        <div class="anillo-cuerpo"><p class="anillo-titulo">${titulo.split(' · ').map((x, i) => i ? `<b>${esc(x)}</b>` : `<span>${esc(x)}</span>`).join('')}</p><ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div></div>`;
 }
 
 function cuentaVisitas(todas) {
@@ -3523,7 +3523,7 @@ function abrirCalFecha(inp, mes) {
     const fests = [...festivos(+m.slice(0, 4))].filter(([f]) => mesDe(f) === m).sort();
     caja.innerHTML = `<div class="cf-nav"><button type="button" onclick="abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, -1))" aria-label="Mes anterior">&lsaquo;</button>
             <b>${esc(mayuscula(nombreMes(m)))}</b><button type="button" onclick="abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, 1))" aria-label="Mes siguiente">&rsaquo;</button></div>
-        <div class="cf-grid">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x, i) => `<span class="cf-cab${i >= 5 ? ' festivo' : ''}">${x}</span>`).join('')}${dias}</div>
+        <div class="cf-grid">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x, i) => `<span class="cf-cab${i === 6 ? ' festivo' : i === 5 ? ' sabado' : ''}">${x}</span>`).join('')}${dias}</div>
         ${fests.length ? `<p class="cf-fest">${fests.map(([f, n]) => `<span><b>${deIso(f).getDate()}</b> ${esc(n)}</span>`).join('')}</p>` : ''}
         <div class="cf-pie">${(!inp.min || t >= inp.min) && (!inp.max || t <= inp.max) ? `<button type="button" onclick="elegirCalFecha('${t}')">Hoy</button>` : '<span></span>'}${inp.required || !inp.value ? '' : '<button type="button" onclick="elegirCalFecha(\'\')">Borrar</button>'}</div>`;
     // Debajo del campo (o encima si no cabe), sin salirse de la pantalla
