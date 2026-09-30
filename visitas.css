@@ -1358,5 +1358,10 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .header h1 .h1-vend { display: block; font-size: 12px; font-weight: 600; letter-spacing: .03em; opacity: .85; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
 
 /* Historial del cliente: meses que se pueden escoger */
-.hist-meses { margin: 8px 0 4px; }
+.hist-meses { margin: 8px 0 4px; max-width: 320px; display: block; }
+.hist-meses .mc-multi-panel { z-index: 20; }
 .hist-resumen .chip-filtro { cursor: pointer; }
+.form-rc .hist-meses label { text-transform: none; letter-spacing: 0; font-size: 13px; margin: 0; }
+.form-rc .hist-meses .mc-multi-ops label { font-weight: 500; color: #334155; }
+.form-rc .hist-meses .mc-multi-todas { display: grid; font-weight: 700; color: #0b5c56; }
+.form-rc .hist-meses .mc-multi-ops label { display: grid; }

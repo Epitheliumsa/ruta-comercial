@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292302';
+const APP_VERSION = '202609292307';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -953,7 +953,8 @@ function filtrarMaestra(base, sin) {
 const NINGUNA = '__ninguna__';
 const MULTI = {
     maestra: { get sel() { return maestra.sel; }, abierto: null, busca: '', enfocar: false, repintar: () => pintarMaestra() },
-    visiplan: { get sel() { return visiplan.sel; }, abierto: null, busca: '', enfocar: false, repintar: () => pintarVisiplan() }
+    visiplan: { get sel() { return visiplan.sel; }, abierto: null, busca: '', enfocar: false, repintar: () => pintarVisiplan() },
+    historial: { get sel() { return historial.sel; }, abierto: null, busca: '', enfocar: false, repintar: () => pintarHistorial() }
 };
 function pintarMultis(caja, grupo, defs) {
     const g = MULTI[grupo];
@@ -2777,25 +2778,21 @@ function agendarProxima(antes) {
 
 // Historial de un cliente: todas sus visitas con el resumen de cada una
 // Los indicadores de arriba filtran (visitas = todas, efectivas, última y próxima; otro toque quita el filtro)
-// y los meses se escogen uno o varios (Ctrl + clic o mantener presionado en el celular)
-let historial = { nombre: '', vendedor: '', f: '', meses: [] };
+// y los meses se escogen en una lista desplegable (uno o varios)
+let historial = { nombre: '', vendedor: '', f: '', sel: { m: [] } };
 function verCliente(nombre, vendedor) {
-    historial = { nombre, vendedor, f: '', meses: [] };
+    historial = { nombre, vendedor, f: '', sel: { m: [] } };
+    MULTI.historial.abierto = null;
     pintarHistorial();
 }
 function filtrarHistorial(f) { historial.f = historial.f === f ? '' : f; pintarHistorial(); }
-function elegirMesHistorial(m, e) {
-    const todos = mesesHistorial();
-    historial.meses = eleccionChip(historial.meses.length ? historial.meses : todos, m, todos, e);
-    if (historial.meses.length === todos.length) historial.meses = [];
-    pintarHistorial();
-}
 const visitasCliente = nombre => visibles().filter(x => x.clase === 'visita' && !x.interno && normalizar(x.contacto) === normalizar(nombre))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 const mesesHistorial = () => [...new Set(visitasCliente(historial.nombre).map(x => mesDe(x.fecha)))].sort().reverse();
 function pintarHistorial() {
     const { nombre, vendedor } = historial;
-    const meses = mesesHistorial(), selM = historial.meses.length ? historial.meses : meses;
+    const meses = mesesHistorial(), elegidos = historial.sel.m;
+    const selM = elegidos.includes(NINGUNA) ? [] : elegidos.length ? elegidos : meses;
     const lista = visitasCliente(nombre).filter(x => selM.includes(mesDe(x.fecha)));
     const zona = comercial(vendedor)?.zona;
     const m = buscarMaestra(zona, nombre) || buscarEnTodas(nombre), p = buscarProyecto(zona, nombre);
@@ -2805,9 +2802,7 @@ function pintarHistorial() {
     const filtro = { ok: x => x.estado === 'visitado', ultima: x => x === efectivas[0], prox: x => x === proxima }[historial.f] || (() => true);
     const vistas = lista.filter(filtro);
     const boton = (f, clase, html) => `<button type="button" class="chip chip-filtro ${clase}${historial.f === f ? ' activo' : ''}" onclick="filtrarHistorial('${f}')" aria-pressed="${historial.f === f}">${html}</button>`;
-    const todosM = selM.length === meses.length;
-    const chipsMes = meses.length > 1 ? `<div class="vp-vends hist-meses"><button type="button" class="vp-vend-btn todos${todosM ? ' activo' : ''}" onclick="elegirMesHistorial('todos', event)">Todos los meses</button>`
-        + meses.map(m => `<button type="button" class="vp-vend-btn${selM.includes(m) ? ' activo' : ''}" onclick="elegirMesHistorial('${m}', event)">${selM.includes(m) ? '✓ ' : ''}${esc(mayuscula(nombreMes(m)))}</button>`).join('') + AYUDA_CHIPS + '</div>' : '';
+    const chipsMes = meses.length > 1 ? '<div class="mc-multis hist-meses" id="histMeses"></div>' : '';
     const filas = vistas.map(x => {
         const [cls, txt] = estadoTxt[x.estado] || ['p', x.estado];
         const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
@@ -2828,10 +2823,15 @@ function pintarHistorial() {
             ${efectivas[0] ? boton('ultima', 'gris', `Última: ${esc(fechaCorta(efectivas[0].fecha))}`) : ''}
             ${proxima ? boton('prox', 'prox', `Próxima: ${esc(fechaCorta(proxima.fecha))}`) : ''}
         </div>
-        ${historial.f || historial.meses.length ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${visitasCliente(nombre).length}</p>` : ''}
+        ${historial.f || elegidos.length ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${visitasCliente(nombre).length}</p>` : ''}
         ${filas || `<div class="no-results">${visitasCliente(nombre).length ? 'No hay visitas con este filtro.' : 'Todavía no hay visitas registradas para este cliente.'}</div>`}
         <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
     </div>`);
+    if ($('histMeses')) {
+        const todasV = visitasCliente(nombre);
+        pintarMultis($('histMeses'), 'historial', [{ k: 'm', t: 'Mes', todos: 'Todos los meses', valores: meses, nombre: m => mayuscula(nombreMes(m)),
+            cuenta: Object.fromEntries(meses.map(m => [m, todasV.filter(x => mesDe(x.fecha) === m).length])) }]);
+    }
 }
 
 function guardarInternoRealizado(e, id) {
