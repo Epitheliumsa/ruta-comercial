@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Epithelium Visita</title>
-    <link rel="stylesheet" href="styles.css?v=202609292325">
-    <link rel="stylesheet" href="visitas.css?v=202609292325">
+    <link rel="stylesheet" href="styles.css?v=202609292332">
+    <link rel="stylesheet" href="visitas.css?v=202609292332">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -94,7 +94,7 @@
                 </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 29/09/2026 23:25</p>
+                <p class="version-app">Versión 29/09/2026 23:32</p>
             </div>
         </div>
 
@@ -127,6 +127,7 @@
             <p class="aviso-festivo" id="agFestivo" hidden></p>
             <p class="aviso-zona" id="agAvisoZona" hidden>Zona por asignar: todavía no hay contactos de la Maestra para este vendedor. Programa sus visitas marcando "Contacto nuevo".</p>
             <div id="agAnillo"></div>
+            <div class="ag-buscar" id="agBuscarCaja" hidden><input type="search" id="agBuscar" placeholder="Buscar cliente en este día..." aria-label="Buscar cliente" oninput="agenda.busca=this.value; pintarAgenda()"></div>
             <div class="resumen-dia" id="agResumen"></div>
             <div id="agLista" class="resultados"></div>
         </div>
@@ -320,8 +321,8 @@
         </div>
     </div>
 
-    <script src="objetivos.js?v=202609292325"></script>
-    <script src="productos.js?v=202609292325"></script>
-    <script src="app.js?v=202609292325"></script>
+    <script src="objetivos.js?v=202609292332"></script>
+    <script src="productos.js?v=202609292332"></script>
+    <script src="app.js?v=202609292332"></script>
 </body>
 </html>

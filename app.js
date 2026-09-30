@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292325';
+const APP_VERSION = '202609292332';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1619,6 +1619,7 @@ function elegirVendedorAgenda(id, e) {
 
 function elegirFecha(f) {
     if (!f) return;
+    if (f !== agenda.fecha) { agenda.busca = ''; if ($('agBuscar')) $('agBuscar').value = ''; }
     const mesAntes = mesDe(agenda.fecha);
     agenda.fecha = f;
     pintarAgenda();
@@ -1695,6 +1696,7 @@ function pintarAgenda() {
     const novs = deTodos(x => novedadesDe(x, f));
     const lista = deTodos(x => visitasDe(x, f)).sort(ordenCita);
     const k = cuentaVisitas(lista);
+    $('agBuscarCaja').hidden = !lista.length && !agenda.busca;
     const internos = lista.filter(x => x.interno).length;
     // Los indicadores del día son botones: al tocarlos filtran las visitas (otro toque quita el filtro)
     const boton = (f, clase, texto) => `<button type="button" class="chip chip-filtro ${clase}${agenda.filtro === f ? ' activo' : ''}" onclick="filtrarAgenda('${f}')" aria-pressed="${agenda.filtro === f}">${texto}</button>`;
@@ -1719,7 +1721,10 @@ function pintarAgenda() {
                 <option value="hora" ${agenda.orden === 'hora' ? 'selected' : ''}>Orden: hora de cita</option></select>`
         : '';
 
-    const plan = deTodos(x => planeadasDe(x, f).map(p => ({ ...p, vendedor: x }))).filter(p => p.estado !== 'confirmada');
+    // Búsqueda de cliente por nombre (visitas y lo planeado del Visiplan)
+    const qb = normalizar(agenda.busca || '');
+    const pasaBusca = x => !qb || normalizar(x.contacto || '').includes(qb);
+    const plan = deTodos(x => planeadasDe(x, f).map(p => ({ ...p, vendedor: x }))).filter(p => p.estado !== 'confirmada' && pasaBusca(p));
     // Arriba los planeados por confirmar; los que no se confirmaron a tiempo quedan al final del día
     const tarjetaPlan = p => `
         <div class="producto-card plan-card ${p.estado === 'cerrada' ? 'cerrada' : ''}">
@@ -1750,13 +1755,25 @@ function pintarAgenda() {
     vs.forEach(x => { const r = ordenesDelDia(lista.filter(y => y.vendedor === x)); Object.assign(ordenes, r.o); if (!varios) programadas = r.prog; });
     const clave = x => agenda.orden === 'prog' ? (ordenes[x.id]?.prog ?? (x.interno ? 2e9 : 1e9))
         : agenda.orden === 'realizada' ? (ordenes[x.id]?.real ?? (x.interno ? 2e9 : 1e9)) : 0;
-    const vistas = lista.filter(pasa).sort((a, b) => vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || clave(a) - clave(b) || ordenCita(a, b));
+    const vistas = lista.filter(pasa).filter(pasaBusca).sort((a, b) => vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || clave(a) - clave(b) || ordenCita(a, b));
     const mover = varios ? null : { abierta: Date.now() < limiteProgramacion(f), puede: sesion.id === v || esAdmin(), total: programadas.length };
     const tarjetas = vistas.map(x => tarjetaVisita(x, ordenes[x.id], mover, varios)).join('');
-    const aviso = agenda.filtro ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="filtrarAgenda('${agenda.filtro}')">Quitar filtro</button></p>` : '';
-    cont.innerHTML = (agenda.filtro ? '' : novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
-        + (tarjetas || (lista.length || !cerradas.length ? '<div class="no-results">No hay visitas con este filtro.</div>' : ''))
-        + (agenda.filtro ? '' : bloqueCerradas);
+    const filtrando = agenda.filtro;
+    const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
+    cont.innerHTML = (filtrando ? '' : novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
+        + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
+        + (filtrando ? '' : bloqueCerradas);
+}
+
+// Si el cliente buscado no está en el día, se ofrece abrir su historial (hasta 5 coincidencias)
+function sugerenciasHistorial(qb) {
+    const nombres = [...new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && normalizar(x.contacto || '').includes(qb)).map(x => x.contacto))].slice(0, 5);
+    return nombres.length ? `<br><small>Ver historial:</small> ${nombres.map(n => `<button class="link-mini" data-c="${esc(n)}" onclick="verCliente(this.dataset.c, agenda.vendedor)">${esc(n)}</button>`).join(' · ')}` : '';
+}
+
+function quitarFiltrosAgenda() {
+    agenda.filtro = ''; agenda.busca = ''; $('agBuscar').value = '';
+    pintarAgenda();
 }
 
 // Orden de las visitas del día. El programado lo pone el vendedor y lo puede cambiar hasta que cierra la

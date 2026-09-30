@@ -1384,3 +1384,11 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
     .anillos { margin-top: 6px; }
     .anillos.ver-dia .anillo-dia:not([data-p="dia"]), .anillos.ver-semana .anillo-dia:not([data-p="semana"]), .anillos.ver-mes .anillo-dia:not([data-p="mes"]) { display: none; }
 }
+
+/* Buscar cliente en el Plan de Trabajo */
+.ag-buscar { max-width: 1240px; margin: 10px auto 0; padding: 0 15px; }
+.ag-buscar input { width: 100%; max-width: 420px; padding: 9px 12px; border: 1px solid #cfe0dc; border-radius: 10px; font: inherit; font-size: 14px; background: #fff; }
+.ag-buscar input:focus { outline: 2px solid #0f766e33; border-color: #0f766e; }
+.ag-buscar { display: flex; justify-content: flex-start; width: 100%; box-sizing: border-box; }
+.ag-buscar input { margin: 0 !important; }
+#agLista > .filtro-activo, #agLista > .no-results { grid-column: 1 / -1; }
