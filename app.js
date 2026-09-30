@@ -2104,6 +2104,12 @@ function abrirSubs(casilla) {
     caja.hidden = !ver;
     item.classList.toggle('abierto', ver);
 }
+// Al marcar una subcategoría se marca también su objetivo (al programar y al cerrar)
+document.addEventListener('change', e => {
+    if (!e.target.matches?.('.obj-item .subs input') || !e.target.checked) return;
+    const obj = e.target.closest('.obj-item').querySelector('input.obj');
+    if (obj && !obj.checked) obj.checked = true;
+}, true);
 const leerObjetivos = cont => [...cont.querySelectorAll('input.obj:checked')].map(i => i.value);
 function leerSubs(cont, soloDe) {
     const r = {};
@@ -2314,13 +2320,16 @@ const productoPorCodigo = Object.fromEntries(CATALOGO.productos.map(p => [p.c, p
 const nombreProducto = c => productoPorCodigo[c] ? `[${c}] ${productoPorCodigo[c].n}` : c;
 // Pedido: sale solo si en Colocación se cumplió Producto Terminado, Magistral Individual o Magistral de Pedido.
 // El número de pedido lleva prefijo A (Producto Terminado), B (Magistral de Pedido) o A/B (Magistral Individual).
-const PEDIDO_CATS = { 'Producto Terminado': ['A'], 'Magistral Individual': ['A', 'B'], 'Magistral de Pedido': ['B'] };
+// Magistral Individual puede llevar dos pedidos en la misma visita: uno OV y otro OVI (basta con uno)
+const PEDIDO_CATS = { 'Producto Terminado': ['OVI'], 'Magistral Individual': ['OV', 'OVI'], 'Magistral de Pedido': ['OV'] };
+// Los pedidos tienen 6 cifras: se escriben solo los números y se completan con ceros a la izquierda (123 → 000123)
+const DIGITOS_PEDIDO = 6;
+const cifrasPedido = t => { const d = String(t || '').replace(/\D/g, '').slice(-DIGITOS_PEDIDO); return d ? d.padStart(DIGITOS_PEDIDO, '0') : ''; };
+const partesPedido = num => { const m = String(num || '').toUpperCase().match(/^(OVI|OV)?\s*(\d*)$/); return m ? { pre: m[1] || '', dig: m[2] || '' } : { pre: '', dig: '' }; };
 const TIPOS_MUESTRA = ['Muestra Médica', 'Muestra Comercial', 'Tester'];
 // Lo que indica que se presentaron productos (objetivos o subcategorías cumplidas)
 const OBJ_PRESENTA = ['Productos Nuevos', 'Mapa del Cliente - Ampliación Portafolio'];
 const SUBS_PRESENTA = ['Presentación del Producto', 'Productos Nuevos', 'Productos Foco', 'Productos Transición', 'Portafolio Actual', 'Portafolio', 'Producto Nuevo'];
-const normPedido = t => String(t || '').toUpperCase().replace(/[\s-]/g, '');
-const pedidoValido = (cat, num) => new RegExp(`^[${PEDIDO_CATS[cat].join('')}]\\d+$`).test(normPedido(num));
 
 // Concepto estratégico y mensaje comercial de la etiqueta (hoja "Guía de etiquetas" de la base de productos)
 // Sale al tocar el ⓘ que va al lado de cada etiqueta (sirve igual en computador y celular)
@@ -2435,8 +2444,7 @@ function actualizarCierreVisita() {
     Object.keys(PEDIDO_CATS).forEach(cat => {
         const fila = $('pedido-' + cat.replace(/\s/g, '')), casilla = fila.querySelector('.p-cat');
         if (col.includes(cat) && !casilla.dataset.tocada) casilla.checked = true;
-        fila.querySelector('.n-pedido').hidden = !casilla.checked;
-        fila.querySelector('small').hidden = !casilla.checked;
+        fila.querySelector('.p-nums').hidden = !casilla.checked;
         hay = hay || (conColocacion && casilla.checked);
     });
     $('cajaProdPedidos').hidden = !hay;
@@ -2488,18 +2496,22 @@ function abrirRegistro(id, tipo) {
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
             <div id="cajaPedido" class="caja-cierre" hidden>
-                <label>Pedido ${REQ} <small>(marca la categoría y escribe el número con su prefijo)</small></label>
-                ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}"><label class="check p-check"><input type="checkbox" class="p-cat" ${((ya && v.pedidos) || []).some(p => p.cat === cat) ? 'checked' : ''} onchange="this.dataset.tocada = 1; actualizarCierreVisita()"><span>${esc(cat)}</span></label>
-                    <input class="n-pedido" data-cat="${esc(cat)}" placeholder="${pre.join(' ó ')}12345" autocomplete="off" value="${esc(((ya && v.pedidos) || []).find(p => p.cat === cat)?.num || '')}">
-                    <small>Prefijo ${pre.join(' ó ')}</small></div>`).join('')}
-            </div>
-            <div id="cajaProdPresentados" hidden>
-                <label>Productos presentados</label>
-                ${htmlSelProductos('rProdPresentados', [...CATALOGO.desplegables, ...CATALOGO.cerradas], ya ? v.productosPresentados : {})}
+                <label>Pedido ${REQ} <small>(marca la categoría y escribe el número de ${DIGITOS_PEDIDO} cifras)</small></label>
+                ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => {
+                    const antes = ((ya && v.pedidos) || []).filter(p => p.cat === cat).map(p => partesPedido(p.num));
+                    return `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}"><label class="check p-check"><input type="checkbox" class="p-cat" ${antes.length ? 'checked' : ''} onchange="this.dataset.tocada = 1; actualizarCierreVisita()"><span>${esc(cat)}</span></label>
+                    <div class="p-nums">${pre.map(x => `<div class="p-num"><span class="p-pref">${x}</span>
+                        <input class="n-pedido" data-cat="${esc(cat)}" data-pref="${x}" inputmode="numeric" maxlength="${DIGITOS_PEDIDO}" placeholder="000000" autocomplete="off" value="${esc(antes.find(a => a.pre === x)?.dig || '')}"
+                            oninput="this.value = this.value.replace(/\\D/g, '')" onblur="this.value = cifrasPedido(this.value)"></div>`).join('')}</div></div>`;
+                }).join('')}
             </div>
             <div id="cajaProdPedidos" hidden>
                 <label>Productos pedidos</label>
                 ${htmlSelProductos('rProdPedidos', [...CATALOGO.desplegables, ...CATALOGO.cerradas], ya ? v.productosPedidos : {})}
+            </div>
+            <div id="cajaProdPresentados" hidden>
+                <label>Productos presentados</label>
+                ${htmlSelProductos('rProdPresentados', [...CATALOGO.desplegables, ...CATALOGO.cerradas], ya ? v.productosPresentados : {})}
             </div>
             <div id="cajaMuestras" class="caja-cierre" hidden>
                 <label>Muestras entregadas ${REQ} <small>(producto y cantidad)</small></label>
@@ -2561,11 +2573,11 @@ function guardarVisitado(e, id) {
     const pedidos = [];
     const colMarcada = !$('cajaPedido').hidden;
     if (colMarcada && !document.querySelector('#cajaPedido .p-cat:checked')) return toast('Marca la categoría del pedido: Producto Terminado, Magistral Individual o Magistral de Pedido');
-    for (const inp of colMarcada ? document.querySelectorAll('#cajaPedido .fila-pedido .n-pedido:not([hidden])') : []) {
-        const cat = inp.dataset.cat, num = normPedido(inp.value);
-        if (!num) { inp.focus(); return toast(`Escribe el número de pedido de ${cat}`); }
-        if (!pedidoValido(cat, num)) { inp.focus(); return toast(`El pedido de ${cat} debe empezar por ${PEDIDO_CATS[cat].join(' o ')} seguido de números (ej: ${PEDIDO_CATS[cat][0]}12345)`); }
-        pedidos.push({ cat, num });
+    for (const fila of colMarcada ? document.querySelectorAll('#cajaPedido .p-nums:not([hidden])') : []) {
+        const inps = [...fila.querySelectorAll('.n-pedido')], cat = inps[0].dataset.cat;
+        const llenos = inps.filter(i => Number(cifrasPedido(i.value)));
+        if (!llenos.length) { inps[0].focus(); return toast(`Escribe el número de pedido de ${cat}${inps.length > 1 ? ' (OV, OVI o ambos)' : ''}`); }
+        llenos.forEach(i => { i.value = cifrasPedido(i.value); pedidos.push({ cat, num: i.dataset.pref + i.value }); });
     }
     const muestrasDetalle = $('cajaMuestras').hidden ? {} : leerMuestras();
     for (const [t, l] of Object.entries(muestrasDetalle)) {
