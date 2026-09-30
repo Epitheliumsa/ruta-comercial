@@ -30,7 +30,7 @@ Estado | Días vencida / restantes | Objetivo | Resumen de la actividad | Observ
 - En la visita, el objetivo "Parrilla Promocional" muestra como subcategorías los productos de la circular de parrilla
   vigente para el cliente (nombre con "Parrilla Promocional"), **en el orden de la columna Producto**. Los códigos
   `[XX0000]` se leen de esa columna; el nombre sale del catálogo (productos.js) o, si no está, del texto de la circular.
-- Si no hay parrilla vigente para el cliente, se usa la lista del mes (pantalla de jefes) o sale el aviso.
+- Si no hay parrilla vigente para el cliente, se usa la hoja "Mensual" de la matriz (si tiene algo) o sale el aviso.
 
 ## Pasos
 1. En una rama aparte: `python3 herramientas/circulares.py <ruta del Excel>` (copia el Excel a `datos/Circulares.xlsx`).

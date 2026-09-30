@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300119';
+const APP_VERSION = '202609300121';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -523,7 +523,6 @@ function entrarApp() {
     saludo.appendChild(detalle);
     intro.appendChild(saludo);
     $('btnPanel').style.display = esJefe() ? '' : 'none';
-    $('btnMensual').style.display = esJefe() ? '' : 'none';
     $('maestraTxt').textContent = esJefe() ? 'Clientes por zona y vendedor' : 'Clientes de tu zona';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
     // Comerciales: en el título de cada pantalla, debajo, su nombre
@@ -887,42 +886,6 @@ function resolverSolicitud(id, autorizar) {
     toast(autorizar ? 'Visita eliminada' : 'Solicitud rechazada');
     abrirSolicitudes();
     pintarInicio();
-}
-
-// ---------- PARRILLA Y ACTIVIDADES DEL MES (subcategorías variables) ----------
-// Los jefes cargan cada mes los productos de la Parrilla Promocional y las Actividades; salen como subcategorías
-// al programar y al cerrar las visitas de ese mes
-function abrirMensual(mes = mesDe(hoy())) {
-    const listas = listasDelMes(mes);
-    const cargadas = !!registros[idMensual(mes)];
-    abrirModal(`<form class="form-rc" onsubmit="guardarMensual(event)">
-        <h2>Parrilla y actividades del mes</h2>
-        <p class="sub">Escribe una por línea. Salen como subcategorías en las visitas del mes.</p>
-        <label for="mMes">Mes</label>
-        <input id="mMes" type="month" required value="${mes}" onchange="abrirMensual(this.value)">
-        ${(MATRIZ.variables || []).map((o, i) => `<label for="mLista${i}">${esc(o)}</label>
-        <textarea id="mLista${i}" data-o="${esc(o)}" rows="6" placeholder="${o === 'Parrilla Promocional' ? 'Ej: Kojic Plus\nRetinol 0,5%' : 'Ej: Congreso de dermatología\nDía de marca en consultorio'}">${esc((listas[o] || []).join('\n'))}</textarea>`).join('')}
-        ${!cargadas && Object.keys(listas).length ? '<p class="ayuda">Estas vienen del archivo de la matriz. Si las guardas aquí, mandan las de la app.</p>' : ''}
-        <div class="form-botones">
-            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
-            <button class="btn-primario">Guardar</button>
-        </div>
-    </form>`);
-}
-
-function guardarMensual(e) {
-    e.preventDefault();
-    const mes = $('mMes').value;
-    const listas = {};
-    document.querySelectorAll('#modalContenido textarea[data-o]').forEach(t => {
-        const l = [...new Set(t.value.split('\n').map(x => x.trim()).filter(Boolean))];
-        if (l.length) listas[t.dataset.o] = l;
-    });
-    const id = idMensual(mes);
-    guardarRegistro({ ...(registros[id] || { id, clase: 'mensual', creado: new Date().toISOString() }),
-        vendedor: 'equipo', mes, fecha: mes + '-01', listas, borrado: false, editadoPor: sesion.id });
-    cerrarModal();
-    toast(`Guardado para ${nombreMes(mes)}`);
 }
 
 // ---------- CHIPS DE SELECCIÓN (vendedores, zonas) ----------

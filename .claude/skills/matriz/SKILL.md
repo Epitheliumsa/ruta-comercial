@@ -16,7 +16,7 @@ Toda la configuración vive en **un solo archivo**: `datos/Matriz_App.xlsx`. La 
   Columnas: Visita Médica, Visita Médica Comercial (clasificación 20 y 21), Visita Cliente, Punto de Venta y las tres de Contacto nuevo.
 - **Trabajo interno**: igual, con Trabajo Administrativo Oficina, Fuera de la Oficina y Planeación Mes.
 - **Mensual**: Mes (AAAA-MM) | Objetivo | Subcategoría, para Parrilla Promocional y Actividades.
-  Si un jefe las carga en la app (botón "Parrilla y actividades del mes"), mandan las de la app para ese mes.
+  (La pantalla "Parrilla y actividades del mes" se quitó: la parrilla y las actividades salen de las circulares.)
 - **Tipo de visita**: una fila por clasificación de cliente (número, categoría, clientes, etiquetas) y X en Visita
   Médica, Visita Cliente y/o Punto de Venta. Clientes y etiquetas se recalculan con `contactos.json` cada vez que corre
   el script; las X se conservan. Clasificación sin X (amarillo fuerte) = sale en todos los tipos.
