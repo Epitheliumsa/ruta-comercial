@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301512';
+const APP_VERSION = '202609301652';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -766,7 +766,7 @@ const CLASIFICACIONES_CLIENTE = [
     ['40', 'Supermercado con droguería propia o en arriendo, con reconocimiento nacional'], ['50', 'Establecimiento comercial tipo SPA donde se maneje la categoría'],
     ['51', 'Establecimiento comercial tipo peluquería o barbería donde se maneje la categoría'], ['52', 'Persona natural que compra sin establecimiento comercial'],
     ['53', 'Establecimiento comercial de oportunidad donde se maneje la categoría (eventos)'], ['60', 'Asociaciones, clínicas, etc., cuyo capital es de origen privado'],
-    ['61', 'Entidad gubernamental con citación a cotizar o licitación'], ['70', 'Cliente con bodega que hace distribución local (fuerza de ventas y visitadores)'], ['71', 'Cliente con bodega que hace distribución local en Bogotá y Área Metropolitana'],
+    ['61', 'Entidad gubernamental con citación a cotizar o licitación'], ['70', 'Cliente con bodega que hace distribución local (fuerza de ventas y visitadores)'], ['71', 'Cliente con bodega que hace distribución local en Bogotá y Área Metropolitana (fuerza de ventas y visitadores)'],
     ['80', 'Persona natural que pertenece a la nómina de Epithelium'], ['90', 'Accionista Epithelium S.A. con tienda de piel o punto de venta']
 ];
 const CLASIF_GERENCIA = ['10', '20', '30', '60', '61', '70', '71'];   // "Aprobación de Gerencia" del formato
