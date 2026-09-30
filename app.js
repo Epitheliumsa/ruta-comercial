@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301458';
+const APP_VERSION = '202609301512';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -623,7 +623,8 @@ function pintarInicio() {
     $('proyectosTxt').textContent = proys ? `${proys} ${proys === 1 ? 'lead' : 'leads'} en seguimiento` : 'Contactos nuevos y su seguimiento';
     const solsCreacion = solicitudesCreacion().length;
     $('btnCreacion').style.display = esJefe() ? '' : 'none';
-    $('creacionTxt').textContent = solsCreacion ? `${solsCreacion} por revisar` : 'No hay solicitudes pendientes';
+    const porAmarrar = esJefe() ? leadsPorVincular().length : 0;
+    $('creacionTxt').textContent = solsCreacion ? `${solsCreacion} por revisar${porAmarrar ? ` · ${porAmarrar} ya en la Maestra, por confirmar` : ''}` : 'No hay solicitudes pendientes';
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     $('solicitudesTxt').textContent = sols.length ? `${sols.length} por revisar` : 'No hay solicitudes pendientes';
@@ -765,7 +766,7 @@ const CLASIFICACIONES_CLIENTE = [
     ['40', 'Supermercado con droguería propia o en arriendo, con reconocimiento nacional'], ['50', 'Establecimiento comercial tipo SPA donde se maneje la categoría'],
     ['51', 'Establecimiento comercial tipo peluquería o barbería donde se maneje la categoría'], ['52', 'Persona natural que compra sin establecimiento comercial'],
     ['53', 'Establecimiento comercial de oportunidad donde se maneje la categoría (eventos)'], ['60', 'Asociaciones, clínicas, etc., cuyo capital es de origen privado'],
-    ['61', 'Entidad gubernamental con citación a cotizar o licitación'], ['70', 'Cliente con bodega que hace distribución local (fuerza de ventas y visitadores)'],
+    ['61', 'Entidad gubernamental con citación a cotizar o licitación'], ['70', 'Cliente con bodega que hace distribución local (fuerza de ventas y visitadores)'], ['71', 'Cliente con bodega que hace distribución local en Bogotá y Área Metropolitana'],
     ['80', 'Persona natural que pertenece a la nómina de Epithelium'], ['90', 'Accionista Epithelium S.A. con tienda de piel o punto de venta']
 ];
 const CLASIF_GERENCIA = ['10', '20', '30', '60', '61', '70', '71'];   // "Aprobación de Gerencia" del formato
@@ -849,7 +850,9 @@ function abrirProyectos(filtro) {
         const botones = [];
         if (p.estado === 'proyecto') botones.push(`<button class="btn-secundario" onclick="solicitarCreacion('${p.id}')">Solicitud de creación</button>`);
         if (p.estado === 'solicitud' && esJefe()) botones.push(`<button class="btn-secundario btn-peligro" onclick="rechazarCreacion('${p.id}')">Rechazar</button>`);
-        if (esJefe()) botones.push(`<button class="btn-primario" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular a la Maestra</button>`);
+        if (esJefe()) botones.push(`<button class="${p.estado === 'solicitud' && candidatosVinculo(p).length ? 'btn-secundario' : 'btn-primario'}" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular a la Maestra</button>`);
+        // Maestra nueva: posibles clientes creados para esta Lead, para confirmar con un toque
+        const sugeridos = esJefe() && p.estado === 'solicitud' ? candidatosVinculo(p) : [];
         // Quien creó el lead programa desde aquí su próxima visita
         if (p.vendedor === sesion.id) botones.unshift(`<button class="btn-primario btn-programar-lead" onclick="programarLead('${p.id}')">📅 Programar visita</button>`);
         return `${p.solicitud && p.estado === 'solicitud' ? `<p class="nota-sol">Solicitada el ${esc(fechaHora(p.solicitud.fecha))} por ${esc(nombreVendedor(p.solicitud.por))}${p.solicitud.clasificacion ? ` · Clasificación <b>${esc(p.solicitud.clasificacion)}</b>${p.solicitud.gerencia ? ' (gerencia)' : ''}` : ''}${p.solicitud.nota ? ': ' + esc(p.solicitud.nota) : ''}</p>
@@ -862,6 +865,9 @@ function abrirProyectos(filtro) {
                 <datalist id="dlMaestra-${p.id}">${opcionesMaestra(p.zona)}</datalist>
                 <div class="form-botones"><button class="btn-secundario" onclick="abrirProyectos(${filtro ? `'${filtro}'` : ''})">Cancelar</button><button class="btn-primario" onclick="vincularProyecto('${p.id}')">Vincular</button></div>
             </div>
+            ${sugeridos.length ? `<div class="sug-vinculo"><p><b>¿Ya se creó en la Maestra?</b> Confirma cuál es el cliente creado para amarrarlo:</p>${sugeridos.map(x =>
+                `<div class="sug-fila"><span><b>${esc(x.c.n)}</b><small>${esc([x.c.cl && `Clasificación ${x.c.cl}`, x.c.e, x.c.c, x.z].filter(Boolean).join(' · '))}</small></span>
+                <button class="btn-primario" data-z="${esc(x.z)}" data-n="${esc(x.c.n)}" onclick="confirmarVinculo('${p.id}', this.dataset.z, this.dataset.n)">Sí, es este</button></div>`).join('')}</div>` : ''}
             ${botones.length ? `<div class="form-botones">${botones.join('')}</div>` : ''}`;
     };
     abrirModal(`<div class="form-rc">
@@ -1024,6 +1030,12 @@ async function enviarSolicitudCreacion(e, id) {
     pintarInicio();
 }
 
+async function confirmarVinculo(id, zona, nombre) {
+    const p = registros[id];
+    if (!await dialogo({ tono: 'aviso', icono: '🔗', titulo: 'Amarrar Lead con el cliente', texto: `${p.nombre} (Lead) quedará vinculada a ${nombre} de la Maestra.\nSus visitas pasan a ese cliente. ¿Confirmas?`, aceptar: 'Sí, amarrar', cancelar: 'No' })) return;
+    vincularSugerido(id, zona, nombre);
+}
+
 async function rechazarCreacion(id) {
     if (!esJefe()) return;
     const motivo = await dialogo({ titulo: 'Rechazar solicitud de creación', texto: '¿Por qué se rechaza? (opcional)', campo: 'Ej: faltan datos de facturación', aceptar: 'Rechazar' });
@@ -1034,10 +1046,40 @@ async function rechazarCreacion(id) {
     pintarInicio();
 }
 
+// Al subir una Maestra nueva, la app busca para cada Lead ganada el cliente que se le parece (mismo nombre o casi)
+// y le pide a la jefe (o al administrador) confirmar el vínculo: "¿Es este el cliente creado?"
+const SOBRA_NOMBRE = new Set(['sas', 's', 'a', 'ltda', 'de', 'del', 'la', 'el', 'y', 'dr', 'dra', 'e', 'colombia', 'cia']);
+const palabrasNombre = t => [...new Set(normalizar(t).replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(w => w && !SOBRA_NOMBRE.has(w)))];
+function candidatosVinculo(p) {
+    const pl = palabrasNombre(p.nombre);
+    if (!pl.length) return [];
+    const tel = String(p.telefono || '').replace(/\D/g, '').slice(-7);
+    return Object.entries(contactos).flatMap(([z, cs]) => cs.map(c => ({ c, z })))
+        .map(({ c, z }) => {
+            const pc = palabrasNombre(c.n), comunes = pl.filter(w => pc.includes(w)).length;
+            const parecido = comunes / Math.max(pl.length, pc.length, 1);   // palabras en común frente al nombre más largo
+            // Misma zona o misma clasificación lo sube en la lista (no lo vuelve candidato por sí solo)
+            const puntos = parecido + (z === p.zona ? 0.1 : 0) + (p.solicitud?.clasificacion && c.cl === p.solicitud.clasificacion ? 0.1 : 0);
+            return { c, z, parecido, puntos, igual: normalizar(c.n) === normalizar(p.nombre) };
+        })
+        .filter(x => x.igual || x.parecido >= 0.75)
+        .sort((a, b) => b.igual - a.igual || b.puntos - a.puntos).slice(0, 3);
+}
+const leadsPorVincular = () => solicitudesCreacion().filter(p => candidatosVinculo(p).length);
+function vincularSugerido(id, zona, nombre) {
+    const p = registros[id], c = buscarMaestra(zona, nombre);
+    if (!p || !c) return;
+    vincularCon(p, c);
+}
+
 function vincularProyecto(id) {
     const p = registros[id];
     const c = buscarMaestra(p.zona, $('vinInput-' + id).value);
     if (!c) return toast('Ese contacto no está en la Maestra de Contactos de la app. Pide que se actualice la lista de contactos.');
+    vincularCon(p, c);
+}
+function vincularCon(p, c) {
+    const id = p.id;
     guardarRegistro({ ...p, estado: 'vinculado', vinculadoA: c.n, vinculadoEl: new Date().toISOString(), vinculadoPor: sesion.id });
     // Las visitas del contacto nuevo pasan al contacto de la Maestra (se conserva que fueron proyecto)
     visitasDeProyecto(id).forEach(v =>

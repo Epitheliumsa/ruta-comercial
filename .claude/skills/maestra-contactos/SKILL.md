@@ -22,5 +22,8 @@ manda el usuario. Reglas que dio Hernán Reyes (aplican **siempre**):
    (comercial nuevo que no está en `COMERCIAL_ZONA`: pregunta al usuario de quién es y agrégalo al script).
 3. El script deja `datos/Maestra_de_Contactos.xlsx` (copia limpia, sin cuadrícula) y anota los cambios en
    `datos/historial_maestra.csv` con la fecha desde la que rigen.
-4. Cuéntale al usuario en corto qué cambió (sobre todo los cambios de zona) y **pregunta antes de publicar** (CLAUDE.md).
+4. **Leads ganadas**: los contactos **nuevos** de la maestra pueden ser Leads con solicitud de creación. La app los
+   amarra sola con verificación: al publicar, en "Solicitudes de creación" la jefe (o Hernán) ve "¿Ya se creó en la
+   Maestra?" con el cliente que se parece y confirma con "Sí, es este". Díselo al usuario junto con la lista de nuevos.
+5. Cuéntale al usuario en corto qué cambió (sobre todo los cambios de zona) y **pregunta antes de publicar** (CLAUDE.md).
    Al publicar: `sh actualizar-version.sh`, commit y push a `main`.

@@ -1551,3 +1551,10 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 .caja-formato p { margin: 0 0 8px; font-size: 13px; color: #334155; line-height: 1.45; }
 .caja-formato a.btn-secundario { display: inline-block; text-decoration: none; padding: 8px 14px; margin-bottom: 4px; }
 .caja-formato input[type=file] { width: 100%; padding: 8px; background: #fff; border: 1px solid #cfe0dc; border-radius: 8px; }
+/* Solicitud de creación: clientes de la Maestra nueva que parecen ser la Lead (se confirman con un toque) */
+.sug-vinculo { margin: 10px 0; padding: 10px; border: 1px solid #7dd3e8; border-radius: 10px; background: #f0fafc; }
+.sug-vinculo p { margin: 0 0 8px; font-size: 13px; color: #0e7490; }
+.sug-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px dashed #bde5ee; }
+.sug-fila span { display: flex; flex-direction: column; font-size: 14px; }
+.sug-fila small { color: #64748b; font-size: 12px; }
+.sug-fila .btn-primario { padding: 6px 12px; font-size: 13px; white-space: nowrap; }
