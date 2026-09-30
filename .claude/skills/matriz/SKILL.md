@@ -21,6 +21,11 @@ Toda la configuración vive en **un solo archivo**: `datos/Matriz_App.xlsx`. La 
   Médica, Visita Cliente y/o Punto de Venta. Clientes y etiquetas se recalculan con `contactos.json` cada vez que corre
   el script; las X se conservan. Clasificación sin X (amarillo fuerte) = sale en todos los tipos.
 
+- Encabezado de la columna A: **Categoría** (antes "Objetivo"; en la app siguen siendo "objetivos"). El tipo
+  **Visita Cliente** antes se llamaba "Visita Comercial": el script acepta el nombre viejo en los encabezados y la app lee
+  las visitas guardadas con el nombre viejo como Visita Cliente.
+- **Otros** no va en la matriz: la app lo agrega al final de los objetivos de toda visita (texto libre de 50 caracteres).
+
 ## Reglas de la app
 - Al programar, cada tipo de visita solo muestra los clientes de las clasificaciones con X en ese tipo.
 - "Visita Médica Comercial" aplica solo a las clasificaciones 20 y 21 (X en Visita Médica y Visita Cliente). Al
