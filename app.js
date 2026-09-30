@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292343';
+const APP_VERSION = '202609292347';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -64,8 +64,8 @@ const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Comercial', '
 const VMC = 'Visita Médica Comercial';
 const claveTipo = (tipo, nuevo) => tipo === VMC ? 'medcom:Visita Médica' : (nuevo && TIPOS_VISITA[tipo] ? 'nuevo:' : '') + tipo;
 // Tipos que salen en informes y filtros (incluye la Visita Médica Comercial)
-// Visita personalizada: último objetivo de las visitas; el vendedor o jefe escribe cuál es (máx. 50 caracteres)
-const PERSONALIZADA = 'Visita personalizada';
+// "Otros" (antes "Visita personalizada"): último objetivo de las visitas, en rojo; se escribe cuál es (máx. 50 caracteres)
+const PERSONALIZADA = 'Otros';
 const TIPOS_REPORTE = () => [...Object.keys(TIPOS_VISITA), VMC];
 const objetivosDeTipo = (tipo, nuevo) => MATRIZ.objetivos[claveTipo(tipo, nuevo)] || [];
 // Una visita puede ser de varios tipos a la vez (Visita Médica y Visita Comercial, según la clasificación del cliente)
@@ -102,7 +102,7 @@ const subcategoriasDe = (tipo, nuevo, objetivo, mes) => esVariable(objetivo)
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
 // antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
-const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Mapa del Cliente': 'Mapa del Cliente - Ampliación Portafolio' };
+const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Visita personalizada': 'Otros', 'Mapa del Cliente': 'Mapa del Cliente - Ampliación Portafolio' };
 const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto), ...((v.objetivos || []).includes(PERSONALIZADA) ? [PERSONALIZADA] : [])];
 const programadosVigentes = v => {
     const base = objetivosCierre(v);
@@ -2238,10 +2238,10 @@ function pintarObjetivos(marcados, subsMarcados) {
     cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs })
         + (conPersonal ? htmlPersonal(actuales.includes(PERSONALIZADA), textoAntes) : '');
 }
-// Objetivo "Visita personalizada": al marcarlo se escribe cuál es (máximo 50 caracteres)
+// Objetivo "Otros": al marcarlo se escribe cuál es (máximo 50 caracteres)
 let textoPersonalForm = '';
 function htmlPersonal(marcado, texto) {
-    return `<div class="obj-item personal${marcado ? ' abierto' : ''}" style="--h:200"><label class="check"><input type="checkbox" class="obj" value="${PERSONALIZADA}" ${marcado ? 'checked' : ''} onchange="abrirSubs(this)"><span>${PERSONALIZADA}</span></label>
+    return `<div class="obj-item personal${marcado ? ' abierto' : ''}" style="--h:0"><label class="check"><input type="checkbox" class="obj" value="${PERSONALIZADA}" ${marcado ? 'checked' : ''} onchange="abrirSubs(this)"><span>${PERSONALIZADA}</span></label>
         <div class="subs"${marcado ? '' : ' hidden'}><input id="fPersonal" maxlength="50" placeholder="¿Cuál? Ej: acompañamiento a evento" value="${esc(texto || '')}" oninput="textoPersonalForm = this.value; $('fPersonalCuenta').textContent = this.value.length + ' / 50'"><p class="cuenta-nota" id="fPersonalCuenta">${(texto || '').length} / 50</p></div></div>`;
 }
 

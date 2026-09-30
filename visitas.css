@@ -1394,3 +1394,9 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 .obj-item.personal .subs input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cfe0dc; border-radius: 8px; font: inherit; font-size: 13px; }
 .fila-botones .ag-buscar-in + .btn-nuevo { margin-left: auto; }
 .fila-botones .ag-buscar-in ~ .btn-nuevo:last-child { margin-left: 0; }
+/* Objetivo "Otros": en rojo */
+.checks .obj-item.personal > .check { background: #fee2e2; border-color: #f87171; color: #b91c1c; }
+.checks .obj-item.personal > .check span { color: #b91c1c; }
+.checks .obj-item.personal > .check input { accent-color: #dc2626; }
+.checks .obj-item.personal.abierto { background: #fff5f5; border-color: #fca5a5; }
+.obj-item.personal .subs input { border-color: #fca5a5; }
