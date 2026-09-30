@@ -260,7 +260,9 @@ window.MATRIZ_OBJETIVOS = {
     "Producto Nuevo",
     "Producto Terminado",
     "Magistral Individual",
-    "Magistral de Pedido"
+    "Magistral de Pedido",
+    "Presentación Portafolio",
+    "Creación Cliente"
    ],
    "Desarrollo Productos": [
     "Fórmula Magistral Nueva",
@@ -283,7 +285,9 @@ window.MATRIZ_OBJETIVOS = {
     "Producto Nuevo",
     "Producto Terminado",
     "Magistral Individual",
-    "Magistral de Pedido"
+    "Magistral de Pedido",
+    "Presentación Portafolio",
+    "Creación Cliente"
    ],
    "Desarrollo Productos": [
     "Fórmula Magistral Nueva",

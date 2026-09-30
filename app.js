@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609300125';
+const APP_VERSION = '202609300137';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2076,8 +2076,8 @@ async function abrirProgramar(id, contactoPlan) {
                 <input id="pPersona" placeholder="Persona con quien se habla">
                 <label for="pDir">Dirección (opcional)</label>
                 <input id="pDir" placeholder="Ej: Cra 15 # 93-60, consultorio 402">
-                <label for="pTel">Teléfono (opcional)</label>
-                <input id="pTel" type="tel" inputmode="tel">
+                <label for="pTel">Teléfono ${REQ}</label>
+                <input id="pTel" type="tel" inputmode="tel" placeholder="Ej: 300 123 4567">
             </div>
         </div>
         <p class="aviso-festivo en-form" id="fFestivo" hidden></p>
@@ -2454,6 +2454,12 @@ async function guardarProgramada(e, id) {
         return;
     }
     const tipos = interno || nuevo ? [tipo] : tiposElegidos();
+    // Contacto nuevo: el teléfono es obligatorio (mínimo 7 dígitos)
+    if (nuevo && !proyecto && $('pTel').value.replace(/\D/g, '').length < 7) {
+        $('pTel').focus();
+        toast('Escribe el teléfono del contacto nuevo');
+        return;
+    }
     if (nuevo && !proyecto && $('pTipo').value !== 'Médico' && !$('pPersona').value.trim()) {
         $('pPersona').focus();
         toast('Escribe el nombre de contacto del cliente o punto de venta');
