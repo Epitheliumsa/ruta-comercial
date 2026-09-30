@@ -7,8 +7,8 @@ Fuentes (en datos/):
   La etiqueta que vale es "Nueva Etiqueta" si tiene algo; si no, "Etiquetas de producto".
   Hoja "Guía de Etiquetas" (Etiqueta | Concepto Estratégico | Mensaje Comercial): sale al abrir la etiqueta en el cierre.
 - Productos_Terminados.xlsx: productos terminados (export de Odoo con Referencia Interna, Nombre, Etiquetas de producto).
-Categorías del cierre: Nuevo, Foco y Transición se despliegan (buscador por código o nombre);
-Portafolio, Estratégico y Consultorio van cerradas (solo se marcan).
+Categorías del cierre: Nuevo, Foco y Transición-Impulso se despliegan (buscador por código o nombre);
+Portafolio y Consultorio van cerradas (solo se marcan).
 """
 import collections, json, unicodedata
 from pathlib import Path
@@ -16,14 +16,14 @@ import openpyxl
 
 RAIZ = Path(__file__).resolve().parent.parent
 FUENTES = [RAIZ / 'datos' / 'Base_Productos.xlsx', RAIZ / 'datos' / 'Productos_Terminados.xlsx']
-DESPLEGABLES = ['Nuevo', 'Foco', 'Transición']
-CERRADAS = ['Portafolio', 'Estratégico', 'Consultorio']
+DESPLEGABLES = ['Nuevo', 'Foco', 'Transición-Impulso']
+CERRADAS = ['Portafolio', 'Consultorio']
 
 def clave(t):
     return unicodedata.normalize('NFD', str(t or '').strip().lower()).encode('ascii', 'ignore').decode()
 
-NOMBRES = {'nuevo': 'Nuevo', 'foco': 'Foco', 'transicion': 'Transición', 'transicion-impulso': 'Transición',
-           'transicion - impulso': 'Transición', 'transicion impulso': 'Transición', 'portafolio': 'Portafolio',
+NOMBRES = {'nuevo': 'Nuevo', 'foco': 'Foco', 'transicion': 'Transición-Impulso', 'transicion-impulso': 'Transición-Impulso',
+           'transicion - impulso': 'Transición-Impulso', 'transicion impulso': 'Transición-Impulso', 'portafolio': 'Portafolio',
            'estrategico': 'Estratégico', 'consultorio': 'Consultorio', 'cliente': 'Cliente',
            'a descodificar': 'A descodificar', 'en desarrollo': 'En Desarrollo', 'producto terminado': 'Producto Terminado'}
 etiquetas = lambda t: [NOMBRES[clave(x)] for x in str(t or '').replace(';', ',').split(',') if clave(x) in NOMBRES]

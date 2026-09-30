@@ -2307,9 +2307,9 @@ async function eliminarVisita(id) {
 }
 
 // ---------- CIERRE DE VISITA: pedido, productos y muestras ----------
-// Catálogo de productos (productos.js, herramientas/productos.py). Nuevo, Foco y Transición se despliegan y se buscan
-// por código o nombre; Portafolio, Estratégico y Consultorio van cerradas (solo se marcan).
-const CATALOGO = window.CATALOGO || { desplegables: ['Nuevo', 'Foco', 'Transición'], cerradas: ['Portafolio', 'Estratégico', 'Consultorio'], productos: [] };
+// Catálogo de productos (productos.js, herramientas/productos.py). Nuevo, Foco y Transición-Impulso se despliegan y se buscan
+// por código o nombre; Portafolio y Consultorio van cerradas (solo se marcan).
+const CATALOGO = window.CATALOGO || { desplegables: ['Nuevo', 'Foco', 'Transición-Impulso'], cerradas: ['Portafolio', 'Consultorio'], productos: [] };
 const productoPorCodigo = Object.fromEntries(CATALOGO.productos.map(p => [p.c, p]));
 const nombreProducto = c => productoPorCodigo[c] ? `[${c}] ${productoPorCodigo[c].n}` : c;
 // Pedido: sale solo si en Colocación se cumplió Producto Terminado, Magistral Individual o Magistral de Pedido.
@@ -2320,7 +2320,8 @@ const normPedido = t => String(t || '').toUpperCase().replace(/[\s-]/g, '');
 const pedidoValido = (cat, num) => new RegExp(`^[${PEDIDO_CATS[cat].join('')}]\\d+$`).test(normPedido(num));
 
 // Concepto estratégico y mensaje comercial de la etiqueta (hoja "Guía de etiquetas" de la base de productos)
-const guiaEtiqueta = cat => { const g = (CATALOGO.guia || {})[cat]; return g && (g.concepto || g.mensaje) ? `<div class="guia-etq">${g.concepto ? `<p><b>Concepto estratégico:</b> ${esc(g.concepto)}</p>` : ''}${g.mensaje ? `<p><b>Mensaje comercial:</b> ${esc(g.mensaje)}</p>` : ''}</div>` : ''; };
+// Sale solo al poner el mouse encima (o al tocar y mantener en el celular) de la etiqueta
+const guiaEtiqueta = cat => { const g = (CATALOGO.guia || {})[cat]; return g && (g.concepto || g.mensaje) ? `<span class="guia-etq" role="tooltip"><b>${esc(cat)}</b>${g.concepto ? `<span><b>Concepto estratégico:</b> ${esc(g.concepto)}</span>` : ''}${g.mensaje ? `<span><b>Mensaje comercial:</b> ${esc(g.mensaje)}</span>` : ''}</span>` : ''; };
 // Selector de productos por categoría. Nuevo, Foco y Transición: lista desplegable con buscador (código o nombre),
 // "Todos" y selección de uno o varios; lo marcado se conserva aunque se busque otro. Las cerradas solo se marcan.
 function htmlSelProductos(id, cats, sel = {}) {
@@ -2328,22 +2329,15 @@ function htmlSelProductos(id, cats, sel = {}) {
     return `<div class="sel-prod" id="${id}">${abre.map(cat => {
         const elegidos = Array.isArray(sel[cat]) ? sel[cat] : [], lista = CATALOGO.productos.filter(p => p.e.includes(cat));
         return `<div class="dd-prod" data-cat="${esc(cat)}">
-            <button type="button" class="mc-multi-btn dd-btn" onclick="abrirDdProductos(this)" ${lista.length ? '' : 'disabled'}><span></span></button>
+            <div class="con-guia"><button type="button" class="mc-multi-btn dd-btn" onclick="abrirDdProductos(this)" ${lista.length ? '' : 'disabled'}><span></span></button>${guiaEtiqueta(cat)}</div>
             <div class="dd-panel" hidden>
-                ${guiaEtiqueta(cat)}
                 <input class="sel-busca" placeholder="Buscar por código o nombre..." oninput="buscarProductos(this)" autocomplete="off">
                 <label class="mc-multi-todas"><input type="checkbox" class="dd-todos" onchange="todosDdProductos(this)"><span>Todos (${lista.length})</span></label>
-                <div class="sel-ops">${lista.map(p => `<label class="check sub" data-q="${esc(normalizar(p.c + ' ' + p.n))}"><input type="checkbox" value="${esc(p.c)}" ${elegidos.includes(p.c) ? 'checked' : ''} onchange="pintarDdProductos(this.closest('.dd-prod'))"><span><b>${esc(p.c)}</b> ${esc(p.n)}</span></label>`).join('')}</div>
+                <div class="sel-ops dd-lista">${lista.map(p => `<label data-q=""${esc(normalizar(p.c + ' ' + p.n))}"><input type="checkbox" value="${esc(p.c)}" ${elegidos.includes(p.c) ? 'checked' : ''} onchange="pintarDdProductos(this.closest('.dd-prod'))"><span><b>${esc(p.c)}</b> ${esc(p.n)}</span></label>`).join('')}</div>
             </div>
             <div class="dd-elegidos"></div>
         </div>`;
-    }).join('')}${cerr.length ? `<div class="sel-cerradas">${cerr.map(cat => `<label class="check"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''} onchange="guiaCerradas(this)"><span>${esc(cat)}</span></label>`).join('')}</div><div class="guia-cerradas"></div>` : ''}</div>`;
-}
-// Categorías cerradas: al marcarlas sale su concepto estratégico y mensaje comercial
-function guiaCerradas(casilla) {
-    const caja = casilla.closest('.sel-prod');
-    caja.querySelector('.guia-cerradas').innerHTML = [...caja.querySelectorAll('.sel-cerradas input:checked')]
-        .map(i => guiaEtiqueta(i.dataset.cat).replace('<div class="guia-etq">', `<div class="guia-etq"><p><b>${esc(i.dataset.cat)}</b></p>`)).join('');
+    }).join('')}${cerr.length ? `<div class="sel-cerradas">${cerr.map(cat => `<label class="btn-etq con-guia"><input type="checkbox" class="cat" data-cat="${esc(cat)}" ${sel[cat] ? 'checked' : ''}><span>${esc(cat)}</span>${guiaEtiqueta(cat)}</label>`).join('')}</div>` : ''}</div>`;
 }
 // Texto del botón y productos elegidos debajo
 function pintarDdProductos(caja) {
@@ -2357,7 +2351,7 @@ function pintarDdProductos(caja) {
         ? marcados.map(i => `<span>${esc(nombreProducto(i.value))}</span>`).join('') : '';
 }
 function abrirDdProductos(boton) {
-    const panel = boton.nextElementSibling, abrir = panel.hidden;
+    const panel = boton.closest('.dd-prod').querySelector('.dd-panel'), abrir = panel.hidden;
     document.querySelectorAll('.dd-panel').forEach(p => { p.hidden = true; });
     panel.hidden = !abrir;
     if (abrir) panel.querySelector('.sel-busca').focus();
@@ -2493,7 +2487,6 @@ function abrirRegistro(id, tipo) {
             </div>
         </form>`);
         document.querySelectorAll('#modalContenido .dd-prod').forEach(pintarDdProductos);
-        document.querySelectorAll('#modalContenido .sel-cerradas input').forEach(guiaCerradas);
         $('rCumplidos')?.addEventListener('change', actualizarCierreVisita);
         actualizarCierreVisita();
     } else {

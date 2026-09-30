@@ -1206,3 +1206,26 @@ a.home-btn { text-decoration: none; }
 .dd-panel .mc-multi-todas input { margin: 0; }
 .guia-etq { background: #fff8e6; border: 1px solid #f3e0a8; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: 12.5px; color: #5b4a17; }
 .guia-etq p { margin: 2px 0; }
+/* Etiquetas como botones; su concepto y mensaje salen solo al pasar el mouse */
+.con-guia { position: relative; display: block; }
+.con-guia .guia-etq { display: none; position: absolute; left: 0; top: calc(100% + 4px); z-index: 50; width: min(420px, 92vw); background: #fffbeb;
+    border: 1px solid #f3e0a8; border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #5b4a17; box-shadow: 0 8px 20px rgba(0, 0, 0, .12);
+    text-transform: none; letter-spacing: 0; font-weight: 400; line-height: 1.4; }
+.con-guia .guia-etq span { display: block; margin-top: 4px; }
+.con-guia:hover .guia-etq { display: block; }
+.dd-prod:has(.dd-panel:not([hidden])) .guia-etq { display: none !important; }
+.sel-cerradas { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn-etq { flex: 1 1 140px; display: flex !important; align-items: center; justify-content: center; min-height: 40px; margin: 0 !important; border: 1px solid #d5e6dc;
+    border-radius: 8px; background: white; font-size: 13.5px; font-weight: 600; color: #334155; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.btn-etq input { position: absolute; opacity: 0; pointer-events: none; }
+.btn-etq:has(input:checked) { background: #e3f1ef; border-color: #0f766e; color: #0b5c56; }
+.btn-etq:has(input:checked) > span::before { content: '✓ '; }
+/* Lista desplegable de productos: una columna, filas compactas */
+.dd-lista { display: block !important; max-height: 280px; overflow-y: auto; }
+.dd-lista label { display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; font-size: 13px;
+    color: #334155; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 400; margin: 0; }
+.dd-lista label:hover { background: #f1f8f7; }
+.dd-lista label input { width: 16px !important; height: 16px; margin: 0; padding: 0 !important; accent-color: #0f766e; }
+.dd-lista label[hidden] { display: none; }
+.form-rc .btn-etq, .form-rc .btn-etq span { text-transform: none !important; letter-spacing: 0 !important; font-size: 13.5px; }
+.sel-cerradas .con-guia:last-child .guia-etq { left: auto; right: 0; }
