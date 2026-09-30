@@ -2314,13 +2314,15 @@ const productoPorCodigo = Object.fromEntries(CATALOGO.productos.map(p => [p.c, p
 const nombreProducto = c => productoPorCodigo[c] ? `[${c}] ${productoPorCodigo[c].n}` : c;
 // Pedido: sale solo si en Colocación se cumplió Producto Terminado, Magistral Individual o Magistral de Pedido.
 // El número de pedido lleva prefijo A (Producto Terminado), B (Magistral de Pedido) o A/B (Magistral Individual).
-const PEDIDO_CATS = { 'Producto Terminado': ['A'], 'Magistral Individual': ['A', 'B'], 'Magistral de Pedido': ['B'] };
+const PEDIDO_CATS = { 'Producto Terminado': ['OPI'], 'Magistral Individual': ['OPI', 'OP'], 'Magistral de Pedido': ['OP'] };
+// Los pedidos tienen 6 cifras: se escriben solo los números y se completan con ceros a la izquierda (123 → 000123)
+const DIGITOS_PEDIDO = 6;
+const cifrasPedido = t => { const d = String(t || '').replace(/\D/g, '').slice(-DIGITOS_PEDIDO); return d ? d.padStart(DIGITOS_PEDIDO, '0') : ''; };
+const partesPedido = num => { const m = String(num || '').toUpperCase().match(/^(OPI|OP)?\s*(\d*)$/); return m ? { pre: m[1] || '', dig: m[2] || '' } : { pre: '', dig: '' }; };
 const TIPOS_MUESTRA = ['Muestra Médica', 'Muestra Comercial', 'Tester'];
 // Lo que indica que se presentaron productos (objetivos o subcategorías cumplidas)
 const OBJ_PRESENTA = ['Productos Nuevos', 'Mapa del Cliente - Ampliación Portafolio'];
 const SUBS_PRESENTA = ['Presentación del Producto', 'Productos Nuevos', 'Productos Foco', 'Productos Transición', 'Portafolio Actual', 'Portafolio', 'Producto Nuevo'];
-const normPedido = t => String(t || '').toUpperCase().replace(/[\s-]/g, '');
-const pedidoValido = (cat, num) => new RegExp(`^[${PEDIDO_CATS[cat].join('')}]\\d+$`).test(normPedido(num));
 
 // Concepto estratégico y mensaje comercial de la etiqueta (hoja "Guía de etiquetas" de la base de productos)
 // Sale al tocar el ⓘ que va al lado de cada etiqueta (sirve igual en computador y celular)
@@ -2435,8 +2437,7 @@ function actualizarCierreVisita() {
     Object.keys(PEDIDO_CATS).forEach(cat => {
         const fila = $('pedido-' + cat.replace(/\s/g, '')), casilla = fila.querySelector('.p-cat');
         if (col.includes(cat) && !casilla.dataset.tocada) casilla.checked = true;
-        fila.querySelector('.n-pedido').hidden = !casilla.checked;
-        fila.querySelector('small').hidden = !casilla.checked;
+        fila.querySelector('.p-num').hidden = !casilla.checked;
         hay = hay || (conColocacion && casilla.checked);
     });
     $('cajaProdPedidos').hidden = !hay;
@@ -2488,10 +2489,14 @@ function abrirRegistro(id, tipo) {
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
             <div id="cajaPedido" class="caja-cierre" hidden>
-                <label>Pedido ${REQ} <small>(marca la categoría y escribe el número con su prefijo)</small></label>
-                ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}"><label class="check p-check"><input type="checkbox" class="p-cat" ${((ya && v.pedidos) || []).some(p => p.cat === cat) ? 'checked' : ''} onchange="this.dataset.tocada = 1; actualizarCierreVisita()"><span>${esc(cat)}</span></label>
-                    <input class="n-pedido" data-cat="${esc(cat)}" placeholder="${pre.join(' ó ')}12345" autocomplete="off" value="${esc(((ya && v.pedidos) || []).find(p => p.cat === cat)?.num || '')}">
-                    <small>Prefijo ${pre.join(' ó ')}</small></div>`).join('')}
+                <label>Pedido ${REQ} <small>(marca la categoría y escribe el número de ${DIGITOS_PEDIDO} cifras)</small></label>
+                ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => {
+                    const antes = partesPedido(((ya && v.pedidos) || []).find(p => p.cat === cat)?.num);
+                    return `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}"><label class="check p-check"><input type="checkbox" class="p-cat" ${antes.dig ? 'checked' : ''} onchange="this.dataset.tocada = 1; actualizarCierreVisita()"><span>${esc(cat)}</span></label>
+                    <div class="p-num">${pre.length > 1 ? `<select class="p-pref" aria-label="Prefijo">${pre.map(x => `<option ${x === antes.pre ? 'selected' : ''}>${x}</option>`).join('')}</select>` : `<span class="p-pref">${pre[0]}</span>`}
+                    <input class="n-pedido" data-cat="${esc(cat)}" inputmode="numeric" maxlength="${DIGITOS_PEDIDO}" placeholder="000000" autocomplete="off" value="${esc(antes.dig)}"
+                        oninput="this.value = this.value.replace(/\\D/g, '')" onblur="this.value = cifrasPedido(this.value)"></div></div>`;
+                }).join('')}
             </div>
             <div id="cajaProdPresentados" hidden>
                 <label>Productos presentados</label>
@@ -2561,11 +2566,11 @@ function guardarVisitado(e, id) {
     const pedidos = [];
     const colMarcada = !$('cajaPedido').hidden;
     if (colMarcada && !document.querySelector('#cajaPedido .p-cat:checked')) return toast('Marca la categoría del pedido: Producto Terminado, Magistral Individual o Magistral de Pedido');
-    for (const inp of colMarcada ? document.querySelectorAll('#cajaPedido .fila-pedido .n-pedido:not([hidden])') : []) {
-        const cat = inp.dataset.cat, num = normPedido(inp.value);
-        if (!num) { inp.focus(); return toast(`Escribe el número de pedido de ${cat}`); }
-        if (!pedidoValido(cat, num)) { inp.focus(); return toast(`El pedido de ${cat} debe empezar por ${PEDIDO_CATS[cat].join(' o ')} seguido de números (ej: ${PEDIDO_CATS[cat][0]}12345)`); }
-        pedidos.push({ cat, num });
+    for (const inp of colMarcada ? document.querySelectorAll('#cajaPedido .p-num:not([hidden]) .n-pedido') : []) {
+        const cat = inp.dataset.cat, dig = cifrasPedido(inp.value), pref = inp.parentElement.querySelector('.p-pref');
+        if (!dig || !Number(dig)) { inp.focus(); return toast(`Escribe el número de pedido de ${cat}`); }
+        inp.value = dig;
+        pedidos.push({ cat, num: (pref.value || pref.textContent) + dig });
     }
     const muestrasDetalle = $('cajaMuestras').hidden ? {} : leerMuestras();
     for (const [t, l] of Object.entries(muestrasDetalle)) {

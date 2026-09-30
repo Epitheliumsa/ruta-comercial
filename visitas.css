@@ -1250,3 +1250,10 @@ a.home-btn { text-decoration: none; }
 .cierre-cliente { margin: 2px 0 0; font-size: 18px; font-weight: 800; color: #1f2937; }
 .fila-pedido { grid-template-columns: 200px 1fr auto; }
 .p-check { margin: 0 !important; }
+.p-num { display: flex; align-items: stretch; gap: 0; }
+.p-num[hidden] { display: none; }
+.p-pref { display: flex; align-items: center; padding: 0 10px; background: #e3f1ef; border: 1px solid #cfe0dc; border-right: 0; border-radius: 8px 0 0 8px;
+    font-weight: 800; color: #0b5c56; font-size: 14px; }
+select.p-pref { width: auto !important; padding: 0 6px !important; }
+.p-num .n-pedido { border-radius: 0 8px 8px 0 !important; letter-spacing: .12em; font-variant-numeric: tabular-nums; max-width: 140px; }
+.fila-pedido { grid-template-columns: 200px auto; justify-content: start; }
