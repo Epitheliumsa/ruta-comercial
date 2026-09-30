@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301355';
+const APP_VERSION = '202609301356';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2140,13 +2140,24 @@ function enviarSolicitud(e, id) {
 async function confirmarDia(fecha, conDomingo) {
     const festivo = nombreFestivo(fecha), domingo = conDomingo && !festivo && deIso(fecha).getDay() === 0;
     const nov = novedadesDe(agenda.vendedor, fecha)[0];
-    if (festivo && !await dialogo({ tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fecha)} es festivo: ${festivo}.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
-    if (domingo && !await dialogo({ tono: 'aviso', titulo: 'Domingo', texto: `El ${fechaLarga(fecha)} es domingo.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
-    // Cumpleaños del vendedor (de su ficha): también avisa, aunque el día sea festivo (salen los dos avisos)
+    // Cumpleaños del vendedor (de su ficha), salvo que ya tenga la novedad "Cumpleaños"
     const cumple = esCumple(agenda.vendedor, fecha) && nov?.tipo !== 'Cumpleaños';
-    if (cumple && !await dialogo({ tono: 'fiesta', titulo: 'Día de cumpleaños', texto: `El ${fechaLarga(fecha)} es el cumpleaños de ${nombreVendedor(agenda.vendedor)}.\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
-    if (nov && !await dialogo({ tono: nov.tipo === 'Cumpleaños' ? 'fiesta' : 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).\n¿Deseas continuar con la programación?`, aceptar: 'Sí, continuar', cancelar: 'No' })) return false;
-    return true;
+    // Todos los avisos del día salen juntos en una sola ventana (ej: festivo y cumpleaños)
+    const avisos = [
+        festivo && { icono: '📅', tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fecha)} es festivo: ${festivo}.` },
+        domingo && { icono: '📅', tono: 'aviso', titulo: 'Domingo', texto: `El ${fechaLarga(fecha)} es domingo.` },
+        cumple && { icono: '🎂', tono: 'fiesta', titulo: 'Cumpleaños', texto: `Es el cumpleaños de ${nombreVendedor(agenda.vendedor)}.` },
+        nov && { icono: nov.tipo === 'Cumpleaños' ? '🎂' : '📅', tono: nov.tipo === 'Cumpleaños' ? 'fiesta' : 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).` }
+    ].filter(Boolean);
+    if (!avisos.length) return true;
+    const uno = avisos.length === 1;
+    return dialogo({
+        tono: avisos.some(x => x.tono === 'fiesta') ? 'fiesta' : 'aviso', icono: [...new Set(avisos.map(x => x.icono))].join(' '),
+        titulo: uno ? avisos[0].titulo : avisos.map((x, i) => i ? x.titulo.toLowerCase() : x.titulo).join(' y '),
+        texto: (uno && avisos[0].titulo === 'Cumpleaños' ? `El ${fechaLarga(fecha)} es el cumpleaños de ${nombreVendedor(agenda.vendedor)}.` : avisos.map(x => x.texto).join('\n'))
+            + '\n¿Deseas continuar con la programación?',
+        aceptar: 'Sí, continuar', cancelar: 'No'
+    });
 }
 
 // Cambia para quién se programa (jefe con varios vendedores): la lista de clientes y contactos nuevos es la de su zona
@@ -3973,12 +3984,12 @@ function armarLibro(mes, vend, solo) {
 // ---------- DIÁLOGOS ----------
 // Ventana de confirmación propia: confirm() y prompt() no salen en algunos celulares o apps
 // Devuelve true/false (o el texto escrito si se pide un campo, null si se cancela)
-function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Cancelar', campo = '', tono = '' }) {
+function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Cancelar', campo = '', tono = '', icono = '' }) {
     return new Promise(resolve => {
         const d = $('dialogo');
         d.className = 'dialogo visible ' + tono;
         d.innerHTML = `<div class="dialogo-caja" role="alertdialog" aria-modal="true" aria-labelledby="dialogoTitulo">
-            ${tono === 'fiesta' ? '<div class="dialogo-icono">🎂</div>' : tono === 'salud' ? '<div class="dialogo-icono">💚</div>' : tono === 'playa' ? '<div class="dialogo-icono">🏖️</div>' : tono === 'permiso' ? '<div class="dialogo-icono">🕒</div>' : tono === 'aviso' ? '<div class="dialogo-icono">📅</div>' : ''}
+            ${icono ? `<div class="dialogo-icono">${icono}</div>` : tono === 'fiesta' ? '<div class="dialogo-icono">🎂</div>' : tono === 'salud' ? '<div class="dialogo-icono">💚</div>' : tono === 'playa' ? '<div class="dialogo-icono">🏖️</div>' : tono === 'permiso' ? '<div class="dialogo-icono">🕒</div>' : tono === 'aviso' ? '<div class="dialogo-icono">📅</div>' : ''}
             ${titulo ? `<h3 id="dialogoTitulo">${esc(titulo)}</h3>` : ''}
             ${texto ? `<p>${esc(texto).replace(/\n/g, '<br>')}</p>` : ''}
             ${campo ? `<textarea id="dialogoCampo" placeholder="${esc(campo)}"></textarea>` : ''}
