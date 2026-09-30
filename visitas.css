@@ -883,7 +883,11 @@ a.home-btn { text-decoration: none; }
 .vp-tabla tfoot .vp-tp { color: #1d4ed8; }
 .vp-tabla tfoot .vp-tr { color: #15803d; }
 .vp-tabla tfoot .vp-tr, .vp-tabla tfoot .vp-dp, .vp-tabla tfoot .vp-dv { border-right: 2px solid #8fbfb7; }
+.vp-tabla tfoot .vp-lr { border-right: 2px solid #8fbfb7; }
 .vp-tabla tfoot .fs { border-right: 2px solid #0f766e; }
+/* Con la fila de Leads el pie tiene 4 filas pegadas abajo */
+.vp-tabla tfoot:has(.vp-tot-lead) tr.vp-tot:first-child td, .vp-tabla tfoot:has(.vp-tot-lead) tr.vp-tot:first-child th { bottom: 78px; }
+.vp-tabla tfoot tr.vp-tot-lead td, .vp-tabla tfoot tr.vp-tot-lead th { bottom: 52px; }
 .vp-pct { min-width: 44px; }
 .vp-pct.bueno, .vp-pvis.bueno, .vp-dp.bueno, .vp-dv.bueno { color: #15803d; }
 .vp-pct.medio, .vp-pvis.medio, .vp-dp.medio, .vp-dv.medio { color: #b45309; }
@@ -1499,7 +1503,7 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 .vp-sep-lead td { padding: 14px 10px 6px !important; background: #fff7ed !important; border-top: 2px solid #fdba74 !important; font-size: 12px; font-weight: 600; color: #9a3412; text-align: left; }
 .vp-lead .vp-cli, .vp-lead .vp-et { background: #fff7ed !important; }
 .vp-lead .vp-cli { color: #9a3412; }
-.vp-tot-lead th, .vp-tot-lead td { background: #fff7ed !important; color: #c2410c; }
+.vp-tot-lead th, .vp-tot-lead td { background-color: #fff7ed !important; color: #c2410c; }
 .vp-lead-txt { font-size: 11px; white-space: nowrap; }
 /* Cumpleaños que cae en festivo o sábado: rayas finas en diagonal con los dos colores (rosa festivo + lila cumpleaños,
    o gris sábado + lila), y una línea lila arriba del día */
