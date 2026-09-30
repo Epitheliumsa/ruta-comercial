@@ -1531,3 +1531,11 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 .dialogo-caja.t-playa { border-top-color: #1e8fc4; } .dialogo-caja.t-playa h3 { color: #136a94; }
 .dialogo-caja.t-permiso { border-top-color: #1e63c4; } .dialogo-caja.t-permiso h3 { color: #1552a8; }
 @media (max-width: 600px) { .dialogo-fila { flex-direction: column; align-items: center; } .dialogo-fila .dialogo-caja { width: 100%; } }
+/* Ciudad: lista de municipios que se abre debajo del campo */
+.ciudad-caja { position: relative; }
+.ciudad-lista { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 40; max-height: 240px; overflow-y: auto; background: #fff;
+    border: 1px solid #cfe0dc; border-radius: 10px; box-shadow: 0 12px 28px rgba(0, 50, 40, .18); padding: 4px; min-width: 240px; }
+.ciudad-lista button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 6px; font: inherit; font-size: 14px; color: #1f2937; cursor: pointer; }
+.ciudad-lista button:hover, .ciudad-lista button.primera { background: #eef6f4; }
+.ciudad-lista p { margin: 0; padding: 8px 10px; font-size: 13px; color: #6b7c7a; }
+.campo-ciudad:invalid:not(:placeholder-shown):not(:focus) { border-color: #dc2626; }

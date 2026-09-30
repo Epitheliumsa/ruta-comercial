@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301359';
+const APP_VERSION = '202609301404';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -906,7 +906,7 @@ function solicitarCreacion(id) {
         <p class="sub">${esc(p.nombre)} se va a volver cliente. Revisa sus datos: la solicitud le llega a ${esc(JEFE_COMERCIAL?.nombre || 'la jefe comercial')} y a ${esc(ADMIN.nombre)}.</p>
         <div class="dos">
             <div><label for="sTipo">Tipo</label><select id="sTipo">${TIPOS_PROYECTO.map(t => `<option ${t === p.tipo ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-            <div><label for="sCiudad">Ciudad</label><input id="sCiudad" required value="${esc(p.ciudad)}"></div>
+            <div><label for="sCiudad">Ciudad</label>${campoCiudad('sCiudad', p.ciudad, true)}</div>
         </div>
         <label for="sPersona">Nombre de contacto</label><input id="sPersona" value="${esc(p.persona)}">
         <label for="sDir">Dirección</label><input id="sDir" required value="${esc(p.direccion)}">
@@ -1798,6 +1798,45 @@ function elegirFecha(f) {
     if (mesDe(f) !== mesAntes) sincronizar(mesDe(f));
 }
 
+// ---------- CIUDAD (lista de municipios de Colombia, ciudades.js) ----------
+// Campo con búsqueda (sin importar tildes): el vendedor escoge "Municipio - Departamento"; Bogotá sale de primera.
+// Si lo escrito no es de la lista, el formulario no deja guardar hasta escoger una.
+const CIUDADES = window.CIUDADES || [];
+const CLAVES_CIUDAD = CIUDADES.map(normalizar);
+function campoCiudad(id, valor = '', requerido = false) {
+    return `<div class="ciudad-caja"><input id="${id}" class="campo-ciudad" autocomplete="off" ${requerido ? 'required' : ''} value="${esc(valor || '')}"
+        placeholder="Escribe y escoge: Bogotá, Cali…" oninput="sugerirCiudad(this)" onfocus="sugerirCiudad(this)" onkeydown="teclaCiudad(event, this)"
+        onblur="setTimeout(() => cerrarCiudades(this), 150)"><div class="ciudad-lista" hidden></div></div>`;
+}
+function validarCiudad(inp) {
+    const ok = !inp.value.trim() || CIUDADES.includes(inp.value.trim());
+    inp.setCustomValidity(ok ? '' : 'Escoge la ciudad de la lista (Municipio - Departamento)');
+    return ok;
+}
+function sugerirCiudad(inp) {
+    const q = normalizar(inp.value), lista = inp.nextElementSibling;
+    validarCiudad(inp);
+    // Primero las que empiezan por lo escrito, luego las que lo contienen (Bogotá siempre de primera)
+    const idx = q ? [...CIUDADES.keys()].filter(i => CLAVES_CIUDAD[i].includes(q)) : [...CIUDADES.keys()];
+    const orden = q ? [...idx.filter(i => CLAVES_CIUDAD[i].startsWith(q)), ...idx.filter(i => !CLAVES_CIUDAD[i].startsWith(q))] : idx;
+    lista.innerHTML = orden.map((i, n) => `<button type="button" class="${n ? '' : 'primera'}" onmousedown="event.preventDefault(); elegirCiudad('${inp.id}', ${i})">${esc(CIUDADES[i])}</button>`).join('')
+        || '<p>No hay municipios con ese nombre</p>';
+    lista.hidden = false;
+}
+function elegirCiudad(id, i) {
+    const inp = $(id);
+    inp.value = CIUDADES[i];
+    validarCiudad(inp);
+    inp.nextElementSibling.hidden = true;
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function cerrarCiudades(inp) { if (inp.nextElementSibling) inp.nextElementSibling.hidden = true; validarCiudad(inp); }
+function teclaCiudad(e, inp) {
+    const lista = inp.nextElementSibling, primera = lista?.querySelector('button');
+    if (e.key === 'Enter' && !lista.hidden && primera && !CIUDADES.includes(inp.value)) { e.preventDefault(); primera.dispatchEvent(new MouseEvent('mousedown')); }
+    if (e.key === 'Escape') lista.hidden = true;
+}
+
 // Calendario del mes con festivos oficiales, novedades y número de visitas
 let mesCalendario = null;
 function abrirCalendario(mes) {
@@ -2226,7 +2265,7 @@ async function abrirProgramar(id, contactoPlan) {
                 <p><span class="chip proy">Lead</span> Contacto nuevo que aún no está en la Maestra de Contactos. Escribe su nombre arriba.</p>
                 <div class="dos">
                     <div><label for="pTipo">Tipo</label><select id="pTipo" onchange="etiquetaPersonaProyecto()">${TIPOS_PROYECTO.map(t => `<option>${t}</option>`).join('')}</select></div>
-                    <div><label for="pCiudad">Ciudad</label><input id="pCiudad" placeholder="Ej: Bogotá"></div>
+                    <div><label for="pCiudad">Ciudad</label>${campoCiudad('pCiudad')}</div>
                 </div>
                 <label for="pPersona" id="lblPersona">Nombre de contacto (opcional)</label>
                 <input id="pPersona" placeholder="Persona con quien se habla">
@@ -2615,6 +2654,12 @@ async function guardarProgramada(e, id) {
     if (nuevo && !proyecto && $('pTel').value.replace(/\D/g, '').length < 7) {
         $('pTel').focus();
         toast('Escribe el teléfono del contacto nuevo');
+        return;
+    }
+    // La ciudad se escoge de la lista de municipios
+    if (nuevo && !proyecto && !validarCiudad($('pCiudad'))) {
+        $('pCiudad').focus();
+        toast('Escoge la ciudad de la lista (Municipio - Departamento)');
         return;
     }
     if (nuevo && !proyecto && $('pTipo').value !== 'Médico' && !$('pPersona').value.trim()) {
@@ -4021,6 +4066,7 @@ function abrirModal(html, tema = '') {
     if (tema) caja.classList.add(tema);
     $('modalContenido').innerHTML = html;
     marcarObligatorios($('modalContenido'));
+    $('modalContenido').querySelectorAll('.campo-ciudad').forEach(validarCiudad);   // ciudad escrita a mano: hay que escogerla de la lista
     $('modal').classList.add('active');
 }
 
