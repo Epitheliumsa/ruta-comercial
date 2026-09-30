@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292243';
+const APP_VERSION = '202609292248';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -64,7 +64,9 @@ const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Comercial', '
 const VMC = 'Visita Médica Comercial';
 const claveTipo = (tipo, nuevo) => tipo === VMC ? 'medcom:Visita Médica' : (nuevo && TIPOS_VISITA[tipo] ? 'nuevo:' : '') + tipo;
 // Tipos que salen en informes y filtros (incluye la Visita Médica Comercial)
-const TIPOS_REPORTE = () => [...Object.keys(TIPOS_VISITA), VMC];
+// Visita personalizada: el vendedor o jefe escribe qué visita es (máx. 50 caracteres); no va a un cliente de la Maestra
+const PERSONALIZADA = 'Visita personalizada';
+const TIPOS_REPORTE = () => [...Object.keys(TIPOS_VISITA), VMC, PERSONALIZADA];
 const objetivosDeTipo = (tipo, nuevo) => MATRIZ.objetivos[claveTipo(tipo, nuevo)] || [];
 // Una visita puede ser de varios tipos a la vez (Visita Médica y Visita Comercial, según la clasificación del cliente)
 const listaTipos = t => (Array.isArray(t) ? t : [t]).filter(Boolean);
@@ -165,7 +167,7 @@ const esComercial = () => !!(sesion && sesion.tipo === 'comercial');
 const esAdmin = () => !!(sesion && sesion.admin);
 const ADMIN = USUARIOS.find(u => u.admin);
 const comercial = id => COMERCIALES.find(c => c.id === id);
-const nombreVendedor = id => comercial(id)?.nombre || id;
+const nombreVendedor = id => USUARIOS.find(u => u.id === id)?.nombre || id;
 const limiteProgramacion = fecha => Date.parse(`${fecha}T${HORA_LIMITE}:00-05:00`);
 const esProgramada = v => v.programada !== false;
 const modalidadDe = v => MODALIDADES[v.modalidad] || MODALIDADES.presencial;
@@ -465,6 +467,11 @@ function entrarApp() {
     $('btnMensual').style.display = esJefe() ? '' : 'none';
     $('maestraTxt').textContent = esJefe() ? 'Clientes por zona y vendedor' : 'Clientes de tu zona';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
+    // Comerciales: en el título de cada pantalla, debajo, su nombre
+    document.querySelectorAll('.header-logo h1').forEach(h => {
+        h.dataset.titulo = h.dataset.titulo || h.textContent;
+        h.innerHTML = esc(h.dataset.titulo) + (esComercial() ? `<small class="h1-vend">${esc(sesion.nombre)}</small>` : '');
+    });
     const opciones = COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('');
     $('actVendedor').innerHTML = '<option value="">Todo el equipo</option>' + opciones;
     cerrarVencidas();
@@ -1568,14 +1575,16 @@ function abrirAgenda() {
 
 // Jefes: ven uno, varios o todo el equipo (agenda.vendedor = el primero, con el que se abre Programar)
 const vendedoresAgenda = () => esJefe() && agenda.vendedores?.length ? agenda.vendedores : [agenda.vendedor];
+// Jefes: los comerciales y, si el jefe no es comercial, él mismo (sus visitas quedan a su nombre y no suman a ninguna zona)
+const opcionesAgenda = () => [...(comercial(sesion.id) ? [] : USUARIOS.filter(u => u.id === sesion.id)), ...COMERCIALES];
 function pintarVendedoresAgenda() {
     if (!esJefe()) return;
-    const sel = vendedoresAgenda(), todos = sel.length === COMERCIALES.length;
+    const sel = vendedoresAgenda(), todos = sel.length === opcionesAgenda().length;
     $('agVendedores').innerHTML = `<button type="button" class="vp-vend-btn todos${todos ? ' activo' : ''}" onclick="elegirVendedorAgenda('todos', event)" aria-pressed="${todos}">Todo el equipo</button>`
-        + COMERCIALES.map(c => `<button type="button" class="vp-vend-btn${sel.includes(c.id) ? ' activo' : ''}" onclick="elegirVendedorAgenda('${c.id}', event)" aria-pressed="${sel.includes(c.id)}">${sel.includes(c.id) ? '✓ ' : ''}${esc(c.nombre)} <small>${esc(c.zona)}</small></button>`).join('') + AYUDA_CHIPS;
+        + opcionesAgenda().map(c => `<button type="button" class="vp-vend-btn${sel.includes(c.id) ? ' activo' : ''}" onclick="elegirVendedorAgenda('${c.id}', event)" aria-pressed="${sel.includes(c.id)}">${sel.includes(c.id) ? '✓ ' : ''}${esc(c.nombre)} <small>${esc(c.zona || 'Mis visitas')}</small></button>`).join('') + AYUDA_CHIPS;
 }
 function elegirVendedorAgenda(id, e) {
-    agenda.vendedores = eleccionChip(vendedoresAgenda(), id, COMERCIALES.map(c => c.id), e);
+    agenda.vendedores = eleccionChip(vendedoresAgenda(), id, opcionesAgenda().map(c => c.id), e);
     agenda.vendedor = agenda.vendedores[0];
     agenda.filtro = '';
     pintarAgenda();
@@ -1637,7 +1646,7 @@ function pintarAgenda() {
     pintarVendedoresAgenda();
     $('agFechaTxt').textContent = f === t ? 'Hoy, ' + fechaLarga(f) : mayuscula(fechaLarga(f));
     const abierta = Date.now() < limiteProgramacion(f);
-    $('agFechaSub').textContent = (esJefe() ? (vs.length === COMERCIALES.length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) + ' · ' : '')
+    $('agFechaSub').textContent = (esJefe() ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) + ' · ' : '')
         + (abierta ? `Programa las visitas antes de las ${HORA_LIMITE} a. m.` : f === t ? 'Programación cerrada: lo nuevo queda como no programado' : f < t ? 'Día pasado' : '');
     $('agFechaPick').value = f;
 
@@ -1918,6 +1927,7 @@ async function confirmarDia(fecha, conDomingo) {
 }
 
 // Cambia para quién se programa (jefe con varios vendedores): la lista de clientes y contactos nuevos es la de su zona
+let programandoNuevo = false;
 function cambiarVendForm(id) {
     agenda.vendedor = id;
     if ($('fTipo').value) elegirOrigen(origenElegido());
@@ -1929,8 +1939,10 @@ async function abrirProgramar(id, contactoPlan) {
     const v = id ? registros[id] : null;
     if (v && v.clase === 'visita' && v.estado !== 'pendiente') return toast('Esta visita ya se cerró y no se puede modificar');
     if (v?.vendedor) agenda.vendedor = v.vendedor;
-    // Jefe viendo varios vendedores: en lo nuevo escoge para quién es
-    const eligeVend = !v && !contactoPlan && vendedoresAgenda().length > 1;
+    // Jefes: lo que programan queda a su nombre; solo las novedades (vacaciones, permisos…) son del vendedor,
+    // y si ve varios vendedores escoge de quién
+    programandoNuevo = !v && !contactoPlan;
+    const eligeVend = programandoNuevo && esJefe() && vendedoresAgenda().length > 1;
     // Al programar algo nuevo en un festivo (o día con novedad) primero sale la advertencia, antes del formulario
     if (!v && !contactoPlan) {
         if (!await confirmarDia(agenda.fecha)) return;
@@ -1945,8 +1957,8 @@ async function abrirProgramar(id, contactoPlan) {
     const opcionNuevo = t => `<option ${t === actual && v?.esProyecto ? 'selected' : ''}>${esc(t)}</option>`;
     abrirModal(`<form class="form-rc" novalidate onsubmit="guardarProgramada(event, '${id || ''}')">
         <h2>${v ? 'Editar Plan de Visita' : 'Plan de Visita'}</h2>
-        ${eligeVend ? `<label for="fVend">Vendedor</label><select id="fVend" onchange="cambiarVendForm(this.value)">${vendedoresAgenda().map(x => `<option value="${x}" ${x === agenda.vendedor ? 'selected' : ''}>${esc(nombreVendedor(x))} · ${esc(comercial(x)?.zona || '')}</option>`).join('')}</select>`
-            : `<p class="sub">${esc(nombreVendedor(agenda.vendedor))} · ${esc(zona || '')}</p>`}
+        <p class="sub" id="fQuien">${esc(nombreVendedor(agenda.vendedor))} · ${esc(zona || '')}</p>
+        ${eligeVend ? `<div id="cajaVend" hidden><label for="fVend">Vendedor de la novedad</label><select id="fVend" onchange="cambiarVendForm(this.value)">${vendedoresAgenda().filter(x => comercial(x)).map(x => `<option value="${x}" ${x === agenda.vendedor ? 'selected' : ''}>${esc(nombreVendedor(x))} · ${esc(comercial(x)?.zona || '')}</option>`).join('')}</select></div>` : ''}
         <div class="fila-fecha compacta">
             <div><label for="fFecha" id="lblFecha">Fecha</label><input id="fFecha" type="date" required value="${v?.fecha || agenda.fecha}"></div>
             <div id="cajaHora"><label for="fHora">Cita fija <small>(opcional)</small></label><input id="fHora" type="time" title="Solo si tienes una cita acordada: te avisamos 15 minutos antes" value="${esc(v?.hora)}"></div>
@@ -1956,7 +1968,7 @@ async function abrirProgramar(id, contactoPlan) {
         <label for="fTipo">¿Qué vas a programar?</label>
         <select id="fTipo" required onchange="limpiarPlanVisita(true)">
             <option value="">Elige una opción</option>
-            <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
+            <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}${opcion(PERSONALIZADA)}</optgroup>
             <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
             <optgroup label="Contacto nuevo"><option value="nuevo" ${v?.esProyecto ? 'selected' : ''}>Contacto nuevo</option></optgroup>
             <optgroup label="Novedades">${NOVEDADES.map(opcion).join('')}</optgroup>
@@ -2000,6 +2012,11 @@ async function abrirProgramar(id, contactoPlan) {
                 <div><label for="fHoraInicio">Hora de inicio</label><input id="fHoraInicio" type="time" value="${esc(v?.horaInicio)}"></div>
                 <div><label for="fHoraFin">Hora de finalización</label><input id="fHoraFin" type="time" value="${esc(v?.horaFin)}"></div>
             </div>
+        </div>
+        <div id="cajaPersonal" hidden>
+            <label for="fPersonal">¿Qué visita es? ${REQ} <small>(máximo 50 caracteres)</small></label>
+            <input id="fPersonal" maxlength="50" placeholder="Ej: Feria dermatológica Corferias" value="${esc(v?.personalizada ? v.contacto : '')}" oninput="$('fPersonalCuenta').textContent = this.value.length + ' / 50'">
+            <p class="cuenta-nota" id="fPersonalCuenta">${(v?.personalizada ? v.contacto.length : 0)} / 50</p>
         </div>
         <div id="cajaModalidad">
             <label>Modalidad</label>
@@ -2069,7 +2086,15 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     elegirOrigen(origenElegido());
     const interno = esTrabajoInterno(tipo);
     const novedad = esNovedad(tipo);
-    $('cajaContacto').hidden = interno || novedad;
+    const personal = $('fTipo').value === PERSONALIZADA;
+    $('cajaContacto').hidden = interno || novedad || personal;
+    $('cajaPersonal').hidden = !personal;
+    // Jefes: visitas y trabajo interno a su nombre; la novedad es del vendedor que se está viendo (o el que escoja)
+    if (esJefe() && programandoNuevo) {
+        if ($('cajaVend')) $('cajaVend').hidden = !novedad;
+        if (novedad && $('fVend') && !comercial(agenda.vendedor)) agenda.vendedor = $('fVend').value;
+        $('fQuien').textContent = novedad ? `Novedad de ${nombreVendedor(agenda.vendedor)}` : `${sesion.nombre} · queda a tu nombre`;
+    }
     $('cajaModalidad').hidden = interno || novedad;
     $('cajaHora').hidden = novedad;
     // Permiso: día completo (con "Hasta") o por horas en un solo día
@@ -2288,17 +2313,19 @@ async function guardarProgramada(e, id) {
     }
     if (origenElegido() === 'nuevo' && !tipo) { toast('Elige el tipo de visita del contacto nuevo'); $('fTipoNuevo').focus(); return; }
     const interno = esTrabajoInterno(tipo);
-    const nombre = $('fContacto').value.trim();
+    const personal = $('fTipo').value === PERSONALIZADA;
+    const nombre = (personal ? $('fPersonal') : $('fContacto')).value.trim();
+    if (personal && !nombre) { toast('Escribe qué visita es (máximo 50 caracteres)'); $('fPersonal').focus(); return; }
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
-    const objetivos = leerObjetivos($('fObjetivos'));
+    const objetivos = personal ? [] : leerObjetivos($('fObjetivos'));
     const subobjetivos = conTodasLasSubs(leerSubs($('fObjetivos'), objetivos), objetivos, tiposElegidos(), origenElegido() === 'nuevo', mesDe(fechaElegida));
-    if (!objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
+    if (!personal && !objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
     if (!$('fObjetivo').value.trim()) { toast('Escribe qué vas a hacer (máximo 100 caracteres)'); $('fObjetivo').focus(); return; }
     const zona = comercial(agenda.vendedor)?.zona;
     const nuevo = !interno && origenElegido() === 'nuevo';
-    let c = interno ? {} : maestraForm(nombre) || {};
+    let c = interno || personal ? {} : maestraForm(nombre) || {};
     let proyecto = nuevo ? buscarProyecto(zona, nombre) : null;
-    if (!interno && !nuevo && !c.n) {
+    if (!interno && !personal && !nuevo && !c.n) {
         toast('No está en la Maestra de Contactos. Si es un contacto nuevo, elige "Contacto nuevo" en ¿Qué vas a programar?');
         return;
     }
@@ -2307,7 +2334,7 @@ async function guardarProgramada(e, id) {
         return;
     }
     // La clasificación del cliente dice en qué tipos de visita sale
-    if (!interno && !nuevo && !tiposDeCliente(c).includes($('fTipo').value)) {
+    if (!interno && !personal && !nuevo && !tiposDeCliente(c).includes($('fTipo').value)) {
         toast(`${c.n} (clasificación ${c.cl}) es de ${tiposDeCliente(c).join(' o ')}. Cambia el tipo de visita.`);
         return;
     }
@@ -2323,7 +2350,7 @@ async function guardarProgramada(e, id) {
                 id: nuevoId(), clase: 'proyecto', estado: 'proyecto', nombre, tipo: $('pTipo').value,
                 ciudad: $('pCiudad').value.trim(), telefono: $('pTel').value.trim(),
                 persona: $('pPersona').value.trim(), direccion: $('pDir').value.trim(),
-                zona, vendedor: agenda.vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id
+                zona, vendedor: esJefe() ? sesion.id : agenda.vendedor, fecha: hoy(), creado: new Date().toISOString(), creadoPor: sesion.id
             };
             guardarRegistro(proyecto);
         }
@@ -2332,13 +2359,14 @@ async function guardarProgramada(e, id) {
     const antes = id ? registros[id] : null;
     const fecha = $('fFecha').value;
     const v = antes ? { ...antes } : {
-        id: nuevoId(), clase: 'visita', vendedor: agenda.vendedor, estado: 'pendiente',
+        // Lo que programa un jefe queda a su nombre (no suma a la zona); si confirma lo del Visiplan, es del vendedor
+        id: nuevoId(), clase: 'visita', vendedor: esJefe() && !confirmandoPlan ? sesion.id : agenda.vendedor, estado: 'pendiente',
         creado: new Date().toISOString(), creadoPor: sesion.id
     };
     // Si al editar se cambia la fecha, la visita queda como reprogramada (en rojo) y en el Visiplan la X planeada no se mueve
     if (antes && antes.fecha !== fecha && !antes.adelantada) Object.assign(v, { origen: 'reprogramada', vieneDe: antes.vieneDe || antes.fecha });
     Object.assign(v, {
-        interno,
+        interno, personalizada: personal,
         contacto: interno ? tipo : (c.n || nombre), tipoContacto: c.e || '', ciudad: c.c || '',
         esProyecto: !!proyecto, contactoProyecto: proyecto ? proyecto.id : '',
         fecha, hora: $('fHora').value, objetivo: $('fObjetivo').value.trim(),
@@ -2357,6 +2385,8 @@ async function guardarProgramada(e, id) {
     guardarRegistro(v);
     cerrarModal();
     toast(id ? 'Programación actualizada' : `${v.contacto}: ${v.programada ? 'programado' : 'registrado como NO programado'}`);
+    // El jefe ve la visita que quedó a su nombre
+    if (esJefe() && !vendedoresAgenda().includes(v.vendedor)) { agenda.vendedores = [...vendedoresAgenda(), v.vendedor]; }
     if (v.fecha !== agenda.fecha) elegirFecha(v.fecha); else pintarAgenda();
 }
 

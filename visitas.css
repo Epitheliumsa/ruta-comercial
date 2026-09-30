@@ -1353,3 +1353,6 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 /* Plan de Trabajo con varios vendedores (jefes) */
 #agVendedores { width: 100%; }
 .vend-card { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: #334155; border-radius: 5px; padding: 2px 7px; margin-bottom: 4px; }
+
+/* Nombre del comercial debajo del título de cada pantalla */
+.header h1 .h1-vend { display: block; font-size: 12px; font-weight: 600; letter-spacing: .03em; opacity: .85; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
