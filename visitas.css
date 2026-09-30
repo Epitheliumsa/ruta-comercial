@@ -1356,3 +1356,7 @@ input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
 
 /* Nombre del comercial debajo del título de cada pantalla */
 .header h1 .h1-vend { display: block; font-size: 12px; font-weight: 600; letter-spacing: .03em; opacity: .85; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Historial del cliente: meses que se pueden escoger */
+.hist-meses { margin: 8px 0 4px; }
+.hist-resumen .chip-filtro { cursor: pointer; }
