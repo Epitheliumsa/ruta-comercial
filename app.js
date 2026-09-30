@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301133';
+const APP_VERSION = '202609301200';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -134,6 +134,32 @@ const MAX_PDF_CIRC = 3;
 const listaPdf = v => (Array.isArray(v) ? v : String(v || '').split(/[\s,;]+/)).filter(Boolean);
 const pdfsCircular = c => { const app = (registros[ID_PDF_CIRC]?.links || {})[c.c]; return listaPdf(app !== undefined ? app : c.pdf).slice(0, MAX_PDF_CIRC); };
 const pdfCircular = c => pdfsCircular(c)[0] || '';
+// Los PDF de Drive se ven dentro de la app (vista previa pública): así el celular no abre la app de Drive pidiendo una cuenta
+function idDrive(url) {
+    const m = String(url || '').match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[^#]*&)?id=)([\w-]{10,})/);
+    return m ? m[1] : '';
+}
+function verPdf(e, url) {
+    const id = idDrive(url);
+    if (!id) return true;   // no es de Drive: se abre normal
+    e.preventDefault(); e.stopPropagation();
+    let v = document.getElementById('visorPdf');
+    if (!v) {
+        v = document.createElement('div'); v.id = 'visorPdf'; v.className = 'visor-pdf';
+        v.innerHTML = '<div class="visor-pdf-barra"><strong>PDF</strong><a id="visorPdfAfuera" target="_blank" rel="noopener">Abrir afuera</a><button type="button" onclick="cerrarPdf()" aria-label="Cerrar">&times;</button></div><iframe id="visorPdfMarco" title="PDF" allow="autoplay"></iframe>';
+        document.body.appendChild(v);
+    }
+    document.getElementById('visorPdfMarco').src = `https://drive.google.com/file/d/${id}/preview`;
+    document.getElementById('visorPdfAfuera').href = url;
+    v.classList.add('visible');
+    return false;
+}
+function cerrarPdf() {
+    const v = document.getElementById('visorPdf');
+    if (!v) return;
+    v.classList.remove('visible');
+    document.getElementById('visorPdfMarco').src = 'about:blank';
+}
 
 // Une listas de subcategorías respetando el orden de la más completa
 // En el cierre salen todos los objetivos del tipo: los programados en negrita y los demás en gris claro
@@ -2364,7 +2390,7 @@ document.addEventListener('change', e => {
 // En "Actividades", cada circular trae su PDF (si ya se pegó el enlace)
 function enlacePdfSub(o, x) {
     const c = o === 'Actividades' && circularDeEtiqueta(x), pdfs = c ? pdfsCircular(c) : [];
-    return pdfs.map((u, i) => `<a class="pdf-circ" href="${esc(u)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF${pdfs.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('');
+    return pdfs.map((u, i) => `<a class="pdf-circ" href="${esc(u)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return verPdf(event, this.href)">PDF${pdfs.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('');
 }
 function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {} }) {
     return lista.map(o => {
@@ -3141,7 +3167,7 @@ function pintarCirculares() {
             ${c.objetivo ? `<p class="nota-plan"><b>Objetivo:</b> ${esc(c.objetivo)}</p>` : ''}
             ${c.resumen ? `<details class="circ-resumen"><summary>Resumen de la actividad</summary><p>${esc(c.resumen)}</p></details>` : ''}
             ${c.obs ? `<p class="ayuda">${esc(c.obs)}</p>` : ''}
-            <div class="acciones circ-pdfs">${pdfs.length ? pdfs.map((u, i) => `<span class="circ-pdf-item"><a class="bv ok circ-pdf" href="${esc(u)}" target="_blank" rel="noopener">📄 ${pdfs.length > 1 ? 'PDF ' + (i + 1) : 'Ver PDF'}</a>${esJefe() ? `<button class="link-mini" title="Quitar este PDF" onclick="quitarPdfCircular('${esc(c.c)}', ${i})">✕</button>` : ''}</span>`).join('') : '<span class="nota-cierre">Sin PDF</span>'}
+            <div class="acciones circ-pdfs">${pdfs.length ? pdfs.map((u, i) => `<span class="circ-pdf-item"><a class="bv ok circ-pdf" href="${esc(u)}" target="_blank" rel="noopener" onclick="return verPdf(event, this.href)">📄 ${pdfs.length > 1 ? 'PDF ' + (i + 1) : 'Ver PDF'}</a>${esJefe() ? `<button class="link-mini" title="Quitar este PDF" onclick="quitarPdfCircular('${esc(c.c)}', ${i})">✕</button>` : ''}</span>`).join('') : '<span class="nota-cierre">Sin PDF</span>'}
                 ${esJefe() && pdfs.length < MAX_PDF_CIRC ? `<button class="link-mini" onclick="pegarPdfCircular('${esc(c.c)}')">+ Agregar PDF${pdfs.length ? ` (${pdfs.length} de ${MAX_PDF_CIRC})` : ''}</button>` : ''}</div>
         </div>`;
     };
