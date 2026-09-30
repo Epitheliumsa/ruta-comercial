@@ -1279,5 +1279,10 @@ select.p-pref { width: auto !important; padding: 0 6px !important; }
 .anillo-ley li i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .anillo-ley li b { margin-left: auto; font-size: 14px; color: #1f2937; padding-left: 8px; }
 .anillo-ley li.cero { color: #a8b5b2; }
+.anillo-ley li.principal { grid-column: 1 / -1; font-size: 16px; font-weight: 700; color: #15803d; padding-bottom: 4px; border-bottom: 1px dashed #dbe8e5; }
+.anillo-ley li.principal i { width: 14px; height: 14px; }
+.anillo-ley li.principal b { font-size: 20px; color: #15803d; }
+.anillo-ley li.principal small { font-size: 16px; font-weight: 800; color: #15803d; width: 48px; }
+.anillo-ley li.activo { text-decoration: underline; }
 .anillo-ley li small { width: 38px; text-align: right; color: #6b7c7a; font-size: 12px; }
 @media (max-width: 700px) { .anillo-ley { grid-template-columns: 1fr; } .anillo-dia svg { width: 100px; height: 100px; } }

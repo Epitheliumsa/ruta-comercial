@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609292101';
+const APP_VERSION = '202609292109';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1635,7 +1635,7 @@ function pintarAgenda() {
     const internos = lista.filter(x => x.interno).length;
     // Los indicadores del día son botones: al tocarlos filtran las visitas (otro toque quita el filtro)
     const boton = (f, clase, texto) => `<button type="button" class="chip chip-filtro ${clase}${agenda.filtro === f ? ' activo' : ''}" onclick="filtrarAgenda('${f}')" aria-pressed="${agenda.filtro === f}">${texto}</button>`;
-    $('agAnillo').innerHTML = lista.length ? anilloDia(k, internos) : '';
+    $('agAnillo').innerHTML = anilloDia(lista);
     $('agResumen').innerHTML = lista.length
         ? boton('prog', 'prog', `<b>${k.prog}</b> ${k.prog === 1 ? 'programada' : 'programadas'}`)
             + (k.noProg ? boton('noProg', 'np', `${k.noProg} no programadas`) : '')
@@ -1671,7 +1671,7 @@ function pintarAgenda() {
         prog: x => !x.interno && esProgramada(x), noProg: x => !x.interno && !esProgramada(x),
         ok: x => !x.interno && x.estado === 'visitado', no: x => !x.interno && x.estado === 'no_visitado',
         p: x => !x.interno && x.estado === 'pendiente', interno: x => x.interno
-    }[agenda.filtro] || (() => true);
+    }[agenda.filtro] || (agenda.filtro.startsWith('an:') ? x => claseAnillo(x) === agenda.filtro.slice(3) : () => true);
     const { o: ordenes, prog: programadas } = ordenesDelDia(lista);
     const clave = x => agenda.orden === 'prog' ? (ordenes[x.id]?.prog ?? (x.interno ? 2e9 : 1e9))
         : agenda.orden === 'realizada' ? (ordenes[x.id]?.real ?? (x.interno ? 2e9 : 1e9)) : 0;
@@ -2881,26 +2881,38 @@ function moverMesPanel(n) {
 }
 
 // Indicadores de visitas (el trabajo interno no cuenta). Cumplimiento = visitadas de las programadas
-// Anillo del día: los mismos filtros de la agenda, con su número y porcentaje sobre el total
-function anilloDia(k, internos) {
-    const partes = [
-        { t: 'Programadas', n: k.prog, c: '#0f766e', f: 'prog' }, { t: 'No programadas', n: k.noProg, c: '#9333ea', f: 'noProg' },
-        { t: 'Visitadas', n: k.ok, c: '#16a34a', f: 'ok' }, { t: 'No visitadas', n: k.no, c: '#dc2626', f: 'no' },
-        { t: 'Pendientes', n: k.p, c: '#d97706', f: 'p' }, { t: 'Trabajo interno', n: internos, c: '#94a3b8', f: 'interno' }
-    ];
-    const total = partes.reduce((s, x) => s + x.n, 0);
+// Anillo del día: cada visita real cuenta una sola vez (el trabajo interno también). Lo realizado pasa a
+// visitadas; lo reprogramado y el trabajo interno quedan aparte mientras no se realicen
+const PARTES_ANILLO = [
+    { f: 'ok', t: 'Visitadas', c: '#16a34a' }, { f: 'p', t: 'Pendientes', c: '#d97706' },
+    { f: 'no', t: 'No visitadas', c: '#dc2626' }, { f: 'rep', t: 'Reprogramadas', c: '#7c3aed' },
+    { f: 'repNo', t: 'Reprogramadas no visitadas', c: '#9f1239' }, { f: 'int', t: 'Trabajo interno', c: '#94a3b8' },
+    { f: 'intNo', t: 'Trabajo interno no realizado', c: '#475569' }
+];
+function claseAnillo(x) {
+    if (x.estado === 'visitado') return 'ok';
+    const no = x.estado === 'no_visitado';
+    if (x.interno) return no ? 'intNo' : 'int';
+    if (x.origen === 'reprogramada') return no ? 'repNo' : 'rep';
+    return no ? 'no' : 'p';
+}
+function anilloDia(lista) {
+    const total = lista.length;
     if (!total) return '';
+    const partes = PARTES_ANILLO.map(x => ({ ...x, n: lista.filter(v => claseAnillo(v) === x.f).length }));
     const R = 42, C = 2 * Math.PI * R, hueco = partes.filter(x => x.n).length > 1 ? 2 : 0;
     const porc = (n) => Math.round(n / total * 100) + '%';
     let ac = 0;
     const arcos = partes.filter(x => x.n).map(x => {
-        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)" onclick="filtrarAgenda('${x.f}')" style="cursor:pointer"><title>${x.t}: ${x.n} (${porc(x.n)})</title></circle>`;
+        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)" onclick="filtrarAgenda('an:${x.f}')" style="cursor:pointer"><title>${x.t}: ${x.n} (${porc(x.n)})</title></circle>`;
         ac += largo;
         return arco;
     }).join('');
+    const [vis, ...resto] = partes;
+    const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${agenda.filtro === 'an:' + x.f ? ' activo' : ''}" onclick="filtrarAgenda('an:${x.f}')"><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
     return `<div class="anillo-dia"><svg viewBox="0 0 110 110" role="img" aria-label="Visitas del día">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
-            <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">total</text></svg>
-        <ul class="anillo-ley">${partes.map(x => `<li class="${x.n ? '' : 'cero'}" onclick="filtrarAgenda('${x.f}')"><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`).join('')}</ul></div>`;
+            <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">${total === 1 ? 'visita' : 'visitas'}</text></svg>
+        <ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div>`;
 }
 
 function cuentaVisitas(todas) {
