@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301200';
+const APP_VERSION = '202609301301';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1100,9 +1100,9 @@ function abrirMulti(grupo, k) {
 }
 function marcarMulti(grupo, k, v) {
     const g = MULTI[grupo], todos = g.valores?.[k] || [], buscando = !!normalizar(g.busca || '');
-    const explicitos = g.sel[k].includes(NINGUNA) ? [] : g.sel[k];
-    // Buscando se parte de lo elegido a mano: tocar un resultado lo deja como filtro (no quita uno de "todos")
-    const s = buscando ? explicitos : explicitos.length ? explicitos : todos;   // vacío = todas marcadas
+    const ninguna = g.sel[k].includes(NINGUNA), explicitos = ninguna ? [] : g.sel[k];
+    // Buscando, o con todo desmarcado, se parte de lo elegido a mano: tocar una opción la deja como filtro
+    const s = buscando || ninguna ? explicitos : explicitos.length ? explicitos : todos;   // vacío = todas marcadas
     let nuevo = s.includes(v) ? s.filter(x => x !== v) : [...s, v];
     if (todos.length && todos.every(x => nuevo.includes(x))) nuevo = [];   // quedaron todas: sin filtro
     else if (!nuevo.length) nuevo = buscando ? [] : [NINGUNA];
