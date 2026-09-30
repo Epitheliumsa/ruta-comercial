@@ -1,11 +1,11 @@
 {
-  "name": "Epithelium Visita",
-  "short_name": "Epithelium Visita",
+  "name": "Visita Comercial",
+  "short_name": "Visita Comercial",
   "description": "Agenda de visitas y actividades de la fuerza de ventas de Epithelium.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#009460",
+  "background_color": "#79A02F",
   "theme_color": "#006b4f",
   "orientation": "portrait-primary",
   "icons": [

@@ -1,4 +1,4 @@
-# Ruta Comercial Epithelium
+# Visita Comercial (Ruta Comercial Epithelium)
 
 Agenda de visitas y actividades de la fuerza de ventas de Epithelium, para web y celular
 (se puede instalar en la pantalla de inicio).
