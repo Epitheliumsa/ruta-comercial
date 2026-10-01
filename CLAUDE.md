@@ -39,6 +39,8 @@
 - Solicitud de creación: clasificación obligatoria + formato oficial `formatos/FTO-CME-002-1_Formato_vinculacion_clientes.xlsx`
   (se descarga, se diligencia y se sube; el servidor lo guarda en el Drive de Hernán, carpeta "Ruta Comercial - Formatos de creación de clientes").
   Llega a la jefe comercial; a Hernán solo si la clasificación es de gerencia (10-20-30-60-61-70-71).
+- "Solicitudes de creación" es la bandeja de aprobación: la jefe (Coordinador Comercial) y, si es de gerencia, Hernán ven el
+  formato y tocan Aprobar o Rechazar (queda su nombre y fecha como firma). Aprobada = en creación (transición) hasta la Maestra nueva.
 - Al enviar la solicitud la Lead queda **ganada** y sale del Visiplan desde el mes siguiente. Cuando el cliente ya está en la
   Maestra, la jefe la confirma ("¿Ya se creó en la Maestra?" → "Sí, es este"): sus visitas pasan al cliente (quedan marcadas `eraProyecto`).
 

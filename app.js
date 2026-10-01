@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609302219';
+const APP_VERSION = '202609302222';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -624,10 +624,10 @@ function pintarInicio() {
     const hechas = acts.filter(a => a.hecha).length;
     const proys = proyectos().filter(p => p.estado !== 'vinculado' && p.estado !== 'perdido' && (esJefe() || p.vendedor === sesion.id)).length;
     $('proyectosTxt').textContent = proys ? `${proys} ${proys === 1 ? 'lead' : 'leads'} en seguimiento` : 'Contactos nuevos y su seguimiento';
-    const solsCreacion = solicitudesCreacion().length;
+    const solsCreacion = porAprobarMias().length;
     $('btnCreacion').style.display = esJefe() ? '' : 'none';
     const porAmarrar = esJefe() ? leadsPorVincular().length : 0;
-    $('creacionTxt').textContent = solsCreacion ? `${solsCreacion} por revisar${porAmarrar ? ` · ${porAmarrar} ya en la Maestra, por confirmar` : ''}` : 'No hay solicitudes pendientes';
+    $('creacionTxt').textContent = solsCreacion ? `${solsCreacion} por aprobar${porAmarrar ? ` · ${porAmarrar} ya en la Maestra, por confirmar` : ''}` : porAmarrar ? `${porAmarrar} ya en la Maestra, por confirmar` : 'No hay solicitudes por aprobar';
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     $('solicitudesTxt').textContent = sols.length ? `${sols.length} por revisar` : 'No hay solicitudes pendientes';
@@ -789,6 +789,13 @@ const buscarEnTodas = nombre => Object.keys(contactos).map(z => buscarMaestra(z,
 const maestraForm = nombre => buscarMaestra(comercial(agenda.vendedor)?.zona, nombre) || (esJefe() ? buscarEnTodas(nombre) : undefined);
 const buscarProyecto = (zona, nombre) => proyectosDeZona(zona).find(p => normalizar(p.nombre) === normalizar(nombre));
 const solicitudesCreacion = () => proyectos().filter(p => p.estado === 'solicitud' && veSolicitud(p));
+// Aprobación del formato (como las firmas del FTO-CME-002-1): Coordinador Comercial siempre; Gerencia en 10-20-30-60-61-70-71
+const FIRMAS = { comercial: 'Coordinador Comercial', gerencia: 'Gerencia' };
+const firmasDe = p => ['comercial', ...(p.solicitud?.gerencia ? ['gerencia'] : [])];
+const firmasFaltan = p => firmasDe(p).filter(r => !p.solicitud?.aprobaciones?.[r]);
+const miFirma = () => sesion?.id === JEFE_COMERCIAL?.id ? 'comercial' : esAdmin() ? 'gerencia' : null;
+const solicitudAprobada = p => p.estado === 'solicitud' && !firmasFaltan(p).length;
+const porAprobarMias = () => solicitudesCreacion().filter(p => firmasFaltan(p).includes(miFirma()));
 const JEFE_COMERCIAL = USUARIOS.find(u => u.jefe);
 const visitasDeProyecto = id => visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id);
 
@@ -850,7 +857,7 @@ function abrirProyectos(filtro) {
         .filter(p => !filtro || p.estado === filtro)
         .filter(p => p.estado !== 'solicitud' || !esJefe() || veSolicitud(p))
         .sort((a, b) => ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(a.estado) - ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(b.estado) || a.nombre.localeCompare(b.nombre));
-    const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? 'np' : p.estado === 'perdido' ? 'perdida' : 'proy'}">${ESTADO_PROYECTO[p.estado]}</span>`;
+    const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? (solicitudAprobada(p) ? 'ok' : 'np') : p.estado === 'perdido' ? 'perdida' : 'proy'}">${p.estado === 'solicitud' ? (solicitudAprobada(p) ? 'Aprobada · en creación' : 'Ganada · por aprobar') : ESTADO_PROYECTO[p.estado]}</span>`;
     const acciones = p => {
         if (p.estado === 'vinculado') return `<p>Creado en la Maestra como <b>${esc(p.vinculadoA)}</b></p>`;
         const botones = [];
@@ -862,15 +869,21 @@ function abrirProyectos(filtro) {
         }
         if (p.estado === 'proyecto' && suyo) botones.push(`<button class="btn-secundario btn-peligro" onclick="perderLead('${p.id}')">✕ Perdida</button>`);
         if (p.estado === 'proyecto') botones.push(`<button class="btn-secundario" onclick="solicitarCreacion('${p.id}')">Solicitud de creación</button>`);
-        if (p.estado === 'solicitud' && esJefe()) botones.push(`<button class="btn-secundario btn-peligro" onclick="rechazarCreacion('${p.id}')">Rechazar</button>`);
-        // Maestra nueva: posibles clientes creados para esta Lead, para confirmar con un toque
-        const sugeridos = esJefe() && p.estado === 'solicitud' ? candidatosVinculo(p) : [];
+        // Solicitud: quien firma revisa el formato y lo aprueba o rechaza
+        const firma = miFirma(), meToca = p.estado === 'solicitud' && firmasFaltan(p).includes(firma);
+        if (meToca) botones.push(`<button class="btn-secundario btn-peligro" onclick="rechazarCreacion('${p.id}')">✕ Rechazar</button>`,
+            `<button class="btn-primario" onclick="aprobarCreacion('${p.id}')">✓ Aprobar</button>`);
+        // Aprobada (en transición): cuando llega la Maestra nueva, posibles clientes creados en Odoo para conectar con un toque
+        const sugeridos = esJefe() && solicitudAprobada(p) ? candidatosVinculo(p) : [];
         // Quien creó el lead programa desde aquí su próxima visita
         if (p.vendedor === sesion.id) botones.unshift(`<button class="btn-primario btn-programar-lead" onclick="programarLead('${p.id}')">📅 Programar visita</button>`);
         return `${p.solicitud && p.estado === 'solicitud' ? `<p class="nota-sol">Solicitada el ${esc(fechaHora(p.solicitud.fecha))} por ${esc(nombreVendedor(p.solicitud.por))}${p.solicitud.clasificacion ? ` · Clasificación <b>${esc(p.solicitud.clasificacion)}</b>${p.solicitud.gerencia ? ' (gerencia)' : ''}` : ''}${p.solicitud.nota ? ': ' + esc(p.solicitud.nota) : ''}</p>
-                ${p.solicitud.formato?.url ? `<p class="nota-sol"><a href="${esc(p.solicitud.formato.url)}" target="_blank" rel="noopener">📎 Formato de creación: ${esc(p.solicitud.formato.nombre || 'ver archivo')}</a></p>` : ''}` : ''}
+                ${p.solicitud.formato?.url ? `<a class="btn-secundario ver-formato" href="${esc(p.solicitud.formato.url)}" target="_blank" rel="noopener">📎 Ver formato diligenciado</a>` : '<p class="nota-sol">Sin formato anexo (solicitud anterior al formato obligatorio).</p>'}
+                <div class="firmas">${firmasDe(p).map(r => { const a = p.solicitud.aprobaciones?.[r];
+                    return `<span class="${a ? 'ok' : ''}">${FIRMAS[r]}: ${a ? `✓ ${esc(nombreVendedor(a.por))} · ${esc(fechaHora(a.fecha))}` : 'pendiente'}</span>`; }).join('')}</div>
+                ${solicitudAprobada(p) ? '<p class="nota-sol transicion">Aprobada · en creación: queda en transición hasta que llegue la Maestra nueva y se conecte con el cliente creado en Odoo.</p>' : ''}` : ''}
             ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol">Solicitud rechazada${p.rechazo.motivo ? ': ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
-            ${p.estado === 'solicitud' && !esJefe() ? '<p class="nota-sol">Lead ganada: la solicitud se envió. Cuando se cree en la Maestra de Contactos quedará vinculada.</p>' : ''}
+            ${p.estado === 'solicitud' && !esJefe() && !solicitudAprobada(p) ? '<p class="nota-sol">Lead ganada: la solicitud está esperando aprobación.</p>' : ''}
             ${sugeridos.length ? `<div class="sug-vinculo"><p><b>¿Ya se creó en la Maestra?</b> Confirma cuál es el cliente creado para amarrarlo:</p>${sugeridos.map(x =>
                 `<div class="sug-fila"><span><b>${esc(x.c.n)}</b><small>${esc([x.c.cl && `Clasificación ${x.c.cl}`, x.c.e, x.c.c, x.z].filter(Boolean).join(' · '))}</small></span>
                 <button class="btn-primario" data-z="${esc(x.z)}" data-n="${esc(x.c.n)}" onclick="confirmarVinculo('${p.id}', this.dataset.z, this.dataset.n)">Sí, es este</button></div>`).join('')}</div>` : ''}
@@ -879,14 +892,14 @@ function abrirProyectos(filtro) {
     abrirModal(`<div class="form-rc">
         <div class="leads-cab"><h2>${filtro === 'solicitud' ? 'Solicitudes de creación' : 'Leads'}</h2>${filtro ? '' : '<button type="button" class="btn-primario" onclick="crearLead()">+ Crear Lead</button>'}</div>
         <p class="sub">${filtro === 'solicitud'
-            ? 'Leads que los vendedores piden crear en la Maestra de Contactos. Cuando lo crees, vincúlalo aquí.'
+            ? 'Revisa el formato que subió el vendedor y apruébalo o recházalo (tu aprobación queda como firma, con nombre y fecha). Las aprobadas quedan en transición hasta que llegue la Maestra nueva y se conecten con el cliente creado en Odoo.'
             : 'Contactos nuevos que aún no están en la Maestra de Contactos, con su seguimiento. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>
         ${lista.length ? gruposProyectos(lista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
             <div class="visita-cab"><strong class="cliente-link" data-c="${esc(p.nombre)}" onclick="verCliente(this.dataset.c, '${p.vendedor}')" title="Ver historial de visitas">${esc(p.nombre)}</strong>${chip(p)}</div>
             <small>${esc([p.tipo, p.clasificacion && 'Clasificación ' + p.clasificacion, nombrePropio(p.persona), p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
             ${seguimientoLead(p)}
             ${acciones(p)}
-        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación pendientes.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
+        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
     </div>`);
 }
 
@@ -1085,6 +1098,18 @@ function reactivarLead(id) {
     pintarInicio();
 }
 
+async function aprobarCreacion(id) {
+    const p = registros[id], firma = miFirma();
+    if (!firma) return;
+    if (!await dialogo({ tono: 'aviso', icono: '✍️', titulo: `Aprobar la creación de ${p.nombre}`, texto: `Revisaste el formato y lo apruebas como ${FIRMAS[firma]}.\nQueda tu nombre y la fecha como firma.`, aceptar: 'Sí, aprobar', cancelar: 'No' })) return;
+    const aprobaciones = { ...(p.solicitud.aprobaciones || {}), [firma]: { por: sesion.id, fecha: new Date().toISOString() } };
+    const nuevo = { ...p, solicitud: { ...p.solicitud, aprobaciones } };
+    guardarRegistro(nuevo);
+    toast(firmasFaltan(nuevo).length ? `${p.nombre}: aprobada por ${FIRMAS[firma]}. Falta ${firmasFaltan(nuevo).map(r => FIRMAS[r]).join(' y ')}` : `${p.nombre}: aprobada. Queda en creación hasta la Maestra nueva`);
+    abrirProyectos('solicitud');
+    pintarInicio();
+}
+
 async function rechazarCreacion(id) {
     if (!esJefe()) return;
     const motivo = await dialogo({ titulo: 'Rechazar solicitud de creación', texto: '¿Por qué se rechaza? (opcional)', campo: 'Ej: faltan datos de facturación', aceptar: 'Rechazar' });
@@ -1114,7 +1139,7 @@ function candidatosVinculo(p) {
         .filter(x => x.igual || x.parecido >= 0.75)
         .sort((a, b) => b.igual - a.igual || b.puntos - a.puntos).slice(0, 3);
 }
-const leadsPorVincular = () => solicitudesCreacion().filter(p => candidatosVinculo(p).length);
+const leadsPorVincular = () => solicitudesCreacion().filter(p => solicitudAprobada(p) && candidatosVinculo(p).length);
 function vincularSugerido(id, zona, nombre) {
     const p = registros[id], c = buscarMaestra(zona, nombre);
     if (!p || !c) return;

@@ -1580,3 +1580,9 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 .pf-ficha p { margin-top: 3px; font-size: 13.5px; color: #444; }
 .chip.perdida { background: #f1f5f9; color: #64748b; }
 .solicitud.proyecto:has(.chip.perdida) { opacity: .75; }
+/* Solicitudes de creación: formato, firmas (aprobaciones) y transición */
+a.ver-formato { display: inline-block; margin: 6px 0; text-decoration: none; padding: 8px 14px; }
+.firmas { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.firmas span { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: #fef3c7; color: #92400e; }
+.firmas span.ok { background: #dcfce7; color: #166534; }
+.nota-sol.transicion { color: #0e7490; font-weight: 600; }
