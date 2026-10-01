@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609301958';
+const APP_VERSION = '202609302027';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1387,7 +1387,8 @@ function pintarMaestra() {
         const g = GRUPOS_ETIQUETA[grupoEtiqueta(c.e)];
         return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
-                <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span></span>
+                <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
+                ${!c.lead && portafolioDe(c.n).length ? `<span class="mc-portafolio" role="button" tabindex="0" data-c="${esc(c.n)}" onclick="verPortafolio(event, this.dataset.c)">📋 Portafolio del cliente <b>${portafolioDe(c.n).length}</b></span>` : ''}</span>
             <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
         </button>`;
     };
@@ -1399,6 +1400,32 @@ function pintarMaestra() {
             const v = vendedorDeZona(z);
             return (esJefe() ? `<p class="grupo-titulo">${esc(z)} · ${esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
         }).join('');
+}
+
+// Portafolio exclusivo del cliente (productos con etiqueta Cliente y categoría con su nombre; fichas del Vademécum).
+// Sale en la Maestra como enlace; se genera con herramientas/portafolios.py
+const PORTAFOLIOS = window.PORTAFOLIOS || { clientes: {}, portafolios: {} };
+const clavePortafolio = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9@&]+/g, ' ').trim();
+const clientePortafolio = nombre => PORTAFOLIOS.clientes[clavePortafolio(nombre)] || '';
+const portafolioDe = nombre => PORTAFOLIOS.portafolios[clientePortafolio(nombre)] || [];
+function verPortafolio(e, nombre) {
+    e.stopPropagation();
+    const lista = portafolioDe(nombre), parrafo = t => esc(t).replace(/\n/g, '<br>');
+    abrirModal(`<div class="form-rc ficha portafolio-cli">
+        <h2>Portafolio del cliente</h2>
+        <p class="sub">${esc(clientePortafolio(nombre))} · ${lista.length} ${lista.length === 1 ? 'producto exclusivo' : 'productos exclusivos'}</p>
+        <input class="sel-busca" placeholder="Buscar por código, nombre o componente..." oninput="buscarPortafolio(this)" autocomplete="off">
+        <div class="pf-lista">${lista.map(p => `<details class="pf-prod" data-q="${esc(normalizar(p.c + ' ' + p.n + ' ' + p.comp))}">
+            <summary><b>${esc(p.c)}</b><span>${esc(p.n)}</span></summary>
+            <div class="pf-ficha">${[['Componentes', p.comp], ['Indicación', p.ind], ['Dosis recomendada', p.dosis]].filter(([, t]) => t)
+                .map(([k, t]) => `<strong>${k}</strong><p>${parrafo(t)}</p>`).join('') || '<p class="meta">Sin ficha en el Vademécum.</p>'}</div>
+        </details>`).join('')}</div>
+        <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
+    </div>`);
+}
+function buscarPortafolio(campo) {
+    const q = normalizar(campo.value);
+    campo.closest('.portafolio-cli').querySelectorAll('.pf-prod').forEach(d => { d.hidden = !!q && !d.dataset.q.includes(q); });
 }
 
 // Barras con la composición de los clientes filtrados. Tocar una barra filtra por ese valor; tocarla otra vez lo quita.
