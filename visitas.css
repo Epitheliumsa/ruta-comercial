@@ -1593,3 +1593,10 @@ details.ver-formato a { font-size: 12px; }
 .formato-final { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; padding: 10px; border-radius: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; }
 .formato-final b { flex: 1; color: #166534; }
 .formato-final a { text-decoration: none; padding: 7px 12px; }
+/* Leads: filtros y dueño de la Lead (jefes) */
+.leads-filtros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 4px; }
+.leads-filtros input { grid-column: 1 / -1; }
+.leads-filtros input, .leads-filtros select { margin: 0 !important; min-width: 0; }
+@media (max-width: 700px) { .leads-filtros { grid-template-columns: 1fr 1fr; } .leads-filtros input { grid-column: 1 / -1; } }
+.leads-cuenta { margin: 2px 0 8px; font-size: 12px; color: #64748b; }
+.lead-dueno { margin: 2px 0 2px; font-size: 13px; font-weight: 600; color: #0e7490; }

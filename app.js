@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609302235';
+const APP_VERSION = '202609302244';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -861,10 +861,25 @@ function etiquetaPersonaProyecto() {
     $('pPersona').placeholder = $('pTipo').value === 'Médico' ? 'Persona con quien se habla (puede ser el mismo médico)' : 'Persona con quien se habla (ej: administradora)';
 }
 
+// Filtros del módulo Leads: buscar, vendedor (jefes), estado y tipo
+const filtroLeads = { busca: '', vendedor: '', estado: 'activas', tipo: '' };
+const ESTADOS_LEAD = { activas: 'Activas (Lead y ganadas)', proyecto: 'Lead', solicitud: 'Ganadas · solicitud de creación', perdido: 'Perdidas', vinculado: 'Creadas en la Maestra', todas: 'Todos los estados' };
+const pasaFiltroLeads = p => {
+    const f = filtroLeads, q = normalizar(f.busca);
+    return (!q || normalizar([p.nombre, p.persona, p.ciudad, p.telefono, p.direccion].join(' ')).includes(q))
+        && (!f.vendedor || p.vendedor === f.vendedor) && (!f.tipo || p.tipo === f.tipo)
+        && (f.estado === 'todas' || (f.estado === 'activas' ? ['proyecto', 'solicitud'].includes(p.estado) : p.estado === f.estado));
+};
+function filtrarLeads(k, v) {
+    filtroLeads[k] = v;
+    abrirProyectos();
+    if (k === 'busca') { const b = $('lBusca'); b.focus(); b.setSelectionRange(b.value.length, b.value.length); }
+}
 function abrirProyectos(filtro) {
-    const lista = proyectos()
-        .filter(p => esJefe() || p.vendedor === sesion.id)
+    const todos = proyectos().filter(p => esJefe() || p.vendedor === sesion.id);
+    const lista = todos
         .filter(p => !filtro || p.estado === filtro)
+        .filter(p => filtro || pasaFiltroLeads(p))
         .filter(p => p.estado !== 'solicitud' || !esJefe() || veSolicitud(p))
         .sort((a, b) => ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(a.estado) - ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(b.estado) || a.nombre.localeCompare(b.nombre));
     const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? (solicitudAprobada(p) ? 'ok' : 'np') : p.estado === 'perdido' ? 'perdida' : 'proy'}">${p.estado === 'solicitud' ? (solicitudAprobada(p) ? 'Aprobada · en creación' : 'Ganada · por aprobar') : ESTADO_PROYECTO[p.estado]}</span>`;
@@ -911,12 +926,19 @@ function abrirProyectos(filtro) {
         <p class="sub">${filtro === 'solicitud'
             ? 'Revisa el formato que subió el vendedor y apruébalo o recházalo (tu aprobación queda como firma, con nombre y fecha). Las aprobadas quedan en transición hasta que llegue la Maestra nueva y se conecten con el cliente creado en Odoo.'
             : 'Contactos nuevos que aún no están en la Maestra de Contactos, con su seguimiento. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>
+        ${filtro ? '' : `<div class="leads-filtros">
+            <input id="lBusca" type="search" placeholder="Buscar lead, contacto, ciudad o teléfono…" value="${esc(filtroLeads.busca)}" oninput="filtrarLeads('busca', this.value)">
+            ${esJefe() ? `<select onchange="filtrarLeads('vendedor', this.value)" aria-label="Vendedor"><option value="">Todos los vendedores</option>${COMERCIALES.filter(c => todos.some(p => p.vendedor === c.id)).map(c => `<option value="${c.id}" ${filtroLeads.vendedor === c.id ? 'selected' : ''}>${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('')}</select>` : ''}
+            <select onchange="filtrarLeads('estado', this.value)" aria-label="Estado">${Object.entries(ESTADOS_LEAD).map(([k, t]) => `<option value="${k}" ${filtroLeads.estado === k ? 'selected' : ''}>${t} (${todos.filter(p => k === 'todas' || (k === 'activas' ? ['proyecto', 'solicitud'].includes(p.estado) : p.estado === k)).length})</option>`).join('')}</select>
+            <select onchange="filtrarLeads('tipo', this.value)" aria-label="Tipo"><option value="">Todos los tipos</option>${TIPOS_PROYECTO.map(t => `<option ${filtroLeads.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
+        </div><p class="leads-cuenta">${lista.length} ${lista.length === 1 ? 'lead' : 'leads'}${lista.length !== todos.length ? ` de ${todos.length}` : ''}</p>`}
         ${lista.length ? gruposProyectos(lista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
             <div class="visita-cab"><strong class="cliente-link" data-c="${esc(p.nombre)}" onclick="verCliente(this.dataset.c, '${p.vendedor}')" title="Ver historial de visitas">${esc(p.nombre)}</strong>${chip(p)}</div>
+            ${esJefe() ? `<p class="lead-dueno">👤 ${esc(nombreVendedor(p.vendedor))} · ${esc(comercial(p.vendedor)?.zona || p.zona || 'Sin zona')}</p>` : ''}
             <small>${esc([p.tipo, p.clasificacion && 'Clasificación ' + p.clasificacion, nombrePropio(p.persona), p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
             ${seguimientoLead(p)}
             ${acciones(p)}
-        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
+        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación.' : todos.length ? 'No hay leads con estos filtros.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
     </div>`);
 }
 
