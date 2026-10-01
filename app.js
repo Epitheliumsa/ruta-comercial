@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609302035';
+const APP_VERSION = '202609302219';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -622,7 +622,7 @@ function pintarInicio() {
         : esComercial() ? 'Hoy no tienes visitas programadas' : 'Hoy el equipo no tiene visitas programadas';
     const acts = actividadesMes(mesDe(hoy()), vend);
     const hechas = acts.filter(a => a.hecha).length;
-    const proys = proyectos().filter(p => p.estado !== 'vinculado' && (esJefe() || p.vendedor === sesion.id)).length;
+    const proys = proyectos().filter(p => p.estado !== 'vinculado' && p.estado !== 'perdido' && (esJefe() || p.vendedor === sesion.id)).length;
     $('proyectosTxt').textContent = proys ? `${proys} ${proys === 1 ? 'lead' : 'leads'} en seguimiento` : 'Contactos nuevos y su seguimiento';
     const solsCreacion = solicitudesCreacion().length;
     $('btnCreacion').style.display = esJefe() ? '' : 'none';
@@ -758,7 +758,7 @@ const etiquetaLead = tipo => `${LEAD}${tipo ? ' · ' + tipo : ''}`;
 const esEtqLead = e => /^(lead|contacto nuevo)\b/i.test(String(e || ''));
 const nombreEtq = e => esEtqLead(e) ? String(e).replace(/^contacto nuevo/i, LEAD) : e;
 const ordenLeadAlFinal = (a, b) => (esEtqLead(a) ? 1 : 0) - (esEtqLead(b) ? 1 : 0) || String(a).localeCompare(String(b), 'es');
-const ESTADO_PROYECTO = { proyecto: 'Lead', solicitud: 'Ganada · solicitud de creación', vinculado: 'Creado en la Maestra' };
+const ESTADO_PROYECTO = { proyecto: 'Lead', solicitud: 'Ganada · solicitud de creación', perdido: 'Perdida', vinculado: 'Creado en la Maestra' };
 // Clasificaciones del cliente (hoja "Bases" del formato oficial FTO-CME-002-1). Las de gerencia también le llegan al administrador.
 const CLASIFICACIONES_CLIENTE = [
     ['10', 'Tienda de piel pura con más de 3 puntos de venta'], ['11', 'Tienda de piel pura con 3 o menos puntos de venta'],
@@ -777,9 +777,12 @@ const FORMATO_CREACION = 'formatos/FTO-CME-002-1_Formato_vinculacion_clientes.xl
 // El administrador solo ve las solicitudes de las clasificaciones de gerencia; la jefe comercial las ve todas
 const veSolicitud = p => !esAdmin() || sesion.id === JEFE_COMERCIAL?.id || p.solicitud?.gerencia !== false;
 // Un lead ganado (con solicitud de creación) sale del Visiplan desde el mes siguiente a la solicitud
-const leadEnPlan = (p, mes) => !(p.estado === 'solicitud' && p.solicitud?.fecha && mes > mesDe(p.solicitud.fecha.slice(0, 10)));
+const leadEnPlan = (p, mes) => !(p.estado === 'solicitud' && p.solicitud?.fecha && mes > mesDe(p.solicitud.fecha.slice(0, 10)))
+    && !(p.estado === 'perdido' && p.perdido?.fecha && mes > mesDe(p.perdido.fecha.slice(0, 10)));   // la perdida también sale desde el mes siguiente
 const proyectos = () => visibles().filter(r => r.clase === 'proyecto');
-const proyectosDeZona = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado');
+const proyectosDeZona = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado' && p.estado !== 'perdido');
+// Para el Visiplan: también las perdidas (salen el mes en que se perdieron, con su historia)
+const leadsDelPlan = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado');
 const buscarMaestra = (zona, nombre) => (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre));
 // Los jefes programan visitas a cualquier cliente: buscan primero en la zona del vendedor y luego en todas
 const buscarEnTodas = nombre => Object.keys(contactos).map(z => buscarMaestra(z, nombre)).find(Boolean);
@@ -846,15 +849,20 @@ function abrirProyectos(filtro) {
         .filter(p => esJefe() || p.vendedor === sesion.id)
         .filter(p => !filtro || p.estado === filtro)
         .filter(p => p.estado !== 'solicitud' || !esJefe() || veSolicitud(p))
-        .sort((a, b) => ['solicitud', 'proyecto', 'vinculado'].indexOf(a.estado) - ['solicitud', 'proyecto', 'vinculado'].indexOf(b.estado) || a.nombre.localeCompare(b.nombre));
-    const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? 'np' : 'proy'}">${ESTADO_PROYECTO[p.estado]}</span>`;
+        .sort((a, b) => ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(a.estado) - ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(b.estado) || a.nombre.localeCompare(b.nombre));
+    const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? 'np' : p.estado === 'perdido' ? 'perdida' : 'proy'}">${ESTADO_PROYECTO[p.estado]}</span>`;
     const acciones = p => {
         if (p.estado === 'vinculado') return `<p>Creado en la Maestra como <b>${esc(p.vinculadoA)}</b></p>`;
         const botones = [];
         if (p.estado === 'proyecto' && (esJefe() || p.vendedor === sesion.id)) botones.push(`<button class="btn-secundario" onclick="crearLead('${p.id}')">✏️ Editar</button>`);
+        const suyo = esJefe() || p.vendedor === sesion.id;
+        if (p.estado === 'perdido') {
+            if (suyo) botones.push(`<button class="btn-secundario" onclick="reactivarLead('${p.id}')">↩ Reactivar Lead</button>`);
+            return `<p class="nota-sol">Perdida el ${esc(fechaHora(p.perdido.fecha))} por ${esc(nombreVendedor(p.perdido.por))}${p.perdido.motivo ? ': ' + esc(p.perdido.motivo) : ''}</p>${botones.length ? `<div class="form-botones">${botones.join('')}</div>` : ''}`;
+        }
+        if (p.estado === 'proyecto' && suyo) botones.push(`<button class="btn-secundario btn-peligro" onclick="perderLead('${p.id}')">✕ Perdida</button>`);
         if (p.estado === 'proyecto') botones.push(`<button class="btn-secundario" onclick="solicitarCreacion('${p.id}')">Solicitud de creación</button>`);
         if (p.estado === 'solicitud' && esJefe()) botones.push(`<button class="btn-secundario btn-peligro" onclick="rechazarCreacion('${p.id}')">Rechazar</button>`);
-        if (esJefe()) botones.push(`<button class="${p.estado === 'solicitud' && candidatosVinculo(p).length ? 'btn-secundario' : 'btn-primario'}" onclick="$('vin-${p.id}').hidden=false; this.parentElement.hidden=true">Vincular a la Maestra</button>`);
         // Maestra nueva: posibles clientes creados para esta Lead, para confirmar con un toque
         const sugeridos = esJefe() && p.estado === 'solicitud' ? candidatosVinculo(p) : [];
         // Quien creó el lead programa desde aquí su próxima visita
@@ -863,12 +871,6 @@ function abrirProyectos(filtro) {
                 ${p.solicitud.formato?.url ? `<p class="nota-sol"><a href="${esc(p.solicitud.formato.url)}" target="_blank" rel="noopener">📎 Formato de creación: ${esc(p.solicitud.formato.nombre || 'ver archivo')}</a></p>` : ''}` : ''}
             ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol">Solicitud rechazada${p.rechazo.motivo ? ': ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
             ${p.estado === 'solicitud' && !esJefe() ? '<p class="nota-sol">Lead ganada: la solicitud se envió. Cuando se cree en la Maestra de Contactos quedará vinculada.</p>' : ''}
-            <div class="vincular" id="vin-${p.id}" hidden>
-                <label for="vinInput-${p.id}">Contacto creado en la Maestra de Contactos</label>
-                <input id="vinInput-${p.id}" list="dlMaestra-${p.id}" autocomplete="off" placeholder="Busca el contacto en la Maestra">
-                <datalist id="dlMaestra-${p.id}">${opcionesMaestra(p.zona)}</datalist>
-                <div class="form-botones"><button class="btn-secundario" onclick="abrirProyectos(${filtro ? `'${filtro}'` : ''})">Cancelar</button><button class="btn-primario" onclick="vincularProyecto('${p.id}')">Vincular</button></div>
-            </div>
             ${sugeridos.length ? `<div class="sug-vinculo"><p><b>¿Ya se creó en la Maestra?</b> Confirma cuál es el cliente creado para amarrarlo:</p>${sugeridos.map(x =>
                 `<div class="sug-fila"><span><b>${esc(x.c.n)}</b><small>${esc([x.c.cl && `Clasificación ${x.c.cl}`, x.c.e, x.c.c, x.z].filter(Boolean).join(' · '))}</small></span>
                 <button class="btn-primario" data-z="${esc(x.z)}" data-n="${esc(x.c.n)}" onclick="confirmarVinculo('${p.id}', this.dataset.z, this.dataset.n)">Sí, es este</button></div>`).join('')}</div>` : ''}
@@ -952,7 +954,7 @@ function seguimientoLead(p) {
         ${dias !== null ? `<span>Creado hace <b>${dias}</b> ${dias === 1 ? 'día' : 'días'}</span>` : ''}
         <span><b>${vs.length}</b> ${vs.length === 1 ? 'visita' : 'visitas'} · <b>${ef.length}</b> ${ef.length === 1 ? 'efectiva' : 'efectivas'}</span>
         ${ultima ? `<span>Última: <b>${esc(fechaCorta(ultima.fecha))}</b> (${estadoTxt[ultima.estado] || ultima.estado})</span>` : ''}
-        ${proxima ? `<span class="prox">Próxima: <b>${esc(fechaCorta(proxima.fecha))}</b></span>` : p.estado !== 'vinculado' ? '<span class="sin-prox">Sin próxima visita</span>' : ''}
+        ${proxima ? `<span class="prox">Próxima: <b>${esc(fechaCorta(proxima.fecha))}</b></span>` : p.estado === 'proyecto' ? '<span class="sin-prox">Sin próxima visita</span>' : ''}
     </div>`;
 }
 
@@ -1063,6 +1065,24 @@ async function confirmarVinculo(id, zona, nombre) {
     const p = registros[id];
     if (!await dialogo({ tono: 'aviso', icono: '🔗', titulo: 'Amarrar Lead con el cliente', texto: `${p.nombre} (Lead) quedará vinculada a ${nombre} de la Maestra.\nSus visitas pasan a ese cliente. ¿Confirmas?`, aceptar: 'Sí, amarrar', cancelar: 'No' })) return;
     vincularSugerido(id, zona, nombre);
+}
+
+// Lead perdida: deja de salir en Leads activos, Maestra y Programar; en el Visiplan sale hasta terminar el mes
+async function perderLead(id) {
+    const p = registros[id];
+    const motivo = await dialogo({ tono: 'aviso', icono: '✕', titulo: `Marcar ${p.nombre} como perdida`, texto: '¿Por qué se perdió? (opcional)', campo: 'Ej: no está interesado, compra a la competencia', aceptar: 'Marcar perdida' });
+    if (motivo === null) return;
+    guardarRegistro({ ...p, estado: 'perdido', perdido: { fecha: new Date().toISOString(), por: sesion.id, motivo: motivo.trim() } });
+    toast(`${p.nombre}: Lead perdida`);
+    abrirProyectos();
+    pintarInicio();
+}
+function reactivarLead(id) {
+    const p = registros[id];
+    guardarRegistro({ ...p, estado: 'proyecto', perdido: null });
+    toast(`${p.nombre}: Lead activa otra vez`);
+    abrirProyectos();
+    pintarInicio();
 }
 
 async function rechazarCreacion(id) {
@@ -1632,7 +1652,7 @@ function pintarVisiplan() {
     vista.forEach(ven => {
         seg[ven.id] = seguimientoPlan(ven.id, mes);
         clientes = clientes.concat((contactos[ven.zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
-            .concat(proyectosDeZona(ven.zona).filter(p => leadEnPlan(p, mes)).map(p => ({ n: p.nombre, e: etiquetaLead(p.tipo), t: LEAD, v: ven.id }))));
+            .concat(leadsDelPlan(ven.zona).filter(p => leadEnPlan(p, mes)).map(p => ({ n: p.nombre, e: etiquetaLead(p.tipo), t: LEAD, v: ven.id }))));
     });
     // Filtros (selección múltiple): tipo de cliente, etiqueta (con Trabajo interno) y qué mostrar
     const claveZona = vista.map(c => c.id).join(',');
