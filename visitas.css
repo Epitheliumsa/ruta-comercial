@@ -627,7 +627,9 @@
 .solicitud strong { display: block; color: #333; }
 .solicitud small { color: #7a8a84; }
 .solicitud p { margin: 8px 0 0; font-size: 14px; color: #444; }
-.solicitud .form-botones { margin-top: 10px; }
+.solicitud .form-botones { margin-top: 10px; flex-wrap: wrap; }
+/* Celular: "Programar visita" ocupa la fila y los demás botones van debajo, sin salirse de la tarjeta */
+.solicitud .form-botones .btn-programar-lead { flex: 1 1 100%; }
 
 /* Objetivos cumplidos */
 .objetivos span.cumplido { background: #fff; color: #1f2937; }
