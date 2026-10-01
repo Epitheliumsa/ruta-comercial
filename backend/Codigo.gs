@@ -183,11 +183,14 @@ function firmarFormato_(usuario, pedido) {
   return { hojaId: hojaId, pdf: pdf };
 }
 
-// Ejecútala una vez desde el editor (▶ Ejecutar) para que Google pida el permiso de Drive
+// Ejecútala desde el editor (▶ Ejecutar) para que Google pida TODOS los permisos (Drive completo y conexión externa).
+// Crea la carpeta de los formatos (si no existe), escribe un archivo de prueba y lo borra.
 function probarDrive() {
-  UrlFetchApp.fetch('https://www.googleapis.com/discovery/v1/apis?name=drive', { muteHttpExceptions: true });   // permiso para convertir y exportar el formato
-  const carpetas = DriveApp.getFoldersByName('Ruta Comercial - Formatos de creación de clientes');
-  Logger.log(carpetas.hasNext() ? 'La carpeta ya existe' : 'Drive OK: la carpeta se crea con el primer formato');
+  UrlFetchApp.fetch('https://www.googleapis.com/discovery/v1/apis?name=drive', { muteHttpExceptions: true });
+  const carpeta = carpeta_('Formatos de creación de clientes');
+  const prueba = carpeta.createFile('prueba.txt', 'Prueba de permisos de Ruta Comercial');
+  prueba.setTrashed(true);
+  Logger.log('Drive OK (permiso completo): ' + carpeta.getUrl());
 }
 
 function responder_(obj) {
