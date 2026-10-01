@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609302244';
+const APP_VERSION = '202610010054';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -14,7 +14,7 @@ const USUARIOS = [
     { usuario: 'L.Ramos',     huella: 'afecd958a07662fa1c466a63fa799f91873a1371f878dc6e4bd6c35ffce87617', tipo: 'comercial', id: 'lramos',     nombre: 'Lizeth Ramos',      zona: 'Zona Norte', cumple: '1992-02-16' },
     { usuario: 'Y.Caballero', huella: 'df5769c03aec2c0300cd912335962a57617271fa86e0ef852d5d959895c6ecab', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur', cumple: '1989-03-26' },
     { usuario: 'J.Herrera',   huella: '564177c2a1926013ea79ab83b4bbfe0c3f44fb9585eda1c407504de6424f24c0', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', cumple: '1988-04-03', jefe: true, cargo: 'Coordinadora Comercial' },
-    { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'comercial', id: 'mcastro',    nombre: 'M. Castro',         zona: ZONA_POR_ASIGNAR, cumple: '1999-07-09' },
+    { usuario: 'M.Castro',    huella: '2b2ebf7f55852620d6c6b80fd886a502c3ffa470d4eae22dcad0fe2dfd5b1d88', tipo: 'comercial', id: 'mcastro',    nombre: 'Maryi Castro',      zona: 'Zona Desarrollo', cumple: '1999-07-09' },
     { usuario: 'H.Reyes',     huella: '0213f79c165b6d4bee6bd9eab719817266af1fc9a45ed22cadfccda60f0a122d', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
@@ -28,7 +28,7 @@ const PERFIL_VADEMECUM = {
     lramos: { tipo: 'comercial', zona: 'Zona Norte' },
     ycaballero: { tipo: 'comercial', zona: 'Zona Sur' },
     jherrera: { tipo: 'equipo', zona: null },   // jefe comercial: ve todas las zonas
-    mcastro: { tipo: 'equipo', zona: null },
+    mcastro: { tipo: 'comercial', zona: 'Zona Desarrollo' },
     hreyes: { tipo: 'equipo', zona: null }
 };
 
@@ -230,7 +230,7 @@ const nombrePropio = t => String(t || '').trim().replace(/\s+/g, ' ').split(' ')
 }).join(' ');
 const normalizar = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const $ = id => document.getElementById(id);
-// Ven a todo el equipo: los jefes (Hernán Reyes, M. Castro) y la jefe comercial (Jennifer Herrera),
+// Ven a todo el equipo: los jefes (Hernán Reyes) y la jefe comercial (Jennifer Herrera),
 // que además tiene su propia agenda como vendedora
 const esJefe = () => !!(sesion && (sesion.tipo === 'jefe' || sesion.jefe));
 const esComercial = () => !!(sesion && sesion.tipo === 'comercial');
@@ -780,7 +780,9 @@ const veSolicitud = p => !esAdmin() || sesion.id === JEFE_COMERCIAL?.id || p.sol
 // Un lead ganado (con solicitud de creación) sale del Visiplan desde el mes siguiente a la solicitud
 const leadEnPlan = (p, mes) => !(p.estado === 'solicitud' && p.solicitud?.fecha && mes > mesDe(p.solicitud.fecha.slice(0, 10)))
     && !(p.estado === 'perdido' && p.perdido?.fecha && mes > mesDe(p.perdido.fecha.slice(0, 10)));   // la perdida también sale desde el mes siguiente
-const proyectos = () => visibles().filter(r => r.clase === 'proyecto');
+// Leads creados cuando el vendedor no tenía zona ("Zona por asignar"): quedan en la zona que tiene hoy
+const proyectos = () => visibles().filter(r => r.clase === 'proyecto')
+    .map(r => r.zona === ZONA_POR_ASIGNAR && comercial(r.vendedor)?.zona && comercial(r.vendedor).zona !== ZONA_POR_ASIGNAR ? { ...r, zona: comercial(r.vendedor).zona } : r);
 const proyectosDeZona = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado' && p.estado !== 'perdido');
 // Para el Visiplan: también las perdidas (salen el mes en que se perdieron, con su historia)
 const leadsDelPlan = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado');

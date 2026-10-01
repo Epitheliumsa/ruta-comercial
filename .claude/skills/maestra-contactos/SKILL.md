@@ -10,7 +10,7 @@ manda el usuario. Reglas que dio Hernán Reyes (aplican **siempre**):
 
 1. **No se suben las columnas "Nombre" y "Lista de Precios"** (en la primera maestra venían resaltadas en rojo; en las
    siguientes vienen sin resaltar y igual se quitan). El nombre del cliente en la app es "Nombre Público".
-2. **Lo que diga "Vacante Epithelium" en Comercial es de Yunelis Caballero (Zona Sur).** La zona sale del comercial
+2. **Lo que diga "Vacante Epithelium" en Comercial es de Yunelis Caballero (Zona Sur).** Maryi Tatiana Castro es **Zona Desarrollo** (desde oct 2026). La zona sale del comercial
    (`COMERCIAL_ZONA` del script); si no está ahí, de "Equipo de ventas".
 3. El equipo **"Empleados" no se sube**.
 4. **Los cambios de zona rigen desde la fecha en que se sube la maestra**: lo ya visitado queda con quien lo visitó, y

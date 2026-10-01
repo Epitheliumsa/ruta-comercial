@@ -19,10 +19,12 @@ import openpyxl
 RAIZ = Path(__file__).resolve().parent.parent
 QUITAR = {'Nombre', 'Lista de Precios'}
 NO_SUBIR_EQUIPOS = {'Empleados'}
-ZONAS = ['Clientes Especiales', 'Zona Norte', 'Zona Sur']
+ZONAS = ['Clientes Especiales', 'Zona Norte', 'Zona Sur', 'Zona Desarrollo']
 COMERCIAL_ZONA = {
     'Vacante Epithelium': 'Zona Sur',            # es de Yunelis Caballero
     'Yunelis Caballero': 'Zona Sur',
+    'Yunelis Esther Caballero': 'Zona Sur',
+    'Maryi Tatiana Castro': 'Zona Desarrollo',       # desde oct 2026 (Zona Desarrollo)
     'Lizeth Geraldine Ramos Guerrero': 'Zona Norte',
     'Jennifer Andrea Herrera': 'Clientes Especiales',
 }

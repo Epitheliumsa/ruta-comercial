@@ -58,6 +58,7 @@
 
 ## Maestra de Contactos
 - Cada vez que llegue una Maestra de Contactos usa la skill `maestra-contactos` (`herramientas/maestra_contactos.py`).
+- Zonas: Clientes Especiales (Jennifer), Zona Norte (Lizeth), Zona Sur (Yunelis) y Zona Desarrollo (Maryi Castro, desde oct 2026).
 - Siempre: sin las columnas "Nombre" y "Lista de Precios"; "Vacante Epithelium" es de Yunelis (Zona Sur); sin "Empleados";
   los cambios de zona rigen desde la fecha de la subida.
 
