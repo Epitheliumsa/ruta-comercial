@@ -31,7 +31,8 @@ function doPost(e) {
     if (!usuario) return responder_({ ok: false, error: 'Usuario o clave incorrectos' });
     if (pedido.accion === 'listar') return responder_({ ok: true, registros: listar_(usuario, pedido.desde, pedido.hasta) });
     if (pedido.accion === 'guardar') return responder_({ ok: true, guardados: guardar_(usuario, pedido.registros || []) });
-    if (pedido.accion === 'subirArchivo') return responder_({ ok: true, url: subirArchivo_(usuario, pedido) });
+    if (pedido.accion === 'subirArchivo') return responder_(Object.assign({ ok: true }, subirArchivo_(usuario, pedido)));
+    if (pedido.accion === 'firmarFormato') return responder_(Object.assign({ ok: true }, firmarFormato_(usuario, pedido)));
     return responder_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
     return responder_({ ok: false, error: String(err) });
@@ -125,22 +126,66 @@ function guardar_(usuario, registros) {
 
 // Guarda un archivo (ej: el formato de vinculación diligenciado) en una carpeta del Drive del dueño de la hoja.
 // Queda con enlace de solo lectura para abrirlo desde la app. Máximo 15 MB.
+function carpeta_(nombre) {
+  const nombreCarpeta = 'Ruta Comercial - ' + String(nombre || 'Archivos').replace(/[\\/]/g, '-');
+  const carpetas = DriveApp.getFoldersByName(nombreCarpeta);
+  return carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(nombreCarpeta);
+}
+
 function subirArchivo_(usuario, pedido) {
   const bytes = Utilities.base64Decode(String(pedido.datos || ''));
   if (!bytes.length) throw new Error('Archivo vacío');
   if (bytes.length > 15 * 1024 * 1024) throw new Error('El archivo pesa más de 15 MB');
-  const nombreCarpeta = 'Ruta Comercial - ' + String(pedido.carpeta || 'Archivos').replace(/[\\/]/g, '-');
-  const carpetas = DriveApp.getFoldersByName(nombreCarpeta);
-  const carpeta = carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(nombreCarpeta);
+  const carpeta = carpeta_(pedido.carpeta);
   const fecha = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd HH.mm');
   const nombre = fecha + ' · ' + usuario.id + ' · ' + String(pedido.nombre || 'archivo').replace(/[\\/]/g, '-');
   const archivo = carpeta.createFile(Utilities.newBlob(bytes, pedido.tipo || 'application/octet-stream', nombre));
   archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return archivo.getUrl();
+  return { url: archivo.getUrl(), id: archivo.getId() };
+}
+
+// Firma electrónica del formato de vinculación (Excel): escribe "Aprobado por ... electrónicamente" con la fecha en la casilla
+// de la firma (Gerencia: A92 y nombre D97 · Coordinador Comercial: T92 y nombre W97) de una copia en Google Sheets.
+// Con pdf = true exporta esa hoja en PDF (el que el vendedor descarga y envía a creación).
+const CASILLAS_FIRMA = { gerencia: ['A92', 'D97'], comercial: ['T92', 'W97'] };
+function firmarFormato_(usuario, pedido) {
+  if (usuario.tipo !== 'jefe') throw new Error('Solo los jefes aprueban');
+  const token = ScriptApp.getOAuthToken();
+  const carpeta = carpeta_('Formatos de creación de clientes');
+  let hojaId = pedido.hojaId;
+  if (!hojaId) {
+    const original = DriveApp.getFileById(pedido.fileId);
+    const copia = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + pedido.fileId + '/copy', {
+      method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + token },
+      payload: JSON.stringify({ name: original.getName().replace(/\.xlsx?$/i, '') + ' (aprobación)', mimeType: 'application/vnd.google-apps.spreadsheet', parents: [carpeta.getId()] })
+    });
+    hojaId = JSON.parse(copia.getContentText()).id;
+  }
+  const libro = SpreadsheetApp.openById(hojaId);
+  const h = libro.getSheetByName('VINCULACION O ACTUALIZACION 1') || libro.getSheets()[0];
+  (pedido.firmas || []).forEach(f => {
+    const c = CASILLAS_FIRMA[f.rol];
+    if (!c) return;
+    h.getRange(c[0]).setValue(f.texto).setFontColor('#0b5c56').setFontWeight('bold').setFontSize(9)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+    h.getRange(c[1]).setValue(f.nombre);
+  });
+  SpreadsheetApp.flush();
+  let pdf = '';
+  if (pedido.pdf) {
+    const url = 'https://docs.google.com/spreadsheets/d/' + hojaId + '/export?format=pdf&gid=' + h.getSheetId()
+      + '&size=letter&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenum=UNDEFINED&top_margin=0.4&bottom_margin=0.4&left_margin=0.4&right_margin=0.4';
+    const blob = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + token } }).getBlob().setName(String(pedido.nombrePdf || 'Formato aprobado') + '.pdf');
+    const archivo = carpeta.createFile(blob);
+    archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    pdf = archivo.getUrl();
+  }
+  return { hojaId: hojaId, pdf: pdf };
 }
 
 // Ejecútala una vez desde el editor (▶ Ejecutar) para que Google pida el permiso de Drive
 function probarDrive() {
+  UrlFetchApp.fetch('https://www.googleapis.com/discovery/v1/apis?name=drive', { muteHttpExceptions: true });   // permiso para convertir y exportar el formato
   const carpetas = DriveApp.getFoldersByName('Ruta Comercial - Formatos de creación de clientes');
   Logger.log(carpetas.hasNext() ? 'La carpeta ya existe' : 'Drive OK: la carpeta se crea con el primer formato');
 }

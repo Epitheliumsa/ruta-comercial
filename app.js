@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202609302222';
+const APP_VERSION = '202609302235';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -623,7 +623,8 @@ function pintarInicio() {
     const acts = actividadesMes(mesDe(hoy()), vend);
     const hechas = acts.filter(a => a.hecha).length;
     const proys = proyectos().filter(p => p.estado !== 'vinculado' && p.estado !== 'perdido' && (esJefe() || p.vendedor === sesion.id)).length;
-    $('proyectosTxt').textContent = proys ? `${proys} ${proys === 1 ? 'lead' : 'leads'} en seguimiento` : 'Contactos nuevos y su seguimiento';
+    const pdfs = proyectos().filter(p => p.vendedor === sesion.id && p.estado === 'solicitud' && p.solicitud?.pdf?.url && !p.solicitud.pdfVisto).length;
+    $('proyectosTxt').textContent = pdfs ? `${pdfs} ${pdfs === 1 ? 'formato aprobado' : 'formatos aprobados'}: descarga el PDF` : proys ? `${proys} ${proys === 1 ? 'lead' : 'leads'} en seguimiento` : 'Contactos nuevos y su seguimiento';
     const solsCreacion = porAprobarMias().length;
     $('btnCreacion').style.display = esJefe() ? '' : 'none';
     const porAmarrar = esJefe() ? leadsPorVincular().length : 0;
@@ -795,6 +796,15 @@ const firmasDe = p => ['comercial', ...(p.solicitud?.gerencia ? ['gerencia'] : [
 const firmasFaltan = p => firmasDe(p).filter(r => !p.solicitud?.aprobaciones?.[r]);
 const miFirma = () => sesion?.id === JEFE_COMERCIAL?.id ? 'comercial' : esAdmin() ? 'gerencia' : null;
 const solicitudAprobada = p => p.estado === 'solicitud' && !firmasFaltan(p).length;
+// Enlaces de Drive: id del archivo, vista previa (para revisarlo dentro de la app) y descarga directa
+const vistaDrive = url => idDrive(url) ? `https://drive.google.com/file/d/${idDrive(url)}/preview` : url;
+const bajarDrive = url => idDrive(url) ? `https://drive.google.com/uc?export=download&id=${idDrive(url)}` : url;
+const MESES_FIRMA = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+// Fecha de la firma en hora de Colombia: dd-mmm-aa hh:mm (ej: 01-oct-26 14:30)
+const fechaFirma = iso => { const v = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', day: '2-digit', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+        .formatToParts(new Date(iso)).map(x => [x.type, x.value]));
+    return `${v.day}-${MESES_FIRMA[+v.month - 1]}-${v.year} ${v.hour}:${v.minute}`; };
+const textoFirma = a => `Aprobado por ${nombreVendedor(a.por)} electrónicamente\n${fechaFirma(a.fecha)}`;
 const porAprobarMias = () => solicitudesCreacion().filter(p => firmasFaltan(p).includes(miFirma()));
 const JEFE_COMERCIAL = USUARIOS.find(u => u.jefe);
 const visitasDeProyecto = id => visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id);
@@ -878,9 +888,16 @@ function abrirProyectos(filtro) {
         // Quien creó el lead programa desde aquí su próxima visita
         if (p.vendedor === sesion.id) botones.unshift(`<button class="btn-primario btn-programar-lead" onclick="programarLead('${p.id}')">📅 Programar visita</button>`);
         return `${p.solicitud && p.estado === 'solicitud' ? `<p class="nota-sol">Solicitada el ${esc(fechaHora(p.solicitud.fecha))} por ${esc(nombreVendedor(p.solicitud.por))}${p.solicitud.clasificacion ? ` · Clasificación <b>${esc(p.solicitud.clasificacion)}</b>${p.solicitud.gerencia ? ' (gerencia)' : ''}` : ''}${p.solicitud.nota ? ': ' + esc(p.solicitud.nota) : ''}</p>
-                ${p.solicitud.formato?.url ? `<a class="btn-secundario ver-formato" href="${esc(p.solicitud.formato.url)}" target="_blank" rel="noopener">📎 Ver formato diligenciado</a>` : '<p class="nota-sol">Sin formato anexo (solicitud anterior al formato obligatorio).</p>'}
+                ${p.solicitud.pdf?.url ? `<div class="formato-final"><b>✅ Formato aprobado en PDF</b>
+                    <a class="btn-primario" href="${esc(bajarDrive(p.solicitud.pdf.url))}" target="_blank" rel="noopener">⬇ Descargar PDF</a>
+                    <a class="btn-secundario" href="${esc(p.solicitud.pdf.url)}" target="_blank" rel="noopener" onclick="return verPdf(event, this.href)">Ver</a></div>
+                    ${p.vendedor === sesion.id ? '<p class="nota-sol">Descárgalo y envíalo internamente a creación del cliente.</p>' : ''}`
+                : p.solicitud.formato?.url ? `<details class="ver-formato"${firmasFaltan(p).includes(miFirma()) ? ' open' : ''}><summary>📎 Formato diligenciado: ${esc(p.solicitud.formato.nombre || 'ver')}</summary>
+                    <iframe src="${esc(vistaDrive(p.solicitud.formato.url))}" loading="lazy" title="Formato de vinculación"></iframe>
+                    <a href="${esc(p.solicitud.formato.url)}" target="_blank" rel="noopener">Abrir en otra pestaña</a></details>`
+                : '<p class="nota-sol">Sin formato anexo (solicitud anterior al formato obligatorio).</p>'}
                 <div class="firmas">${firmasDe(p).map(r => { const a = p.solicitud.aprobaciones?.[r];
-                    return `<span class="${a ? 'ok' : ''}">${FIRMAS[r]}: ${a ? `✓ ${esc(nombreVendedor(a.por))} · ${esc(fechaHora(a.fecha))}` : 'pendiente'}</span>`; }).join('')}</div>
+                    return `<span class="${a ? 'ok' : ''}">${FIRMAS[r]}: ${a ? esc(textoFirma(a).replace('\n', ' · ')) : 'pendiente'}</span>`; }).join('')}</div>
                 ${solicitudAprobada(p) ? '<p class="nota-sol transicion">Aprobada · en creación: queda en transición hasta que llegue la Maestra nueva y se conecte con el cliente creado en Odoo.</p>' : ''}` : ''}
             ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol">Solicitud rechazada${p.rechazo.motivo ? ': ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
             ${p.estado === 'solicitud' && !esJefe() && !solicitudAprobada(p) ? '<p class="nota-sol">Lead ganada: la solicitud está esperando aprobación.</p>' : ''}
@@ -1023,10 +1040,10 @@ function solicitarCreacion(id) {
         <label for="sDir">Dirección</label><input id="sDir" required value="${esc(p.direccion)}">
         <label for="sTel">Teléfono</label><input id="sTel" type="tel" required value="${esc(p.telefono)}">
         <div class="caja-formato">
-            <p><b>Formato de vinculación de clientes (FTO-CME-002-1)</b><br>1. Descárgalo · 2. Diligéncialo con el cliente y fírmalo · 3. Súbelo aquí (Excel, PDF o foto).</p>
+            <p><b>Formato de vinculación de clientes (FTO-CME-002-1)</b><br>1. Descárgalo · 2. Diligéncialo con el cliente · 3. Súbelo aquí <b>en Excel</b>. Los jefes lo aprueban electrónicamente en el mismo formato y te llega en PDF para enviarlo a creación.</p>
             <a class="btn-secundario" href="${encodeURI(FORMATO_CREACION)}" download="FTO-CME-002-1 Formato de vinculacion clientes.xlsx">⬇ Descargar formato</a>
             <label for="sFormato">Formato diligenciado ${REQ}</label>
-            <input id="sFormato" type="file" required accept=".xlsx,.xls,.pdf,image/*">
+            <input id="sFormato" type="file" required accept=".xlsx">
         </div>
         <label for="sNota">Observaciones para la creación (opcional)</label>
         <textarea id="sNota" placeholder="Ej: condiciones acordadas"></textarea>
@@ -1043,7 +1060,7 @@ async function subirArchivo(archivo, carpeta) {
     const datos = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = mal; r.readAsDataURL(archivo); });
     const res = await llamarApi({ accion: 'subirArchivo', carpeta, nombre: archivo.name, tipo: archivo.type || 'application/octet-stream', datos }, 90000)
         .catch(e => { throw e.name === 'AbortError' ? new Error('el servidor no respondió en 90 segundos') : e; });
-    return { url: res.url, nombre: archivo.name };
+    return { url: res.url, id: res.id || idDrive(res.url), nombre: archivo.name };
 }
 
 async function enviarSolicitudCreacion(e, id) {
@@ -1052,6 +1069,7 @@ async function enviarSolicitudCreacion(e, id) {
     const archivo = $('sFormato').files[0], clasificacion = $('sClasif').value;
     if (!clasificacion) { $('sClasif').focus(); return toast('Escoge la clasificación del cliente'); }
     if (!archivo) { $('sFormato').focus(); return toast('Sube el formato de vinculación diligenciado'); }
+    if (!/\.xlsx$/i.test(archivo.name)) { $('sFormato').focus(); return toast('Sube el formato en Excel (.xlsx), el mismo que descargaste'); }
     if (archivo.size > MAX_ARCHIVO) return toast('El archivo pesa más de 15 MB. Sube una foto o PDF más liviano.');
     const p = registros[id];
     $('sEnviar').disabled = true; $('sEnviar').textContent = 'Subiendo formato…';
@@ -1101,11 +1119,25 @@ function reactivarLead(id) {
 async function aprobarCreacion(id) {
     const p = registros[id], firma = miFirma();
     if (!firma) return;
-    if (!await dialogo({ tono: 'aviso', icono: '✍️', titulo: `Aprobar la creación de ${p.nombre}`, texto: `Revisaste el formato y lo apruebas como ${FIRMAS[firma]}.\nQueda tu nombre y la fecha como firma.`, aceptar: 'Sí, aprobar', cancelar: 'No' })) return;
+    if (!await dialogo({ tono: 'aviso', icono: '✍️', titulo: `Aprobar la creación de ${p.nombre}`, texto: `Revisaste el formato y lo apruebas como ${FIRMAS[firma]}.\nEn su casilla queda "Aprobado por ${nombreVendedor(sesion.id)} electrónicamente" con la fecha.`, aceptar: 'Sí, aprobar', cancelar: 'No' })) return;
     const aprobaciones = { ...(p.solicitud.aprobaciones || {}), [firma]: { por: sesion.id, fecha: new Date().toISOString() } };
-    const nuevo = { ...p, solicitud: { ...p.solicitud, aprobaciones } };
-    guardarRegistro(nuevo);
-    toast(firmasFaltan(nuevo).length ? `${p.nombre}: aprobada por ${FIRMAS[firma]}. Falta ${firmasFaltan(nuevo).map(r => FIRMAS[r]).join(' y ')}` : `${p.nombre}: aprobada. Queda en creación hasta la Maestra nueva`);
+    let solicitud = { ...p.solicitud, aprobaciones };
+    const completa = !firmasFaltan({ ...p, solicitud }).length;
+    // Formato en Excel: la firma se escribe en su casilla y, con todas las firmas, se genera el PDF para el vendedor
+    const f = p.solicitud.formato, fileId = f?.id || idDrive(f?.url);
+    if (fileId && /\.xlsx$/i.test(f.nombre || '')) {
+        toast('Firmando el formato…');
+        try {
+            const res = await llamarApi({ accion: 'firmarFormato', fileId, hojaId: f.hoja || '', pdf: completa, nombrePdf: `Formato vinculación ${p.nombre} - aprobado`,
+                firmas: Object.entries(aprobaciones).map(([rol, a]) => ({ rol, texto: textoFirma(a), nombre: nombreVendedor(a.por) })) }, 90000);
+            solicitud = { ...solicitud, formato: { ...f, hoja: res.hojaId }, ...(res.pdf ? { pdf: { url: res.pdf, fecha: new Date().toISOString() } } : {}) };
+        } catch (err) {
+            console.error(err);
+            return toast(`No se pudo firmar el formato: ${err.name === 'AbortError' ? 'el servidor no respondió' : err.message || err}`);
+        }
+    }
+    guardarRegistro({ ...p, solicitud });
+    toast(completa ? `${p.nombre}: aprobada. ${solicitud.pdf ? 'El PDF ya le llegó al vendedor' : 'Queda en creación hasta la Maestra nueva'}` : `${p.nombre}: aprobada por ${FIRMAS[firma]}. Falta ${firmasFaltan({ ...p, solicitud }).map(r => FIRMAS[r]).join(' y ')}`);
     abrirProyectos('solicitud');
     pintarInicio();
 }
