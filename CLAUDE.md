@@ -37,6 +37,9 @@
   Programar algo que ya está en el Visiplan de ese día lo confirma (no se duplica). Un trabajo administrativo no se repite el mismo día.
 - Una visita reportada se puede corregir (incluso pasarla de Visitado a No visitado o al revés) el mismo día y hasta las
   11:59 a. m. del siguiente día hábil; se conserva la hora del primer reporte (orden real) y queda la de la corrección.
+  Esto aplica también en pruebas. Después queda bloqueada: el dueño de la visita (también el Coordinador Comercial) pide
+  la corrección y le llega al Gerente General en "Solicitudes de eliminación y corrección"; si la autoriza, hay 24 horas
+  para corregirla una sola vez.
 - Visita futura: quien la programó la elimina directo; queda la huella (tarjeta pequeña en rojo al final del día) y no cuenta en nada.
 - Acompañamiento (registro clase `acompanamiento`: vendedor = quien acompaña, solicitante = dueño de la visita): el vendedor lo pide
   desde la tarjeta a jefes y/o compañeros; quien lo recibe acepta o no y le queda la visita en su programación. Los jefes tienen

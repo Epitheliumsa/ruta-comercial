@@ -112,8 +112,11 @@ function guardar_(usuario, registros) {
           fila[4] = r.actualizado;
           fila[6] = JSON.stringify(r);
         } else if (actual && actual.estado && actual.estado !== 'pendiente' && r.estado !== actual.estado && !usuario.admin
-          && !(r.etapa === 'pruebas' || (!actual.cierreAutomatico && actual.limiteReporte && new Date().toISOString() <= actual.limiteReporte))) {
-          return; // Una visita cerrada solo se corrige hasta las 11:59 a. m. del siguiente día hábil
+          && !(!actual.cierreAutomatico && actual.limiteReporte && new Date().toISOString() <= actual.limiteReporte)
+          && !(actual.solicitudCorreccion && actual.solicitudCorreccion.estado === 'aprobada' && new Date().toISOString() <= actual.solicitudCorreccion.hasta)) {
+          // Una visita cerrada solo se corrige hasta las 11:59 a. m. del siguiente día hábil;
+          // después, solo con la corrección autorizada por el Gerente General (24 horas)
+          return;
         }
       }
       if (n) {

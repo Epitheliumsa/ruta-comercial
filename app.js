@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610012218';
+const APP_VERSION = '202610012224';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -308,8 +308,14 @@ const limiteCierre = v => Date.parse(`${diaCierre(v)}T${HORA_CIERRE}:59-05:00`);
 const puedeReportar = v => v.estado === 'pendiente' && v.fecha <= hoy() && (ETAPA_DATOS === 'pruebas' || Date.now() <= limiteCierre(v));
 // Una visita ya reportada se puede corregir el mismo día y hasta las 11:59 a. m. del siguiente día hábil
 // (no las que cerró el sistema por no reportarse a tiempo)
-const puedeCorregir = v => v.clase === 'visita' && v.estado !== 'pendiente' && !v.cierreAutomatico && v.fecha <= hoy()
-    && (sesion?.id === v.vendedor || esAdmin()) && (ETAPA_DATOS === 'pruebas' || Date.now() <= limiteCierre(v));
+// (también en pruebas). Después queda bloqueada: solo se corrige con una solicitud que autoriza el Gerente General.
+const correccionAutorizada = v => v.solicitudCorreccion?.estado === 'aprobada' && Date.now() <= Date.parse(v.solicitudCorreccion.hasta || 0);
+const enPlazoCorregir = v => v.estado !== 'pendiente' && !v.cierreAutomatico && v.fecha <= hoy() && Date.now() <= limiteCierre(v);
+const puedeCorregir = v => v.clase === 'visita' && v.estado !== 'pendiente' && (sesion?.id === v.vendedor || esAdmin())
+    && ((sesion?.id === v.vendedor && enPlazoCorregir(v)) || correccionAutorizada(v));
+// Fuera de plazo el dueño de la visita (también el Coordinador Comercial) pide la corrección
+const puedePedirCorreccion = v => v.clase === 'visita' && v.estado !== 'pendiente' && sesion?.id === v.vendedor && !puedeCorregir(v)
+    && v.solicitudCorreccion?.estado !== 'pendiente';
 const puedeGuardarReporte = v => puedeReportar(v) || puedeCorregir(v);
 const textoCierre = v => `${fechaCorta(diaCierre(v))}, ${horaBonita(HORA_CIERRE)}`;
 
@@ -646,7 +652,8 @@ function pintarInicio() {
     $('creacionTxt').textContent = solsCreacion ? `${solsCreacion} por aprobar${porAmarrar ? ` · ${porAmarrar} ya en la Maestra, por confirmar` : ''}` : porAmarrar ? `${porAmarrar} ya en la Maestra, por confirmar` : 'No hay solicitudes por aprobar';
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
-    $('solicitudesTxt').textContent = sols.length ? `${sols.length} por revisar` : 'No hay solicitudes pendientes';
+    const corrs = correccionesPendientes().length;
+    $('solicitudesTxt').textContent = sols.length + corrs ? [sols.length && `${sols.length} de eliminación`, corrs && `${corrs} de corrección`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
     const vigentes = CIRCULARES.filter(c => estadoCircular(c) === 'vigente').length;
     $('homeActTxt').textContent = `${vigentes} ${vigentes === 1 ? 'circular vigente' : 'circulares vigentes'}` + (acts.length ? ` · ${hechas} de ${acts.length} tareas del mes` : '');
     pintarEstadoSync();
@@ -1245,8 +1252,19 @@ const solicitudesPendientes = () => visibles().filter(v => v.clase === 'visita' 
 
 function abrirSolicitudes() {
     const lista = solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
+    const corr = correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
+    const estadoTxt = v => v.cierreAutomatico ? 'cerrada sin reporte' : v.estado === 'visitado' ? (v.interno ? 'realizado' : 'visitada') : (v.interno ? 'no realizado' : 'no visitada');
     abrirModal(`<div class="form-rc">
-        <h2>Solicitudes de eliminación</h2>
+        <h2>Solicitudes de eliminación y corrección</h2>
+        ${corr.length ? `<p class="grupo-titulo">✏️ Corrección de visitas ya cerradas · ${corr.length}</p>${corr.map(v => `<div class="solicitud">
+            <strong>${esc(v.contacto)}</strong>
+            <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} (${estadoTxt(v)}) · pedida el ${esc(fechaHora(v.solicitudCorreccion.fecha))}</small>
+            <p>${esc(v.solicitudCorreccion.motivo)}</p>
+            <div class="form-botones">
+                <button class="btn-secundario" onclick="resolverCorreccion('${v.id}', false)">Rechazar</button>
+                <button class="btn-primario" onclick="resolverCorreccion('${v.id}', true)">Autorizar corrección (24 h)</button>
+            </div>
+        </div>`).join('')}<p class="grupo-titulo">🗑 Eliminación de visitas</p>` : ''}
         <p class="sub">Visitas que los vendedores piden eliminar por error de programación.</p>
         ${lista.length ? lista.map(v => `<div class="solicitud">
             <strong>${esc(v.contacto)}</strong>
@@ -2530,10 +2548,15 @@ function accionesVisita(v, txtOk, txtNo) {
         const nota = v.cierreAutomatico
             ? 'Cerrada automáticamente: no se reportó a tiempo'
             : `Reportada el ${fechaHora(v.registrada)}${v.corregida ? ` · corregida el ${fechaHora(v.corregida)}` : ''}`;
-        const corregir = puedeCorregir(v) ? `<span class="corregir">Corregir hasta el ${esc(textoCierre(v))}:
+        const sc = v.solicitudCorreccion;
+        const hastaCorr = correccionAutorizada(v) ? `${fechaHora(sc.hasta)} (autorizada)` : textoCierre(v);
+        const estadoCorr = sc?.estado === 'pendiente' ? '<span class="chip np">Corrección por autorizar</span>'
+            : sc?.estado === 'rechazada' ? `<span class="chip gris">Corrección rechazada${sc.razonRechazo ? ': ' + esc(sc.razonRechazo) : ''}</span>` : '';
+        const pedir = puedePedirCorreccion(v) ? `<button class="link-mini" onclick="solicitarCorreccion('${v.id}')">✏️ Solicitar corrección</button>` : '';
+        const corregir = puedeCorregir(v) ? `<span class="corregir">Corregir hasta el ${esc(hastaCorr)}:
             <button class="link-mini" onclick="abrirRegistro('${v.id}','ok')">✏️ ${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
             <button class="link-mini" onclick="abrirRegistro('${v.id}','no')">✏️ ${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
-        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${eliminar}</div>`;
+        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${estadoCorr}${pedir}${eliminar}</div>`;
     }
     const editar = `<button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>`;
     if (v.fecha > hoy()) {
@@ -2709,6 +2732,49 @@ function accionEliminar(v, clase) {
     if (esAdmin()) return `<button type="button" class="${clase}" onclick="eliminarVisita('${v.id}')">Eliminar</button>`;
     if (v.solicitudEliminar?.estado === 'pendiente') return '<span class="chip np">Eliminación por autorizar</span>';
     return `<button type="button" class="${clase}" onclick="solicitarEliminacion('${v.id}')">Solicitar eliminación</button>`;
+}
+
+// Corrección fuera de plazo: la pide el dueño de la visita y la autoriza el Gerente General (módulo de solicitudes)
+function solicitarCorreccion(id) {
+    const v = registros[id];
+    abrirModal(`<form class="form-rc" onsubmit="enviarCorreccion(event, '${id}')">
+        <h2>Solicitar corrección</h2>
+        <p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}</p>
+        <p class="ayuda">El plazo para corregir cerró el ${esc(textoCierre(v))}. La corrección solo se hace con autorización de ${esc(ADMIN.nombre)}; si la autoriza, tienes 24 horas para corregirla.</p>
+        <label for="cMotivo">¿Qué hay que corregir? ${REQ} <small>(máximo 100 caracteres)</small></label>
+        <textarea id="cMotivo" required maxlength="100" oninput="$('cMotivoCuenta').textContent = this.value.length + ' / 100'" placeholder="Ej: la marqué como no visitada y sí la visité"></textarea>
+        <p class="ayuda cuenta-nota" id="cMotivoCuenta">0 / 100</p>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario">Enviar solicitud</button>
+        </div>
+    </form>`);
+}
+
+function enviarCorreccion(e, id) {
+    e.preventDefault();
+    const motivo = $('cMotivo').value.trim();
+    if (!motivo) { $('cMotivo').focus(); return toast('Escribe qué hay que corregir'); }
+    guardarRegistro({ ...registros[id], solicitudCorreccion: { estado: 'pendiente', motivo, por: sesion.id, fecha: new Date().toISOString() } });
+    cerrarModal();
+    toast(`Solicitud de corrección enviada a ${ADMIN.nombre}`);
+    repintarPantallaActiva();
+}
+
+const correccionesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.solicitudCorreccion?.estado === 'pendiente');
+
+async function resolverCorreccion(id, autorizar) {
+    if (!esAdmin()) return;
+    const v = registros[id];
+    const razon = autorizar ? '' : await dialogo({ titulo: 'Rechazar la corrección', texto: `${v.contacto} · ${fechaCorta(v.fecha)}\n¿Por qué se rechaza? (obligatorio, máximo 50 caracteres)`,
+        campo: 'Ej: el reporte está bien', max: 50, obligatorio: true, aceptar: 'Rechazar' });
+    if (razon === null) return;
+    const ahora = new Date();
+    guardarRegistro({ ...v, solicitudCorreccion: { ...v.solicitudCorreccion, estado: autorizar ? 'aprobada' : 'rechazada', razonRechazo: (razon || '').trim(),
+        resueltaPor: sesion.id, resuelta: ahora.toISOString(), ...(autorizar ? { hasta: new Date(ahora.getTime() + 24 * 3600 * 1000).toISOString() } : {}) } });
+    toast(autorizar ? `Corrección autorizada: ${primerNombre(v.vendedor)} tiene 24 horas para corregirla` : 'Corrección rechazada');
+    abrirSolicitudes();
+    pintarInicio();
 }
 
 function solicitarEliminacion(id) {
@@ -3644,8 +3710,13 @@ const LIMPIAR_VISITADO = { gestion: '', atendio: '', productos: '', muestras: ''
     pedidos: [], productosPresentados: {}, productosPedidos: {}, muestrasDetalle: {} };
 const LIMPIAR_NO_VISITADO = { motivo: '' };
 // Primer reporte: queda la hora en que se cerró (da el orden real). Corrección: se conserva esa hora y queda la de la corrección
-const marcaReporte = antes => antes.estado !== 'pendiente' && antes.registrada && !antes.cierreAutomatico
-    ? { registrada: antes.registrada, corregida: new Date().toISOString() } : { registrada: new Date().toISOString() };
+const marcaReporte = antes => ({
+    ...(antes.estado !== 'pendiente' && antes.registrada && !antes.cierreAutomatico
+        ? { registrada: antes.registrada, corregida: new Date().toISOString() } : { registrada: new Date().toISOString() }),
+    // La corrección autorizada se usa una sola vez
+    ...(correccionAutorizada(antes) ? { solicitudCorreccion: { ...antes.solicitudCorreccion, estado: 'usada', usada: new Date().toISOString(), usadaPor: sesion.id } } : {}),
+    ...(antes.cierreAutomatico && correccionAutorizada(antes) ? { cierreAutomatico: false } : {})
+});
 
 // Revisa que el plazo siga abierto al momento de guardar
 function plazoAbierto(id) {
