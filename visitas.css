@@ -1619,3 +1619,13 @@ details.ver-formato a { font-size: 12px; }
 .cumple-card { border-left-color: #a855f7; background: linear-gradient(135deg, #ffffff 65%, #f3e8ff 100%); }
 .cumple-card h3 { color: #7e22ce; }
 .chip.cumple { background: #f3e8ff; color: #7e22ce; }
+/* Firma aprobada: sello "Firmado electrónicamente" */
+.firmas span.sello { border-radius: 8px; border: 2px solid #0b7a4b; background: #eaf6ef; color: #0b5c56; display: inline-flex; flex-direction: column; padding: 4px 10px; }
+.firmas span.sello b { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #0b7a4b; }
+/* Cambiar el orden del día (hasta las 8:00 a. m.) */
+.mover-orden { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; padding: 6px 8px; border-radius: 10px; background: #eef4ff; border: 1px dashed #9db8f0; }
+.mover-orden span { font-size: 13px; color: #1d4ed8; margin-right: auto; }
+.mover-orden button { border: 1px solid #1d4ed8; background: #fff; color: #1d4ed8; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; cursor: pointer; min-height: 34px; }
+.mover-orden button:hover:not(:disabled) { background: #1d4ed8; color: #fff; }
+.mover-orden button:disabled { opacity: .35; cursor: default; }
+.aviso-orden { margin: 0 0 10px; padding: 9px 12px; border-radius: 10px; background: #eef4ff; color: #1e3a8a; font-size: 13px; }

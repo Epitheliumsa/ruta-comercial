@@ -163,11 +163,24 @@ function firmarFormato_(usuario, pedido) {
   }
   const libro = SpreadsheetApp.openById(hojaId);
   const h = libro.getSheetByName('VINCULACION O ACTUALIZACION 1') || libro.getSheets()[0];
+  // Orden de las firmas: primero el Coordinador Comercial y después la Gerencia
+  const roles = (pedido.firmas || []).map(f => f.rol);
+  if (roles.indexOf('gerencia') >= 0 && roles.indexOf('comercial') < 0) throw new Error('Primero debe firmar el Coordinador Comercial');
   (pedido.firmas || []).forEach(f => {
     const c = CASILLAS_FIRMA[f.rol];
     if (!c) return;
-    h.getRange(c[0]).setValue(f.texto).setFontColor('#0b5c56').setFontWeight('bold').setFontSize(9)
-      .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+    // Sello "FIRMADO ELECTRÓNICAMENTE": recuadro verde con borde grueso en toda la casilla de la firma
+    const casilla = h.getRange(c[0]).getMergedRanges()[0] || h.getRange(c[0]);
+    const titulo = '✔ FIRMADO ELECTRÓNICAMENTE';
+    const texto = titulo + '\n' + f.texto;
+    const rico = SpreadsheetApp.newRichTextValue().setText(texto)
+      .setTextStyle(0, texto.length, SpreadsheetApp.newTextStyle().setForegroundColor('#0b5c56').setBold(true).setFontSize(9).build())
+      .setTextStyle(0, titulo.length, SpreadsheetApp.newTextStyle().setForegroundColor('#0b7a4b').setBold(true).setFontSize(12).build())
+      .build();
+    h.getRange(c[0]).setRichTextValue(rico);
+    casilla.setBackground('#eaf6ef')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#0b7a4b', SpreadsheetApp.BorderStyle.SOLID_THICK);
     h.getRange(c[1]).setValue(f.nombre);
   });
   SpreadsheetApp.flush();

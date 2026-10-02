@@ -798,7 +798,7 @@ const maestraForm = nombre => buscarMaestra(comercial(agenda.vendedor)?.zona, no
 const buscarProyecto = (zona, nombre) => proyectosDeZona(zona).find(p => normalizar(p.nombre) === normalizar(nombre));
 const solicitudesCreacion = () => proyectos().filter(p => p.estado === 'solicitud' && veSolicitud(p));
 // Aprobación del formato (como las firmas del FTO-CME-002-1): Coordinador Comercial siempre; Gerencia en 10-20-30-60-61-70-71
-const FIRMAS = { comercial: 'Coordinador Comercial', gerencia: 'Gerencia' };
+const FIRMAS = { comercial: 'Coordinador Comercial', gerencia: 'Gerente General' };
 const firmasDe = p => ['comercial', ...(p.solicitud?.gerencia ? ['gerencia'] : [])];
 const firmasFaltan = p => firmasDe(p).filter(r => !p.solicitud?.aprobaciones?.[r]);
 const miFirma = () => sesion?.id === JEFE_COMERCIAL?.id ? 'comercial' : esAdmin() ? 'gerencia' : null;
@@ -812,7 +812,9 @@ const fechaFirma = iso => { const v = Object.fromEntries(new Intl.DateTimeFormat
         .formatToParts(new Date(iso)).map(x => [x.type, x.value]));
     return `${v.day}-${MESES_FIRMA[+v.month - 1]}-${v.year} ${v.hour}:${v.minute}`; };
 const textoFirma = a => `Aprobado por ${nombreVendedor(a.por)} electrónicamente\n${fechaFirma(a.fecha)}`;
-const porAprobarMias = () => solicitudesCreacion().filter(p => firmasFaltan(p).includes(miFirma()));
+// Las firmas van en orden: primero el Coordinador Comercial y después la Gerencia
+const siguienteFirma = p => firmasFaltan(p)[0];
+const porAprobarMias = () => solicitudesCreacion().filter(p => siguienteFirma(p) === miFirma());
 const JEFE_COMERCIAL = USUARIOS.find(u => u.jefe);
 const visitasDeProyecto = id => visibles().filter(v => v.clase === 'visita' && v.contactoProyecto === id);
 
@@ -902,7 +904,8 @@ function abrirProyectos(filtro) {
         if (p.estado === 'proyecto' && suyo) botones.push(`<button class="btn-secundario btn-peligro" onclick="perderLead('${p.id}')">✕ Perdida</button>`);
         if (p.estado === 'proyecto') botones.push(`<button class="btn-secundario" onclick="solicitarCreacion('${p.id}')">Solicitud de creación</button>`);
         // Solicitud: quien firma revisa el formato y lo aprueba o rechaza
-        const firma = miFirma(), meToca = p.estado === 'solicitud' && firmasFaltan(p).includes(firma);
+        const firma = miFirma(), meToca = p.estado === 'solicitud' && siguienteFirma(p) === firma;
+        const esperaOtra = p.estado === 'solicitud' && firma && !meToca && firmasFaltan(p).includes(firma);
         if (meToca) botones.push(`<button class="btn-secundario btn-peligro" onclick="rechazarCreacion('${p.id}')">✕ Rechazar</button>`,
             `<button class="btn-primario" onclick="aprobarCreacion('${p.id}')">✓ Aprobar</button>`);
         // Aprobada (en transición): cuando llega la Maestra nueva, posibles clientes creados en Odoo para conectar con un toque
@@ -914,12 +917,13 @@ function abrirProyectos(filtro) {
                     <a class="btn-primario" href="${esc(bajarDrive(p.solicitud.pdf.url))}" target="_blank" rel="noopener">⬇ Descargar PDF</a>
                     <a class="btn-secundario" href="${esc(p.solicitud.pdf.url)}" target="_blank" rel="noopener" onclick="return verPdf(event, this.href)">Ver</a></div>
                     ${p.vendedor === sesion.id ? '<p class="nota-sol">Descárgalo y envíalo internamente a creación del cliente.</p>' : ''}`
-                : p.solicitud.formato?.url ? `<details class="ver-formato"${firmasFaltan(p).includes(miFirma()) ? ' open' : ''}><summary>📎 Formato diligenciado: ${esc(p.solicitud.formato.nombre || 'ver')}</summary>
+                : p.solicitud.formato?.url ? `<details class="ver-formato"${siguienteFirma(p) === miFirma() ? ' open' : ''}><summary>📎 Formato diligenciado: ${esc(p.solicitud.formato.nombre || 'ver')}</summary>
                     <iframe src="${esc(vistaDrive(p.solicitud.formato.url))}" loading="lazy" title="Formato de vinculación"></iframe>
                     <a href="${esc(p.solicitud.formato.url)}" target="_blank" rel="noopener">Abrir en otra pestaña</a></details>`
                 : '<p class="nota-sol">Sin formato anexo (solicitud anterior al formato obligatorio).</p>'}
                 <div class="firmas">${firmasDe(p).map(r => { const a = p.solicitud.aprobaciones?.[r];
-                    return `<span class="${a ? 'ok' : ''}">${FIRMAS[r]}: ${a ? esc(textoFirma(a).replace('\n', ' · ')) : 'pendiente'}</span>`; }).join('')}</div>
+                    return `<span class="${a ? 'ok sello' : ''}">${a ? '<b>✔ Firmado electrónicamente</b>' : ''}${FIRMAS[r]}: ${a ? esc(textoFirma(a).replace('\n', ' · ')) : siguienteFirma(p) === r ? 'pendiente' : 'después del Coordinador Comercial'}</span>`; }).join('')}</div>
+                ${esperaOtra ? '<p class="nota-sol">Primero debe firmar el Coordinador Comercial; después te llega para tu firma.</p>' : ''}
                 ${solicitudAprobada(p) ? '<p class="nota-sol transicion">Aprobada · en creación: queda en transición hasta que llegue la Maestra nueva y se conecte con el cliente creado en Odoo.</p>' : ''}` : ''}
             ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol rechazo">Solicitud rechazada${p.rechazo.por ? ` por ${esc(nombreVendedor(p.rechazo.por))}${USUARIOS.find(u => u.id === p.rechazo.por)?.cargo ? ' (' + esc(USUARIOS.find(u => u.id === p.rechazo.por).cargo) + ')' : ''}` : ''}${p.rechazo.fecha ? ' el ' + esc(fechaHora(p.rechazo.fecha)) : ''}${p.rechazo.motivo ? '<br><b>Causa:</b> ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
             ${p.estado === 'solicitud' && !esJefe() && !solicitudAprobada(p) ? '<p class="nota-sol">Lead ganada: la solicitud está esperando aprobación.</p>' : ''}
@@ -1130,7 +1134,7 @@ async function confirmarVinculo(id, zona, nombre) {
 // Lead perdida: deja de salir en Leads activos, Maestra y Programar; en el Visiplan sale hasta terminar el mes
 async function perderLead(id) {
     const p = registros[id];
-    const motivo = await dialogo({ tono: 'aviso', icono: '✕', titulo: `Marcar ${p.nombre} como perdida`, texto: '¿Por qué se perdió? (opcional)', campo: 'Ej: no está interesado, compra a la competencia', aceptar: 'Marcar perdida' });
+    const motivo = await dialogo({ tono: 'aviso', icono: '✕', titulo: `Marcar ${p.nombre} como perdida`, texto: '¿Por qué se perdió? (obligatorio, máximo 50 caracteres)', campo: 'Ej: no está interesado, compra a la competencia', max: 50, obligatorio: true, aceptar: 'Marcar perdida' });
     if (motivo === null) return;
     guardarRegistro({ ...p, estado: 'perdido', perdido: { fecha: new Date().toISOString(), por: sesion.id, motivo: motivo.trim() } });
     toast(`${p.nombre}: Lead perdida`);
@@ -1148,6 +1152,7 @@ function reactivarLead(id) {
 async function aprobarCreacion(id) {
     const p = registros[id], firma = miFirma();
     if (!firma) return;
+    if (siguienteFirma(p) !== firma) return toast('Primero debe firmar el Coordinador Comercial');
     if (!await dialogo({ tono: 'aviso', icono: '✍️', titulo: `Aprobar la creación de ${p.nombre}`, texto: `Revisaste el formato y lo apruebas como ${FIRMAS[firma]}.\nEn su casilla queda "Aprobado por ${nombreVendedor(sesion.id)} electrónicamente" con la fecha.`, aceptar: 'Sí, aprobar', cancelar: 'No' })) return;
     const aprobaciones = { ...(p.solicitud.aprobaciones || {}), [firma]: { por: sesion.id, fecha: new Date().toISOString() } };
     let solicitud = { ...p.solicitud, aprobaciones };
@@ -1589,7 +1594,7 @@ function filtrarComposicion(v) {
 // editar hasta el 2.º día hábil del mes. En el día, cada X aparece en el Plan de Trabajo para confirmarla:
 // al confirmarla se programa la visita (con lo que se va a hacer). Si no se confirma ese día, queda cerrada.
 const visiplan = { mes: sumarMes(mesDe(hoy()), 0), vendedores: null, busca: '', sel: { t: [], e: [], f: [] }, periodo: 'mes', dia: hoy() };
-const INTERNO_ETQ = 'Trabajo interno';
+const INTERNO_ETQ = 'Trabajo Administrativo';
 const NOMBRES_FILTRO_PLAN = { plan: 'Planeados', noplan: 'No planeados', real: 'Con visita real', cump: 'Cumplidos en el día planeado', visit: 'Planeados y visitados', lead: 'Leads' };
 let esperaPlan = null;
 
@@ -1788,7 +1793,7 @@ function pintarVisiplan() {
     const verInternos = (!selE.length || selE.includes(INTERNO_ETQ)) && (!visiplan.sel.f.length || visiplan.sel.f.includes('actividad')) && !q;
     const filasInternas = !verInternos ? '' : vista.map(ven => TRABAJO_INTERNO.map((t, i) => {
         const c = { n: t, v: ven.id }, sg = seg[ven.id];
-        return `<tr class="vp-int${i === TRABAJO_INTERNO.length - 1 ? ' vp-int-fin' : ''}"><td class="vp-et">${todos ? `<b class="vp-vend">${esc(nombreVendedor(ven.id))}</b>` : ''}Trabajo interno</td><th class="vp-cli" scope="row">${esc(t)}</th>`
+        return `<tr class="vp-int${i === TRABAJO_INTERNO.length - 1 ? ' vp-int-fin' : ''}"><td class="vp-et">${todos ? `<b class="vp-vend">${esc(nombreVendedor(ven.id))}</b>` : ''}Trabajo Administrativo</td><th class="vp-cli" scope="row">${esc(t)}</th>`
             + celdas(c, sg.internos.marcas[t] || [], sg.internos.reales[t] || vacio, vacio)
             + `<td class="vp-n plan"></td><td class="vp-n real"></td><td class="vp-n"></td><td class="vp-n"></td></tr>`;
     }).join('')).join('');
@@ -1829,7 +1834,7 @@ function actualizarTotalesPlan() {
             if (plan) k.o++;
             if (real) k.r++;
             if (plan && real) k.c++;
-            if (interna) return;   // el trabajo interno no suma en los totales de clientes
+            if (interna) return;   // el trabajo administrativo no suma en los totales de clientes
             const dias = lead ? leadDia : porDia;   // los leads van por aparte
             const pd = dias[x.dataset.d] = dias[x.dataset.d] || { o: 0, r: 0, c: 0 };
             if (plan) pd.o++;
@@ -2293,9 +2298,11 @@ function pintarAgenda() {
     const vistas = lista.filter(pasa).filter(pasaBusca).sort((a, b) => vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || clave(a) - clave(b) || ordenCita(a, b));
     const mover = varios ? null : { abierta: Date.now() < limiteProgramacion(f), puede: sesion.id === v || esAdmin(), total: programadas.length };
     const tarjetas = vistas.map(x => tarjetaVisita(x, ordenes[x.id], mover, varios)).join('');
+    const avisoOrden = mover && mover.abierta && mover.puede && programadas.length > 1 && agenda.orden === 'prog'
+        ? `<p class="aviso-orden">🕗 Hasta las ${HORA_LIMITE} a. m. puedes cambiar el orden de tus visitas con <b>▲ Subir</b> y <b>▼ Bajar</b>. Después queda fijo.</p>` : '';
     const filtrando = agenda.filtro;
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
-    cont.innerHTML = (filtrando ? '' : tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
+    cont.innerHTML = (filtrando ? '' : tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso + avisoOrden
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
         + (filtrando ? '' : bloqueCerradas);
 }
@@ -2357,7 +2364,8 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     let objetivos = v.tipoVisita
         ? `<p class="objetivos"><b>${esc(nombreTipo(v))}</b>${(v.objetivos || []).map(o => `<span${marcaObj(o)}>${cumplidos && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}${textoSubs(v, o)}</span>`).join('')}${(cumplidos || []).filter(o => !(v.objetivos || []).includes(o)).map(o => `<span class="cumplido extra" title="Cumplido sin haberlo programado">✓ ${esc(o)}${textoSubs(v, o)}</span>`).join('')}</p>${cumplidos && v.objetivos?.length ? `<p class="obj-resumen"><b>Objetivos cumplidos:</b> ${cumplidosProgramados(v).length} de ${v.objetivos.length}</p>` : ''}` : '';
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
-    const marcas = v.interno ? `<span class="chip gris">Trabajo interno</span>${noProgTxt}`
+    const horario = v.diaCompleto === false && v.horaInicio ? `${horaBonita(v.horaInicio)} a ${horaBonita(v.horaFin)}` : 'Todo el día';
+    const marcas = v.interno ? `<span class="chip gris">Trabajo Administrativo</span><span class="chip azul">🕗 ${esc(horario)}</span>${noProgTxt}`
         : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
@@ -2371,7 +2379,8 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     }
     const reprog = !v.interno && v.estado === 'pendiente' && esReprogramada(v) ? ' reprog' : '';
     return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${v.esProyecto && !v.interno ? (v.estado === 'visitado' ? ' lead lead-ok' : ' lead lead-no') : ''}${reprog}">
-        <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${insigniasOrden(v, ord || {}, mover)}${v.interno ? `<span class="cita-fija">${v.diaCompleto === false && v.horaInicio ? `${esc(horaBonita(v.horaInicio))} a ${esc(horaBonita(v.horaFin))}` : 'Todo el día'}</span>` : ''}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
+        <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
+        ${botonesOrden(v, ord || {}, mover)}
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
         ${objetivos}
@@ -2437,9 +2446,16 @@ function partesReporte(v, conObjetivos) {
 }
 
 // Insignias de orden: Prog (azul, lo pone el vendedor; con flechas mientras la programación está abierta) y Real (verde)
+// Hasta las 8:00 a. m. el vendedor cambia el orden de su día con los botones Subir / Bajar de cada tarjeta
+const puedeMover = (v, ord, mover) => !!(mover && mover.abierta && mover.puede && ord?.prog && v.estado === 'pendiente' && mover.total > 1);
+function botonesOrden(v, ord, mover) {
+    if (!puedeMover(v, ord, mover)) return '';
+    return `<div class="mover-orden"><span>Orden de visita <b>${ord.prog}</b> de ${mover.total}</span>
+        <button type="button" onclick="moverOrden('${v.id}', -1)" ${ord.prog === 1 ? 'disabled' : ''}>▲ Subir</button>
+        <button type="button" onclick="moverOrden('${v.id}', 1)" ${ord.prog === mover.total ? 'disabled' : ''}>▼ Bajar</button></div>`;
+}
 function insigniasOrden(v, ord, mover) {
-    const flechas = mover && mover.abierta && mover.puede && ord.prog && v.estado === 'pendiente'
-        ? `<button class="ord-mover" onclick="moverOrden('${v.id}', -1)" ${ord.prog === 1 ? 'disabled' : ''} aria-label="Subir en el orden">▲</button><button class="ord-mover" onclick="moverOrden('${v.id}', 1)" ${ord.prog === mover.total ? 'disabled' : ''} aria-label="Bajar en el orden">▼</button>` : '';
+    const flechas = '';
     const abierta = mover && mover.abierta;
     return `<span class="ordenes"><span class="ord prog${abierta ? ' abierta' : ''}" title="${ord.prog ? 'Orden programado' + (abierta ? ' (se puede cambiar hasta las 8:00 a. m.)' : '') : 'Fuera de horario: sin orden programado'}">${ord.prog || '–'}${flechas}</span>`
         + (ord.real ? `<span class="ord real" title="Orden en que se cerró">${ord.real}</span>` : '') + '</span>';
@@ -2565,7 +2581,7 @@ async function abrirProgramar(id, contactoPlan) {
         <select id="fTipo" required onchange="limpiarPlanVisita(true)">
             <option value="">Elige una opción</option>
             <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
-            <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
+            <optgroup label="Trabajo Administrativo">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
             <optgroup label="Contacto nuevo"><option value="nuevo" ${v?.esProyecto ? 'selected' : ''}>${LEAD}</option></optgroup>
             <optgroup label="Novedades">${NOVEDADES_FORM.map(opcion).join('')}</optgroup>
         </select>
@@ -2619,7 +2635,7 @@ async function abrirProgramar(id, contactoPlan) {
             <div class="checks" id="fObjetivos"></div>
         </div>
         <label for="fObjetivo" id="lblNotas">¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small></label>
-        <textarea id="fObjetivo" maxlength="100" oninput="$('fObjetivoCuenta').textContent = this.value.length + ' / 100'" placeholder="Ej: llevar lista de precios nueva">${esc(v?.clase === 'novedad' ? v.nota : v?.objetivo)}</textarea>
+        <textarea id="fObjetivo" maxlength="100" oninput="$('fObjetivoCuenta').textContent = this.value.length + ' / ' + this.maxLength" placeholder="Ej: llevar lista de precios nueva">${esc(v?.clase === 'novedad' ? v.nota : v?.objetivo)}</textarea>
         <p class="ayuda cuenta-nota" id="fObjetivoCuenta">0 / 100</p>
         <p class="aviso-hora" id="fAviso" hidden></p>
         <div class="form-botones">
@@ -2707,10 +2723,11 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     const uc = cumple && USUARIOS.find(x => x.id === agenda.vendedor);
     if (uc?.cumple && $('fFecha').value && !esCumple(uc.id, $('fFecha').value)) $('fFecha').value = $('fFecha').value.slice(0, 4) + uc.cumple.slice(4);
     $('lblNotas').innerHTML = DETALLE_OBLIGATORIO[tipo] ? `Detalle ${REQ} <small>(${DETALLE_OBLIGATORIO[tipo]})</small>` : novedad ? 'Detalle <small>(opcional)</small>' : `¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small>`;
-    $('fObjetivoCuenta').hidden = novedad;
-    if (tipo === 'Incapacidad') $('fObjetivo').placeholder = 'Ej: incapacidad por EPS, gripa, cirugía';
-    $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / 100';
-    $('fObjetivo').placeholder = novedad ? 'Ej: incapacidad por EPS, cita de control' : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
+    $('fObjetivoCuenta').hidden = novedad && !DETALLE_OBLIGATORIO[tipo];
+    $('fObjetivo').maxLength = DETALLE_MAX[tipo] || 100;
+    if ($('fObjetivo').value.length > $('fObjetivo').maxLength) $('fObjetivo').value = $('fObjetivo').value.slice(0, $('fObjetivo').maxLength);
+    $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / ' + $('fObjetivo').maxLength;
+    $('fObjetivo').placeholder = novedad ? ({ Incapacidad: 'Ej: incapacidad por EPS, gripa, cirugía', Vacaciones: 'Ej: vacaciones de fin de año', 'Cita médica': 'Ej: control odontológico', Permiso: 'Ej: diligencia personal' }[tipo] || 'Ej: cita de control') : interno ? 'Ej: cotizaciones pendientes, informe de cartera' : 'Ej: llevar lista de precios nueva';
     pintarTipoCliente(true);
     $('lblObjetivos').innerHTML = `${interno ? 'Objetivos del trabajo' : 'Objetivos de la visita'} <small>(puedes escoger varios)</small>`;
     pintarObjetivos(marcados, subsMarcados);
@@ -3053,7 +3070,10 @@ async function guardarProgramada(e, id) {
 }
 
 // Novedades con detalle obligatorio (y qué se pide)
-const DETALLE_OBLIGATORIO = { 'Permiso': 'motivo del permiso', 'Incapacidad': 'razón de la incapacidad' };
+const DETALLE_OBLIGATORIO = { 'Permiso': 'motivo del permiso', 'Incapacidad': 'razón de la incapacidad',
+    'Vacaciones': 'máximo 50 caracteres', 'Cita médica': 'motivo de la cita, máximo 50 caracteres' };
+// Máximo de caracteres del detalle (lo demás: 100)
+const DETALLE_MAX = { 'Vacaciones': 50, 'Cita médica': 50 };
 function guardarNovedad(id, tipo) {
     const desde = $('fFecha').value;
     const porHoras = NOVEDAD_HORAS.includes(tipo) && !$('fDiaCompleto').checked;
@@ -3858,8 +3878,8 @@ function moverMesPanel(n) {
 const PARTES_ANILLO = [
     { f: 'ok', t: 'Visitadas', c: '#16a34a' }, { f: 'p', t: 'Pendientes', c: '#d97706' },
     { f: 'no', t: 'No visitadas', c: '#dc2626' }, { f: 'rep', t: 'Reprogramadas', c: '#7c3aed' },
-    { f: 'repNo', t: 'Reprogramadas no visitadas', c: '#9f1239' }, { f: 'int', t: 'Trabajo interno', c: '#94a3b8' },
-    { f: 'intNo', t: 'Trabajo interno no realizado', c: '#475569' },
+    { f: 'repNo', t: 'Reprogramadas no visitadas', c: '#9f1239' }, { f: 'int', t: 'Trabajo Administrativo', c: '#94a3b8' },
+    { f: 'intNo', t: 'Trabajo Administrativo no realizado', c: '#475569' },
     { f: 'lead', t: 'Lead visitado', c: '#0891b2' }, { f: 'leadNo', t: 'Lead no visitado', c: '#7dd3e8' }
 ];
 function claseAnillo(x) {
@@ -3921,7 +3941,7 @@ function iniciarFiltrosPanel() {
     sel.innerHTML = '<option value="">Todos los vendedores</option>' + COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
     $('panTipo').innerHTML = '<option value="">Todos los tipos</option>'
         + TIPOS_REPORTE().map(t => `<option>${esc(t)}</option>`).join('')
-        + '<option value="__interno">Trabajo interno</option>';
+        + '<option value="__interno">Trabajo Administrativo</option>';
 }
 
 function filtrarPanel() {
@@ -3999,7 +4019,7 @@ function pintarPanel() {
         const cumpl = v.estado === 'visitado' && v.objetivos?.length ? ` · ${cumplidosProgramados(v).length}/${v.objetivos.length} objetivos` : '';
         return `<button class="fila-det" onclick="verDetalleVisita('${v.id}')">
             <span class="fd-fecha">${esc(fechaCorta(v.fecha))}${v.hora ? `<small>${esc(horaBonita(v.hora))}</small>` : ''}</span>
-            <span class="fd-cuerpo"><b>${esc(v.contacto)}</b><small>${esc(nombreVendedor(v.vendedor))} · ${esc(v.interno ? 'Trabajo interno' : nombreTipo(v))}${cumpl}${esProgramada(v) ? '' : ' · No programada'}${v.esProyecto ? ' · Lead' : ''}</small></span>
+            <span class="fd-cuerpo"><b>${esc(v.contacto)}</b><small>${esc(nombreVendedor(v.vendedor))} · ${esc(v.interno ? 'Trabajo Administrativo' : nombreTipo(v))}${cumpl}${esProgramada(v) ? '' : ' · No programada'}${v.esProyecto ? ' · Lead' : ''}</small></span>
             ${est}
         </button>`;
     }).join('') : '<p class="no-results" style="padding:10px">No hay visitas con estos filtros.</p>';
@@ -4082,10 +4102,10 @@ function barrasHorizontales(contenedor, filas, anchoEtiqueta = 150) {
 }
 
 function pintarGraficaTipos(vis) {
-    const filas = [...TIPOS_REPORTE(), 'Trabajo interno'].map(t => {
-        const lista = vis.filter(v => t === 'Trabajo interno' ? v.interno : tiposDe(v).includes(t));
+    const filas = [...TIPOS_REPORTE(), 'Trabajo Administrativo'].map(t => {
+        const lista = vis.filter(v => t === 'Trabajo Administrativo' ? v.interno : tiposDe(v).includes(t));
         const ok = lista.filter(v => v.estado === 'visitado').length;
-        return { nombre: t, total: lista.length, tip: `${t}: ${lista.length} programadas · ${ok} ${t === 'Trabajo interno' ? 'realizadas' : 'visitadas'}` };
+        return { nombre: t, total: lista.length, tip: `${t}: ${lista.length} programadas · ${ok} ${t === 'Trabajo Administrativo' ? 'realizadas' : 'visitadas'}` };
     }).filter(f => f.total > 0);
     $('grafTipos').innerHTML = barrasHorizontales('grafTipos', filas, 150);
 }
@@ -4126,7 +4146,7 @@ function verDetalleVisita(id) {
         <h2>${esc(v.contacto)}</h2>
         <p class="sub">${esc(nombreVendedor(v.vendedor))} · ${esc(mayuscula(fechaLarga(v.fecha)))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>
         <div class="marcas"><span class="chip ${v.estado === 'visitado' ? 'ok' : v.estado === 'no_visitado' ? 'no' : 'p'}">${estado}</span>
-            ${v.interno ? '<span class="chip gris">Trabajo interno</span>' : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>`}
+            ${v.interno ? '<span class="chip gris">Trabajo Administrativo</span>' : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>`}
             ${esProgramada(v) ? '' : '<span class="chip np">No programada</span>'}${v.esProyecto ? '<span class="chip proy">Lead</span>' : ''}</div>
         ${fila('Contacto', [v.tipoContacto, v.ciudad].filter(Boolean).join(' · '))}
         ${v.tipoVisita && v.objetivos?.length ? `<strong>${esc(nombreTipo(v))} · objetivos</strong><p class="objetivos">${(v.objetivos || []).map(o => `<span class="${v.estado === 'visitado' ? (cumplidos.includes(o) ? 'cumplido' : 'no-cumplido') : ''}">${v.estado === 'visitado' && cumplidos.includes(o) ? '✓ ' : ''}${esc(o)}</span>`).join('')}</p>` : ''}
@@ -4253,7 +4273,7 @@ function armarLibro(mes, vend, solo) {
         { t: 'Visitadas', w: 12 }, { t: 'No visitadas', w: 13 }, { t: 'Pendientes', w: 12 }, { t: 'Cumplimiento', w: 14, f: '0%' },
         { t: 'Presenciales', w: 13 }, { t: 'Virtuales', w: 11 }, { t: 'Pedidos', w: 10 }, { t: 'Valor pedidos', w: 16, f: '"$" #,##0' },
         { t: 'Lead visitado', w: 13 }, { t: 'Lead no visitado', w: 15 },
-        { t: 'Trabajo interno', w: 15 }, { t: 'Actividades', w: 12 }, { t: 'Act. realizadas', w: 15 }
+        { t: 'Trabajo Administrativo', w: 15 }, { t: 'Actividades', w: 12 }, { t: 'Act. realizadas', w: 15 }
     ];
     tabla(r, 'TablaResumen', colsR, vendedores.map(v => {
         const lv = vis.filter(x => x.vendedor === v.id);
@@ -4426,7 +4446,7 @@ function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Can
             if (!b) return;
             const ok = b.dataset.r === '1';
             const valor = campo ? $('dialogoCampo').value : null;
-            if (ok && obligatorio && !valor.trim()) { toast('Escribe la causa: es obligatoria'); $('dialogoCampo').focus(); return; }
+            if (ok && obligatorio && !valor.trim()) { toast('Escribe la causa: es obligatoria (máximo ' + (max || 100) + ' caracteres)'); $('dialogoCampo').focus(); return; }
             d.className = 'dialogo';
             d.innerHTML = '';
             resolve(campo ? (ok ? valor : null) : ok);
