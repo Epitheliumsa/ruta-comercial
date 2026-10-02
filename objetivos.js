@@ -95,6 +95,12 @@ window.MATRIZ_OBJETIVOS = {
    "Reunión Ventas",
    "Revisión Correos",
    "Trámites y Reclamos"
+  ],
+  "Mercadeo": [
+   "Contacto Proveedores",
+   "Desarrollo Actividades Comerciales",
+   "Investigación de Mercado",
+   "Proyectos"
   ]
  },
  "subcategorias": {

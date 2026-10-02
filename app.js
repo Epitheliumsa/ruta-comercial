@@ -166,7 +166,7 @@ function cerrarPdf() {
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
 // antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
 const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Visita personalizada': 'Otros', 'Mapa del Cliente - Ampliación Portafolio': 'Mapa del Cliente', 'Seguimiento': 'Seguimientos' };
-const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto), ...((v.objetivos || []).includes(PERSONALIZADA) ? [PERSONALIZADA] : [])];
+const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto), ...((v.objetivos || []).includes(PERSONALIZADA) || v.contacto === MERCADEO ? [PERSONALIZADA] : [])];
 const programadosVigentes = v => {
     const base = objetivosCierre(v);
     return (v.objetivos || []).map(o => NOMBRES_VIEJOS[o] || o).filter(o => base.includes(o));
@@ -175,7 +175,15 @@ const cumplidosProgramados = v => (v.objetivosCumplidos || []).filter(o => (v.ob
 // Trabajo interno: se programa igual que una visita (con objetivos), pero sin contacto
 // y no cuenta en los indicadores de visitas
 const TRABAJO_INTERNO = ['Trabajo Administrativo Oficina', 'Trabajo Administrativo Fuera de la Oficina', 'Planeación Mes'];
-const esTrabajoInterno = tipo => TRABAJO_INTERNO.includes(tipo);
+// Mercadeo: trabajo administrativo solo de la Coordinadora Comercial. Cada objetivo lleva su texto (máximo 200 caracteres)
+// al programar y al cerrar; en "Proyectos" se escoge o se crea el proyecto (registro clase 'proyectoMercadeo').
+const MERCADEO = 'Mercadeo';
+const MAX_DET_MERC = 200;
+const esTrabajoInterno = tipo => TRABAJO_INTERNO.includes(tipo) || tipo === MERCADEO;
+const esCoordinadora = id => !!id && USUARIOS.find(u => u.id === id)?.cargo === 'Coordinadora Comercial';
+const internosDe = vendedor => esCoordinadora(vendedor) ? [...TRABAJO_INTERNO, MERCADEO] : TRABAJO_INTERNO;
+const proyectosMercadeo = vendedor => visibles().filter(r => r.clase === 'proyectoMercadeo' && r.vendedor === vendedor && r.estado !== 'cerrado')
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 // Novedades del vendedor: días en que no trabaja o trabaja parcial. No son visitas ni cuentan en los indicadores
 const NOVEDADES = ['Cita médica', 'Cumpleaños', 'Incapacidad', 'Permiso', 'Vacaciones'];   // en orden alfabético
 const NOVEDAD_HORAS = ['Cita médica', 'Permiso'];   // pueden ser de día completo o por horas
@@ -1868,7 +1876,7 @@ function pintarVisiplan() {
     const unicos = k => [...new Set(clientes.map(c => c[k]).filter(Boolean))].sort(ordenLeadAlFinal);
     if (!visiplan.oculto) pintarMultis($('vpMultis'), 'visiplan', [
         { k: 't', t: 'Tipo de cliente', todos: 'Todos los tipos de cliente', valores: unicos('t'), cuenta: cuentaDe('t') },
-        { k: 'e', t: 'Etiqueta', todos: 'Todas las etiquetas', valores: [INTERNO_ETQ, ...unicos('e')], cuenta: { ...cuentaDe('e'), [INTERNO_ETQ]: TRABAJO_INTERNO.length * vista.length } },
+        { k: 'e', t: 'Etiqueta', todos: 'Todas las etiquetas', valores: [INTERNO_ETQ, ...unicos('e')], cuenta: { ...cuentaDe('e'), [INTERNO_ETQ]: vista.reduce((n, ven) => n + internosDe(ven.id).length, 0) } },
         { k: 'f', t: 'Mostrar', todos: 'Todos los clientes', valores: Object.keys(NOMBRES_FILTRO_PLAN), nombre: f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o visitados' }
     ]);
     const q = normalizar(visiplan.busca);
@@ -1907,9 +1915,9 @@ function pintarVisiplan() {
     // Arriba, el trabajo interno de cada vendedor (se programa igual con X; no suma en los indicadores de clientes)
     // Trabajo interno: sale con "Todas las etiquetas" o si se elige en Etiqueta, y sin filtros de clientes en "Mostrar"
     const verInternos = (!selE.length || selE.includes(INTERNO_ETQ)) && (!visiplan.sel.f.length || visiplan.sel.f.includes('actividad')) && !q;
-    const filasInternas = !verInternos ? '' : vista.map(ven => TRABAJO_INTERNO.map((t, i) => {
+    const filasInternas = !verInternos ? '' : vista.map(ven => internosDe(ven.id).map((t, i, lista) => {
         const c = { n: t, v: ven.id }, sg = seg[ven.id];
-        return `<tr class="vp-int${i === TRABAJO_INTERNO.length - 1 ? ' vp-int-fin' : ''}"><td class="vp-et">${todos ? `<b class="vp-vend">${esc(nombreVendedor(ven.id))}</b>` : ''}Trabajo Administrativo</td><th class="vp-cli" scope="row">${esc(t)}</th>`
+        return `<tr class="vp-int${i === lista.length - 1 ? ' vp-int-fin' : ''}"><td class="vp-et">${todos ? `<b class="vp-vend">${esc(nombreVendedor(ven.id))}</b>` : ''}Trabajo Administrativo</td><th class="vp-cli" scope="row">${esc(t)}</th>`
             + celdas(c, sg.internos.marcas[t] || [], sg.internos.reales[t] || vacio, vacio)
             + `<td class="vp-n plan"></td><td class="vp-n real"></td><td class="vp-n"></td><td class="vp-n"></td></tr>`;
     }).join('')).join('');
@@ -2494,7 +2502,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
-        reporte = v.observaciones ? `<div class="reporte">${esc(v.observaciones)}</div>` : '';
+        reporte = v.observaciones && v.contacto !== MERCADEO ? `<div class="reporte">${esc(v.observaciones)}</div>` : '';
     } else if (v.estado === 'visitado') {
         const partes = partesReporte(v);
         reporte = `<div class="reporte">${partes.join('<br>')}</div>`;
@@ -2509,7 +2517,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
         ${objetivos}
-        ${v.objetivo ? `<p class="nota-plan"><b>${v.interno ? 'Qué se iba a hacer' : 'Plan de visita'}:</b> ${esc(v.objetivo)}</p>` : ''}
+        ${v.objetivo && v.contacto !== MERCADEO ? `<p class="nota-plan"><b>${v.interno ? 'Qué se iba a hacer' : 'Plan de visita'}:</b> ${esc(v.objetivo)}</p>` : ''}
         ${reporte}
         ${filaAcomp(v)}
         ${accionesVisita(v, txtOk, txtNo)}
@@ -2877,7 +2885,9 @@ function cambiarVendForm(id) {
     if ($('fTipo').value) elegirOrigen(origenElegido());
 }
 
+const registrosForm = { id: '' };   // visita que se está editando en el formulario de programar
 async function abrirProgramar(id, contactoPlan) {
+    registrosForm.id = id || '';
     advertenciaAceptada = '';
     if (!contactoPlan) confirmandoPlan = null;
     const v = id ? registros[id] : null;
@@ -2914,7 +2924,7 @@ async function abrirProgramar(id, contactoPlan) {
         <select id="fTipo" required onchange="limpiarPlanVisita(true)">
             <option value="">Elige una opción</option>
             <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
-            <optgroup label="Trabajo Administrativo">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
+            <optgroup label="Trabajo Administrativo">${internosDe(v?.vendedor || sesion.id).map(opcion).join('')}</optgroup>
             <optgroup label="Contacto nuevo"><option value="nuevo" ${v?.esProyecto ? 'selected' : ''}>${LEAD}</option></optgroup>
             <optgroup label="Novedades">${NOVEDADES_FORM.map(opcion).join('')}</optgroup>
         </select>
@@ -3051,12 +3061,14 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     // En visitas y trabajo interno es obligatorio escribir qué se va a hacer (máximo 100 caracteres)
     // Permiso e incapacidad: el detalle es obligatorio; cumpleaños no lleva detalle; en las demás novedades es opcional
     const cumple = tipo === 'Cumpleaños';
-    ['lblNotas', 'fObjetivo'].forEach(x => { $(x).hidden = cumple; });
+    // Mercadeo: cada objetivo tiene su propio cuadro de texto, no lleva el "¿Qué vas a hacer?" general
+    const sinNota = cumple || tipo === MERCADEO;
+    ['lblNotas', 'fObjetivo'].forEach(x => { $(x).hidden = sinNota; });
     // Al escoger Cumpleaños la fecha se pone sola en el día guardado del vendedor
     const uc = cumple && USUARIOS.find(x => x.id === agenda.vendedor);
     if (uc?.cumple && $('fFecha').value && !esCumple(uc.id, $('fFecha').value)) $('fFecha').value = $('fFecha').value.slice(0, 4) + uc.cumple.slice(4);
     $('lblNotas').innerHTML = DETALLE_OBLIGATORIO[tipo] ? `Detalle ${REQ} <small>(${DETALLE_OBLIGATORIO[tipo]})</small>` : novedad ? 'Detalle <small>(opcional)</small>' : `¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small>`;
-    $('fObjetivoCuenta').hidden = novedad && !DETALLE_OBLIGATORIO[tipo];
+    $('fObjetivoCuenta').hidden = (novedad && !DETALLE_OBLIGATORIO[tipo]) || tipo === MERCADEO;
     $('fObjetivo').maxLength = DETALLE_MAX[tipo] || 100;
     if ($('fObjetivo').value.length > $('fObjetivo').maxLength) $('fObjetivo').value = $('fObjetivo').value.slice(0, $('fObjetivo').maxLength);
     $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / ' + $('fObjetivo').maxLength;
@@ -3134,11 +3146,15 @@ function pintarObjetivos(marcados, subsMarcados) {
     const actuales = marcados || leerObjetivos(cont);
     const subs = subsMarcados || leerSubs(cont);
     ctxCircular = { cliente: clienteDelForm() || null, fecha: $('fFecha').value || agenda.fecha };
-    const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : objetivosDeTipos(tipo, nuevo);
+    const merc = tipoBase() === MERCADEO;
+    const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : [...objetivosDeTipos(tipo, nuevo), ...(merc ? [PERSONALIZADA] : [])];
     $('cajaObjetivos').hidden = !lista.length;
     const textoAntes = $('fPersonal') ? $('fPersonal').value : textoPersonalForm;
     const conPersonal = lista.length && !esTrabajoInterno(tipoBase());
-    cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs })
+    const antes = merc ? leerDetalles(cont) : null;
+    const editando = registrosForm.id && registros[registrosForm.id];
+    const detalle = merc ? { detalle: { ...(editando?.detalleObjetivos || {}), ...(antes?.det || {}) }, proyecto: editando?.proyectoMercadeo || null, vendedor: editando?.vendedor || sesion.id } : null;
+    cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs, detalle })
         + (conPersonal ? htmlPersonal(actuales.includes(PERSONALIZADA), textoAntes) : '');
 }
 // Objetivo "Otros": al marcarlo se escribe cuál es (máximo 50 caracteres)
@@ -3192,14 +3208,62 @@ function enlacePdfSub(o, x) {
     const c = o === 'Actividades' && circularDeEtiqueta(x), pdfs = c ? pdfsCircular(c) : [];
     return pdfs.map((u, i) => `<a class="pdf-circ" href="${esc(u)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return verPdf(event, this.href)">PDF${pdfs.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('');
 }
-function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {} }) {
+// Cuadro de texto de cada objetivo de Mercadeo (y en Proyectos, el proyecto: uno existente o uno nuevo)
+function cajaDetalle(o, abierto, { detalle = {}, proyecto = null, vendedor, cierre = false }) {
+    const texto = detalle[o] || '';
+    const proy = o === 'Proyectos' ? (() => {
+        const lista = proyectosMercadeo(vendedor), sel = proyecto?.id || '';
+        return `<div class="det-proyecto"><label>Proyecto</label>
+            <select class="det-proy" onchange="this.nextElementSibling.hidden = this.value !== '__nuevo'">
+                <option value="">Escoge el proyecto</option>${lista.map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.nombre)}${x.avances?.length ? ` · ${x.avances.length} ${x.avances.length === 1 ? 'avance' : 'avances'}` : ''}</option>`).join('')}
+                <option value="__nuevo" ${!lista.length && !sel ? 'selected' : ''}>+ Crear proyecto nuevo</option></select>
+            <input class="det-proy-nombre" maxlength="60" placeholder="Nombre del proyecto nuevo" onblur="this.value = nombrePropio(this.value)" ${!lista.length && !sel ? '' : 'hidden'}></div>`;
+    })() : '';
+    return `<div class="subs det-merc"${abierto ? '' : ' hidden'}>${proy}
+        <textarea class="det-obj" data-o="${esc(o)}" maxlength="${MAX_DET_MERC}" placeholder="${cierre ? '¿Qué se hizo?' : '¿Qué vas a hacer?'} (máximo ${MAX_DET_MERC} caracteres)"
+            oninput="this.nextElementSibling.textContent = this.value.length + ' / ${MAX_DET_MERC}'">${esc(texto)}</textarea><p class="cuenta-nota">${texto.length} / ${MAX_DET_MERC}</p></div>`;
+}
+// Lee los textos (y el proyecto) de los objetivos marcados; devuelve un error si falta alguno
+function leerDetalles(cont) {
+    const det = {}; let proyecto = null, error = '', foco = null;
+    cont.querySelectorAll('.obj-item').forEach(item => {
+        const obj = item.querySelector('input.obj'), ta = item.querySelector('textarea.det-obj');
+        if (!obj?.checked || !ta) return;
+        const t = ta.value.trim();
+        if (!t && !error) { error = `Escribe el detalle de "${obj.value}" (máximo ${MAX_DET_MERC} caracteres)`; foco = ta; }
+        det[obj.value] = t;
+        const sel = item.querySelector('.det-proy');
+        if (sel) {
+            if (sel.value === '__nuevo') {
+                const nombre = nombrePropio(item.querySelector('.det-proy-nombre').value);
+                if (!nombre && !error) { error = 'Escribe el nombre del proyecto nuevo'; foco = item.querySelector('.det-proy-nombre'); }
+                proyecto = { id: '', nombre };
+            } else if (sel.value) {
+                proyecto = { id: sel.value, nombre: registros[sel.value]?.nombre || '' };
+            } else if (!error) { error = 'Escoge el proyecto o crea uno nuevo'; foco = sel; }
+        }
+    });
+    return { det, proyecto, error, foco };
+}
+// Proyecto nuevo: se crea el registro; en el cierre se le agrega el avance
+function asegurarProyecto(proyecto, vendedor) {
+    if (!proyecto) return null;
+    if (proyecto.id && registros[proyecto.id]) return proyecto;
+    const nuevo = { id: nuevoId(), clase: 'proyectoMercadeo', vendedor, nombre: proyecto.nombre, estado: 'activo', avances: [], creado: new Date().toISOString(), creadoPor: sesion.id };
+    guardarRegistro(nuevo);
+    return { id: nuevo.id, nombre: nuevo.nombre };
+}
+const resumenDetalles = (det, proyecto) => Object.entries(det).map(([o, t]) => `${o}${o === 'Proyectos' && proyecto?.nombre ? ' (' + proyecto.nombre + ')' : ''}: ${t}`).join(' · ');
+
+function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {}, detalle = null }) {
     return lista.map(o => {
         const sc = subcategoriasDe(tipo, nuevo, o, mes);
         const prog = programados && programados.includes(o);
         const abierto = marcados.includes(o) || prog;
         const estilo = (lo, de) => programados ? (tieneSub(de, lo) ? ' programado' : ' no-programado') : '';
         const labelSub = x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`;
-        const cajaSubs = sc.length
+        const cajaSubs = detalle ? cajaDetalle(o, abierto, detalle)
+            : sc.length
             ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => o === 'Actividades' && circularDeEtiqueta(x) ? htmlCircularSub(o, x, subs, estilo, subsProg) : labelSub(x)).join('')}</div>`
             : o === 'Actividades' && CIRCULARES.length ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">No hay circulares vigentes para este cliente en esta fecha.</p></div>`
             : o === 'Parrilla Promocional' && CIRCULARES.length ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">No hay parrilla promocional vigente para este cliente en esta fecha.</p></div>`
@@ -3214,6 +3278,12 @@ function abrirSubs(casilla) {
     caja.hidden = !ver;
     item.classList.toggle('abierto', ver);
 }
+// Mercadeo: al escribir en el cuadro de un objetivo (o escoger su proyecto) el objetivo queda marcado
+document.addEventListener('input', e => {
+    if (!e.target.matches?.('.det-merc textarea, .det-merc input, .det-merc select') || !String(e.target.value || '').trim()) return;
+    const obj = e.target.closest('.obj-item').querySelector('input.obj');
+    if (obj && !obj.checked) obj.checked = true;
+}, true);
 // Al marcar una subcategoría se marca también su objetivo (al programar y al cerrar)
 document.addEventListener('change', e => {
     if (!e.target.matches?.('.obj-item .subs input') || !e.target.checked) return;
@@ -3244,10 +3314,15 @@ function leerCierre() {
     return { objetivosCumplidos: objs, subCumplidos: subs };
 }
 const cajaCierre = v => objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita lo programado; marca lo que lograste)</small></label>
-            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: conTodasLasSubs(v.subobjetivos || {}, programadosVigentes(v), tiposDe(v), v.esProyecto, mesDe(v.fecha)) })}</div>` : '';
+            <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: conTodasLasSubs(v.subobjetivos || {}, programadosVigentes(v), tiposDe(v), v.esProyecto, mesDe(v.fecha)),
+                detalle: v.contacto === MERCADEO ? { detalle: v.estado === 'visitado' ? v.detalleCierre || {} : {}, proyecto: v.proyectoMercadeo, vendedor: v.vendedor, cierre: true } : null })}</div>` : '';
 // Texto de subcategorías junto a un objetivo (✓ en las cumplidas)
 function textoSubs(v, o) {
     if (o === PERSONALIZADA && typeof v.personalizada === 'string' && v.personalizada) return `<small class="sub-chip">: ${esc(v.personalizada)}</small>`;
+    if (v.contacto === MERCADEO) {
+        const t = (v.estado === 'visitado' ? v.detalleCierre : null)?.[o] || v.detalleObjetivos?.[o];
+        return t ? `<small class="sub-chip">${o === 'Proyectos' && v.proyectoMercadeo?.nombre ? ' · ' + esc(v.proyectoMercadeo.nombre) : ''}: ${esc(t)}</small>` : '';
+    }
     const prog = (v.subobjetivos || {})[o] || [], cumpl = (v.subCumplidos || {})[o] || [];
     const todas = [...prog, ...cumpl.filter(x => !prog.includes(x))];
     return todas.length ? `<small class="sub-chip">: ${todas.map(x => (cumpl.includes(x) ? '✓ ' : '') + esc(x)).join(', ')}</small>` : '';
@@ -3315,11 +3390,14 @@ async function guardarProgramada(e, id) {
     if (internoHoras && (!horaInicio || !horaFin)) { toast('Escribe la hora de inicio y de fin (o marca "Todo el día")'); (horaInicio ? $('fHoraFin') : $('fHoraInicio')).focus(); return; }
     if (internoHoras && horaFin <= horaInicio) { toast('La hora de fin debe ser después de la hora de inicio'); $('fHoraFin').focus(); return; }
     const objetivos = leerObjetivos($('fObjetivos'));
-    const textoPersonal = objetivos.includes(PERSONALIZADA) ? ($('fPersonal')?.value || '').trim() : '';
-    if (objetivos.includes(PERSONALIZADA) && !textoPersonal) { toast('Escribe cuál es la visita personalizada (máximo 50 caracteres)'); $('fPersonal')?.focus(); return; }
+    const merc = tipo === MERCADEO;
+    const textoPersonal = objetivos.includes(PERSONALIZADA) && !merc ? ($('fPersonal')?.value || '').trim() : '';
+    if (objetivos.includes(PERSONALIZADA) && !merc && !textoPersonal) { toast('Escribe cuál es la visita personalizada (máximo 50 caracteres)'); $('fPersonal')?.focus(); return; }
     const subobjetivos = conTodasLasSubs(leerSubs($('fObjetivos'), objetivos), objetivos, tiposElegidos(), origenElegido() === 'nuevo', mesDe(fechaElegida));
     if (!objetivos.length) { toast(interno ? 'Escoge al menos un objetivo del trabajo' : 'Escoge al menos un objetivo de la visita'); return; }
-    if (!$('fObjetivo').value.trim()) { toast('Escribe qué vas a hacer (máximo 100 caracteres)'); $('fObjetivo').focus(); return; }
+    const detMerc = merc ? leerDetalles($('fObjetivos')) : null;
+    if (detMerc?.error) { toast(detMerc.error); detMerc.foco?.focus(); return; }
+    if (!merc && !$('fObjetivo').value.trim()) { toast('Escribe qué vas a hacer (máximo 100 caracteres)'); $('fObjetivo').focus(); return; }
     const zona = comercial(agenda.vendedor)?.zona;
     const nuevo = !interno && origenElegido() === 'nuevo';
     let c = interno ? {} : maestraForm(nombre) || {};
@@ -3380,7 +3458,7 @@ async function guardarProgramada(e, id) {
         interno, personalizada: textoPersonal,
         contacto: interno ? tipo : (c.n || nombre), tipoContacto: c.e || '', ciudad: c.c || '',
         esProyecto: !!proyecto, contactoProyecto: proyecto ? proyecto.id : '',
-        fecha, hora: interno ? '' : $('fHora').value, objetivo: $('fObjetivo').value.trim(),
+        fecha, hora: interno ? '' : $('fHora').value, objetivo: merc ? resumenDetalles(detMerc.det, detMerc.proyecto) : $('fObjetivo').value.trim(),
         diaCompleto: interno ? !internoHoras : undefined, horaInicio, horaFin,
         modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipos[0], tiposVisita: tipos.length > 1 ? tipos : [], objetivos, subobjetivos,
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
@@ -3405,6 +3483,7 @@ async function guardarProgramada(e, id) {
         if (registros[pid]) guardarRegistro({ ...registros[pid], confirmadas: { ...(registros[pid].confirmadas || {}), [clavePlan(confirmandoPlan.contacto, fecha)]: v.id } });
     }
     confirmandoPlan = null;
+    if (merc) Object.assign(v, { detalleObjetivos: detMerc.det, proyectoMercadeo: asegurarProyecto(detMerc.proyecto, v.vendedor) });
     guardarRegistro(v);
     cerrarModal();
     toast(id ? 'Programación actualizada' : `${v.contacto}: ${v.programada ? 'programado' : 'registrado como NO programado'}`);
@@ -3675,9 +3754,9 @@ function abrirRegistro(id, tipo) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
             <h2>Trabajo realizado</h2>${cab}
             ${cajaCierre(v)}
-            <label for="rObs">¿Qué se hizo? ${REQ} <small>(describe brevemente)</small></label>
+            ${v.contacto === MERCADEO ? '<p class="ayuda">En cada objetivo que lograste escribe qué se hizo (máximo 200 caracteres).</p>' : `<label for="rObs">¿Qué se hizo? ${REQ} <small>(describe brevemente)</small></label>
             <textarea id="rObs" maxlength="100" ${cuentaNota('rObs')} placeholder="Ej: se enviaron 5 cotizaciones y se cerró el informe de cartera">${esc(v.estado === 'visitado' ? v.observaciones : '')}</textarea>
-            ${contadorNota('rObs')}
+            ${contadorNota('rObs')}`}
             <div class="form-botones">
                 <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn-primario">Guardar</button>
@@ -3917,6 +3996,24 @@ function pintarHistorial() {
 function guardarInternoRealizado(e, id) {
     e.preventDefault();
     if (!plazoAbierto(id)) return;
+    const antes = registros[id];
+    if (antes.contacto === MERCADEO) {
+        const cierre = leerCierre(), d = leerDetalles($('rCumplidos'));
+        if (!cierre.objetivosCumplidos.length) return toast('Marca al menos un objetivo que lograste');
+        if (d.error) { d.foco?.focus(); return toast(d.error); }
+        const proyecto = asegurarProyecto(d.proyecto, antes.vendedor);
+        // El avance queda en la tarjeta del proyecto
+        if (proyecto && d.det.Proyectos) {
+            const pr = registros[proyecto.id];
+            const avances = (pr.avances || []).filter(a => a.visitaId !== id).concat({ fecha: antes.fecha, visitaId: id, texto: d.det.Proyectos });
+            guardarRegistro({ ...pr, avances });
+        }
+        guardarRegistro({ ...antes, ...LIMPIAR_NO_VISITADO, estado: 'visitado', ...cierre, detalleCierre: d.det, proyectoMercadeo: proyecto || antes.proyectoMercadeo || null,
+            observaciones: resumenDetalles(d.det, proyecto), ...marcaReporte(antes) });
+        cerrarModal();
+        toast('Mercadeo registrado como realizado');
+        return pintarAgenda();
+    }
     if (!$('rObs').value.trim()) { $('rObs').focus(); return toast('Escribe qué se hizo (máximo 100 caracteres)'); }
     guardarRegistro({ ...registros[id], ...LIMPIAR_NO_VISITADO, estado: 'visitado', observaciones: $('rObs').value.trim(),
         ...leerCierre(), ...marcaReporte(registros[id]) });

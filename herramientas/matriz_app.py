@@ -106,7 +106,7 @@ ix['A2'].font = Font(italic=True, color='666666')
 filas = [('Hoja', 'Qué contiene'),
          ('Visitas', 'Objetivos (fila verde, ✓) y subcategorías (X) por tipo de visita: Visita Médica, Visita Médica Comercial '
                      '(20 y 21 con las dos marcadas), Visita Cliente, Punto de Venta y Contacto nuevo.'),
-         ('Trabajo interno', 'Objetivos y subcategorías de Oficina, Fuera de la Oficina y Planeación Mes.'),
+         ('Trabajo interno', 'Objetivos y subcategorías de Oficina, Fuera de la Oficina, Planeación Mes y Mercadeo (solo Coordinadora Comercial).'),
          ('Mensual', 'Parrilla Promocional y Actividades de cada mes (subcategorías variables).'),
          (HOJA_TIPO, 'En qué tipo de visita sale cada clasificación de cliente de la Maestra.')]
 for i, (a, b) in enumerate(filas, 4):

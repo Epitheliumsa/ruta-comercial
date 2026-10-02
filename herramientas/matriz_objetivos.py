@@ -49,6 +49,8 @@ TIPOS = {
     'Trabajo Administrativo Oficina': 'Trabajo Administrativo Oficina',
     'Trabajo Administrativo Fuera de la Oficina': 'Trabajo Administrativo Fuera de la Oficina',
     'Planeación Mes': 'Planeación Mes',
+    # Solo para la Coordinadora Comercial (trabajo administrativo de mercadeo)
+    'Mercadeo': 'Mercadeo',
 }
 
 def clave(t):

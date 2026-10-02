@@ -34,6 +34,10 @@
   Al rechazar una eliminación se pide la razón (50 caracteres) y le sale al vendedor.
 - Maestra Clientes: ícono de calendario arriba a la derecha para el periodo de Visitados / No visitados (día, mes, trimestre, semestre, año).
 - Al buscar el cliente para programar, cada opción muestra su clasificación.
+- **Mercadeo** (Trabajo Administrativo, solo Coordinadora Comercial; columna "Mercadeo" de la hoja Trabajo interno de la Matriz):
+  objetivos Proyectos, Desarrollo Actividades Comerciales, Investigación de Mercado, Contacto Proveedores y Otros. Cada objetivo
+  marcado lleva su texto (máx. 200) al programar y al cerrar. En Proyectos se escoge o crea el proyecto (clase `proyectoMercadeo`);
+  en el cierre su texto queda como avance del proyecto.
   Programar algo que ya está en el Visiplan de ese día lo confirma (no se duplica). Un trabajo administrativo no se repite el mismo día.
 - Una visita reportada se puede corregir (incluso pasarla de Visitado a No visitado o al revés) el mismo día y hasta las
   11:59 a. m. del siguiente día hábil; se conserva la hora del primer reporte (orden real) y queda la de la corrección.

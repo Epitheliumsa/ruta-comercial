@@ -1667,3 +1667,10 @@ details.ver-formato a { font-size: 12px; }
 .periodo-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
 .periodo-tabs button { flex: 1 1 auto; border: 1px solid #cfe0dc; background: #fff; color: #334155; border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .periodo-tabs button.activo { background: #0f766e; border-color: #0f766e; color: #fff; }
+/* Mercadeo (Coordinadora Comercial): cuadro de texto por objetivo y proyecto */
+.obj-item .subs.det-merc { display: flex; flex-direction: column; gap: 6px; padding: 6px 10px 6px 30px; }
+.det-merc textarea { width: 100%; min-height: 62px; padding: 8px 10px; border: 1px solid #cfe0dc; border-radius: 8px; font: inherit; font-size: 14px; resize: vertical; background: #fff; }
+.det-merc .cuenta-nota { margin: 0; text-align: right; }
+.det-proyecto { display: grid; gap: 6px; }
+.det-proyecto label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #0b5c56; font-weight: 700; margin: 0; }
+.det-proyecto select, .det-proyecto input { width: 100%; padding: 8px 10px; border: 1px solid #cfe0dc; border-radius: 8px; font: inherit; font-size: 14px; background: #fff; }
