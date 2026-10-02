@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610012113';
+const APP_VERSION = '202610012122';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2299,10 +2299,12 @@ function pintarAgenda() {
     const mover = varios ? null : { abierta: Date.now() < limiteProgramacion(f), puede: sesion.id === v || esAdmin(), total: programadas.length };
     const tarjetas = vistas.map(x => tarjetaVisita(x, ordenes[x.id], mover, varios)).join('');
     const avisoOrden = mover && mover.abierta && mover.puede && programadas.length > 1 && agenda.orden === 'prog'
-        ? `<p class="aviso-orden">🕗 Hasta las ${HORA_LIMITE} a. m. puedes cambiar el orden de tus visitas con <b>▲ Subir</b> y <b>▼ Bajar</b>. Después queda fijo.</p>` : '';
+        ? `<span class="aviso-orden">🕗 Hasta las ${HORA_LIMITE} a. m. puedes cambiar el orden de tus visitas con <b>▲ Subir</b> y <b>▼ Bajar</b>. Después queda fijo.</span>` : '';
+    // El aviso va en la fila de "programadas", al lado de los indicadores (no como una tarjeta)
+    if (avisoOrden) $('agResumen').querySelector('.ag-orden')?.insertAdjacentHTML('beforebegin', avisoOrden);
     const filtrando = agenda.filtro;
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
-    cont.innerHTML = (filtrando ? '' : tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso + avisoOrden
+    cont.innerHTML = (filtrando ? '' : tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
         + (filtrando ? '' : bloqueCerradas);
 }

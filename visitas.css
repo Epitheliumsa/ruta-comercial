@@ -1628,4 +1628,4 @@ details.ver-formato a { font-size: 12px; }
 .mover-orden button { border: 1px solid #1d4ed8; background: #fff; color: #1d4ed8; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; cursor: pointer; min-height: 34px; }
 .mover-orden button:hover:not(:disabled) { background: #1d4ed8; color: #fff; }
 .mover-orden button:disabled { opacity: .35; cursor: default; }
-.aviso-orden { margin: 0 0 10px; padding: 9px 12px; border-radius: 10px; background: #eef4ff; color: #1e3a8a; font-size: 13px; }
+.aviso-orden { align-self: center; padding: 4px 12px; border-radius: 99px; background: #eef4ff; color: #1e3a8a; font-size: 12px; line-height: 1.35; }
