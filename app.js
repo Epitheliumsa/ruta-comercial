@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610012132';
+const APP_VERSION = '202610012133';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -2177,9 +2177,11 @@ function abrirCalendario(mes) {
         const fest = nombreFestivo(d);
         const nov = novedadesDe(v, d)[0];
         const n = visitasDe(v, d).filter(x => !x.interno).length;
-        celdas += `<button class="cal-dia${fuera ? ' fuera' : ''}${claseDia(d)}${d === t ? ' hoy' : ''}${d === agenda.fecha ? ' sel' : ''}" onclick="irDelCalendario('${d}')">
+        const cu = vendedoresAgenda().filter(x => esCumple(x, d));
+        celdas += `<button class="cal-dia${fuera ? ' fuera' : ''}${claseDia(d)}${cu.length ? ' cumple' : ''}${d === t ? ' hoy' : ''}${d === agenda.fecha ? ' sel' : ''}" onclick="irDelCalendario('${d}')">
             <b>${deIso(d).getDate()}</b>
             ${fest ? `<small class="cal-fest">${esc(fest)}</small>` : ''}
+            ${cu.length ? `<small class="cal-cumple" title="Cumpleaños de ${esc(cu.map(nombreVendedor).join(', '))}">🎂 <span class="largo">Cumpleaños</span><span class="corto">Cumple</span></small>` : ''}
             ${nov ? `<small class="cal-nov" title="${esc(nov.tipo)}"><span class="largo">${esc(nov.tipo)}</span><span class="corto">${esc(CORTO_NOVEDAD[nov.tipo])}</span></small>` : ''}
             ${n ? `<span class="cal-n">${n} ${n === 1 ? 'visita' : 'visitas'}</span>` : ''}
         </button>`;

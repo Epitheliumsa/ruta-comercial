@@ -719,8 +719,8 @@
 .tabla-w td .chip { margin-top: 3px; }
 @media (max-width: 480px) { .cal-dia { min-height: 56px; padding: 3px; } .cal-fest, .cal-nov, .cal-n { font-size: 8.5px; } }
 
-.cal-nov .corto { display: none; }
-@media (max-width: 480px) { .cal-nov .largo { display: none; } .cal-nov .corto { display: inline; } }
+.cal-nov .corto, .cal-cumple .corto { display: none; }
+@media (max-width: 480px) { .cal-nov .largo, .cal-cumple .largo { display: none; } .cal-nov .corto, .cal-cumple .corto { display: inline; } }
 
 /* Origen del contacto: Maestra de Contactos / Contacto nuevo */
 .origen { margin-bottom: 8px; }
@@ -1634,3 +1634,11 @@ details.ver-formato a { font-size: 12px; }
 .mover-orden button:hover:not(:disabled) { background: #1d4ed8; color: #fff; }
 .mover-orden button:disabled { opacity: .35; cursor: default; }
 .aviso-orden { align-self: center; padding: 4px 12px; border-radius: 99px; background: #eef4ff; color: #1e3a8a; font-size: 12px; line-height: 1.35; }
+/* Cumpleaños en el calendario del mes: lila; con festivo, sábado o domingo, rayado con los dos colores */
+.cal-dia.cumple { background: #f3e8ff; border-color: #e4d0fb; }
+.cal-dia.cumple b { color: #7e22ce; }
+.cal-dia.festivo.cumple { background-color: #f8e4f4; background-image: repeating-linear-gradient(135deg, #fbe1e1 0 6px, #efe3fd 6px 12px); border-color: #e9c6e3; }
+.cal-dia.festivo.cumple b { color: #b42318; }
+.cal-dia.sabado.cumple { background-color: #f3eefa; background-image: repeating-linear-gradient(135deg, #eef0f1 0 6px, #efe3fd 6px 12px); border-color: #ddd3ee; }
+.cal-cumple { font-size: 9.5px; line-height: 1.15; color: #7e22ce; font-weight: 700; }
+@media (max-width: 480px) { .cal-cumple { font-size: 8.5px; } }
