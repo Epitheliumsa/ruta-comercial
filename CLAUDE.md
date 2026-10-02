@@ -27,6 +27,15 @@
   cierra lo abierto o vuelve al inicio; en el inicio hay que tocarlo dos veces para salir.
 - Nombres (contacto nuevo, nombre de contacto, quién atendió) van siempre en NomProp (`nombrePropio`).
 - Hasta las 8:00 a. m. el vendedor cambia el orden de su día con los botones ▲ Subir / ▼ Bajar de cada tarjeta.
+- Lo del Visiplan que se confirma después de las 8:00 a. m. queda como NO programado (sin número de orden programado).
+  Programar algo que ya está en el Visiplan de ese día lo confirma (no se duplica). Un trabajo administrativo no se repite el mismo día.
+- Una visita reportada se puede corregir (incluso pasarla de Visitado a No visitado o al revés) el mismo día y hasta las
+  11:59 a. m. del siguiente día hábil; se conserva la hora del primer reporte (orden real) y queda la de la corrección.
+- Visita futura: quien la programó la elimina directo; queda la huella (tarjeta pequeña en rojo al final del día) y no cuenta en nada.
+- Acompañamiento (registro clase `acompanamiento`: vendedor = quien acompaña, solicitante = dueño de la visita): el vendedor lo pide
+  desde la tarjeta a jefes y/o compañeros; quien lo recibe acepta o no y le queda la visita en su programación. Los jefes tienen
+  "Acompañar" en cualquier visita (a cualquier hora, no en días pasados). Cada uno reporta la suya y en el histórico del cliente
+  sale "Visita acompañada" con el reporte del otro. El servidor comparte estos registros con el solicitante.
 - "Trabajo interno" se llama **Trabajo Administrativo** en la app (la hoja de la Matriz conserva su nombre).
 - Obligatorios: causa al rechazar una solicitud (50), causa de Lead perdida (50), detalle de Cita médica (50); en Vacaciones el detalle es opcional,
   observaciones de no visitadas (100).

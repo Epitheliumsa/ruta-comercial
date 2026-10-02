@@ -1642,3 +1642,17 @@ details.ver-formato a { font-size: 12px; }
 .cal-dia.sabado.cumple { background-color: #f3eefa; background-image: repeating-linear-gradient(135deg, #eef0f1 0 6px, #efe3fd 6px 12px); border-color: #ddd3ee; }
 .cal-cumple { font-size: 9.5px; line-height: 1.15; color: #7e22ce; font-weight: 700; }
 @media (max-width: 480px) { .cal-cumple { font-size: 8.5px; } }
+/* Huella de una visita futura eliminada: tarjeta pequeña en rojo al final del día */
+.huella-eliminada { grid-column: 1 / -1; margin-top: 6px; padding: 7px 12px; border-radius: 8px; border: 1px dashed #f5b5b5; background: #fdecec; color: #9f1239; font-size: 12.5px; }
+.link-mini.peligro { color: #c2413a; }
+.acciones .corregir { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 12px; color: #6b7280; }
+/* Acompañamiento */
+.fila-acomp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.chip.acomp { background: #e0f2fe; color: #075985; }
+.chip.acomp-p { background: #fef3c7; color: #92400e; }
+.bv.acomp { border: 1px solid #0284c7; color: #0369a1; background: #fff; }
+.bv.acomp:hover { background: #0284c7; color: #fff; }
+.acomp-card { border-left-color: #0284c7; background: linear-gradient(135deg, #ffffff 65%, #e0f2fe 100%); }
+.acomp-card h3 { color: #075985; }
+.acomp-hist { margin-top: 6px; padding: 7px 10px; border-radius: 8px; background: #f0f9ff; border: 1px solid #bae6fd; color: #0c4a6e; font-size: 13px; }
+.fila-acomp .bv { flex: 0 1 auto; min-width: 0; }

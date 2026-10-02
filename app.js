@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610012133';
+const APP_VERSION = '202610012158';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -306,6 +306,11 @@ const diaCierre = v => siguienteHabil(v.fecha);
 const limiteCierre = v => Date.parse(`${diaCierre(v)}T${HORA_CIERRE}:59-05:00`);
 // En pruebas no hay plazo para reportar (ni cierre automático); en vivo aplican todas las restricciones
 const puedeReportar = v => v.estado === 'pendiente' && v.fecha <= hoy() && (ETAPA_DATOS === 'pruebas' || Date.now() <= limiteCierre(v));
+// Una visita ya reportada se puede corregir el mismo día y hasta las 11:59 a. m. del siguiente día hábil
+// (no las que cerró el sistema por no reportarse a tiempo)
+const puedeCorregir = v => v.clase === 'visita' && v.estado !== 'pendiente' && !v.cierreAutomatico && v.fecha <= hoy()
+    && (sesion?.id === v.vendedor || esAdmin()) && (ETAPA_DATOS === 'pruebas' || Date.now() <= limiteCierre(v));
+const puedeGuardarReporte = v => puedeReportar(v) || puedeCorregir(v);
 const textoCierre = v => `${fechaCorta(diaCierre(v))}, ${horaBonita(HORA_CIERRE)}`;
 
 // Pasa a NO visitado lo que no se reportó a tiempo (el jefe cierra las de todo el equipo)
@@ -420,7 +425,8 @@ function borrarRegistro(r) {
     guardarRegistro(r);
 }
 
-const visibles = () => Object.values(registros).filter(r => !r.borrado);
+// Las visitas futuras que el vendedor elimina quedan como huella (eliminada) y no cuentan en nada
+const visibles = () => Object.values(registros).filter(r => !r.borrado && !r.eliminada);
 // Primero las citas fijas por hora; las visitas sin hora van después
 const ordenCita = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '').localeCompare(b.hora || '');
 const visitasDe = (vendedor, fecha) => visibles()
@@ -621,9 +627,10 @@ function pintarInicio() {
     const vend = esComercial() ? sesion.id : null;
     const deHoy = visibles().filter(r => r.clase === 'visita' && !r.interno && r.fecha === hoy() && (!vend || r.vendedor === vend));
     const pend = deHoy.filter(v => v.estado === 'pendiente').length;
-    $('homeAgendaTxt').textContent = deHoy.length
+    const invit = invitacionesMias().length;
+    $('homeAgendaTxt').textContent = (invit ? `🤝 ${invit} ${invit === 1 ? 'solicitud' : 'solicitudes'} de acompañamiento · ` : '') + (deHoy.length
         ? `Hoy: ${deHoy.length} ${deHoy.length === 1 ? 'visita' : 'visitas'}${pend ? ` · ${pend} por registrar` : ' · todas registradas'}`
-        : esComercial() ? 'Hoy no tienes visitas programadas' : 'Hoy el equipo no tiene visitas programadas';
+        : esComercial() ? 'Hoy no tienes visitas programadas' : 'Hoy el equipo no tiene visitas programadas');
     const acts = actividadesMes(mesDe(hoy()), vend);
     const hechas = acts.filter(a => a.hecha).length;
     const proys = proyectos().filter(p => p.estado !== 'vinculado' && p.estado !== 'perdido' && (esJefe() || p.vendedor === sesion.id)).length;
@@ -1648,7 +1655,7 @@ function planeadasDe(vendedor, fecha) {
     const sigueEnZona = c => fecha < hoy() || esTrabajoInterno(c) || buscarMaestra(zona, c) || buscarProyecto(zona, c) || !Object.keys(contactos).length;
     return Object.entries(plan.marcas || {}).filter(([c, dias]) => dias.includes(fecha) && sigueEnZona(c)).map(([contacto]) => {
         const visitaId = (plan.confirmadas || {})[clavePlan(contacto, fecha)];
-        const estado = visitaId && registros[visitaId] && !registros[visitaId].borrado ? 'confirmada' : fecha < hoy() ? 'cerrada' : 'por confirmar';
+        const estado = visitaId && registros[visitaId] && !registros[visitaId].borrado && !registros[visitaId].eliminada ? 'confirmada' : fecha < hoy() ? 'cerrada' : 'por confirmar';
         return { contacto, fecha, estado, visitaId };
     }).sort((a, b) => a.contacto.localeCompare(b.contacto));
 }
@@ -2282,7 +2289,7 @@ function pintarAgenda() {
     const bloqueCerradas = cerradas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${cerradas.length} ${cerradas.length === 1 ? 'planeado no confirmado' : 'planeados no confirmados'}</p>${cerradas.map(tarjetaPlan).join('')}</div>` : '';
     const cont = $('agLista');
     if (!lista.length && !novs.length && !plan.length) {
-        cont.innerHTML = tarjetasCumple + `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>`;
+        cont.innerHTML = tarjetasInvitaciones() + tarjetasCumple + `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>` + eliminadasDe(vs, f).map(tarjetaEliminada).join('');
         return;
     }
     // Filtro por indicador y orden (por hora de cita o por el orden en que se reportaron las visitas)
@@ -2306,9 +2313,9 @@ function pintarAgenda() {
     if (avisoOrden) $('agResumen').querySelector('.ag-orden')?.insertAdjacentHTML('beforebegin', avisoOrden);
     const filtrando = agenda.filtro;
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
-    cont.innerHTML = (filtrando ? '' : tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
+    cont.innerHTML = (filtrando ? '' : tarjetasInvitaciones() + tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
-        + (filtrando ? '' : bloqueCerradas);
+        + (filtrando ? '' : bloqueCerradas + eliminadasDe(vs, f).map(tarjetaEliminada).join(''));
 }
 
 // Si el cliente buscado no está en el día, se ofrece abrir su historial (hasta 5 coincidencias)
@@ -2390,6 +2397,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         ${objetivos}
         ${v.objetivo ? `<p class="nota-plan"><b>${v.interno ? 'Qué se iba a hacer' : 'Plan de visita'}:</b> ${esc(v.objetivo)}</p>` : ''}
         ${reporte}
+        ${filaAcomp(v)}
         ${accionesVisita(v, txtOk, txtNo)}
     </div>`;
 }
@@ -2472,13 +2480,18 @@ function accionesVisita(v, txtOk, txtNo) {
     if (v.estado !== 'pendiente') {
         const nota = v.cierreAutomatico
             ? 'Cerrada automáticamente: no se reportó a tiempo'
-            : `Reportada el ${fechaHora(v.registrada)}`;
-        return `<div class="acciones cerrada"><span class="nota-cierre">🔒 ${esc(nota)}</span>${eliminar}</div>`;
+            : `Reportada el ${fechaHora(v.registrada)}${v.corregida ? ` · corregida el ${fechaHora(v.corregida)}` : ''}`;
+        const corregir = puedeCorregir(v) ? `<span class="corregir">Corregir hasta el ${esc(textoCierre(v))}:
+            <button class="link-mini" onclick="abrirRegistro('${v.id}','ok')">✏️ ${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
+            <button class="link-mini" onclick="abrirRegistro('${v.id}','no')">✏️ ${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
+        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${eliminar}</div>`;
     }
     const editar = `<button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>`;
     if (v.fecha > hoy()) {
         const puede = sesion.id === v.vendedor || esAdmin();
-        return `<div class="acciones">${puede ? `<button class="bv adelantar" onclick="adelantarVisita('${v.id}')">⏩ Adelantar a hoy</button><button class="bv reprogramar" onclick="abrirReprogramar('${v.id}')">📅 Reprogramar</button>` : ''}<span class="nota-cierre">Se reporta desde el ${esc(fechaCorta(v.fecha))} hasta el ${esc(textoCierre(v))}</span>${editar}${eliminar}</div>`;
+        // Visita futura: quien la programó la elimina directo (queda la huella en rojo al final del día)
+        const quitar = puede ? `<button type="button" class="link-mini peligro" onclick="eliminarFutura('${v.id}')">🗑 Eliminar</button>` : eliminar;
+        return `<div class="acciones">${puede ? `<button class="bv adelantar" onclick="adelantarVisita('${v.id}')">⏩ Adelantar a hoy</button><button class="bv reprogramar" onclick="abrirReprogramar('${v.id}')">📅 Reprogramar</button>` : ''}<span class="nota-cierre">Se reporta desde el ${esc(fechaCorta(v.fecha))} hasta el ${esc(textoCierre(v))}</span>${editar}${quitar}</div>`;
     }
     return `<div class="acciones">
             <button class="bv ok" onclick="abrirRegistro('${v.id}','ok')">✓ ${txtOk}</button>
@@ -2487,6 +2500,160 @@ function accionesVisita(v, txtOk, txtNo) {
             ${editar}${eliminar}
         </div>`;
 }
+
+// ---------- ACOMPAÑAMIENTO ----------
+// El vendedor pide acompañamiento (a los jefes y/o a un compañero) desde la tarjeta de su visita; a la persona le llega la
+// solicitud y, si la acepta, le queda la visita en su programación. Los jefes también pueden "Acompañar" cualquier visita,
+// a cualquier hora, menos las de días pasados. Cada uno reporta su visita; en el histórico del cliente queda como visita
+// acompañada con los dos reportes. Registro clase 'acompanamiento': vendedor = quien acompaña, solicitante = dueño de la visita.
+const acompanamientos = () => visibles().filter(r => r.clase === 'acompanamiento');
+const acompDeVisita = id => acompanamientos().filter(a => a.visitaId === id || a.visitaAcomp === id);
+const invitacionesMias = () => acompanamientos().filter(a => a.vendedor === sesion.id && a.estado === 'pendiente' && a.fecha >= hoy())
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+const primerNombre = id => nombreVendedor(id).split(' ')[0];
+const CAMPOS_ACOMP = ['contacto', 'tipoContacto', 'ciudad', 'hora', 'tipoVisita', 'tiposVisita', 'objetivos', 'subobjetivos', 'objetivo', 'modalidad', 'esProyecto', 'contactoProyecto', 'personalizada'];
+const datosVisita = v => Object.fromEntries(CAMPOS_ACOMP.map(k => [k, v[k] ?? '']));
+
+function filaAcomp(v) {
+    if (v.interno) return '';
+    const mios = acompDeVisita(v.id).filter(a => a.visitaId === v.id);
+    const chips = mios.map(a => a.estado === 'aceptada' ? `<span class="chip acomp">🤝 Acompaña ${esc(primerNombre(a.vendedor))}</span>`
+            : a.estado === 'pendiente' ? `<span class="chip acomp-p">🤝 Solicitado a ${esc(primerNombre(a.vendedor))} · pendiente</span>`
+            : `<span class="chip gris">🤝 ${esc(primerNombre(a.vendedor))} no aceptó</span>`)
+        .concat(v.acompanamiento ? [`<span class="chip acomp">🤝 Acompañando a ${esc(primerNombre(v.acompanamiento.de))}</span>`] : []);
+    const botones = [];
+    if (v.fecha >= hoy() && !v.acompanamiento) {
+        if (v.vendedor === sesion.id && v.estado === 'pendiente') botones.push(`<button type="button" class="bv acomp" onclick="solicitarAcompanamiento('${v.id}')">🤝 Solicitar acompañamiento</button>`);
+        if (esJefe() && v.vendedor !== sesion.id && !mios.some(a => a.vendedor === sesion.id && a.estado !== 'rechazada'))
+            botones.push(`<button type="button" class="bv acomp" onclick="acompanarVisita('${v.id}')">🤝 Acompañar</button>`);
+    }
+    return chips.length || botones.length ? `<div class="fila-acomp">${chips.join('')}${botones.join('')}</div>` : '';
+}
+
+function solicitarAcompanamiento(id) {
+    const v = registros[id];
+    const ya = new Set(acompDeVisita(id).filter(a => a.visitaId === id && a.estado !== 'rechazada').map(a => a.vendedor));
+    const gente = USUARIOS.filter(u => u.id !== v.vendedor && !ya.has(u.id));
+    const jefes = gente.filter(u => u.tipo === 'jefe' || u.jefe), comp = gente.filter(u => !(u.tipo === 'jefe' || u.jefe));
+    const opcion = u => `<label class="check"><input type="checkbox" value="${u.id}"><span>${esc(u.nombre)} <small>${esc(u.cargo || u.zona || '')}</small></span></label>`;
+    if (!gente.length) return toast('Ya le pediste acompañamiento a todo el equipo');
+    abrirModal(`<form class="form-rc" onsubmit="enviarAcompanamiento(event, '${id}')">
+        <h2>Solicitar acompañamiento</h2>
+        <p class="sub">${esc(v.contacto)} · ${esc(fechaLarga(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>
+        ${jefes.length ? `<label>Jefes</label><div class="checks" id="acJefes">${jefes.map(opcion).join('')}</div>` : ''}
+        ${comp.length ? `<label>Compañeros</label><div class="checks" id="acComp">${comp.map(opcion).join('')}</div>` : ''}
+        <p class="ayuda">A cada persona le llega la solicitud; si la acepta, la visita le queda en su programación.</p>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario">Enviar solicitud</button>
+        </div>
+    </form>`);
+}
+
+function enviarAcompanamiento(e, id) {
+    e.preventDefault();
+    const v = registros[id];
+    const quienes = [...document.querySelectorAll('#modalContenido .checks input:checked')].map(x => x.value);
+    if (!quienes.length) return toast('Escoge a quién le pides el acompañamiento');
+    if (v.fecha < hoy()) return toast('No se pide acompañamiento para un día que ya pasó');
+    quienes.forEach(q => guardarRegistro({ id: nuevoId(), clase: 'acompanamiento', vendedor: q, solicitante: v.vendedor, visitaId: v.id,
+        fecha: v.fecha, ...datosVisita(v), estado: 'pendiente', creado: new Date().toISOString(), creadoPor: sesion.id }));
+    cerrarModal();
+    toast(`Solicitud enviada a ${quienes.map(primerNombre).join(' y ')}`);
+    pintarAgenda();
+}
+
+// Visita de quien acompaña: queda en su programación, con los datos de la visita acompañada
+function crearVisitaAcomp(a) {
+    const nueva = {
+        id: nuevoId(), clase: 'visita', vendedor: a.vendedor, estado: 'pendiente', fecha: a.fecha, ...datosVisita(a),
+        objetivo: `Acompañamiento a ${nombreVendedor(a.solicitante)}${a.objetivo ? ': ' + a.objetivo : ''}`.slice(0, 100),
+        programada: true, origen: 'acompanamiento', acompanamiento: { de: a.solicitante, visitaId: a.visitaId, solicitud: a.id },
+        creado: new Date().toISOString(), creadoPor: sesion.id
+    };
+    guardarRegistro(nueva);
+    return nueva;
+}
+
+async function responderAcompanamiento(aid, acepta) {
+    const a = registros[aid];
+    if (!a || a.estado !== 'pendiente') return;
+    if (acepta && a.fecha < hoy()) return toast('Esa visita ya pasó: no se puede acompañar');
+    if (!acepta && !await dialogo({ titulo: 'No aceptar el acompañamiento', texto: `${nombreVendedor(a.solicitante)} verá que no lo aceptaste.`, aceptar: 'No acepto', cancelar: 'Volver' })) return;
+    const nueva = acepta ? crearVisitaAcomp(a) : null;
+    guardarRegistro({ ...a, estado: acepta ? 'aceptada' : 'rechazada', visitaAcomp: nueva?.id || '', respondida: new Date().toISOString() });
+    toast(acepta ? `Listo: la visita a ${a.contacto} quedó en tu programación del ${fechaCorta(a.fecha)}` : 'Acompañamiento no aceptado');
+    repintarPantallaActiva();
+}
+
+// Jefes: acompañan cualquier visita (a cualquier hora), menos las de días pasados
+async function acompanarVisita(id) {
+    const v = registros[id];
+    if (!esJefe() || !v) return;
+    if (v.fecha < hoy()) return toast('No se puede acompañar una visita de un día que ya pasó');
+    if (!await dialogo({ tono: 'aviso', icono: '🤝', titulo: `Acompañar a ${primerNombre(v.vendedor)}`, texto: `${v.contacto} · ${fechaLarga(v.fecha)}.\nLa visita te queda en tu programación y cada uno reporta la suya.`, aceptar: 'Sí, acompañar', cancelar: 'No' })) return;
+    const pend = acompDeVisita(id).find(a => a.visitaId === id && a.vendedor === sesion.id && a.estado === 'pendiente');
+    if (pend) return responderAcompanamiento(pend.id, true);
+    const a = { id: nuevoId(), clase: 'acompanamiento', vendedor: sesion.id, solicitante: v.vendedor, visitaId: v.id, fecha: v.fecha, ...datosVisita(v),
+        estado: 'aceptada', directo: true, creado: new Date().toISOString(), creadoPor: sesion.id };
+    const nueva = crearVisitaAcomp(a);
+    guardarRegistro({ ...a, visitaAcomp: nueva.id, respondida: a.creado });
+    toast(`Acompañamiento registrado: te quedó en tu programación del ${fechaCorta(v.fecha)}`);
+    if (!vendedoresAgenda().includes(sesion.id)) agenda.vendedores = [...vendedoresAgenda(), sesion.id];
+    pintarAgenda();
+}
+
+// Solicitudes que me llegan (salen arriba en el Plan de Trabajo)
+function tarjetasInvitaciones() {
+    const l = invitacionesMias();
+    if (!l.length) return '';
+    return `<div class="plan-dia"><p class="grupo-titulo">🤝 ${l.length === 1 ? 'Solicitud' : 'Solicitudes'} de acompañamiento</p>${l.map(a => `
+        <div class="producto-card acomp-card">
+            <div class="visita-cab"><div><h3>${esc(a.contacto)}</h3></div><span class="chip acomp-p">Por responder</span></div>
+            <p class="meta">${esc(nombreVendedor(a.solicitante))} te pide acompañamiento · ${esc(mayuscula(fechaLarga(a.fecha)))}${a.hora ? ' · Cita ' + esc(horaBonita(a.hora)) : ''}</p>
+            ${a.objetivo ? `<p class="nota-plan"><b>Plan de visita:</b> ${esc(a.objetivo)}</p>` : ''}
+            <div class="acciones"><button class="bv ok" onclick="responderAcompanamiento('${a.id}', true)">✓ Aceptar</button><button class="bv no" onclick="responderAcompanamiento('${a.id}', false)">✕ No acepto</button></div>
+        </div>`).join('')}</div>`;
+}
+
+// Cada uno reporta su visita: el reporte se copia en el registro del acompañamiento para que el otro lo vea en el histórico
+function textoReporte(v) {
+    const html = (v.estado === 'visitado' ? partesReporte(v, true) : [`<b>${esc(v.motivo || '')}</b>`, v.observaciones ? esc(v.observaciones) : '']).filter(Boolean).join(' · ');
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    return d.textContent;
+}
+function copiarReporteAcomp(v) {
+    if (v.clase !== 'visita' || v.estado === 'pendiente') return;
+    const rep = { estado: v.estado, texto: textoReporte(v), fecha: new Date().toISOString() };
+    const a = v.acompanamiento?.solicitud && registros[v.acompanamiento.solicitud];
+    if (a) guardarRegistro({ ...a, reporteAcomp: rep });
+    acompanamientos().filter(x => x.visitaId === v.id && x.estado === 'aceptada').forEach(x => guardarRegistro({ ...x, reporteDueno: rep }));
+}
+// En el histórico: con quién fue la visita acompañada y el reporte del otro
+function htmlAcompHist(x) {
+    return acompDeVisita(x.id).filter(a => a.estado === 'aceptada').map(a => {
+        const soyDueno = a.visitaId === x.id;
+        const otro = soyDueno ? a.vendedor : a.solicitante;
+        const ov = registros[soyDueno ? a.visitaAcomp : a.visitaId];
+        const rep = ov && !ov.borrado && ov.estado !== 'pendiente' ? { estado: ov.estado, texto: textoReporte(ov) } : soyDueno ? a.reporteAcomp : a.reporteDueno;
+        const est = rep ? (rep.estado === 'visitado' ? 'Visitado' : 'No visitado') : 'Sin reportar todavía';
+        return `<div class="acomp-hist">🤝 <b>Visita acompañada</b> con ${esc(nombreVendedor(otro))} · <i>${est}</i>${rep?.texto ? `<br>${esc(rep.texto)}` : ''}</div>`;
+    }).join('');
+}
+
+// Visita futura eliminada por quien la programó: no cuenta en nada, pero queda la huella (tarjeta pequeña en rojo)
+async function eliminarFutura(id) {
+    const v = registros[id];
+    if (!v || v.estado !== 'pendiente' || v.fecha <= hoy()) return toast('Solo se eliminan así las visitas de días futuros');
+    if (!await dialogo({ tono: 'aviso', icono: '🗑', titulo: `¿Eliminar la visita a ${v.contacto}?`, texto: `Es del ${fechaLarga(v.fecha)}. Queda una huella en rojo de que se eliminó.`, aceptar: 'Sí, eliminar', cancelar: 'No' })) return;
+    guardarRegistro({ ...v, eliminada: { por: sesion.id, fecha: new Date().toISOString() } });
+    toast('Visita eliminada');
+    pintarAgenda();
+}
+const eliminadasDe = (vendedores, fecha) => Object.values(registros)
+    .filter(r => r.clase === 'visita' && r.eliminada && !r.borrado && r.fecha === fecha && vendedores.includes(r.vendedor));
+const tarjetaEliminada = v => `<div class="huella-eliminada">🗑 <b>${esc(v.contacto)}</b> · eliminada el ${esc(fechaHora(v.eliminada.fecha))}${v.eliminada.por !== v.vendedor ? ' por ' + esc(nombreVendedor(v.eliminada.por)) : ''}${vendedoresAgenda().length > 1 ? ' · ' + esc(nombreVendedor(v.vendedor)) : ''}</div>`;
 
 // Eliminar: el administrador elimina directo; los demás piden autorización
 function accionEliminar(v, clase) {
@@ -3057,10 +3224,21 @@ async function guardarProgramada(e, id) {
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
         programada: antes && antes.fecha === fecha ? esProgramada(antes) : Date.now() < limiteProgramacion(fecha)
     });
-    // Visita confirmada desde el Visiplan: cuenta como programada y queda enlazada al plan
+    // Trabajo administrativo: no se repite el mismo trabajo en el mismo día
+    if (interno) {
+        const repetido = visitasDe(v.vendedor, fecha).find(x => x.id !== v.id && x.interno && x.contacto === v.contacto);
+        if (repetido) { toast(`Ya tienes "${v.contacto}" programado ese día`); return; }
+    }
+    // Si eso mismo está en el Visiplan de ese día (sin confirmar), queda como la confirmación del plan (no se duplica)
+    if (!id && !confirmandoPlan) {
+        const pl = planeadasDe(v.vendedor, fecha).find(p => p.estado === 'por confirmar' && normalizar(p.contacto) === normalizar(v.contacto));
+        if (pl) confirmandoPlan = { contacto: pl.contacto, fecha };
+    }
+    // Visita confirmada desde el Visiplan: queda enlazada al plan. Cuenta como programada solo si se confirmó
+    // antes de las 8:00 a. m. del día; después queda como NO programada (y sin número de orden programado)
     const deplan = !id && confirmandoPlan && confirmandoPlan.fecha === fecha && normalizar(confirmandoPlan.contacto) === normalizar(v.contacto);
     if (deplan) {
-        Object.assign(v, { programada: true, origen: 'plan' });
+        Object.assign(v, { programada: Date.now() < limiteProgramacion(fecha), origen: 'plan' });
         const pid = idPlan(v.vendedor, mesDe(fecha));
         if (registros[pid]) guardarRegistro({ ...registros[pid], confirmadas: { ...(registros[pid].confirmadas || {}), [clavePlan(confirmandoPlan.contacto, fecha)]: v.id } });
     }
@@ -3324,13 +3502,13 @@ const cuentaNota = (id, n = 100) => `oninput="$('${id}Cuenta').textContent = thi
 function abrirRegistro(id, tipo) {
     const v = registros[id];
     const opciones = (lista, actual) => lista.map(o => `<option ${o === actual ? 'selected' : ''}>${esc(o)}</option>`).join('');
-    if (!puedeReportar(v)) return toast(v.estado !== 'pendiente' ? 'Esta visita ya se cerró y no se puede modificar' : 'El plazo para reportar esta visita ya cerró');
+    if (!puedeGuardarReporte(v)) return toast(v.estado !== 'pendiente' ? 'El plazo para corregir esta visita ya cerró' : 'El plazo para reportar esta visita ya cerró');
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
     ctxCircular = { cliente: mc || null, fecha: v.fecha };
     const cab = (v.interno ? `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`
         : `<p class="cierre-cliente">${esc(v.contacto)}</p>${mc && (mc.cl || mc.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(mc.cl || '')}</b>${mc.ca ? ' · ' + esc(mc.ca) : ''}</p>` : ''}
         <p class="sub">${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`) + `
-        <p class="aviso-hora">Plazo: ${esc(textoCierre(v))}. Después de guardar, el reporte no se puede modificar.</p>`;
+        <p class="aviso-hora">${v.estado !== 'pendiente' ? 'Estás corrigiendo el reporte. ' : ''}Plazo: ${esc(textoCierre(v))}. Hasta esa hora puedes corregir el reporte.</p>`;
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
             <h2>Trabajo realizado</h2>${cab}
@@ -3416,10 +3594,13 @@ function abrirRegistro(id, tipo) {
 const LIMPIAR_VISITADO = { gestion: '', atendio: '', productos: '', muestras: '', pedido: '', valorPedido: '', compromisos: '',
     pedidos: [], productosPresentados: {}, productosPedidos: {}, muestrasDetalle: {} };
 const LIMPIAR_NO_VISITADO = { motivo: '' };
+// Primer reporte: queda la hora en que se cerró (da el orden real). Corrección: se conserva esa hora y queda la de la corrección
+const marcaReporte = antes => antes.estado !== 'pendiente' && antes.registrada && !antes.cierreAutomatico
+    ? { registrada: antes.registrada, corregida: new Date().toISOString() } : { registrada: new Date().toISOString() };
 
 // Revisa que el plazo siga abierto al momento de guardar
 function plazoAbierto(id) {
-    if (puedeReportar(registros[id])) return true;
+    if (puedeGuardarReporte(registros[id])) return true;
     cerrarModal();
     toast('El plazo para reportar esta visita ya cerró');
     pintarAgenda();
@@ -3463,10 +3644,12 @@ function guardarVisitado(e, id) {
         compromisos: $('rCompromisos').value.trim(),
         observaciones: '',
         proximaVisita: $('rProxima').value || '', proximaHora: $('rProxima').value ? $('rProximaHora').value : '',
-        registrada: new Date().toISOString()
+        ...marcaReporte(registros[id])
     };
+    const proximaAntes = registros[id].proximaVisita;
     guardarRegistro(v);
-    if (v.proximaVisita) agendarProxima(v);
+    copiarReporteAcomp(v);
+    if (v.proximaVisita && v.proximaVisita !== proximaAntes) agendarProxima(v);
     cerrarModal();
     toast(v.proximaVisita ? `Visita registrada · próxima visita el ${fechaCorta(v.proximaVisita)}` : 'Visita registrada');
     pintarAgenda();
@@ -3536,6 +3719,7 @@ function pintarHistorial() {
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
             <p class="meta">${esc([nombreTipo(x), modalidadDe(x), nombreVendedor(x.vendedor)].filter(Boolean).join(' · '))}</p>
             ${partes.filter(Boolean).length ? `<div class="reporte">${partes.filter(Boolean).join('<br>')}</div>` : ''}
+            ${htmlAcompHist(x)}
         </div>`;
     }).join('');
     abrirModal(`<div class="form-rc ficha historial">
@@ -3568,7 +3752,7 @@ function guardarInternoRealizado(e, id) {
     if (!plazoAbierto(id)) return;
     if (!$('rObs').value.trim()) { $('rObs').focus(); return toast('Escribe qué se hizo (máximo 100 caracteres)'); }
     guardarRegistro({ ...registros[id], ...LIMPIAR_NO_VISITADO, estado: 'visitado', observaciones: $('rObs').value.trim(),
-        ...leerCierre(), registrada: new Date().toISOString() });
+        ...leerCierre(), ...marcaReporte(registros[id]) });
     cerrarModal();
     toast('Trabajo registrado como realizado');
     pintarAgenda();
@@ -3588,9 +3772,10 @@ function guardarNoVisitado(e, id) {
         motivo: $('nMotivo') ? $('nMotivo').value : '',
         observaciones: obs,
         reprogramadaPara: repro || antes.reprogramadaPara || '',
-        registrada: new Date().toISOString()
+        ...marcaReporte(antes)
     };
     guardarRegistro(v);
+    copiarReporteAcomp(v);
     // La visita reprogramada queda como una nueva visita pendiente en esa fecha
     if (repro && !antes.reprogramadaPara) {
         guardarRegistro({

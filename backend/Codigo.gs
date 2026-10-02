@@ -70,7 +70,9 @@ function listar_(usuario, desde, hasta) {
   const filas = hoja_().getDataRange().getValues().slice(1);
   return filas
     // La parrilla, las actividades del mes y los PDF de las circulares (clase 'mensual') los ve todo el equipo
-    .filter(f => f[0] && (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'))
+    // Acompañamientos: también los ve quien pidió el acompañamiento (dueño de la visita)
+    .filter(f => f[0] && (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'
+      || (f[1] === 'acompanamiento' && String(f[6]).indexOf('"solicitante":"' + usuario.id + '"') >= 0)))
     // Los contactos proyecto y los PDF de las circulares se envían siempre, sin importar la fecha
     .filter(f => f[1] === 'proyecto' || f[0] === 'circulares-pdf' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
     .map(f => JSON.parse(f[6]));
@@ -89,7 +91,11 @@ function guardar_(usuario, registros) {
     let guardados = 0;
     registros.forEach(r => {
       if (!r || !r.id) return;
-      if (usuario.tipo !== 'jefe' && r.vendedor !== usuario.id) return;
+      const n0 = filaDe[r.id];
+      const previo = n0 ? JSON.parse(valores[n0 - 1][6]) : null;
+      // Acompañamiento: lo guarda quien acompaña (vendedor) o quien lo pidió (solicitante, sin cambiarlo)
+      const esSolicitante = r.clase === 'acompanamiento' && r.solicitante === usuario.id && (!previo || previo.solicitante === usuario.id);
+      if (usuario.tipo !== 'jefe' && r.vendedor !== usuario.id && !esSolicitante) return;
       // Para el rango de fechas, la actividad usa su fecha (o el primer día del mes)
       const fecha = r.fecha || (r.mes ? r.mes + '-01' : '');
       const fila = [r.id, r.clase, r.vendedor, fecha, r.actualizado || '', r.borrado ? 'si' : '', JSON.stringify(r)];
@@ -105,8 +111,9 @@ function guardar_(usuario, registros) {
           r.actualizado = new Date().toISOString();
           fila[4] = r.actualizado;
           fila[6] = JSON.stringify(r);
-        } else if (actual && actual.estado && actual.estado !== 'pendiente' && r.estado !== actual.estado && !usuario.admin) {
-          return; // Una visita cerrada no se puede modificar
+        } else if (actual && actual.estado && actual.estado !== 'pendiente' && r.estado !== actual.estado && !usuario.admin
+          && !(r.etapa === 'pruebas' || (!actual.cierreAutomatico && actual.limiteReporte && new Date().toISOString() <= actual.limiteReporte))) {
+          return; // Una visita cerrada solo se corrige hasta las 11:59 a. m. del siguiente día hábil
         }
       }
       if (n) {
