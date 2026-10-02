@@ -28,7 +28,7 @@
 - Nombres (contacto nuevo, nombre de contacto, quién atendió) van siempre en NomProp (`nombrePropio`).
 - Hasta las 8:00 a. m. el vendedor cambia el orden de su día con los botones ▲ Subir / ▼ Bajar de cada tarjeta.
 - "Trabajo interno" se llama **Trabajo Administrativo** en la app (la hoja de la Matriz conserva su nombre).
-- Obligatorios: causa al rechazar una solicitud (50), causa de Lead perdida (50), detalle de Vacaciones y Cita médica (50),
+- Obligatorios: causa al rechazar una solicitud (50), causa de Lead perdida (50), detalle de Cita médica (50); en Vacaciones el detalle es opcional,
   observaciones de no visitadas (100).
 - Firmas de la solicitud de creación: primero Coordinador Comercial y después Gerente General; en el formato queda el sello
   "✔ FIRMADO ELECTRÓNICAMENTE" en la casilla de cada firma.

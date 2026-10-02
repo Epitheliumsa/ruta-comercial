@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610012112';
+const APP_VERSION = '202610012113';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -3071,9 +3071,9 @@ async function guardarProgramada(e, id) {
 
 // Novedades con detalle obligatorio (y qué se pide)
 const DETALLE_OBLIGATORIO = { 'Permiso': 'motivo del permiso', 'Incapacidad': 'razón de la incapacidad',
-    'Vacaciones': 'máximo 50 caracteres', 'Cita médica': 'motivo de la cita, máximo 50 caracteres' };
+    'Cita médica': 'motivo de la cita, máximo 50 caracteres' };
 // Máximo de caracteres del detalle (lo demás: 100)
-const DETALLE_MAX = { 'Vacaciones': 50, 'Cita médica': 50 };
+const DETALLE_MAX = { 'Cita médica': 50 };
 function guardarNovedad(id, tipo) {
     const desde = $('fFecha').value;
     const porHoras = NOVEDAD_HORAS.includes(tipo) && !$('fDiaCompleto').checked;
