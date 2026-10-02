@@ -52,7 +52,15 @@
   "✔ FIRMADO ELECTRÓNICAMENTE" en la casilla de cada firma.
 - Responder en español, con tono sencillo, claro y conciso, tuteando.
 
-## Etapa de pruebas y datos para capacitaciones
+## En vivo desde el 1 de octubre de 2026
+- `ETAPA_DATOS = 'vivo'`. Lo de `pruebas` sigue en la hoja para capacitaciones (la app en vivo lo ignora).
+- El Visiplan en vivo usa otro id (`plan-<vendedor>-<mes>-vivo`) para no pisar el de pruebas. La configuración del mes
+  (clase `mensual`: parrilla, listas, PDF de circulares) es la misma en pruebas y en vivo.
+- Carga inicial (`cargaInicialVivo`): la capacitación del 1 oct 2026 quedó programada y cerrada para todo el equipo, y en el
+  Visiplan de octubre de las zonas y la Coordinadora (con Planeación Mes el 2 oct).
+- Excepción única: el Visiplan de octubre de 2026 se completa hasta el sábado 3 oct, 11:59 p. m. (`LIMITE_PLAN_EXCEPCION`).
+
+## Etapa de pruebas y datos para capacitaciones (histórico)
 - La app está **en pruebas**. Todo lo que se registre ahora (visitas, actividades, novedades, contactos
   nuevos, solicitudes) queda marcado como `pruebas`.
 - **Los datos de pruebas se conservan para capacitaciones: NO se borran.** Las filas de `pruebas` de la hoja

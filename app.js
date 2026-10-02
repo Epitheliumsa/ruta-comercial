@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610012224';
+const APP_VERSION = '202610012243';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -368,14 +368,56 @@ async function huellaDe(usuario, clave) {
     return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ---------- CARGA INICIAL AL SALIR EN VIVO (1 de octubre de 2026) ----------
+// La capacitación de ese día queda programada y cerrada (Trabajo Administrativo Oficina, todo el día) en el plan diario
+// del equipo, y en el Visiplan de octubre de las tres zonas y la Coordinadora Comercial (más "Planeación Mes" el 2 de octubre).
+// Ids fijos y fecha de actualización vieja: si alguien ya corrigió algo, en el servidor gana lo suyo y nada se duplica.
+const CARGA_VIVO = {
+    fecha: '2026-10-01', registrada: '2026-10-02T03:35:00.000Z', planeacion: '2026-10-02', mes: '2026-10',
+    tipo: 'Trabajo Administrativo Oficina', objetivos: ['Capacitación'],
+    texto: 'Manejo Apps (Vademecum, Visita Comercial y Cotizador), conceptos Etiquetas. Reestructuracion zonas',
+    equipo: ['lramos', 'ycaballero', 'mcastro', 'jherrera', 'hreyes'], visiplan: ['lramos', 'ycaballero', 'mcastro', 'jherrera']
+};
+function cargaInicialVivo() {
+    if (ETAPA_DATOS !== 'vivo' || !sesion) return;
+    const k = CARGA_VIVO, marca = 'rc_carga_vivo_' + k.fecha;
+    try { if (localStorage.getItem(marca) === sesion.id) return; } catch (e) {}
+    const mios = esJefe() ? k.equipo : k.equipo.filter(v => v === sesion.id);
+    mios.forEach(v => {
+        const id = `vivo-capacitacion-${k.fecha}-${v}`;
+        if (!registros[id]) {
+            const visita = { id, clase: 'visita', vendedor: v, estado: 'visitado', interno: true, contacto: k.tipo, tipoVisita: k.tipo, tiposVisita: [],
+                fecha: k.fecha, hora: '', diaCompleto: true, horaInicio: '', horaFin: '', objetivo: k.texto, objetivos: k.objetivos, subobjetivos: {},
+                objetivosCumplidos: k.objetivos, subCumplidos: {}, observaciones: k.texto, motivo: '', programada: true, origen: 'plan', ordenPlan: 1,
+                registrada: k.registrada, creado: k.registrada, creadoPor: 'hreyes', etapa: 'vivo', actualizado: k.registrada, actualizadoPor: 'hreyes' };
+            visita.limiteReporte = new Date(limiteCierre(visita)).toISOString();
+            registros[id] = visita;
+            pendientes.add(id);
+        }
+        if (!k.visiplan.includes(v)) return;
+        const pid = idPlan(v, k.mes), antes = registros[pid];
+        const plan = antes ? { ...antes, marcas: { ...antes.marcas }, confirmadas: { ...(antes.confirmadas || {}) } }
+            : { id: pid, clase: 'plan', vendedor: v, mes: k.mes, fecha: k.mes + '-01', marcas: {}, confirmadas: {}, creado: new Date().toISOString(), creadoPor: sesion.id };
+        const poner = (c, d) => { const l = new Set(plan.marcas[c] || []); const ya = l.has(d); l.add(d); plan.marcas[c] = [...l].sort(); return !ya; };
+        let cambio = poner(k.tipo, k.fecha);
+        cambio = poner('Planeación Mes', k.planeacion) || cambio;
+        if (!plan.confirmadas[clavePlan(k.tipo, k.fecha)]) { plan.confirmadas[clavePlan(k.tipo, k.fecha)] = id; cambio = true; }
+        if (cambio) guardarRegistro(plan);
+    });
+    guardarLocal();
+    try { localStorage.setItem(marca, sesion.id); } catch (e) {}
+}
+
 // ---------- DATOS LOCALES ----------
 // ---------- ETAPA DE LOS DATOS (pruebas / en vivo) ----------
 // Mientras se prueba la app, todo lo que se registra queda marcado como 'pruebas'.
 // PARA SALIR EN VIVO: cambiar ETAPA_DATOS a 'vivo' y publicar. Al abrir esa versión, cada celular borra
 // una sola vez lo guardado en pruebas y la app ignora los registros de pruebas que sigan en la hoja de Google.
 // (Hernán puede luego borrar esas filas de la pestaña Registros cuando quiera; ya no afectan la app.)
-const ETAPA_DATOS = 'pruebas';
+const ETAPA_DATOS = 'vivo';
 const etapaDe = r => r.etapa || 'pruebas';   // lo registrado antes de esta marca es de pruebas
+// La configuración del mes (parrilla, listas y PDF de circulares, clase 'mensual') es la misma en pruebas y en vivo
+const deOtraEtapa = r => r.clase !== 'mensual' && etapaDe(r) !== ETAPA_DATOS;
 
 function limpiarSiCambioEtapa() {
     try {
@@ -404,7 +446,7 @@ function cargarLocal() {
     try {
         registros = JSON.parse(localStorage.getItem('rc_registros') || '{}');
         Object.values(registros).forEach(nombreNuevoTipo);
-        Object.keys(registros).forEach(id => { if (etapaDe(registros[id]) !== ETAPA_DATOS) delete registros[id]; });
+        Object.keys(registros).forEach(id => { if (deOtraEtapa(registros[id])) delete registros[id]; });
         pendientes = new Set(JSON.parse(localStorage.getItem('rc_pendientes') || '[]'));
     } catch (e) {
         registros = {};
@@ -487,10 +529,11 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
             hasta: finDeMes(sumarMes(mesCentro, 1))
         });
         datos.registros.forEach(r => {
-            if (etapaDe(r) !== ETAPA_DATOS) return;   // registros de otra etapa (pruebas) no entran
+            if (deOtraEtapa(r)) return;   // registros de otra etapa (pruebas) no entran
             const local = registros[r.id];
             if (!pendientes.has(r.id) && (!local || (r.actualizado || '') >= (local.actualizado || ''))) registros[r.id] = nombreNuevoTipo(r);
         });
+        cargaInicialVivo();
         cerrarVencidas();
         guardarLocal();
         programarAvisos();
@@ -1667,14 +1710,18 @@ const INTERNO_ETQ = 'Trabajo Administrativo';
 const NOMBRES_FILTRO_PLAN = { plan: 'Planeados', noplan: 'No planeados', real: 'Con visita real', cump: 'Cumplidos en el día planeado', visit: 'Planeados y visitados', lead: 'Leads' };
 let esperaPlan = null;
 
-const idPlan = (vendedor, mes) => `plan-${vendedor}-${mes}`;
+// En vivo el plan tiene otro id: así el Visiplan de pruebas (capacitaciones) se conserva en la hoja
+const idPlan = (vendedor, mes) => `plan-${vendedor}-${mes}${ETAPA_DATOS === 'vivo' ? '-vivo' : ''}`;
 const planDe = (vendedor, mes) => registros[idPlan(vendedor, mes)] || null;
 function diasDelMes(mes) {   // lunes a sábado, como el formato Visiplan
     const dias = [];
     for (let d = mes + '-01'; mesDe(d) === mes; d = sumarDias(d, 1)) if (deIso(d).getDay() !== 0) dias.push(d);
     return dias;
 }
+// Excepción única: el Visiplan de octubre de 2026 (salida en vivo) se completa hasta el sábado 3 de octubre, 11:59 p. m.
+const LIMITE_PLAN_EXCEPCION = { '2026-10': '2026-10-03' };
 function limitePlan(mes) {   // hasta el final del 2.º día hábil del mes (hora Colombia)
+    if (LIMITE_PLAN_EXCEPCION[mes]) { const d = LIMITE_PLAN_EXCEPCION[mes]; return { dia: d, ms: Date.parse(`${d}T23:59:59-05:00`) }; }
     let d = mes + '-01', n = 0;
     while (true) { if (esHabil(d) && ++n === 2) break; d = sumarDias(d, 1); }
     return { dia: d, ms: Date.parse(`${d}T23:59:59-05:00`) };
