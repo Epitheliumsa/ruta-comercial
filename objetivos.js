@@ -6,7 +6,6 @@ window.MATRIZ_OBJETIVOS = {
    "Desarrollo Productos",
    "Devoluciones - PQR",
    "Entrega de Muestras",
-   "Mapa del Cliente",
    "Parrilla Promocional",
    "Productos Nuevos",
    "Protocolo Médico"
