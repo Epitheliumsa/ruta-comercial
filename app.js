@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610012127';
+const APP_VERSION = '202610012129';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -933,7 +933,7 @@ function abrirProyectos(filtro) {
             ${botones.length ? `<div class="form-botones">${botones.join('')}</div>` : ''}`;
     };
     abrirModal(`<div class="form-rc">
-        <div class="leads-cab"><h2>${filtro === 'solicitud' ? 'Solicitudes de creación' : 'Leads'}</h2>${filtro ? '' : '<button type="button" class="btn-primario" onclick="crearLead()">+ Crear Lead</button>'}</div>
+        <div class="leads-cab"><h2>${filtro === 'solicitud' ? 'Solicitudes de creación' : 'Leads'}</h2>${filtro ? '' : '<button type="button" class="btn-primario btn-crear-lead" onclick="crearLead()">+ Crear Lead</button>'}</div>
         <p class="sub">${filtro === 'solicitud'
             ? 'Revisa el formato que subió el vendedor y apruébalo o recházalo (tu aprobación queda como firma, con nombre y fecha). Las aprobadas quedan en transición hasta que llegue la Maestra nueva y se conecten con el cliente creado en Odoo.'
             : 'Contactos nuevos que aún no están en la Maestra de Contactos, con su seguimiento. Cuando se vaya a volver cliente, envía la solicitud de creación.'}</p>

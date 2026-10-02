@@ -1551,6 +1551,11 @@ td.n.lead { color: #c2410c; font-weight: 600; }
 /* Leads: botón para crear y chip cian en la Maestra */
 .leads-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-right: 38px; }   /* espacio para la X de cerrar */
 .leads-cab .btn-primario { padding: 8px 14px; font-size: 14px; }
+/* + Crear Lead: arriba, a la altura de la X, en naranja para que resalte */
+.leads-cab { align-items: flex-start; }
+.leads-cab .btn-crear-lead { margin-top: -6px; padding: 9px 16px; font-size: 15px; font-weight: 800; color: #fff; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); box-shadow: 0 4px 12px rgba(234, 88, 12, .35); }
+.leads-cab .btn-crear-lead:hover { background: linear-gradient(135deg, #fb923c 0%, #f97316 100%); }
 .chip.lead-chip { background: #e0f4f8; color: #0e7490; font-size: 11px; padding: 1px 8px; vertical-align: middle; }
 /* Solicitud de creación: formato oficial para descargar y subir diligenciado */
 .caja-formato { margin: 12px 0 4px; padding: 12px; border: 1px dashed #7dd3e8; border-radius: 10px; background: #f0fafc; }
