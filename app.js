@@ -181,6 +181,8 @@ const NOVEDADES = ['Cita médica', 'Cumpleaños', 'Incapacidad', 'Permiso', 'Vac
 const NOVEDAD_HORAS = ['Cita médica', 'Permiso'];   // pueden ser de día completo o por horas
 const NOVEDAD_RANGO = ['Vacaciones', 'Incapacidad', 'Permiso'];   // se pueden programar por varios días
 const esNovedad = tipo => NOVEDADES.includes(tipo);
+// El cumpleaños ya no se registra como novedad: sale solo (resaltado en los calendarios y con su tarjeta) desde la ficha del usuario
+const NOVEDADES_FORM = NOVEDADES.filter(t => t !== 'Cumpleaños');
 const novedadesDe = (vendedor, fecha) => visibles().filter(r => r.clase === 'novedad' && r.vendedor === vendedor
     && r.fecha <= fecha && (r.hasta || r.fecha) >= fecha);
 // Un permiso puede ser de día completo (uno o varios días) o por horas en un solo día
@@ -241,6 +243,7 @@ const comercial = id => COMERCIALES.find(c => c.id === id);
 const nombreVendedor = id => USUARIOS.find(u => u.id === id)?.nombre || id;
 const limiteProgramacion = fecha => Date.parse(`${fecha}T${HORA_LIMITE}:00-05:00`);
 const esProgramada = v => v.programada !== false;
+const maxFecha = (a, b) => a > b ? a : b;
 const modalidadDe = v => MODALIDADES[v.modalidad] || MODALIDADES.presencial;
 // Tipo con el que se abre un cliente: el de su clasificación; si tiene varios, el que sugiere su etiqueta
 const tipoDeCliente = c => { const ts = tiposDeCliente(c), t = tipoSugerido(c?.e || ''); return ts.includes(t) ? t : ts[0]; };
@@ -574,6 +577,7 @@ function entrarApp() {
     irInicio();
     programarAvisos();
     sincronizar();
+    saludoCumpleHoy();
 }
 
 function mostrarPantalla(id) {
@@ -648,7 +652,8 @@ async function revisarVersion() {
         // Se recarga sola una vez por versión (sin cambios por subir); si no, queda el aviso para actualizar
         let yaIntentada = null;
         try { yaIntentada = sessionStorage.getItem('rc_recarga'); } catch (e) {}
-        if (yaIntentada !== publicada && !pendientes.size) {
+        // Con un formulario abierto no se recarga sola (se perdería lo que se está escribiendo): queda el aviso
+        if (yaIntentada !== publicada && !pendientes.size && !hayFormularioAbierto()) {
             try { sessionStorage.setItem('rc_recarga', publicada); } catch (e) {}
             return location.replace(location.pathname + '?v=' + publicada);
         }
@@ -916,7 +921,7 @@ function abrirProyectos(filtro) {
                 <div class="firmas">${firmasDe(p).map(r => { const a = p.solicitud.aprobaciones?.[r];
                     return `<span class="${a ? 'ok' : ''}">${FIRMAS[r]}: ${a ? esc(textoFirma(a).replace('\n', ' · ')) : 'pendiente'}</span>`; }).join('')}</div>
                 ${solicitudAprobada(p) ? '<p class="nota-sol transicion">Aprobada · en creación: queda en transición hasta que llegue la Maestra nueva y se conecte con el cliente creado en Odoo.</p>' : ''}` : ''}
-            ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol">Solicitud rechazada${p.rechazo.motivo ? ': ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
+            ${p.rechazo && p.estado === 'proyecto' ? `<p class="nota-sol rechazo">Solicitud rechazada${p.rechazo.por ? ` por ${esc(nombreVendedor(p.rechazo.por))}${USUARIOS.find(u => u.id === p.rechazo.por)?.cargo ? ' (' + esc(USUARIOS.find(u => u.id === p.rechazo.por).cargo) + ')' : ''}` : ''}${p.rechazo.fecha ? ' el ' + esc(fechaHora(p.rechazo.fecha)) : ''}${p.rechazo.motivo ? '<br><b>Causa:</b> ' + esc(p.rechazo.motivo) : ''}</p>` : ''}
             ${p.estado === 'solicitud' && !esJefe() && !solicitudAprobada(p) ? '<p class="nota-sol">Lead ganada: la solicitud está esperando aprobación.</p>' : ''}
             ${sugeridos.length ? `<div class="sug-vinculo"><p><b>¿Ya se creó en la Maestra?</b> Confirma cuál es el cliente creado para amarrarlo:</p>${sugeridos.map(x =>
                 `<div class="sug-fila"><span><b>${esc(x.c.n)}</b><small>${esc([x.c.cl && `Clasificación ${x.c.cl}`, x.c.e, x.c.c, x.z].filter(Boolean).join(' · '))}</small></span>
@@ -1168,7 +1173,7 @@ async function aprobarCreacion(id) {
 
 async function rechazarCreacion(id) {
     if (!esJefe()) return;
-    const motivo = await dialogo({ titulo: 'Rechazar solicitud de creación', texto: '¿Por qué se rechaza? (opcional)', campo: 'Ej: faltan datos de facturación', aceptar: 'Rechazar' });
+    const motivo = await dialogo({ titulo: 'Rechazar solicitud de creación', texto: '¿Cuál es la causa del rechazo? (obligatoria, máximo 50 caracteres)', campo: 'Ej: faltan datos de facturación', max: 50, obligatorio: true, aceptar: 'Rechazar' });
     if (motivo === null) return;
     guardarRegistro({ ...registros[id], estado: 'proyecto', rechazo: { motivo: motivo.trim(), por: sesion.id, fecha: new Date().toISOString() } });
     toast('Solicitud rechazada: el contacto sigue como contacto nuevo');
@@ -2084,6 +2089,7 @@ function confirmarPlaneada(contacto, fecha, vendedor) {
 function abrirAgenda() {
     pintarAgenda();
     mostrarPantalla('agendaScreen');
+    avisoCumple(agenda.fecha);
 }
 
 // Jefes: ven uno, varios o todo el equipo (agenda.vendedor = el primero, con el que se abre Programar)
@@ -2109,6 +2115,7 @@ function elegirFecha(f) {
     const mesAntes = mesDe(agenda.fecha);
     agenda.fecha = f;
     pintarAgenda();
+    avisoCumple(f);
     if (mesDe(f) !== mesAntes) sincronizar(mesDe(f));
 }
 
@@ -2210,8 +2217,10 @@ function pintarAgenda() {
             .map(x => `<i class="${x.estado === 'visitado' ? 'ok' : x.estado === 'no_visitado' ? 'no' : ''}"></i>`).join('');
         const fest = nombreFestivo(d);
         const nov = deTodos(x => novedadesDe(x, d))[0];
-        const marca = nov ? `<em>${CORTO_NOVEDAD[nov.tipo]}</em>` : fest ? '<em>Festivo</em>' : '';
-        return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}${claseDia(d)}${nov ? ' con-novedad' : ''}" onclick="elegirFecha('${d}')" title="${esc(fest || nov?.tipo || '')}"><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span>${marca}<span class="puntos">${puntos}</span></button>`;
+        const cumples = vs.filter(x => esCumple(x, d));
+        const marca = nov ? `<em>${CORTO_NOVEDAD[nov.tipo]}</em>` : cumples.length ? '<em class="em-cumple">🎂 Cumple</em>' : fest ? '<em>Festivo</em>' : '';
+        const tit = [cumples.length && '🎂 Cumpleaños de ' + cumples.map(nombreVendedor).join(', '), fest, nov?.tipo].filter(Boolean).join(' · ');
+        return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}${claseDia(d)}${cumples.length ? ' cumple' : ''}${nov ? ' con-novedad' : ''}" onclick="elegirFecha('${d}')" title="${esc(tit)}"><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span>${marca}<span class="puntos">${puntos}</span></button>`;
     }).join('');
 
     $('agAvisoZona').hidden = varios || comercial(v)?.zona !== ZONA_POR_ASIGNAR;
@@ -2219,6 +2228,8 @@ function pintarAgenda() {
     $('agFestivo').hidden = !fest;
     $('agFestivo').textContent = fest ? `Festivo · ${fest}` : '';
     const novs = deTodos(x => novedadesDe(x, f));
+    // Tarjeta de cumpleaños: sale sola el día del cumpleaños (salvo que ya tenga la novedad vieja "Cumpleaños")
+    const tarjetasCumple = vs.filter(x => esCumple(x, f) && !novs.some(n => n.vendedor === x && n.tipo === 'Cumpleaños')).map(tarjetaCumple).join('');
     const lista = deTodos(x => visitasDe(x, f)).sort(ordenCita);
     const k = cuentaVisitas(lista);
     const internos = lista.filter(x => x.interno).length;
@@ -2234,7 +2245,7 @@ function pintarAgenda() {
     const tabsAn = ['dia', 'semana', 'mes'].map(x => `<button type="button" class="${x === verAn ? 'activo' : ''}" onclick="agenda.anillo='${x}'; pintarAgenda()">${{ dia: 'Día', semana: 'Semana', mes: 'Mes' }[x]}</button>`).join('');
     $('agAnillo').innerHTML = delMes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '';
     // + Programar: no se programa en días que ya pasaron (en pruebas sigue abierto)
-    const pasado = f < t && ETAPA_DATOS !== 'pruebas';
+    const pasado = f < t;
     document.querySelectorAll('.btn-programar').forEach(b => { b.disabled = pasado; b.title = pasado ? 'Este día ya pasó: no se puede programar' : ''; });
     $('agResumen').innerHTML = lista.length
         ? boton('prog', 'prog', `<b>${k.prog}</b> ${k.prog === 1 ? 'programada' : 'programadas'}`)
@@ -2264,7 +2275,7 @@ function pintarAgenda() {
     const bloqueCerradas = cerradas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${cerradas.length} ${cerradas.length === 1 ? 'planeado no confirmado' : 'planeados no confirmados'}</p>${cerradas.map(tarjetaPlan).join('')}</div>` : '';
     const cont = $('agLista');
     if (!lista.length && !novs.length && !plan.length) {
-        cont.innerHTML = `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t && ETAPA_DATOS !== 'pruebas' ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>`;
+        cont.innerHTML = tarjetasCumple + `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>`;
         return;
     }
     // Filtro por indicador y orden (por hora de cita o por el orden en que se reportaron las visitas)
@@ -2277,14 +2288,14 @@ function pintarAgenda() {
     const ordenes = {};
     let programadas = [];
     vs.forEach(x => { const r = ordenesDelDia(lista.filter(y => y.vendedor === x)); Object.assign(ordenes, r.o); if (!varios) programadas = r.prog; });
-    const clave = x => agenda.orden === 'prog' ? (ordenes[x.id]?.prog ?? (x.interno ? 2e9 : 1e9))
-        : agenda.orden === 'realizada' ? (ordenes[x.id]?.real ?? (x.interno ? 2e9 : 1e9)) : 0;
+    const clave = x => agenda.orden === 'prog' ? (ordenes[x.id]?.prog ?? 1e9)
+        : agenda.orden === 'realizada' ? (ordenes[x.id]?.real ?? 1e9) : 0;
     const vistas = lista.filter(pasa).filter(pasaBusca).sort((a, b) => vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || clave(a) - clave(b) || ordenCita(a, b));
     const mover = varios ? null : { abierta: Date.now() < limiteProgramacion(f), puede: sesion.id === v || esAdmin(), total: programadas.length };
     const tarjetas = vistas.map(x => tarjetaVisita(x, ordenes[x.id], mover, varios)).join('');
     const filtrando = agenda.filtro;
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
-    cont.innerHTML = (filtrando ? '' : novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
+    cont.innerHTML = (filtrando ? '' : tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
         + (filtrando ? '' : bloqueCerradas);
 }
@@ -2304,9 +2315,10 @@ function quitarFiltrosAgenda() {
 // programación (8:00 a. m.); las visitas fuera de horario (no programadas) no tienen orden programado.
 // El real lo da el sistema según el orden en que se registran como visitadas.
 function ordenesDelDia(lista) {
-    const prog = lista.filter(x => !x.interno && esProgramada(x))
+    const prog = lista.filter(x => esProgramada(x))
         .sort((a, b) => (a.ordenPlan ?? 1e9) - (b.ordenPlan ?? 1e9) || (a.creado || '').localeCompare(b.creado || '') || ordenCita(a, b));
-    const real = lista.filter(x => !x.interno && x.estado === 'visitado' && !x.cierreAutomatico && x.registrada)
+    // Orden real: todo lo que se va cerrando (visitadas, no visitadas, leads y trabajo administrativo)
+    const real = lista.filter(x => x.estado !== 'pendiente' && !x.cierreAutomatico && x.registrada)
         .sort((a, b) => a.registrada.localeCompare(b.registrada));
     const o = {};
     prog.forEach((x, i) => { o[x.id] = { prog: i + 1 }; });
@@ -2359,7 +2371,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     }
     const reprog = !v.interno && v.estado === 'pendiente' && esReprogramada(v) ? ' reprog' : '';
     return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${v.esProyecto && !v.interno ? (v.estado === 'visitado' ? ' lead lead-ok' : ' lead lead-no') : ''}${reprog}">
-        <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${v.interno ? '' : insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
+        <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${insigniasOrden(v, ord || {}, mover)}${v.interno ? `<span class="cita-fija">${v.diaCompleto === false && v.horaInicio ? `${esc(horaBonita(v.horaInicio))} a ${esc(horaBonita(v.horaFin))}` : 'Todo el día'}</span>` : ''}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
         ${objetivos}
@@ -2386,7 +2398,7 @@ function abrirReprogramar(id) {
     if (!v || v.estado !== 'pendiente') return;
     abrirModal(`<form class="form-rc" onsubmit="guardarReprogramar(event, '${id}')">
         <h2>Reprogramar</h2><p class="sub">${esc(v.contacto)} · planeada el ${esc(fechaCorta(v.fechaPlaneada || v.fecha))}</p>
-        <div class="fila-fecha compacta"><div><label for="aReproFecha">Nueva fecha</label><input id="aReproFecha" type="date" required min="${ETAPA_DATOS === 'pruebas' ? '' : hoy()}"></div>
+        <div class="fila-fecha compacta"><div><label for="aReproFecha">Nueva fecha</label><input id="aReproFecha" type="date" required min="${hoy()}"></div>
             <div><label for="aReproHora">Hora <small>(opcional)</small></label><input id="aReproHora" type="time" value="${esc(v.hora || '')}"></div></div>
         <div class="form-botones">
             <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
@@ -2430,7 +2442,7 @@ function insigniasOrden(v, ord, mover) {
         ? `<button class="ord-mover" onclick="moverOrden('${v.id}', -1)" ${ord.prog === 1 ? 'disabled' : ''} aria-label="Subir en el orden">▲</button><button class="ord-mover" onclick="moverOrden('${v.id}', 1)" ${ord.prog === mover.total ? 'disabled' : ''} aria-label="Bajar en el orden">▼</button>` : '';
     const abierta = mover && mover.abierta;
     return `<span class="ordenes"><span class="ord prog${abierta ? ' abierta' : ''}" title="${ord.prog ? 'Orden programado' + (abierta ? ' (se puede cambiar hasta las 8:00 a. m.)' : '') : 'Fuera de horario: sin orden programado'}">${ord.prog || '–'}${flechas}</span>`
-        + (ord.real ? `<span class="ord real" title="Orden en que se visitó">${ord.real}</span>` : '') + '</span>';
+        + (ord.real ? `<span class="ord real" title="Orden en que se cerró">${ord.real}</span>` : '') + '</span>';
 }
 
 function accionesVisita(v, txtOk, txtNo) {
@@ -2490,15 +2502,15 @@ function enviarSolicitud(e, id) {
 
 // Formulario para programar (o editar) una visita o un trabajo interno
 // Pregunta antes de programar en un festivo o en un día con novedad; devuelve true si se continúa
-async function confirmarDia(fecha, conDomingo) {
-    const festivo = nombreFestivo(fecha), domingo = conDomingo && !festivo && deIso(fecha).getDay() === 0;
+async function confirmarDia(fecha) {
+    const festivo = nombreFestivo(fecha), domingo = !festivo && deIso(fecha).getDay() === 0;
     const nov = novedadesDe(agenda.vendedor, fecha)[0];
     // Cumpleaños del vendedor (de su ficha), salvo que ya tenga la novedad "Cumpleaños"
     const cumple = esCumple(agenda.vendedor, fecha) && nov?.tipo !== 'Cumpleaños';
     // Todos los avisos del día salen juntos en una sola ventana (ej: festivo y cumpleaños)
     const avisos = [
         festivo && { icono: '📅', tono: 'aviso', titulo: 'Día festivo', texto: `El ${fechaLarga(fecha)} es festivo: ${festivo}.` },
-        domingo && { icono: '📅', tono: 'aviso', titulo: 'Domingo', texto: `El ${fechaLarga(fecha)} es domingo.` },
+        domingo && { icono: '🛋️', tono: 'playa', titulo: 'Domingo · día de descanso', texto: `El ${fechaLarga(fecha)} es día de descanso.` },
         cumple && { icono: '🎂', tono: 'fiesta', titulo: 'Cumpleaños', texto: `Ese día es el cumpleaños de ${nombreVendedor(agenda.vendedor)}.` },
         nov && { icono: nov.tipo === 'Cumpleaños' ? '🎂' : '📅', tono: nov.tipo === 'Cumpleaños' ? 'fiesta' : 'aviso', titulo: nov.tipo, texto: `${nombreVendedor(agenda.vendedor)} tiene ${nov.tipo.toLowerCase()} ese día (${rangoNovedad(nov)}).` }
     ].filter(Boolean);
@@ -2555,7 +2567,7 @@ async function abrirProgramar(id, contactoPlan) {
             <optgroup label="Tipo de Visita">${Object.keys(TIPOS_VISITA).map(opcion).join('')}</optgroup>
             <optgroup label="Trabajo interno">${TRABAJO_INTERNO.map(opcion).join('')}</optgroup>
             <optgroup label="Contacto nuevo"><option value="nuevo" ${v?.esProyecto ? 'selected' : ''}>${LEAD}</option></optgroup>
-            <optgroup label="Novedades">${NOVEDADES.map(opcion).join('')}</optgroup>
+            <optgroup label="Novedades">${NOVEDADES_FORM.map(opcion).join('')}</optgroup>
         </select>
         </div>
         <p class="tipo-bloqueado" id="fTipoFijo" hidden></p>
@@ -2569,7 +2581,7 @@ async function abrirProgramar(id, contactoPlan) {
         <div id="cajaContacto">
             <label for="fContacto" id="lblContacto">Contacto</label>
             <div class="contacto-fila">
-                <input id="fContacto" required list="dlContactos" autocomplete="off" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
+                <input id="fContacto" required list="dlContactos" autocomplete="off" onblur="if (origenElegido() === 'nuevo') this.value = nombrePropio(this.value)" placeholder="Busca el médico, cliente o punto de venta" value="${esc(v?.contacto)}">
                 <div id="cajaTipoCliente" class="tipo-cliente" hidden></div>
             </div>
             <p class="clasif-cliente" id="fClasif" hidden></p>
@@ -2592,7 +2604,7 @@ async function abrirProgramar(id, contactoPlan) {
         </div>
         <p class="aviso-festivo en-form" id="fFestivo" hidden></p>
         <div id="cajaPermiso" hidden>
-            <label class="check dia-completo"><input type="checkbox" id="fDiaCompleto" ${!v || v.clase !== 'novedad' || v.diaCompleto !== false ? 'checked' : ''} onchange="cambiarTipoProgramacion()"><span>Día completo</span></label>
+            <label class="check dia-completo"><input type="checkbox" id="fDiaCompleto" ${!v || v.diaCompleto !== false ? 'checked' : ''} onchange="cambiarTipoProgramacion()"><span id="lblDiaCompleto">Día completo</span></label>
             <div class="dos" id="cajaHorasPermiso">
                 <div><label for="fHoraInicio">Hora de inicio</label><input id="fHoraInicio" type="time" value="${esc(v?.horaInicio)}"></div>
                 <div><label for="fHoraFin">Hora de finalización</label><input id="fHoraFin" type="time" value="${esc(v?.horaFin)}"></div>
@@ -2674,9 +2686,13 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
         $('fQuien').textContent = novedad ? `Novedad de ${nombreVendedor(agenda.vendedor)}` : `${sesion.nombre} · queda a tu nombre`;
     }
     $('cajaModalidad').hidden = interno || novedad;
-    $('cajaHora').hidden = novedad;
-    // Permiso: día completo (con "Hasta") o por horas en un solo día
-    const permiso = NOVEDAD_HORAS.includes(tipo);
+    $('cajaHora').hidden = novedad || interno;
+    // Permiso: día completo (con "Hasta") o por horas en un solo día.
+    // Trabajo administrativo: todo el día o con hora de inicio y fin (obligatorias)
+    const permiso = NOVEDAD_HORAS.includes(tipo) || interno;
+    $('lblDiaCompleto').textContent = interno ? 'Todo el día' : 'Día completo';
+    document.querySelector('label[for="fHoraInicio"]').innerHTML = 'Hora de inicio' + (interno ? ' ' + REQ : '');
+    document.querySelector('label[for="fHoraFin"]').innerHTML = (interno ? 'Hora de fin ' + REQ : 'Hora de finalización');
     const porHoras = permiso && !$('fDiaCompleto').checked;
     $('cajaPermiso').hidden = !permiso;
     $('cajaHorasPermiso').hidden = !porHoras;
@@ -2932,6 +2948,8 @@ async function guardarProgramada(e, id) {
     }
     if (!$('fTipo').value) { toast('Elige qué vas a programar'); $('fTipo').focus(); return; }
     if (!fechaElegida) { toast('Elige la fecha'); $('fFecha').focus(); return; }
+    // Días ya pasados: no se programa nada nuevo (lo de hoy, a cualquier hora, queda como NO programado). Las novedades sí.
+    if (!esNovedad(tipo) && cambiaDia && fechaElegida < hoy()) { toast('Ese día ya pasó: solo puedes programar desde hoy'); $('fFecha').focus(); return; }
     if (esNovedad(tipo)) return guardarNovedad(id, tipo);
     if (esTipoVisita($('fTipo').value) && !clienteDelForm()) {
         toast($('fContacto').value.trim() ? 'Ese cliente no está en la Maestra de Contactos. Si es nuevo, elige "Contacto nuevo".' : 'Escoge el cliente de la visita');
@@ -2939,8 +2957,13 @@ async function guardarProgramada(e, id) {
     }
     if (origenElegido() === 'nuevo' && !tipo) { toast('Elige el tipo de visita del contacto nuevo'); $('fTipoNuevo').focus(); return; }
     const interno = esTrabajoInterno(tipo);
+    if (origenElegido() === 'nuevo') $('fContacto').value = nombrePropio($('fContacto').value);
     const nombre = $('fContacto').value.trim();
     if (!interno && !nombre) { toast('Escribe el contacto de la visita'); return; }
+    const internoHoras = interno && !$('fDiaCompleto').checked;
+    const horaInicio = internoHoras ? $('fHoraInicio').value : '', horaFin = internoHoras ? $('fHoraFin').value : '';
+    if (internoHoras && (!horaInicio || !horaFin)) { toast('Escribe la hora de inicio y de fin (o marca "Todo el día")'); (horaInicio ? $('fHoraFin') : $('fHoraInicio')).focus(); return; }
+    if (internoHoras && horaFin <= horaInicio) { toast('La hora de fin debe ser después de la hora de inicio'); $('fHoraFin').focus(); return; }
     const objetivos = leerObjetivos($('fObjetivos'));
     const textoPersonal = objetivos.includes(PERSONALIZADA) ? ($('fPersonal')?.value || '').trim() : '';
     if (objetivos.includes(PERSONALIZADA) && !textoPersonal) { toast('Escribe cuál es la visita personalizada (máximo 50 caracteres)'); $('fPersonal')?.focus(); return; }
@@ -3007,7 +3030,8 @@ async function guardarProgramada(e, id) {
         interno, personalizada: textoPersonal,
         contacto: interno ? tipo : (c.n || nombre), tipoContacto: c.e || '', ciudad: c.c || '',
         esProyecto: !!proyecto, contactoProyecto: proyecto ? proyecto.id : '',
-        fecha, hora: $('fHora').value, objetivo: $('fObjetivo').value.trim(),
+        fecha, hora: interno ? '' : $('fHora').value, objetivo: $('fObjetivo').value.trim(),
+        diaCompleto: interno ? !internoHoras : undefined, horaInicio, horaFin,
         modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipos[0], tiposVisita: tipos.length > 1 ? tipos : [], objetivos, subobjetivos,
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
         programada: antes && antes.fecha === fecha ? esProgramada(antes) : Date.now() < limiteProgramacion(fecha)
@@ -3064,6 +3088,40 @@ async function eliminarNovedad(id) {
     borrarRegistro({ ...registros[id] });
     toast('Novedad eliminada');
     pintarAgenda();
+}
+
+function tarjetaCumple(id) {
+    const varios = vendedoresAgenda().length > 1;
+    const yo = id === sesion.id;
+    return `<div class="producto-card novedad-card cumple-card">
+        <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(id))}</span>` : ''}<h3>🎂 Cumpleaños</h3></div><span class="chip cumple">Cumpleaños</span></div>
+        <p>${yo ? `¡Feliz cumpleaños, ${esc(sesion.nombre.split(' ')[0])}! Disfruta tu día.` : `Hoy es el cumpleaños de ${esc(nombreVendedor(id))}.`}</p>
+    </div>`;
+}
+
+// Mensaje de cumpleaños: al tocar ese día en la agenda o al llegar el día (una vez por día y por persona)
+const saludosCumple = new Set();
+function avisoCumple(f) {
+    const ids = vendedoresAgenda().filter(x => esCumple(x, f) && !saludosCumple.has(x + f));
+    if (!ids.length || hayFormularioAbierto()) return;
+    ids.forEach(x => saludosCumple.add(x + f));
+    const yo = ids.includes(sesion.id);
+    const nombre = sesion.nombre.split(' ')[0];
+    dialogo({ tono: 'fiesta', icono: '🎂', aceptar: 'Gracias', cancelar: '',
+        titulo: yo ? `¡Feliz cumpleaños, ${nombre}!` : 'Cumpleaños',
+        texto: yo ? (f === hoy() ? 'Todo el equipo de Epithelium te desea un día maravilloso.' : `El ${fechaLarga(f)} es tu cumpleaños.`)
+            : `${f === hoy() ? 'Hoy' : 'El ' + fechaLarga(f)} es el cumpleaños de ${ids.map(nombreVendedor).join(' y ')}.` });
+}
+
+// Al llegar el día del cumpleaños sale el saludo al abrir la app (una sola vez ese día)
+function saludoCumpleHoy() {
+    if (!sesion || !esCumple(sesion.id, hoy())) return;
+    let ya = '';
+    try { ya = localStorage.getItem('rc_cumple_saludo') || ''; } catch (e) {}
+    if (ya === hoy()) return;
+    try { localStorage.setItem('rc_cumple_saludo', hoy()); } catch (e) {}
+    saludosCumple.add(sesion.id + hoy());
+    dialogo({ tono: 'fiesta', icono: '🎂', titulo: `¡Feliz cumpleaños, ${sesion.nombre.split(' ')[0]}!`, texto: 'Todo el equipo de Epithelium te desea un día maravilloso.', aceptar: 'Gracias', cancelar: '' });
 }
 
 function tarjetaNovedad(n) {
@@ -3266,7 +3324,7 @@ function abrirRegistro(id, tipo) {
         abrirModal(`<form class="form-rc" novalidate onsubmit="guardarVisitado(event, '${id}')">
             <h2>Cierre de Visita</h2>${cab}
             <label for="rAtendio">¿Quién atendió? ${REQ}</label>
-            <input id="rAtendio" required value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo">
+            <input id="rAtendio" required value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo" onblur="this.value = nombrePropio(this.value)">
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
@@ -3299,7 +3357,7 @@ function abrirRegistro(id, tipo) {
             <textarea id="rCompromisos" maxlength="100" ${cuentaNota('rCompromisos')} placeholder="Ej: volver el 15 con la lista de precios">${esc(ya ? v.compromisos : '')}</textarea>
             ${contadorNota('rCompromisos')}
             <label for="rProxima">Próxima visita <small>(opcional: queda programada en ese día y en el Visiplan)</small></label>
-            <div class="fila-fecha compacta"><div><label for="rProxima">Fecha</label><input id="rProxima" type="date" min="${sumarDias(v.fecha, 1)}"></div>
+            <div class="fila-fecha compacta"><div><label for="rProxima">Fecha</label><input id="rProxima" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}"></div>
                 <div><label for="rProximaHora">Cita fija <small>(opcional)</small></label><input id="rProximaHora" type="time" title="Solo si es una reunión fija"></div></div>
             <div class="form-botones">
                 <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
@@ -3316,12 +3374,13 @@ function abrirRegistro(id, tipo) {
             ${v.interno ? '' : `<label for="nMotivo">Motivo</label>
             <select id="nMotivo">${opciones(MOTIVOS, v.motivo)}</select>`}
             ${v.interno ? `<div class="fila-fecha compacta"><div><label for="nRepro">Fecha para programar <small>(opcional)</small></label>
-                <input id="nRepro" type="date" min="${sumarDias(v.fecha, 1)}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div>
+                <input id="nRepro" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div>
                 <div><label for="nReproHora">Hora <small>(opcional)</small></label><input id="nReproHora" type="time" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div></div>`
             : `<label for="nRepro">Reprogramar para (opcional)</label>
-            <input id="nRepro" type="date" min="${sumarDias(v.fecha, 1)}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}>`}
-            <label for="nObs">Observaciones${v.interno ? ' ' + REQ : ''}</label>
-            <textarea id="nObs" ${v.interno ? 'required' : ''} placeholder="${v.interno ? 'Ej: se movió por reunión con gerencia' : 'Ej: la doctora estaba en cirugía'}">${esc(ya ? v.observaciones : '')}</textarea>
+            <input id="nRepro" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}>`}
+            <label for="nObs">Observaciones ${REQ} <small>(máximo 100 caracteres)</small></label>
+            <textarea id="nObs" required maxlength="100" oninput="$('nObsCuenta').textContent = this.value.length + ' / 100'" placeholder="${v.interno ? 'Ej: se movió por reunión con gerencia' : 'Ej: la doctora estaba en cirugía'}">${esc(ya ? v.observaciones : '')}</textarea>
+            <p class="ayuda cuenta-nota" id="nObsCuenta">${(ya ? v.observaciones || '' : '').length} / 100</p>
             <div class="form-botones">
                 <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn-primario" style="background:#c2413a">Guardar</button>
@@ -3373,7 +3432,7 @@ function guardarVisitado(e, id) {
         modalidad: modalidadElegida(),
         ...leerCierre(),
         gestion: '',
-        atendio: $('rAtendio').value.trim(),
+        atendio: nombrePropio($('rAtendio').value),
         productosPresentados, productos: textoSelProductos(productosPresentados),
         productosPedidos, muestrasDetalle, muestras: textoMuestras(muestrasDetalle),
         pedidos, pedido: pedidos.length ? 'si' : 'no', valorPedido: '',
@@ -3498,7 +3557,7 @@ function guardarNoVisitado(e, id) {
     const repro = $('nRepro').disabled ? '' : $('nRepro').value;
     const horaRepro = $('nReproHora') && !$('nReproHora').disabled ? $('nReproHora').value : '';
     const obs = $('nObs').value.trim();
-    if (antes.interno && !obs) { toast('Escribe las observaciones'); $('nObs').focus(); return; }
+    if (!obs) { toast('Escribe las observaciones (máximo 100 caracteres)'); $('nObs').focus(); return; }
     const v = {
         ...antes, ...LIMPIAR_VISITADO,
         estado: 'no_visitado',
@@ -4341,7 +4400,8 @@ function armarLibro(mes, vend, solo) {
 // Ventana de confirmación propia: confirm() y prompt() no salen en algunos celulares o apps
 // Devuelve true/false (o el texto escrito si se pide un campo, null si se cancela)
 // varios: [{ icono, tono, titulo, texto }] → una ventana por aviso, una al lado de la otra, y debajo la pregunta con los botones
-function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Cancelar', campo = '', tono = '', icono = '', varios = null }) {
+// campo: texto de ejemplo del cuadro para escribir; max: máximo de caracteres; obligatorio: no deja aceptar vacío
+function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Cancelar', campo = '', max = 0, obligatorio = false, tono = '', icono = '', varios = null }) {
     return new Promise(resolve => {
         const d = $('dialogo');
         d.className = 'dialogo visible ' + (varios ? 'varios' : tono);
@@ -4355,7 +4415,7 @@ function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Can
             ${icono ? `<div class="dialogo-icono">${icono}</div>` : tono === 'fiesta' ? '<div class="dialogo-icono">🎂</div>' : tono === 'salud' ? '<div class="dialogo-icono">💚</div>' : tono === 'playa' ? '<div class="dialogo-icono">🏖️</div>' : tono === 'permiso' ? '<div class="dialogo-icono">🕒</div>' : tono === 'aviso' ? '<div class="dialogo-icono">📅</div>' : ''}
             ${titulo ? `<h3 id="dialogoTitulo">${esc(titulo)}</h3>` : ''}
             ${texto ? `<p>${esc(texto).replace(/\n/g, '<br>')}</p>` : ''}
-            ${campo ? `<textarea id="dialogoCampo" placeholder="${esc(campo)}"></textarea>` : ''}
+            ${campo ? `<textarea id="dialogoCampo" placeholder="${esc(campo)}"${max ? ` maxlength="${max}" oninput="$('dialogoCuenta').textContent = this.value.length + ' / ${max}'"` : ''}></textarea>${max ? `<p class="ayuda cuenta-nota" id="dialogoCuenta">0 / ${max}</p>` : ''}` : ''}
             <div class="form-botones">
                 ${cancelar ? `<button type="button" class="btn-secundario" data-r="0">${esc(cancelar)}</button>` : ''}
                 <button type="button" class="btn-primario" data-r="1">${esc(aceptar)}</button>
@@ -4366,6 +4426,7 @@ function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Can
             if (!b) return;
             const ok = b.dataset.r === '1';
             const valor = campo ? $('dialogoCampo').value : null;
+            if (ok && obligatorio && !valor.trim()) { toast('Escribe la causa: es obligatoria'); $('dialogoCampo').focus(); return; }
             d.className = 'dialogo';
             d.innerHTML = '';
             resolve(campo ? (ok ? valor : null) : ok);
@@ -4388,7 +4449,7 @@ function abrirModal(html, tema = '') {
 // ---------- CALENDARIO DE LOS CAMPOS DE FECHA ----------
 // Reemplaza el calendario del navegador: festivos y domingos resaltados, sábados más suaves.
 // Al programar o reprogramar en un festivo (o domingo) sale el aviso de siempre antes de tomar la fecha.
-const FECHAS_CON_AVISO = ['fFecha', 'rProxima', 'nRepro', 'aReproFecha'];
+const FECHAS_CON_AVISO = ['fFecha', 'rProxima', 'nRepro', 'aReproFecha', 'aFecha'];
 let calFecha = null;   // { inp, mes }
 
 document.addEventListener('click', e => {
@@ -4427,11 +4488,13 @@ function abrirCalFecha(inp, mes, vista = 'dias') {
                 `<button type="button" class="cf-mes${a === +t.slice(0, 4) ? ' hoy' : ''}${a === ano ? ' sel' : ''}" ${anoFuera(a) ? 'disabled' : ''} onclick="abrirCalFecha(calFecha.inp, '${a}-${m.slice(5)}', 'meses')">${a}</button>`).join('')}</div>` + pie;
     } else {
         let dias = '';
+        const vendCal = agenda.vendedor || sesion?.id;
         for (let d = inicio; d <= ultimo || deIso(d).getDay() !== 1; d = sumarDias(d, 1)) {
             if (mesDe(d) !== m) { dias += '<span></span>'; continue; }
             const fuera = (inp.min && d < inp.min) || (inp.max && d > inp.max);
             const fest = nombreFestivo(d);
-            dias += `<button type="button" class="cf-dia${claseDia(d)}${d === t ? ' hoy' : ''}${d === inp.value ? ' sel' : ''}" ${fuera ? 'disabled' : ''} onclick="elegirCalFecha('${d}')" title="${esc(fest || fechaLarga(d))}">${deIso(d).getDate()}</button>`;
+            const cu = esCumple(vendCal, d);
+            dias += `<button type="button" class="cf-dia${claseDia(d)}${cu ? ' cumple' : ''}${d === t ? ' hoy' : ''}${d === inp.value ? ' sel' : ''}" ${fuera ? 'disabled' : ''} onclick="elegirCalFecha('${d}')" title="${esc([cu && '🎂 Cumpleaños de ' + nombreVendedor(vendCal), fest || fechaLarga(d)].filter(Boolean).join(' · '))}">${deIso(d).getDate()}</button>`;
         }
         const fests = [...festivos(ano)].filter(([f]) => mesDe(f) === m).sort();
         caja.innerHTML = nav('abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, -1))', 'abrirCalFecha(calFecha.inp, sumarMes(calFecha.mes, 1))',
@@ -4458,7 +4521,7 @@ async function elegirCalFecha(d) {
     if (!inp) return;
     cerrarCalFecha();
     if (d && FECHAS_CON_AVISO.includes(inp.id) && d !== inp.value) {
-        if (!await confirmarDia(d, true)) return;
+        if (!await confirmarDia(d)) return;
         if (inp.id === 'fFecha') advertenciaAceptada = d;
     }
     inp.value = d;
@@ -4482,4 +4545,29 @@ function cerrarModal() {
     $('modalContenido').innerHTML = '';
 }
 
-window.onclick = e => { if (e.target === $('modal')) cerrarModal(); };
+// Los recuadros solo se cierran con la X, Cancelar o el botón atrás: tocar afuera ya no los cierra
+// (se cerraban al corregir un campo, al soltar el dedo o el mouse fuera del recuadro)
+const hayFormularioAbierto = () => $('modal').classList.contains('active') || $('dialogo').classList.contains('visible');
+
+// ---------- BOTÓN ATRÁS (Android) ----------
+// El botón atrás del celular va un paso atrás dentro de la app: cierra el calendario, el aviso o el recuadro
+// abierto, o vuelve al inicio. En el inicio, hay que tocarlo dos veces para salir.
+let atrasSalir = 0;
+function atrasApp() {
+    const dlg = $('dialogo');
+    if (dlg.classList.contains('visible')) { (dlg.querySelector('[data-r="0"]') || dlg.querySelector('[data-r="1"]'))?.click(); return true; }
+    if (calFecha) { cerrarCalFecha(); return true; }
+    if ($('modal').classList.contains('active')) { cerrarModal(); return true; }
+    const p = pantallaActiva();
+    if (p && p !== 'homeScreen' && p !== 'loginScreen') { irInicio(); return true; }
+    return false;
+}
+function trampaAtras() { try { history.pushState({ rc: Date.now() }, ''); } catch (e) {} }
+window.addEventListener('popstate', () => {
+    if (atrasApp()) return trampaAtras();
+    if (Date.now() - atrasSalir < 2500) return history.back();   // segundo toque: sale de la app
+    atrasSalir = Date.now();
+    toast('Toca otra vez atrás para salir');
+    trampaAtras();
+});
+trampaAtras();

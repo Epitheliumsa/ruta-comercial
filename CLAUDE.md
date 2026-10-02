@@ -16,7 +16,16 @@
 - Ciudad (Leads y solicitudes de creación): se escoge de la lista de municipios de Colombia "Municipio - Departamento",
   Bogotá primero y luego en orden alfabético. `python3 herramientas/ciudades.py` genera `ciudades.js` desde `datos/municipios_*.json`.
 - Usuarios en `USUARIOS` (`app.js`). **Al crear un comercial (o cualquier usuario) pedir siempre su fecha de
-  cumpleaños** y guardarla en `cumple: 'AAAA-MM-DD'`: ese día sale resaltado en morado clarito en el Visiplan.
+  cumpleaños** y guardarla en `cumple: 'AAAA-MM-DD'`: ese día sale resaltado en morado clarito en todos los calendarios
+  (Visiplan, semana de la agenda y calendario de fechas; rayado si cae en festivo, sábado o domingo), con su tarjeta en la agenda
+  y un saludo al tocar el día o al llegar el día. El cumpleaños ya no es una opción de Novedades.
+- Al programar en domingo o festivo sale el aviso con confirmación (igual que vacaciones, permisos, incapacidades).
+- No se programa nada en días pasados; lo que se programa hoy después de las 8:00 a. m. queda como NO programado.
+- Orden de visitas: todo lleva número (también el trabajo administrativo); el orden real se da a medida que se cierran
+  (visitadas, no visitadas, leads y trabajo administrativo). El trabajo administrativo es "Todo el día" o con hora de inicio y fin obligatorias.
+- Los recuadros solo se cierran con la X, Cancelar o el botón atrás (tocar afuera no los cierra). El botón atrás del Android
+  cierra lo abierto o vuelve al inicio; en el inicio hay que tocarlo dos veces para salir.
+- Nombres (contacto nuevo, nombre de contacto, quién atendió) van siempre en NomProp (`nombrePropio`).
 - Responder en español, con tono sencillo, claro y conciso, tuteando.
 
 ## Etapa de pruebas y datos para capacitaciones

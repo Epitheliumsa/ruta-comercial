@@ -1602,3 +1602,20 @@ details.ver-formato a { font-size: 12px; }
 @media (max-width: 700px) { .leads-filtros { grid-template-columns: 1fr 1fr; } .leads-filtros input { grid-column: 1 / -1; } }
 .leads-cuenta { margin: 2px 0 8px; font-size: 12px; color: #64748b; }
 .lead-dueno { margin: 2px 0 2px; font-size: 13px; font-weight: 600; color: #0e7490; }
+
+/* Cumpleaños en la semana de la agenda y en el calendario de fechas: lila; si cae en festivo, domingo o sábado,
+   rayas en diagonal con los dos colores (como en el Visiplan) */
+.sd.cumple { background: #f3e8ff; border-color: #e4d0fb; }
+.sd.cumple span, .sd.cumple b { color: #7e22ce; }
+.sd.festivo.cumple { background-color: #f8e4f4; background-image: repeating-linear-gradient(135deg, #fbe1e1 0 5px, #efe3fd 5px 10px); border-color: #e9c6e3; }
+.sd.festivo.cumple span { color: #b42318; }
+.sd.sabado.cumple { background-color: #f3eefa; background-image: repeating-linear-gradient(135deg, #eef0f1 0 5px, #efe3fd 5px 10px); border-color: #ddd3ee; }
+.sd.sel.cumple { border-color: #009460; box-shadow: inset 0 0 0 1px #009460; }
+.sd em.em-cumple { color: #7e22ce; }
+.cf-dia.cumple { background: #f3e8ff; color: #7e22ce; font-weight: 700; }
+.cf-dia.festivo.cumple { background-color: #f8e4f4; background-image: repeating-linear-gradient(135deg, #fbe1e1 0 4px, #efe3fd 4px 8px); color: #b42318; }
+.cf-dia.sabado.cumple { background-color: #f3eefa; background-image: repeating-linear-gradient(135deg, #eef0f1 0 4px, #efe3fd 4px 8px); }
+.cf-dia.cumple.sel { background: #0f766e; color: #fff; }
+.cumple-card { border-left-color: #a855f7; background: linear-gradient(135deg, #ffffff 65%, #f3e8ff 100%); }
+.cumple-card h3 { color: #7e22ce; }
+.chip.cumple { background: #f3e8ff; color: #7e22ce; }
