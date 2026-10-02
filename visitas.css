@@ -1656,3 +1656,14 @@ details.ver-formato a { font-size: 12px; }
 .acomp-card h3 { color: #075985; }
 .acomp-hist { margin-top: 6px; padding: 7px 10px; border-radius: 8px; background: #f0f9ff; border: 1px solid #bae6fd; color: #0c4a6e; font-size: 13px; }
 .fila-acomp .bv { flex: 0 1 auto; min-width: 0; }
+/* Maestra: ícono de calendario (periodo de las visitas) arriba a la derecha */
+.filters.mc-cab { position: relative; }
+.mc-periodo-btn { position: absolute; top: 12px; right: 16px; z-index: 3; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px;
+    border: 1px solid #0f766e; background: #fff; color: #0b5c56; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.mc-periodo-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.mc-periodo-btn:hover { background: #e3f1ef; }
+.filters.mc-cab #mcZonas { padding-right: 150px; }
+@media (max-width: 600px) { .mc-periodo-btn span { display: none; } .filters.mc-cab #mcZonas { padding-right: 46px; } }
+.periodo-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.periodo-tabs button { flex: 1 1 auto; border: 1px solid #cfe0dc; background: #fff; color: #334155; border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.periodo-tabs button.activo { background: #0f766e; border-color: #0f766e; color: #fff; }

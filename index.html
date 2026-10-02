@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Visita Comercial</title>
-    <link rel="stylesheet" href="styles.css?v=202610012158">
-    <link rel="stylesheet" href="visitas.css?v=202610012158">
+    <link rel="stylesheet" href="styles.css?v=202610012218">
+    <link rel="stylesheet" href="visitas.css?v=202610012218">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -90,7 +90,7 @@
                 </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 01/10/2026 21:58</p>
+                <p class="version-app">Versión 01/10/2026 22:18</p>
             </div>
         </div>
 
@@ -230,7 +230,8 @@
                 </div>
                 <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
             </div>
-            <div class="filters filtros-rc">
+            <div class="filters filtros-rc mc-cab">
+                <button type="button" class="mc-periodo-btn" onclick="abrirPeriodoMaestra()" title="Periodo de las visitas: día, mes, trimestre, semestre o año"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span id="mcPeriodoTxt"></span></button>
                 <div class="vp-vends" id="mcZonas" role="group" aria-label="Zona y vendedor"></div>
                 <div class="mc-filtros">
                     <input id="mcBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="maestra.busca=this.value; pintarMaestra()">
@@ -333,11 +334,11 @@
         </div>
     </div>
 
-    <script src="ciudades.js?v=202610012158"></script>
-    <script src="objetivos.js?v=202610012158"></script>
-    <script src="circulares.js?v=202610012158"></script>
-    <script src="productos.js?v=202610012158"></script>
-    <script src="portafolios.js?v=202610012158"></script>
-    <script src="app.js?v=202610012158"></script>
+    <script src="ciudades.js?v=202610012218"></script>
+    <script src="objetivos.js?v=202610012218"></script>
+    <script src="circulares.js?v=202610012218"></script>
+    <script src="productos.js?v=202610012218"></script>
+    <script src="portafolios.js?v=202610012218"></script>
+    <script src="app.js?v=202610012218"></script>
 </body>
 </html>
