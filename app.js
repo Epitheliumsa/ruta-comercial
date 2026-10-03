@@ -60,7 +60,8 @@ function abrirVademecum(e) {
 const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, variables: [], mensual: {} };
 // Visita Ateneo Médico: visita general, abierta a todas las zonas, a los contactos de clasificación 61 o con "ateneo" en la etiqueta
 const ATENEO = 'Visita Ateneo Médico';
-const esAteneo = c => !!c && (String(c.cl) === '61' || /ateneo/i.test(c.e || ''));
+// (los médicos 20, 21 y 22 no van, aunque su etiqueta diga "Ateneo")
+const esAteneo = c => !!c && !['20', '21', '22'].includes(String(c.cl)) && (String(c.cl) === '61' || /ateneo/i.test(c.e || ''));
 const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Cliente', 'Punto de Venta', ...(MATRIZ.objetivos[ATENEO] ? [ATENEO] : [])].map(t => [t, MATRIZ.objetivos[t] || []]));
 // "Visita Médica Comercial": solo para clientes 20 y 21 (médicos que también compran), con sus propios objetivos
 // en la matriz (columna "Visita Médica Comercial", clave medcom:Visita Médica). nuevo = contacto nuevo.
@@ -170,7 +171,7 @@ function cerrarPdf() {
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
 // antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
 const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Visita personalizada': 'Otros', 'Mapa del Cliente - Ampliación Portafolio': 'Mapa del Cliente', 'Seguimiento': 'Seguimientos' };
-const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto), ...((v.objetivos || []).includes(PERSONALIZADA) || v.contacto === MERCADEO ? [PERSONALIZADA] : [])];
+const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto), ...((v.objetivos || []).includes(PERSONALIZADA) || conDetalle(v) ? [PERSONALIZADA] : [])];
 const programadosVigentes = v => {
     const base = objetivosCierre(v);
     return (v.objetivos || []).map(o => NOMBRES_VIEJOS[o] || o).filter(o => base.includes(o));
@@ -183,6 +184,9 @@ const TRABAJO_INTERNO = ['Trabajo Administrativo Oficina', 'Trabajo Administrati
 // al programar y al cerrar; en "Proyectos" se escoge o se crea el proyecto (registro clase 'proyectoMercadeo').
 const MERCADEO = 'Mercadeo';
 const MAX_DET_MERC = 200;
+// Mercadeo y Visita Ateneo Médico: cada objetivo con su texto (y Proyectos con su proyecto)
+const conDetalle = v => v.contacto === MERCADEO || tiposDe(v).includes(ATENEO);
+const conDetalleForm = () => tipoBase() === MERCADEO || $('fTipo')?.value === ATENEO;
 const esTrabajoInterno = tipo => TRABAJO_INTERNO.includes(tipo) || tipo === MERCADEO;
 const esCoordinadora = id => !!id && USUARIOS.find(u => u.id === id)?.cargo === 'Coordinadora Comercial';
 const internosDe = vendedor => esCoordinadora(vendedor) ? [...TRABAJO_INTERNO, MERCADEO] : TRABAJO_INTERNO;
@@ -2522,7 +2526,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
         ${objetivos}
-        ${v.objetivo && v.contacto !== MERCADEO ? `<p class="nota-plan"><b>${v.interno ? 'Qué se iba a hacer' : 'Plan de visita'}:</b> ${esc(v.objetivo)}</p>` : ''}
+        ${v.objetivo && !conDetalle(v) ? `<p class="nota-plan"><b>${v.interno ? 'Qué se iba a hacer' : 'Plan de visita'}:</b> ${esc(v.objetivo)}</p>` : ''}
         ${reporte}
         ${filaAcomp(v)}
         ${accionesVisita(v, txtOk, txtNo)}
@@ -3067,13 +3071,13 @@ function cambiarTipoProgramacion(marcados, subsMarcados) {
     // Permiso e incapacidad: el detalle es obligatorio; cumpleaños no lleva detalle; en las demás novedades es opcional
     const cumple = tipo === 'Cumpleaños';
     // Mercadeo: cada objetivo tiene su propio cuadro de texto, no lleva el "¿Qué vas a hacer?" general
-    const sinNota = cumple || tipo === MERCADEO;
+    const sinNota = cumple || conDetalleForm();
     ['lblNotas', 'fObjetivo'].forEach(x => { $(x).hidden = sinNota; });
     // Al escoger Cumpleaños la fecha se pone sola en el día guardado del vendedor
     const uc = cumple && USUARIOS.find(x => x.id === agenda.vendedor);
     if (uc?.cumple && $('fFecha').value && !esCumple(uc.id, $('fFecha').value)) $('fFecha').value = $('fFecha').value.slice(0, 4) + uc.cumple.slice(4);
     $('lblNotas').innerHTML = DETALLE_OBLIGATORIO[tipo] ? `Detalle ${REQ} <small>(${DETALLE_OBLIGATORIO[tipo]})</small>` : novedad ? 'Detalle <small>(opcional)</small>' : `¿Qué vas a hacer? ${REQ} <small>(describe brevemente)</small>`;
-    $('fObjetivoCuenta').hidden = (novedad && !DETALLE_OBLIGATORIO[tipo]) || tipo === MERCADEO;
+    $('fObjetivoCuenta').hidden = (novedad && !DETALLE_OBLIGATORIO[tipo]) || conDetalleForm();
     $('fObjetivo').maxLength = DETALLE_MAX[tipo] || 100;
     if ($('fObjetivo').value.length > $('fObjetivo').maxLength) $('fObjetivo').value = $('fObjetivo').value.slice(0, $('fObjetivo').maxLength);
     $('fObjetivoCuenta').textContent = $('fObjetivo').value.length + ' / ' + $('fObjetivo').maxLength;
@@ -3151,11 +3155,11 @@ function pintarObjetivos(marcados, subsMarcados) {
     const actuales = marcados || leerObjetivos(cont);
     const subs = subsMarcados || leerSubs(cont);
     ctxCircular = { cliente: clienteDelForm() || null, fecha: $('fFecha').value || agenda.fecha };
-    const merc = tipoBase() === MERCADEO;
+    const merc = conDetalleForm();
     const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : [...objetivosDeTipos(tipo, nuevo), ...(merc ? [PERSONALIZADA] : [])];
     $('cajaObjetivos').hidden = !lista.length;
     const textoAntes = $('fPersonal') ? $('fPersonal').value : textoPersonalForm;
-    const conPersonal = lista.length && !esTrabajoInterno(tipoBase());
+    const conPersonal = lista.length && !esTrabajoInterno(tipoBase()) && !merc;
     const antes = merc ? leerDetalles(cont) : null;
     const editando = registrosForm.id && registros[registrosForm.id];
     const detalle = merc ? { detalle: { ...(editando?.detalleObjetivos || {}), ...(antes?.det || {}) }, proyecto: editando?.proyectoMercadeo || null, vendedor: editando?.vendedor || sesion.id } : null;
@@ -3258,6 +3262,13 @@ function asegurarProyecto(proyecto, vendedor) {
     guardarRegistro(nuevo);
     return { id: nuevo.id, nombre: nuevo.nombre };
 }
+// El texto de Proyectos en el cierre queda como avance en la tarjeta del proyecto
+function registrarAvance(proyecto, det, visita) {
+    const pr = proyecto && registros[proyecto.id];
+    if (!pr || !det.Proyectos) return;
+    const avances = (pr.avances || []).filter(a => a.visitaId !== visita.id).concat({ fecha: visita.fecha, visitaId: visita.id, texto: det.Proyectos });
+    guardarRegistro({ ...pr, avances });
+}
 const resumenDetalles = (det, proyecto) => Object.entries(det).map(([o, t]) => `${o}${o === 'Proyectos' && proyecto?.nombre ? ' (' + proyecto.nombre + ')' : ''}: ${t}`).join(' · ');
 
 function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {}, detalle = null }) {
@@ -3320,11 +3331,11 @@ function leerCierre() {
 }
 const cajaCierre = v => objetivosCierre(v).length ? `<label>Objetivos cumplidos <small>(en negrita lo programado; marca lo que lograste)</small></label>
             <div class="checks" id="rCumplidos">${htmlObjetivos(objetivosCierre(v), { tipo: tiposDe(v), nuevo: v.esProyecto, mes: mesDe(v.fecha), programados: programadosVigentes(v), subsProg: conTodasLasSubs(v.subobjetivos || {}, programadosVigentes(v), tiposDe(v), v.esProyecto, mesDe(v.fecha)),
-                detalle: v.contacto === MERCADEO ? { detalle: v.estado === 'visitado' ? v.detalleCierre || {} : {}, proyecto: v.proyectoMercadeo, vendedor: v.vendedor, cierre: true } : null })}</div>` : '';
+                detalle: conDetalle(v) ? { detalle: v.estado === 'visitado' ? v.detalleCierre || {} : {}, proyecto: v.proyectoMercadeo, vendedor: v.vendedor, cierre: true } : null })}</div>` : '';
 // Texto de subcategorías junto a un objetivo (✓ en las cumplidas)
 function textoSubs(v, o) {
     if (o === PERSONALIZADA && typeof v.personalizada === 'string' && v.personalizada) return `<small class="sub-chip">: ${esc(v.personalizada)}</small>`;
-    if (v.contacto === MERCADEO) {
+    if (conDetalle(v)) {
         const t = (v.estado === 'visitado' ? v.detalleCierre : null)?.[o] || v.detalleObjetivos?.[o];
         return t ? `<small class="sub-chip">${o === 'Proyectos' && v.proyectoMercadeo?.nombre ? ' · ' + esc(v.proyectoMercadeo.nombre) : ''}: ${esc(t)}</small>` : '';
     }
@@ -3395,7 +3406,7 @@ async function guardarProgramada(e, id) {
     if (internoHoras && (!horaInicio || !horaFin)) { toast('Escribe la hora de inicio y de fin (o marca "Todo el día")'); (horaInicio ? $('fHoraFin') : $('fHoraInicio')).focus(); return; }
     if (internoHoras && horaFin <= horaInicio) { toast('La hora de fin debe ser después de la hora de inicio'); $('fHoraFin').focus(); return; }
     const objetivos = leerObjetivos($('fObjetivos'));
-    const merc = tipo === MERCADEO;
+    const merc = conDetalleForm();
     const textoPersonal = objetivos.includes(PERSONALIZADA) && !merc ? ($('fPersonal')?.value || '').trim() : '';
     if (objetivos.includes(PERSONALIZADA) && !merc && !textoPersonal) { toast('Escribe cuál es la visita personalizada (máximo 50 caracteres)'); $('fPersonal')?.focus(); return; }
     const subobjetivos = conTodasLasSubs(leerSubs($('fObjetivos'), objetivos), objetivos, tiposElegidos(), origenElegido() === 'nuevo', mesDe(fechaElegida));
@@ -3881,6 +3892,10 @@ function guardarVisitado(e, id) {
         if (malo) return toast(`"${malo.c}" no está en el catálogo: búscalo por código o nombre`);
     }
     if (!$('rCompromisos').value.trim()) { $('rCompromisos').focus(); return toast('Escribe los compromisos, próximos pasos u observaciones (máximo 100 caracteres)'); }
+    // Visita Ateneo Médico: el texto de cada objetivo logrado
+    const dAt = conDetalle(registros[id]) ? leerDetalles($('rCumplidos')) : null;
+    if (dAt?.error) { dAt.foco?.focus(); return toast(dAt.error); }
+    const proyAt = dAt ? asegurarProyecto(dAt.proyecto, registros[id].vendedor) : null;
     const productosPresentados = $('cajaProdPresentados').hidden ? {} : leerSelProductos('rProdPresentados'), productosPedidos = pedidos.length ? leerSelProductos('rProdPedidos') : {};
     const v = {
         ...registros[id], ...LIMPIAR_NO_VISITADO,
@@ -3895,8 +3910,10 @@ function guardarVisitado(e, id) {
         compromisos: $('rCompromisos').value.trim(),
         observaciones: '',
         proximaVisita: $('rProxima').value || '', proximaHora: $('rProxima').value ? $('rProximaHora').value : '',
+        ...(dAt ? { detalleCierre: dAt.det, proyectoMercadeo: proyAt || registros[id].proyectoMercadeo || null } : {}),
         ...marcaReporte(registros[id])
     };
+    if (dAt) registrarAvance(proyAt, dAt.det, v);
     const proximaAntes = registros[id].proximaVisita;
     guardarRegistro(v);
     copiarReporteAcomp(v);
@@ -4007,12 +4024,7 @@ function guardarInternoRealizado(e, id) {
         if (!cierre.objetivosCumplidos.length) return toast('Marca al menos un objetivo que lograste');
         if (d.error) { d.foco?.focus(); return toast(d.error); }
         const proyecto = asegurarProyecto(d.proyecto, antes.vendedor);
-        // El avance queda en la tarjeta del proyecto
-        if (proyecto && d.det.Proyectos) {
-            const pr = registros[proyecto.id];
-            const avances = (pr.avances || []).filter(a => a.visitaId !== id).concat({ fecha: antes.fecha, visitaId: id, texto: d.det.Proyectos });
-            guardarRegistro({ ...pr, avances });
-        }
+        registrarAvance(proyecto, d.det, antes);
         guardarRegistro({ ...antes, ...LIMPIAR_NO_VISITADO, estado: 'visitado', ...cierre, detalleCierre: d.det, proyectoMercadeo: proyecto || antes.proyectoMercadeo || null,
             observaciones: resumenDetalles(d.det, proyecto), ...marcaReporte(antes) });
         cerrarModal();

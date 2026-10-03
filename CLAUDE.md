@@ -91,9 +91,9 @@
   Maestra, la jefe la confirma ("¿Ya se creó en la Maestra?" → "Sí, es este"): sus visitas pasan al cliente (quedan marcadas `eraProyecto`).
 
 ## Visita Ateneo Médico
-- Tipo de visita abierto a todas las zonas: sus contactos son los de clasificación 61 o con "ateneo" en la etiqueta, de cualquier
-  zona (visita general con apoyo de las zonas). Objetivos en la columna "Visita Ateneo Médico" de la hoja Visitas de la Matriz
-  (arrancó como copia de Visita Médica).
+- Tipo de visita abierto a todas las zonas: sus contactos son los de clasificación 61 (los médicos 20, 21 y 22 no van, aunque
+  su etiqueta diga "Ateneo"), de cualquier zona (visita general con apoyo de las zonas). Objetivos (columna "Visita Ateneo Médico"
+  de la hoja Visitas): los mismos de Mercadeo, con su texto de 200 caracteres por objetivo y Proyectos con su proyecto.
 
 ## Módulo de pruebas (cuando el usuario lo pida)
 - `python3 herramientas/modulo_pruebas.py <carpeta>` arma una copia idéntica de la app con el encabezado en rojo ("PRUEBAS"),
