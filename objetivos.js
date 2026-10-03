@@ -37,12 +37,9 @@ window.MATRIZ_OBJETIVOS = {
   ],
   "Visita Ateneo Médico": [
    "Actividades",
-   "Desarrollo Productos",
-   "Devoluciones - PQR",
    "Entrega de Muestras",
    "Parrilla Promocional",
-   "Productos Nuevos",
-   "Protocolo Médico"
+   "Productos Nuevos"
   ],
   "medcom:Visita Médica": [
    "Actividades",
@@ -334,16 +331,6 @@ window.MATRIZ_OBJETIVOS = {
    ]
   },
   "Visita Ateneo Médico": {
-   "Desarrollo Productos": [
-    "Fórmula Magistral Nueva",
-    "Ajuste de Fórmula",
-    "Muestra de Desarrollo"
-   ],
-   "Devoluciones - PQR": [
-    "Queja",
-    "Reclamo",
-    "Sugerencia"
-   ],
    "Entrega de Muestras": [
     "Muestra Comercial",
     "Muestra Médica"
@@ -351,14 +338,7 @@ window.MATRIZ_OBJETIVOS = {
    "Productos Nuevos": [
     "Presentación del Producto",
     "Entrega de Muestra",
-    "Material de Apoyo",
-    "Codificación"
-   ],
-   "Protocolo Médico": [
-    "Presentación Protocolo Médico",
-    "Inscripción del Médico",
-    "Seguimiento",
-    "Solicitud y Recolección de Información"
+    "Material de Apoyo"
    ]
   },
   "nuevo:Punto de Venta": {

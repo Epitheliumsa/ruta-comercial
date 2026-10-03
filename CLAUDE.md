@@ -93,7 +93,7 @@
 ## Visita Ateneo Médico
 - Tipo de visita abierto a todas las zonas. Contactos: los clientes de clasificación 61 y un contacto por cada etiqueta de la
   Maestra que dice "Ateneo" (ej: "Ateneo Universidad del Bosque", sin los médicos 20, 21 y 22), de cualquier zona (visita general con apoyo de las zonas). Objetivos (columna "Visita Ateneo Médico"
-  de la hoja Visitas): los mismos de Visita Médica.
+  de la hoja Visitas): Actividades, Entrega de Muestras, Parrilla Promocional (la de Visita Médica) y Productos Nuevos (sin Codificación).
 
 ## Módulo de pruebas (cuando el usuario lo pida)
 - `python3 herramientas/modulo_pruebas.py <carpeta>` arma una copia idéntica de la app con el encabezado en rojo ("PRUEBAS"),
