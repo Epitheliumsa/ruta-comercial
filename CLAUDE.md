@@ -34,7 +34,7 @@
   Al rechazar una eliminación se pide la razón (50 caracteres) y le sale al vendedor.
 - Maestra Clientes: ícono de calendario arriba a la derecha para el periodo de Visitados / No visitados (día, mes, trimestre, semestre, año).
 - Al buscar el cliente para programar, cada opción muestra su clasificación.
-- **Mercadeo** (Trabajo Administrativo, solo Coordinadora Comercial; columna "Mercadeo" de la hoja Trabajo interno de la Matriz):
+- **Mercadeo** (Trabajo Administrativo, solo Coordinadora Comercial y Gerente General; columna "Mercadeo" de la hoja Trabajo interno de la Matriz):
   objetivos Proyectos (con subcategorías Contacto Cliente y Contacto Proveedores), Desarrollo Actividades Comerciales,
   Investigación de Mercado y Otros. Cada objetivo
   marcado lleva su texto (máx. 200) al programar y al cerrar. En Proyectos se escoge o crea el proyecto (clase `proyectoMercadeo`);

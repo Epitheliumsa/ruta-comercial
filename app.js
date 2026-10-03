@@ -180,7 +180,7 @@ const cumplidosProgramados = v => (v.objetivosCumplidos || []).filter(o => (v.ob
 // Trabajo interno: se programa igual que una visita (con objetivos), pero sin contacto
 // y no cuenta en los indicadores de visitas
 const TRABAJO_INTERNO = ['Trabajo Administrativo Oficina', 'Trabajo Administrativo Fuera de la Oficina', 'Planeación Mes'];
-// Mercadeo: trabajo administrativo solo de la Coordinadora Comercial. Cada objetivo lleva su texto (máximo 200 caracteres)
+// Mercadeo: trabajo administrativo de la Coordinadora Comercial y del Gerente General. Cada objetivo lleva su texto (máximo 200 caracteres)
 // al programar y al cerrar; en "Proyectos" se escoge o se crea el proyecto (registro clase 'proyectoMercadeo').
 const MERCADEO = 'Mercadeo';
 const MAX_DET_MERC = 200;
@@ -189,7 +189,9 @@ const conDetalle = v => v.contacto === MERCADEO;
 const conDetalleForm = () => tipoBase() === MERCADEO;
 const esTrabajoInterno = tipo => TRABAJO_INTERNO.includes(tipo) || tipo === MERCADEO;
 const esCoordinadora = id => !!id && USUARIOS.find(u => u.id === id)?.cargo === 'Coordinadora Comercial';
-const internosDe = vendedor => esCoordinadora(vendedor) ? [...TRABAJO_INTERNO, MERCADEO] : TRABAJO_INTERNO;
+// Mercadeo: para la Coordinadora Comercial y el administrador (Gerente General)
+const usaMercadeo = id => esCoordinadora(id) || !!USUARIOS.find(u => u.id === id)?.admin;
+const internosDe = vendedor => usaMercadeo(vendedor) ? [...TRABAJO_INTERNO, MERCADEO] : TRABAJO_INTERNO;
 const proyectosMercadeo = vendedor => visibles().filter(r => r.clase === 'proyectoMercadeo' && r.vendedor === vendedor && r.estado !== 'cerrado')
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 // Novedades del vendedor: días en que no trabaja o trabaja parcial. No son visitas ni cuentan en los indicadores
