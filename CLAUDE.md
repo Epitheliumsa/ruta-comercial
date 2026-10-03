@@ -103,10 +103,15 @@
   salen como "Ateneo visitado" y "Ateneo no visitado", igual que los leads. Los clientes 61 salen solo en Ateneos, salvo el CDFLL, que sale también en los clientes de su zona (Jennifer).
   La fila del ateneo marca R con las Visitas Ateneo Médico. Tocando el nombre del ateneo se abre su tarjeta con el histórico.
 
-## Módulo de pruebas (cuando el usuario lo pida)
+## Módulo de pruebas (permanente)
 - `python3 herramientas/modulo_pruebas.py <carpeta>` arma una copia idéntica de la app con el encabezado en rojo ("PRUEBAS"),
   sin servidor (todo queda en el navegador), entrada tocando el usuario (sin clave) y colores fijos en campos y listas.
-- Se publica como Artifact privado (página + todos los archivos de la carpeta). Siempre en el mismo link si ya existe.
+- Link fijo: https://claude.ai/artifact/YWErS5kkwDt7LBhav1fEC3 (Artifact privado: página + todos los archivos de la carpeta).
+  Siempre se publica en ese mismo link; nunca se crea otro.
+- Queda guardado para futuras pruebas. La rutina "Copia diaria del módulo de pruebas (Ruta Comercial)" lo rehace cada día
+  a las 5:52 am (Bogotá) con lo que esté publicado en `main` (solo si cambió `version.txt`).
+- Para ensayar un cambio sin publicar: armar el módulo desde la rama de trabajo y publicarlo en el mismo link. La copia
+  diaria lo vuelve a dejar igual a la app publicada al día siguiente si `main` cambió.
 
 ## Matriz de la app (skill `matriz`)
 - Toda la configuración está en un solo archivo: `datos/Matriz_App.xlsx` (Índice, Visitas, Trabajo interno, Mensual y
