@@ -1993,7 +1993,7 @@ function pintarVisiplan() {
     $('vpTabla').classList.toggle('estirar', visiplan.periodo === 'mes');   // el mes llena el ancho; hoy y semana quedan compactos
     $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">${todos ? 'Vendedor · Etiqueta' : 'Etiqueta'}</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n" title="Visitas programadas">Obj</th><th rowspan="3" class="vp-n" title="Visitas efectivas">Real</th><th rowspan="3" class="vp-n" title="Visitas efectivas en el día que se planearon / programadas">% Cump</th><th rowspan="3" class="vp-n" title="Visitas efectivas / visitas programadas">% Visitas</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 6}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`
         + `<tfoot><tr class="vp-tot"><td class="vp-et"></td><th class="vp-cli" scope="row">Obj · Real del día</th>${dias.map(d => `<td class="vp-tp${claseDia(d)}" data-d="${d}"></td><td class="vp-tr${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpTotP"></td><td class="vp-n real" id="vpTotR"></td><td class="vp-n vp-pct" id="vpTotPct"></td><td class="vp-n vp-pvis" id="vpTotVis"></td></tr>`
-        + (clientes.some(c => c.t === ATENEO) ? `<tr class="vp-tot vp-tot-ateneo"><td class="vp-et"></td><th class="vp-cli" scope="row">Ateneos · Obj · Real</th>${dias.map(d => `<td class="vp-ap${claseDia(d)}" data-d="${d}"></td><td class="vp-ar${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpAtP"></td><td class="vp-n real" id="vpAtR"></td><td colspan="2" class="vp-n vp-lead-txt" id="vpAtTxt"></td></tr>` : '')
+        + (clientes.some(c => c.t === ATENEO) ? `<tr class="vp-tot vp-tot-ateneo"><td class="vp-et"></td><th class="vp-cli" scope="row">Ateneos · Obj · Real</th>${dias.map(d => `<td colspan="2" class="vp-ad${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpAtPie"></td></tr>` : '')
         + (clientes.some(c => c.t === LEAD) ? `<tr class="vp-tot vp-tot-lead"><td class="vp-et"></td><th class="vp-cli" scope="row">Leads · Obj · Real</th>${dias.map(d => `<td class="vp-lp${claseDia(d)}" data-d="${d}"></td><td class="vp-lr${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpLeadP"></td><td class="vp-n real" id="vpLeadR"></td><td colspan="2" class="vp-n vp-lead-txt" id="vpLeadTxt"></td></tr>` : '')
         + `<tr class="vp-tot vp-tot-c"><td class="vp-et"></td><th class="vp-cli" scope="row">% Cump del día</th>${dias.map(d => `<td colspan="2" class="vp-dp${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpPieN"></td></tr>`
         + `<tr class="vp-tot vp-tot-v"><td class="vp-et"></td><th class="vp-cli" scope="row">% Visitas del día</th>${dias.map(d => `<td colspan="2" class="vp-dv${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpPieV"></td></tr></tfoot>`;
@@ -2046,15 +2046,13 @@ function actualizarTotalesPlan() {
         celda.textContent = pd.o || '';
         tabla.querySelector(`tfoot .vp-lr[data-d="${d}"]`).textContent = pd.r || '';
     });
-    tabla.querySelectorAll('tfoot .vp-ap').forEach(celda => {
-        const d = celda.dataset.d, pd = atDia[d] || { o: 0, r: 0 };
-        celda.textContent = pd.o || '';
-        tabla.querySelector(`tfoot .vp-ar[data-d="${d}"]`).textContent = pd.r || '';
+    tabla.querySelectorAll('tfoot .vp-ad').forEach(celda => {
+        const pd = atDia[celda.dataset.d];
+        celda.textContent = pd && (pd.o || pd.r) ? `${pd.o} · ${pd.r}` : '';
     });
-    if ($('vpAtP')) {
+    if ($('vpAtPie')) {
         const filasAt = [...tabla.querySelectorAll('tbody tr.vp-ateneo')], vis = filasAt.filter(f => f.querySelector('.vp-r.on')).length;
-        $('vpAtP').textContent = A.o; $('vpAtR').textContent = A.r;
-        $('vpAtTxt').innerHTML = `<b>${vis}</b> visitado${vis === 1 ? '' : 's'} de ${filasAt.length}`;
+        $('vpAtPie').innerHTML = `<span class="p">Obj <b>${A.o}</b></span> · <span class="v">Real <b>${A.r}</b></span> · <b>${vis}</b> de ${filasAt.length}`;
     }
     if ($('vpLeadP')) {
         const filasLead = [...tabla.querySelectorAll('tbody tr.vp-lead')], vis = filasLead.filter(f => f.querySelector('.vp-r.on')).length;

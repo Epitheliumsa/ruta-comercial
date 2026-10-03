@@ -884,7 +884,7 @@ a.home-btn { text-decoration: none; }
 .vp-tabla tfoot .vp-cli, .vp-tabla tfoot .vp-et { z-index: 3; color: #0b5c56; }
 .vp-tabla tfoot .vp-tp { color: #1d4ed8; }
 .vp-tabla tfoot .vp-tr { color: #15803d; }
-.vp-tabla tfoot .vp-tr, .vp-tabla tfoot .vp-dp, .vp-tabla tfoot .vp-dv { border-right: 2px solid #8fbfb7; }
+.vp-tabla tfoot .vp-tr, .vp-tabla tfoot .vp-dp, .vp-tabla tfoot .vp-dv, .vp-tabla tfoot .vp-ad { border-right: 2px solid #8fbfb7; }
 .vp-tabla tfoot .vp-lr { border-right: 2px solid #8fbfb7; }
 .vp-tabla tfoot .fs { border-right: 2px solid #0f766e; }
 /* Con la fila de Leads el pie tiene 4 filas pegadas abajo */
@@ -1700,3 +1700,4 @@ details.ver-formato a { font-size: 12px; }
 .vp-tabla tfoot:has(.vp-tot-ateneo):has(.vp-tot-lead) tr.vp-tot-ateneo td, .vp-tabla tfoot:has(.vp-tot-ateneo):has(.vp-tot-lead) tr.vp-tot-ateneo th { bottom: 78px; }
 .vp-tabla tfoot:has(.vp-tot-ateneo):has(.vp-tot-lead) tr.vp-tot:first-child td, .vp-tabla tfoot:has(.vp-tot-ateneo):has(.vp-tot-lead) tr.vp-tot:first-child th { bottom: 104px; }
 .vp-tabla tfoot tr:not(:first-child) > td, .vp-tabla tfoot tr:not(:first-child) > th { box-shadow: inset 0 1px 0 #9fbdb5; }
+.vp-tabla tfoot .vp-ad { font-size: 10.5px; font-weight: 600; text-align: center; white-space: nowrap; }
