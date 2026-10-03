@@ -1642,7 +1642,7 @@ function pintarMaestra() {
     }
     const base = sel.flatMap(z => [...(contactos[z] || []).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
     // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
-    maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && enPeriodoMaestra(x.fecha))
+    maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && !tiposDe(x).includes(ATENEO) && enPeriodoMaestra(x.fecha))
         .map(x => normalizar(x.contacto)));
     // Las opciones elegidas que ya no existen en las zonas elegidas se quitan
     FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => v === NINGUNA || base.some(c => DIMS_MAESTRA[k].valor(c) === v)); });
@@ -1972,7 +1972,7 @@ function pintarVisiplan() {
         const lead = c.t === LEAD, ateneo = c.t === ATENEO;
         const sep = lead && (!i || l[i - 1].t !== LEAD)
             ? `<tr class="vp-sep-lead"><td colspan="${nCol}"><span class="chip proy">${LEAD}</span> Contactos nuevos · no suman en los totales de la Maestra</td></tr>`
-            : ateneo && (!i || l[i - 1].t !== ATENEO) ? `<tr class="vp-sep-ateneo"><td colspan="${nCol}"><span class="chip ateneo">Ateneos</span> Para todas las zonas · cuentan como visita y suman en Ateneos</td></tr>` : '';
+            : ateneo && (!i || l[i - 1].t !== ATENEO) ? `<tr class="vp-sep-ateneo"><td colspan="${nCol}"><span class="chip ateneo">Ateneos</span> Para todas las zonas · van por aparte: no suman en los totales de la Maestra</td></tr>` : '';
         const cli = ateneo ? `<th class="vp-cli" scope="row" data-ateneo="${esc(nombreFilaPlan(c.n))}" title="Ver historial del ateneo">${esc(nombreFilaPlan(c.n))}</th>`
             : `<th class="vp-cli" scope="row" data-cliente="${esc(c.n)}" data-v="${c.v}" title="Ver historial de visitas">${esc(c.n)}</th>`;
         return `${sep}<tr${lead ? ' class="vp-lead"' : ateneo ? ' class="vp-ateneo"' : ''}><td class="vp-et">${etiqueta}</td>${cli}`
@@ -2010,21 +2010,21 @@ function actualizarTotalesPlan() {
             if (real) k.r++;
             if (plan && real) k.c++;
             if (interna) return;   // el trabajo administrativo no suma en los totales de clientes
+            if (ateneo) { const pa = atDia[x.dataset.d] = atDia[x.dataset.d] || { o: 0, r: 0 }; if (plan) pa.o++; if (real) pa.r++; return; }   // los ateneos solo suman en Ateneos
             const dias = lead ? leadDia : porDia;   // los leads van por aparte
             const pd = dias[x.dataset.d] = dias[x.dataset.d] || { o: 0, r: 0, c: 0 };
             if (plan) pd.o++;
             if (real) pd.r++;
             if (plan && real) pd.c++;
-            if (ateneo) { const pa = atDia[x.dataset.d] = atDia[x.dataset.d] || { o: 0, r: 0 }; if (plan) pa.o++; if (real) pa.r++; }   // también suman en Ateneos
         });
         const n = fila.querySelectorAll('.vp-n');
         if (n.length < 4) return;
         n[0].textContent = k.o; n[1].textContent = k.r;
         if (interna) return;
         ponPct(n[2], k.c, k.o); ponPct(n[3], k.r, k.o);
+        if (ateneo) { A.o += k.o; A.r += k.r; return; }   // no suman en la Maestra de clientes
         const tot = lead ? L : T;
         tot.o += k.o; tot.r += k.r; tot.c += k.c;
-        if (ateneo) { A.o += k.o; A.r += k.r; }
     });
     tabla.querySelectorAll('tfoot .vp-tp').forEach(celda => {
         const d = celda.dataset.d, pd = porDia[d] || { o: 0, r: 0, c: 0 };
@@ -2054,7 +2054,7 @@ function actualizarTotalesPlan() {
         $('vpLeadTxt').innerHTML = `<b>${vis}</b> visitado${vis === 1 ? '' : 's'} · <b>${filasLead.length - vis}</b> no visitado${filasLead.length - vis === 1 ? '' : 's'}`;
     }
     // Pie de la primera columna: clientes (según el filtro), planeados y visitados con su porcentaje
-    const filasCli = [...tabla.querySelectorAll('tbody tr:not(.vp-int):not(.vp-lead)')].filter(f => f.querySelector('.vp-x'));
+    const filasCli = [...tabla.querySelectorAll('tbody tr:not(.vp-int):not(.vp-lead):not(.vp-ateneo)')].filter(f => f.querySelector('.vp-x'));
     const nCli = filasCli.length, nPlan = filasCli.filter(f => f.querySelector('.vp-x.on')).length, nVis = filasCli.filter(f => f.querySelector('.vp-r.on')).length;
     if ($('vpPieN')) {
         $('vpPieN').innerHTML = `<b>${nCli}</b> ${nCli === 1 ? 'cliente' : 'clientes'} · <span class="p">planeados <b>${nPlan}</b> (${pctPlan(nPlan, nCli) || '0%'})</span> · <span class="v">visitados <b>${nVis}</b> (${pctPlan(nVis, nCli) || '0%'})</span>`;
@@ -2076,17 +2076,17 @@ function actualizarTotalesPlan() {
         const { marcas, reales } = seguimientoPlan(vid, visiplan.mes);
         const rv = n => new Set([...(reales[n] || [])].filter(d => enVista.has(d)));
         const zona = comercial(vid)?.zona, esLead = n => !buscarMaestra(zona, n) && !!buscarProyecto(zona, n);   // los leads no suman
-        Object.entries(marcas).filter(([n]) => !esLead(n)).forEach(([n, ds]) => {
+        Object.entries(marcas).filter(([n]) => !esLead(n) && !esFilaAteneo(n)).forEach(([n, ds]) => {
             const k = indicadoresPlan(ds.filter(d => enVista.has(d)), rv(n)); obj += k.obj; cump += k.cump; if (k.obj) clientesP++;
         });
-        Object.keys(reales).filter(n => !esLead(n)).forEach(n => { real += rv(n).size; if (esFilaAteneo(n)) atReal += rv(n).size; });
+        Object.keys(reales).filter(n => !esLead(n)).forEach(n => { if (esFilaAteneo(n)) atReal += rv(n).size; else real += rv(n).size; });
         Object.entries(marcas).filter(([n]) => esFilaAteneo(n)).forEach(([, ds]) => { atObj += ds.filter(d => enVista.has(d)).length; });
     });
     const chip = (f, clase, html, titulo) => { const on = visiplan.sel.f.includes(f); return `<button type="button" class="chip chip-filtro ${clase}${on ? ' activo' : ''}" onclick="filtrarPlan('${f}')" title="${titulo}" aria-pressed="${on}">${html}</button>`; };
     $('vpResumen').innerHTML = chip('plan', 'vp-chip-cli', `<b>${clientesP}</b> ${clientesP === 1 ? 'cliente planeado' : 'clientes planeados'}`, 'Ver solo los clientes planeados')
         + chip('plan', 'vp-chip-plan', `Obj ${obj}`, 'Ver solo los clientes planeados') + chip('real', 'vp-chip-real', `Real ${real}`, 'Ver los clientes con visita real')
         + (obj ? chip('cump', 'vp-chip-pct', `${pctPlan(cump, obj)} Cump`, 'Ver los cumplidos en el día planeado') + chip('visit', 'vp-chip-pct', `${pctPlan(real, obj)} Visitas`, 'Ver los planeados que ya se visitaron') : '')
-        + (atObj || atReal ? `<span class="chip ateneo" title="Visitas a ateneos (también suman en Obj y Real)">Ateneos · Obj ${atObj} · Real ${atReal}</span>` : '')
+        + (atObj || atReal ? `<span class="chip ateneo" title="Visitas a ateneos (van por aparte: no suman en la Maestra)">Ateneos · Obj ${atObj} · Real ${atReal}</span>` : '')
         + (visiplan.editable ? '' : '<span class="chip gris">🔒 Cerrado</span>');
 }
 
