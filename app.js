@@ -184,9 +184,9 @@ const TRABAJO_INTERNO = ['Trabajo Administrativo Oficina', 'Trabajo Administrati
 // al programar y al cerrar; en "Proyectos" se escoge o se crea el proyecto (registro clase 'proyectoMercadeo').
 const MERCADEO = 'Mercadeo';
 const MAX_DET_MERC = 200;
-// Mercadeo y Visita Ateneo Médico: cada objetivo con su texto (y Proyectos con su proyecto)
-const conDetalle = v => v.contacto === MERCADEO || tiposDe(v).includes(ATENEO);
-const conDetalleForm = () => tipoBase() === MERCADEO || $('fTipo')?.value === ATENEO;
+// Mercadeo: cada objetivo con su texto (y Proyectos con su proyecto)
+const conDetalle = v => v.contacto === MERCADEO;
+const conDetalleForm = () => tipoBase() === MERCADEO;
 const esTrabajoInterno = tipo => TRABAJO_INTERNO.includes(tipo) || tipo === MERCADEO;
 const esCoordinadora = id => !!id && USUARIOS.find(u => u.id === id)?.cargo === 'Coordinadora Comercial';
 const internosDe = vendedor => esCoordinadora(vendedor) ? [...TRABAJO_INTERNO, MERCADEO] : TRABAJO_INTERNO;
