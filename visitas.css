@@ -1686,3 +1686,6 @@ details.ver-formato a { font-size: 12px; }
 .ateneo-eyebrow { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 12px; color: #4f46e5; }
 .ateneo-ficha h2 { color: #3730a3; }
 .vp-tabla tr.vp-int-ini > * { border-top: 2px solid #cfe0dc !important; }
+.kpi.ateneo { background: #eef2ff; border-color: #c7d2fe; }
+.kpi.ateneo small, .kpi.ateneo b { color: #3730a3; }
+.kpi.ateneo.no b { color: #6366f1; }

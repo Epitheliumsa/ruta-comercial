@@ -2480,9 +2480,9 @@ function pintarAgenda() {
     }
     // Filtro por indicador y orden (por hora de cita o por el orden en que se reportaron las visitas)
     const pasa = {
-        prog: x => !x.interno && !x.esProyecto && esProgramada(x), noProg: x => !x.interno && !x.esProyecto && !esProgramada(x),
-        ok: x => !x.interno && !x.esProyecto && x.estado === 'visitado', no: x => !x.interno && !x.esProyecto && x.estado === 'no_visitado',
-        p: x => !x.interno && !x.esProyecto && x.estado === 'pendiente', interno: x => x.interno
+        prog: x => !x.interno && !x.esProyecto && !esVisAteneo(x) && esProgramada(x), noProg: x => !x.interno && !x.esProyecto && !esVisAteneo(x) && !esProgramada(x),
+        ok: x => !x.interno && !x.esProyecto && !esVisAteneo(x) && x.estado === 'visitado', no: x => !x.interno && !x.esProyecto && !esVisAteneo(x) && x.estado === 'no_visitado',
+        p: x => !x.interno && !x.esProyecto && !esVisAteneo(x) && x.estado === 'pendiente', interno: x => x.interno
     }[agenda.filtro] || (agenda.filtro.startsWith('an:') ? x => claseAnillo(x) === agenda.filtro.slice(3) : () => true);
     // El orden (programado y real) es de cada vendedor
     const ordenes = {};
@@ -2564,7 +2564,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const horario = v.diaCompleto === false && v.horaInicio ? `${horaBonita(v.horaInicio)} a ${horaBonita(v.horaFin)}` : 'Todo el día';
     const marcas = v.interno ? `<span class="chip gris">Trabajo Administrativo</span><span class="chip azul">🕗 ${esc(horario)}</span>${noProgTxt}`
-        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
+        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esVisAteneo(v) ? '<span class="chip ateneo">Ateneo · no suma en la Maestra</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
         reporte = v.observaciones && v.contacto !== MERCADEO ? `<div class="reporte">${esc(v.observaciones)}</div>` : '';
@@ -4439,10 +4439,14 @@ const PARTES_ANILLO = [
     { f: 'no', t: 'No visitadas', c: '#dc2626' }, { f: 'rep', t: 'Reprogramadas', c: '#7c3aed' },
     { f: 'repNo', t: 'Reprogramadas no visitadas', c: '#9f1239' }, { f: 'int', t: 'Trabajo Administrativo', c: '#94a3b8' },
     { f: 'intNo', t: 'Trabajo Administrativo no realizado', c: '#475569' },
-    { f: 'lead', t: 'Lead visitado', c: '#0891b2' }, { f: 'leadNo', t: 'Lead no visitado', c: '#7dd3e8' }
+    { f: 'lead', t: 'Lead visitado', c: '#0891b2' }, { f: 'leadNo', t: 'Lead no visitado', c: '#7dd3e8' },
+    { f: 'ateneo', t: 'Ateneo visitado', c: '#4f46e5' }, { f: 'ateneoNo', t: 'Ateneo no visitado', c: '#a5b4fc' }
 ];
+// Visitas a ateneos: como los leads, van por aparte (no suman con la Maestra de clientes)
+const esVisAteneo = x => !x.interno && tiposDe(x).includes(ATENEO);
 function claseAnillo(x) {
     if (x.esProyecto && !x.interno) return x.estado === 'visitado' ? 'lead' : 'leadNo';   // los leads van por aparte
+    if (esVisAteneo(x)) return x.estado === 'visitado' ? 'ateneo' : 'ateneoNo';   // los ateneos también
     if (x.estado === 'visitado') return 'ok';
     const no = x.estado === 'no_visitado';
     if (x.interno) return no ? 'intNo' : 'int';
@@ -4472,8 +4476,9 @@ function anilloDia(lista, titulo, conFiltro = true, periodo = '') {
 }
 
 function cuentaVisitas(todas) {
-    const lista = todas.filter(v => !v.interno && !v.esProyecto);   // los leads no suman con la Maestra
+    const lista = todas.filter(v => !v.interno && !v.esProyecto && !esVisAteneo(v));   // los leads y los ateneos no suman con la Maestra
     const leads = todas.filter(v => !v.interno && v.esProyecto);
+    const ateneos = todas.filter(esVisAteneo);
     const ok = lista.filter(v => v.estado === 'visitado').length;
     const no = lista.filter(v => v.estado === 'no_visitado').length;
     const prog = lista.filter(esProgramada);
@@ -4486,6 +4491,7 @@ function cuentaVisitas(todas) {
         pedidos: lista.filter(v => v.pedido === 'si').length,
         // Leads (contactos nuevos): por aparte, como Lead visitado y Lead no visitado
         leads: leads.length, leadsOk: leads.filter(v => v.estado === 'visitado').length, leadsNo: leads.filter(v => v.estado !== 'visitado').length,
+        ateneos: ateneos.length, ateneosOk: ateneos.filter(v => v.estado === 'visitado').length, ateneosNo: ateneos.filter(v => v.estado !== 'visitado').length,
         internos: todas.filter(v => v.interno).length
     };
 }
@@ -4531,6 +4537,7 @@ function pintarPanel() {
         <div class="kpi azul"><small>Virtuales</small><b>${c.virtual}</b></div>
         <div class="kpi lead"><small>Lead visitado</small><b>${c.leadsOk}</b></div>
         <div class="kpi lead no"><small>Lead no visitado</small><b>${c.leadsNo}</b></div>
+        ${c.ateneos ? `<div class="kpi ateneo"><small>Ateneo visitado</small><b>${c.ateneosOk}</b></div><div class="kpi ateneo no"><small>Ateneo no visitado</small><b>${c.ateneosNo}</b></div>` : ''}
         <div class="kpi azul"><small>Actividades</small><b>${actHechas}/${acts.length}</b></div>`;
 
     pintarGraficaDias(vis);

@@ -98,7 +98,8 @@
 - Visiplan (zonas comerciales), en este orden: clientes de la zona → Trabajo Administrativo (separado con una línea tenue) →
   **Ateneos** (sección índigo, igual para todas las zonas: los clientes 61 y los ateneos de las etiquetas; filas del plan como
   `ateneo|Nombre`) → Leads. Los ateneos van por aparte: **nunca suman en la Maestra de clientes** (ni en los totales del Visiplan ni en
-  Visitados de la Maestra Clientes); solo en su fila "Ateneos · Obj · Real" y en el chip del resumen. Los clientes 61 salen solo en Ateneos, salvo el CDFLL, que sale también en los clientes de su zona (Jennifer).
+  Visitados de la Maestra Clientes); solo en su fila "Ateneos · Obj · Real" y en el chip del resumen. En los anillos y el Panel
+  salen como "Ateneo visitado" y "Ateneo no visitado", igual que los leads. Los clientes 61 salen solo en Ateneos, salvo el CDFLL, que sale también en los clientes de su zona (Jennifer).
   La fila del ateneo marca R con las Visitas Ateneo Médico. Tocando el nombre del ateneo se abre su tarjeta con el histórico.
 
 ## Módulo de pruebas (cuando el usuario lo pida)
