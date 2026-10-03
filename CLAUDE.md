@@ -91,8 +91,8 @@
   Maestra, la jefe la confirma ("¿Ya se creó en la Maestra?" → "Sí, es este"): sus visitas pasan al cliente (quedan marcadas `eraProyecto`).
 
 ## Visita Ateneo Médico
-- Tipo de visita abierto a todas las zonas: sus contactos son los de clasificación 61 (los médicos 20, 21 y 22 no van, aunque
-  su etiqueta diga "Ateneo"), de cualquier zona (visita general con apoyo de las zonas). Objetivos (columna "Visita Ateneo Médico"
+- Tipo de visita abierto a todas las zonas. Contactos: los clientes de clasificación 61 y un contacto por cada etiqueta de la
+  Maestra que dice "Ateneo" (ej: "Ateneo Universidad del Bosque", sin los médicos 20, 21 y 22), de cualquier zona (visita general con apoyo de las zonas). Objetivos (columna "Visita Ateneo Médico"
   de la hoja Visitas): los mismos de Mercadeo, con su texto de 200 caracteres por objetivo y Proyectos con su proyecto.
 
 ## Módulo de pruebas (cuando el usuario lo pida)

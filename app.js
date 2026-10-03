@@ -61,7 +61,7 @@ const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, va
 // Visita Ateneo Médico: visita general, abierta a todas las zonas, a los contactos de clasificación 61 o con "ateneo" en la etiqueta
 const ATENEO = 'Visita Ateneo Médico';
 // (los médicos 20, 21 y 22 no van, aunque su etiqueta diga "Ateneo")
-const esAteneo = c => !!c && !['20', '21', '22'].includes(String(c.cl)) && (String(c.cl) === '61' || /ateneo/i.test(c.e || ''));
+const esAteneo = c => !!c && (c.ateneo || String(c.cl) === '61');
 const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Cliente', 'Punto de Venta', ...(MATRIZ.objetivos[ATENEO] ? [ATENEO] : [])].map(t => [t, MATRIZ.objetivos[t] || []]));
 // "Visita Médica Comercial": solo para clientes 20 y 21 (médicos que también compran), con sus propios objetivos
 // en la matriz (columna "Visita Médica Comercial", clave medcom:Visita Médica). nuevo = contacto nuevo.
@@ -870,7 +870,22 @@ const proyectosDeZona = zona => proyectos().filter(p => p.zona === zona && p.est
 const leadsDelPlan = zona => proyectos().filter(p => p.zona === zona && p.estado !== 'vinculado');
 const buscarMaestra = (zona, nombre) => (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre));
 // Los jefes programan visitas a cualquier cliente: buscan primero en la zona del vendedor y luego en todas
-const buscarEnTodas = nombre => Object.keys(contactos).map(z => buscarMaestra(z, nombre)).find(Boolean);
+// Ateneos: cada etiqueta de la Maestra que dice "Ateneo" (ej: "Medico - Ateneo Universidad del Bosque") es un contacto de la
+// Visita Ateneo Médico ("Ateneo Universidad del Bosque"), con sus médicos (clasificación 22) contados aparte
+const ateneosDeEtiqueta = () => {
+    const m = new Map();
+    Object.entries(contactos).forEach(([z, l]) => (Array.isArray(l) ? l : []).forEach(c => {
+        const i = (c.e || '').search(/ateneo/i);
+        if (i < 0) return;
+        const n = (c.e || '').slice(i).replace(/\s*-\s*/g, ' - ').replace(/\s+/g, ' ').trim();
+        const a = m.get(normalizar(n)) || { n, e: 'Ateneo', c: c.c || '', zonas: new Set(), medicos: 0, ateneo: true };
+        a.zonas.add(z); a.medicos++;
+        m.set(normalizar(n), a);
+    }));
+    return [...m.values()].map(a => ({ ...a, zonas: [...a.zonas] })).sort((a, b) => a.n.localeCompare(b.n, 'es'));
+};
+const buscarAteneo = nombre => ateneosDeEtiqueta().find(a => normalizar(a.n) === normalizar(nombre));
+const buscarEnTodas = nombre => Object.keys(contactos).map(z => buscarMaestra(z, nombre)).find(Boolean) || buscarAteneo(nombre);
 // La Visita Ateneo Médico busca el contacto en todas las zonas
 const maestraForm = nombre => buscarMaestra(comercial(agenda.vendedor)?.zona, nombre) || (esJefe() || $('fTipo')?.value === ATENEO ? buscarEnTodas(nombre) : undefined);
 const buscarProyecto = (zona, nombre) => proyectosDeZona(zona).find(p => normalizar(p.nombre) === normalizar(nombre));
@@ -901,7 +916,8 @@ const opcionesMaestra = (zona, tipo) => (contactos[zona] || []).filter(c => !TIP
 // Jefes: clientes de todas las zonas (sin repetir), con su zona al lado
 const opcionesTodas = tipo => { const vistos = new Set(); return Object.keys(contactos).flatMap(z => (contactos[z] || []).filter(c => !TIPOS_VISITA[tipo] || tiposDeCliente(c).includes(tipo)).map(c => ({ c, z })))
     .filter(({ c }) => !vistos.has(normalizar(c.n)) && vistos.add(normalizar(c.n)))
-    .map(({ c, z }) => `<option value="${esc(c.n)}" label="${esc([c.cl && 'Clasificación ' + c.cl, c.e, c.c, z].filter(Boolean).join(' · '))}">`).join(''); };
+    .map(({ c, z }) => `<option value="${esc(c.n)}" label="${esc([c.cl && 'Clasificación ' + c.cl, c.e, c.c, z].filter(Boolean).join(' · '))}">`).join('')
+    + (tipo === ATENEO ? ateneosDeEtiqueta().map(a => `<option value="${esc(a.n)}" label="${esc(`Ateneo · ${a.medicos} médicos · ${a.zonas.join(', ')}`)}">`).join('') : ''); };
 const opcionesProyecto = zona => proyectosDeZona(zona)
     .map(p => `<option value="${esc(p.nombre)}" label="${esc([ESTADO_PROYECTO[p.estado], p.clasificacion && 'Clasificación ' + p.clasificacion, p.tipo, p.ciudad].filter(Boolean).join(' · '))}">`).join('');
 
@@ -3222,13 +3238,14 @@ function cajaDetalle(o, abierto, { detalle = {}, proyecto = null, vendedor, cier
     const texto = detalle[o] || '';
     const proy = o === 'Proyectos' ? (() => {
         const lista = proyectosMercadeo(vendedor), sel = proyecto?.id || '';
-        return `<div class="det-proyecto"><label>Proyecto</label>
+        return `<div class="det-proyecto"><label>Proyecto ${REQ}</label>
             <select class="det-proy" onchange="this.nextElementSibling.hidden = this.value !== '__nuevo'">
                 <option value="">Escoge el proyecto</option>${lista.map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.nombre)}${x.avances?.length ? ` · ${x.avances.length} ${x.avances.length === 1 ? 'avance' : 'avances'}` : ''}</option>`).join('')}
                 <option value="__nuevo" ${!lista.length && !sel ? 'selected' : ''}>+ Crear proyecto nuevo</option></select>
             <input class="det-proy-nombre" maxlength="60" placeholder="Nombre del proyecto nuevo" onblur="this.value = nombrePropio(this.value)" ${!lista.length && !sel ? '' : 'hidden'}></div>`;
     })() : '';
     return `<div class="subs det-merc"${abierto ? '' : ' hidden'}>${proy}${subsHtml ? `<div class="det-subs">${subsHtml}</div>` : ''}
+        <label class="det-lbl">${cierre ? '¿Qué se hizo?' : '¿Qué vas a hacer?'} ${REQ} <small>(máximo ${MAX_DET_MERC} caracteres)</small></label>
         <textarea class="det-obj" data-o="${esc(o)}" maxlength="${MAX_DET_MERC}" placeholder="${cierre ? '¿Qué se hizo?' : '¿Qué vas a hacer?'} (máximo ${MAX_DET_MERC} caracteres)"
             oninput="this.nextElementSibling.textContent = this.value.length + ' / ${MAX_DET_MERC}'">${esc(texto)}</textarea><p class="cuenta-nota">${texto.length} / ${MAX_DET_MERC}</p></div>`;
 }

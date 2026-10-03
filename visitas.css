@@ -1675,3 +1675,5 @@ details.ver-formato a { font-size: 12px; }
 .det-proyecto label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #0b5c56; font-weight: 700; margin: 0; }
 .det-proyecto select, .det-proyecto input { width: 100%; padding: 8px 10px; border: 1px solid #cfe0dc; border-radius: 8px; font: inherit; font-size: 14px; background: #fff; }
 .det-merc .det-subs { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.det-merc .det-lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #0b5c56; font-weight: 700; margin: 2px 0 0; }
+.det-merc .det-lbl small { text-transform: none; letter-spacing: 0; font-weight: 500; color: #7a8a84; }
