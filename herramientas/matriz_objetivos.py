@@ -40,6 +40,8 @@ def ordenar_subs(obj, lista):
 # Nombre de la columna en el Excel -> clave del tipo en la app
 TIPOS = {
     'Visita Médica': 'Visita Médica', 'Visita Cliente': 'Visita Cliente', 'Punto de Venta': 'Punto de Venta',
+    # Visita general a contactos de ateneo (clasificación 61 o etiqueta con "ateneo"), abierta a todas las zonas
+    'Visita Ateneo Médico': 'Visita Ateneo Médico',
     # Visita Médica a clientes con clasificación 20 y 21 (médico que también compra): tiene sus propios objetivos
     'Visita Médica Comercial (clasificación 20 y 21)': 'medcom:Visita Médica',
     'Contacto nuevo · Visita Médica': 'nuevo:Visita Médica', 'Contacto nuevo · Visita Cliente': 'nuevo:Visita Cliente',

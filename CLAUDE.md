@@ -35,7 +35,8 @@
 - Maestra Clientes: ícono de calendario arriba a la derecha para el periodo de Visitados / No visitados (día, mes, trimestre, semestre, año).
 - Al buscar el cliente para programar, cada opción muestra su clasificación.
 - **Mercadeo** (Trabajo Administrativo, solo Coordinadora Comercial; columna "Mercadeo" de la hoja Trabajo interno de la Matriz):
-  objetivos Proyectos, Desarrollo Actividades Comerciales, Investigación de Mercado, Contacto Proveedores y Otros. Cada objetivo
+  objetivos Proyectos (con subcategorías Contacto Cliente y Contacto Proveedores), Desarrollo Actividades Comerciales,
+  Investigación de Mercado y Otros. Cada objetivo
   marcado lleva su texto (máx. 200) al programar y al cerrar. En Proyectos se escoge o crea el proyecto (clase `proyectoMercadeo`);
   en el cierre su texto queda como avance del proyecto.
   Programar algo que ya está en el Visiplan de ese día lo confirma (no se duplica). Un trabajo administrativo no se repite el mismo día.
@@ -88,6 +89,16 @@
   formato y tocan Aprobar o Rechazar (queda su nombre y fecha como firma). Aprobada = en creación (transición) hasta la Maestra nueva.
 - Al enviar la solicitud la Lead queda **ganada** y sale del Visiplan desde el mes siguiente. Cuando el cliente ya está en la
   Maestra, la jefe la confirma ("¿Ya se creó en la Maestra?" → "Sí, es este"): sus visitas pasan al cliente (quedan marcadas `eraProyecto`).
+
+## Visita Ateneo Médico
+- Tipo de visita abierto a todas las zonas: sus contactos son los de clasificación 61 o con "ateneo" en la etiqueta, de cualquier
+  zona (visita general con apoyo de las zonas). Objetivos en la columna "Visita Ateneo Médico" de la hoja Visitas de la Matriz
+  (arrancó como copia de Visita Médica).
+
+## Módulo de pruebas (cuando el usuario lo pida)
+- `python3 herramientas/modulo_pruebas.py <carpeta>` arma una copia idéntica de la app con el encabezado en rojo ("PRUEBAS"),
+  sin servidor (todo queda en el navegador), entrada tocando el usuario (sin clave) y colores fijos en campos y listas.
+- Se publica como Artifact privado (página + todos los archivos de la carpeta). Siempre en el mismo link si ya existe.
 
 ## Matriz de la app (skill `matriz`)
 - Toda la configuración está en un solo archivo: `datos/Matriz_App.xlsx` (Índice, Visitas, Trabajo interno, Mensual y

@@ -58,7 +58,10 @@ function abrirVademecum(e) {
 // Objetivos y subcategorías por tipo: vienen de objetivos.js, que se genera desde
 // datos/Matriz_App.xlsx (skill "matriz": herramientas/matriz_app.py). No se editan aquí.
 const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, variables: [], mensual: {} };
-const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Cliente', 'Punto de Venta'].map(t => [t, MATRIZ.objetivos[t] || []]));
+// Visita Ateneo Médico: visita general, abierta a todas las zonas, a los contactos de clasificación 61 o con "ateneo" en la etiqueta
+const ATENEO = 'Visita Ateneo Médico';
+const esAteneo = c => !!c && (String(c.cl) === '61' || /ateneo/i.test(c.e || ''));
+const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Cliente', 'Punto de Venta', ...(MATRIZ.objetivos[ATENEO] ? [ATENEO] : [])].map(t => [t, MATRIZ.objetivos[t] || []]));
 // "Visita Médica Comercial": solo para clientes 20 y 21 (médicos que también compran), con sus propios objetivos
 // en la matriz (columna "Visita Médica Comercial", clave medcom:Visita Médica). nuevo = contacto nuevo.
 const VMC = 'Visita Médica Comercial';
@@ -79,7 +82,8 @@ const objetivosDeTipos = (tipos, nuevo) => {
 };
 // Tipos de visita en que sale un cliente según su clasificación (hoja "Tipo de visita" de datos/Matriz_App.xlsx).
 // Sin clasificación o sin marcar en la matriz: sale en todos.
-const tiposDeCliente = c => (MATRIZ.tiposPorClasificacion || {})[c?.cl] || Object.keys(TIPOS_VISITA);
+const tiposDeCliente = c => [...((MATRIZ.tiposPorClasificacion || {})[c?.cl] || Object.keys(TIPOS_VISITA).filter(t => t !== ATENEO)),
+    ...(esAteneo(c) && TIPOS_VISITA[ATENEO] ? [ATENEO] : [])];
 const AMBOS_TIPOS = ['Visita Médica', 'Visita Cliente'];
 // Lo que se marca al lado del cliente 20 o 21: Visita Médica, Visita Médica Comercial o ambas
 const OPCIONES_2021 = ['Visita Médica', VMC];
@@ -863,7 +867,8 @@ const leadsDelPlan = zona => proyectos().filter(p => p.zona === zona && p.estado
 const buscarMaestra = (zona, nombre) => (contactos[zona] || []).find(x => normalizar(x.n) === normalizar(nombre));
 // Los jefes programan visitas a cualquier cliente: buscan primero en la zona del vendedor y luego en todas
 const buscarEnTodas = nombre => Object.keys(contactos).map(z => buscarMaestra(z, nombre)).find(Boolean);
-const maestraForm = nombre => buscarMaestra(comercial(agenda.vendedor)?.zona, nombre) || (esJefe() ? buscarEnTodas(nombre) : undefined);
+// La Visita Ateneo Médico busca el contacto en todas las zonas
+const maestraForm = nombre => buscarMaestra(comercial(agenda.vendedor)?.zona, nombre) || (esJefe() || $('fTipo')?.value === ATENEO ? buscarEnTodas(nombre) : undefined);
 const buscarProyecto = (zona, nombre) => proyectosDeZona(zona).find(p => normalizar(p.nombre) === normalizar(nombre));
 const solicitudesCreacion = () => proyectos().filter(p => p.estado === 'solicitud' && veSolicitud(p));
 // Aprobación del formato (como las firmas del FTO-CME-002-1): Coordinador Comercial siempre; Gerencia en 10-20-30-60-61-70-71
@@ -915,7 +920,7 @@ function cambiarTipoNuevo() {
 function elegirOrigen(origen) {
     $('lblContacto').innerHTML = (origen === 'nuevo' ? 'Contacto nuevo ' : 'Cliente ') + REQ + (origen === 'nuevo' ? '' : ' <small>(Maestra de Contactos)</small>');
     const zona = comercial(agenda.vendedor)?.zona;
-    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : esJefe() ? opcionesTodas($('fTipo').value) : opcionesMaestra(zona, $('fTipo').value);
+    $('dlContactos').innerHTML = origen === 'nuevo' ? opcionesProyecto(zona) : esJefe() || $('fTipo').value === ATENEO ? opcionesTodas($('fTipo').value) : opcionesMaestra(zona, $('fTipo').value);
     $('fContacto').placeholder = origen === 'nuevo' ? 'Nombre del contacto nuevo o búscalo si ya lo visitaste' : 'Busca el médico, cliente o punto de venta';
     revisarProyecto();
 }
@@ -2934,7 +2939,7 @@ async function abrirProgramar(id, contactoPlan) {
             <label for="fTipoNuevo">Tipo de visita</label>
             <select id="fTipoNuevo" onchange="cambiarTipoNuevo()">
                 <option value="">Elige el tipo de visita</option>
-                ${Object.keys(TIPOS_VISITA).map(opcionNuevo).join('')}
+                ${Object.keys(TIPOS_VISITA).filter(t => t !== ATENEO).map(opcionNuevo).join('')}
             </select>
         </div>
         <div id="cajaContacto">
@@ -3209,7 +3214,7 @@ function enlacePdfSub(o, x) {
     return pdfs.map((u, i) => `<a class="pdf-circ" href="${esc(u)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return verPdf(event, this.href)">PDF${pdfs.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('');
 }
 // Cuadro de texto de cada objetivo de Mercadeo (y en Proyectos, el proyecto: uno existente o uno nuevo)
-function cajaDetalle(o, abierto, { detalle = {}, proyecto = null, vendedor, cierre = false }) {
+function cajaDetalle(o, abierto, { detalle = {}, proyecto = null, vendedor, cierre = false }, subsHtml = '') {
     const texto = detalle[o] || '';
     const proy = o === 'Proyectos' ? (() => {
         const lista = proyectosMercadeo(vendedor), sel = proyecto?.id || '';
@@ -3219,7 +3224,7 @@ function cajaDetalle(o, abierto, { detalle = {}, proyecto = null, vendedor, cier
                 <option value="__nuevo" ${!lista.length && !sel ? 'selected' : ''}>+ Crear proyecto nuevo</option></select>
             <input class="det-proy-nombre" maxlength="60" placeholder="Nombre del proyecto nuevo" onblur="this.value = nombrePropio(this.value)" ${!lista.length && !sel ? '' : 'hidden'}></div>`;
     })() : '';
-    return `<div class="subs det-merc"${abierto ? '' : ' hidden'}>${proy}
+    return `<div class="subs det-merc"${abierto ? '' : ' hidden'}>${proy}${subsHtml ? `<div class="det-subs">${subsHtml}</div>` : ''}
         <textarea class="det-obj" data-o="${esc(o)}" maxlength="${MAX_DET_MERC}" placeholder="${cierre ? '¿Qué se hizo?' : '¿Qué vas a hacer?'} (máximo ${MAX_DET_MERC} caracteres)"
             oninput="this.nextElementSibling.textContent = this.value.length + ' / ${MAX_DET_MERC}'">${esc(texto)}</textarea><p class="cuenta-nota">${texto.length} / ${MAX_DET_MERC}</p></div>`;
 }
@@ -3262,7 +3267,7 @@ function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, prog
         const abierto = marcados.includes(o) || prog;
         const estilo = (lo, de) => programados ? (tieneSub(de, lo) ? ' programado' : ' no-programado') : '';
         const labelSub = x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`;
-        const cajaSubs = detalle ? cajaDetalle(o, abierto, detalle)
+        const cajaSubs = detalle ? cajaDetalle(o, abierto, detalle, sc.map(labelSub).join(''))
             : sc.length
             ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => o === 'Actividades' && circularDeEtiqueta(x) ? htmlCircularSub(o, x, subs, estilo, subsProg) : labelSub(x)).join('')}</div>`
             : o === 'Actividades' && CIRCULARES.length ? `<div class="subs"${abierto ? '' : ' hidden'}><p class="ayuda">No hay circulares vigentes para este cliente en esta fecha.</p></div>`

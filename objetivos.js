@@ -35,6 +35,15 @@ window.MATRIZ_OBJETIVOS = {
    "Precios",
    "Productos Nuevos"
   ],
+  "Visita Ateneo Médico": [
+   "Actividades",
+   "Desarrollo Productos",
+   "Devoluciones - PQR",
+   "Entrega de Muestras",
+   "Parrilla Promocional",
+   "Productos Nuevos",
+   "Protocolo Médico"
+  ],
   "medcom:Visita Médica": [
    "Actividades",
    "Administración de Cartera",
@@ -97,7 +106,6 @@ window.MATRIZ_OBJETIVOS = {
    "Trámites y Reclamos"
   ],
   "Mercadeo": [
-   "Contacto Proveedores",
    "Desarrollo Actividades Comerciales",
    "Investigación de Mercado",
    "Proyectos"
@@ -325,6 +333,34 @@ window.MATRIZ_OBJETIVOS = {
     "Otros"
    ]
   },
+  "Visita Ateneo Médico": {
+   "Desarrollo Productos": [
+    "Fórmula Magistral Nueva",
+    "Ajuste de Fórmula",
+    "Muestra de Desarrollo"
+   ],
+   "Devoluciones - PQR": [
+    "Queja",
+    "Reclamo",
+    "Sugerencia"
+   ],
+   "Entrega de Muestras": [
+    "Muestra Comercial",
+    "Muestra Médica"
+   ],
+   "Productos Nuevos": [
+    "Presentación del Producto",
+    "Entrega de Muestra",
+    "Material de Apoyo",
+    "Codificación"
+   ],
+   "Protocolo Médico": [
+    "Presentación Protocolo Médico",
+    "Inscripción del Médico",
+    "Seguimiento",
+    "Solicitud y Recolección de Información"
+   ]
+  },
   "nuevo:Punto de Venta": {
    "Entrega de Muestras": [
     "Tester"
@@ -396,6 +432,12 @@ window.MATRIZ_OBJETIVOS = {
     "Contabilidad y Cartera",
     "Mercadeo",
     "RRHH"
+   ]
+  },
+  "Mercadeo": {
+   "Proyectos": [
+    "Contacto Cliente",
+    "Contacto Proveedores"
    ]
   }
  },
