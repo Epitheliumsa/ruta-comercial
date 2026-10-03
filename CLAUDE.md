@@ -95,6 +95,12 @@
   Maestra que dice "Ateneo" (ej: "Ateneo Universidad del Bosque", sin los médicos 20, 21 y 22), de cualquier zona (visita general con apoyo de las zonas). Objetivos (columna "Visita Ateneo Médico"
   de la hoja Visitas): Actividades, Entrega de Muestras, Parrilla Promocional (la de Visita Médica) y Productos Nuevos (sin Codificación).
 
+- Visiplan (zonas comerciales), en este orden: clientes de la zona → Trabajo Administrativo (separado con una línea tenue) →
+  **Ateneos** (sección índigo, igual para todas las zonas: los clientes 61 y los ateneos de las etiquetas; filas del plan como
+  `ateneo|Nombre`) → Leads. Los ateneos cuentan como visita (suman en Obj y Real) y además en su fila "Ateneos · Obj · Real" y en el
+  chip del resumen. Los clientes 61 salen solo en Ateneos, salvo el CDFLL, que sale también en los clientes de su zona (Jennifer).
+  La fila del ateneo marca R con las Visitas Ateneo Médico. Tocando el nombre del ateneo se abre su tarjeta con el histórico.
+
 ## Módulo de pruebas (cuando el usuario lo pida)
 - `python3 herramientas/modulo_pruebas.py <carpeta>` arma una copia idéntica de la app con el encabezado en rojo ("PRUEBAS"),
   sin servidor (todo queda en el navegador), entrada tocando el usuario (sin clave) y colores fijos en campos y listas.

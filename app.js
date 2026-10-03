@@ -887,6 +887,21 @@ const ateneosDeEtiqueta = () => {
     return [...m.values()].map(a => ({ ...a, zonas: [...a.zonas] })).sort((a, b) => a.n.localeCompare(b.n, 'es'));
 };
 const buscarAteneo = nombre => ateneosDeEtiqueta().find(a => normalizar(a.n) === normalizar(nombre));
+// Visiplan: los ateneos van en su propia sección (para todas las zonas). Su fila se guarda en el plan como "ateneo|Nombre".
+const PREF_ATENEO = 'ateneo|';
+const esFilaAteneo = k => String(k || '').startsWith(PREF_ATENEO);
+const nombreFilaPlan = k => esFilaAteneo(k) ? k.slice(PREF_ATENEO.length) : k;
+const filaPlanDe = v => tiposDe(v).includes(ATENEO) ? PREF_ATENEO + v.contacto : v.contacto;
+// El CDFLL (Federico Lleras) sale en dos partes: en los clientes de su zona y como ateneo
+const esFdll = c => /lleras|cdfll|fdll/i.test(c?.n || '');
+const contactosAteneo = () => {
+    const vistos = new Set(), l = [];
+    Object.values(contactos).forEach(z => (Array.isArray(z) ? z : []).forEach(c => {
+        if (String(c.cl) === '61' && !vistos.has(normalizar(c.n))) { vistos.add(normalizar(c.n)); l.push({ n: c.n, e: c.e || 'Clasificación 61' }); }
+    }));
+    ateneosDeEtiqueta().forEach(a => l.push({ n: a.n, e: `Ateneo · ${a.medicos} médicos` }));
+    return l;
+};
 const buscarEnTodas = nombre => Object.keys(contactos).map(z => buscarMaestra(z, nombre)).find(Boolean) || buscarAteneo(nombre);
 // La Visita Ateneo Médico busca el contacto en todas las zonas
 const maestraForm = nombre => buscarMaestra(comercial(agenda.vendedor)?.zona, nombre) || (esJefe() || $('fTipo')?.value === ATENEO ? buscarEnTodas(nombre) : undefined);
@@ -1776,8 +1791,9 @@ function seguimientoPlan(vendedor, mes) {
     Object.entries(todas).forEach(([k, ds]) => { (esTrabajoInterno(k) ? internos.marcas : marcas)[k] = ds; });
     visibles().filter(x => x.clase === 'visita' && x.vendedor === vendedor && mesDe(x.fecha) === mes).forEach(x => {
         if (x.interno) { if (x.estado === 'visitado') (internos.reales[x.contacto] = internos.reales[x.contacto] || new Set()).add(x.fecha); return; }
-        if (x.estado === 'visitado') (reales[x.contacto] = reales[x.contacto] || new Set()).add(x.fecha);
-        else if (esReprogramada(x)) (proximas[x.contacto] = proximas[x.contacto] || new Set()).add(x.fecha);
+        const k = filaPlanDe(x);
+        if (x.estado === 'visitado') (reales[k] = reales[k] || new Set()).add(x.fecha);
+        else if (esReprogramada(x)) (proximas[k] = proximas[k] || new Set()).add(x.fecha);
     });
     // Días de Planeación Mes: toda la columna del día queda en azul
     const diasPlaneacion = new Set([...(internos.marcas['Planeación Mes'] || []), ...(internos.reales['Planeación Mes'] || [])]);
@@ -1796,7 +1812,7 @@ function planeadasDe(vendedor, fecha) {
     if (!plan) return [];
     // Si un cliente cambió de zona (nueva Maestra de Contactos), desde hoy ya no le sale al vendedor anterior
     const zona = comercial(vendedor)?.zona;
-    const sigueEnZona = c => fecha < hoy() || esTrabajoInterno(c) || buscarMaestra(zona, c) || buscarProyecto(zona, c) || !Object.keys(contactos).length;
+    const sigueEnZona = c => fecha < hoy() || esTrabajoInterno(c) || esFilaAteneo(c) || buscarMaestra(zona, c) || buscarProyecto(zona, c) || !Object.keys(contactos).length;
     return Object.entries(plan.marcas || {}).filter(([c, dias]) => dias.includes(fecha) && sigueEnZona(c)).map(([contacto]) => {
         const visitaId = (plan.confirmadas || {})[clavePlan(contacto, fecha)];
         const estado = visitaId && registros[visitaId] && !registros[visitaId].borrado && !registros[visitaId].eliminada ? 'confirmada' : fecha < hoy() ? 'cerrada' : 'por confirmar';
@@ -1893,7 +1909,8 @@ function pintarVisiplan() {
     let clientes = [];
     vista.forEach(ven => {
         seg[ven.id] = seguimientoPlan(ven.id, mes);
-        clientes = clientes.concat((contactos[ven.zona] || []).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
+        clientes = clientes.concat((contactos[ven.zona] || []).filter(c => String(c.cl) !== '61' || esFdll(c)).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
+            .concat(contactosAteneo().map(a => ({ n: PREF_ATENEO + a.n, e: a.e, t: ATENEO, v: ven.id })))
             .concat(leadsDelPlan(ven.zona).filter(p => leadEnPlan(p, mes)).map(p => ({ n: p.nombre, e: etiquetaLead(p.tipo), t: LEAD, v: ven.id }))));
     });
     // Filtros (selección múltiple): tipo de cliente, etiqueta (con Trabajo interno) y qué mostrar
@@ -1918,8 +1935,8 @@ function pintarVisiplan() {
     const { t: selT, e: selE } = visiplan.sel;
     clientes = clientes.filter(c => (!q || normalizar(c.n).includes(q)) && (!selE.length || selE.includes(c.e)) && (!selT.length || selT.includes(c.t))
         && pasaFiltrosPlan(...soloVista(seg[c.v].marcas[c.n] || [], seg[c.v].reales[c.n] || new Set()), c.t === LEAD));
-    // Leads (contactos nuevos) al final, separados de la Maestra: van por aparte en los indicadores
-    clientes = [...clientes.filter(c => c.t !== LEAD), ...clientes.filter(c => c.t === LEAD)];
+    // Orden: clientes de la zona, trabajo administrativo, ateneos (para todas las zonas) y al final los leads
+    const clientesZona = clientes.filter(c => c.t !== LEAD && c.t !== ATENEO), ateneos = clientes.filter(c => c.t === ATENEO), leads = clientes.filter(c => c.t === LEAD);
 
     const semanas = [];
     dias.forEach(d => {
@@ -1944,24 +1961,31 @@ function pintarVisiplan() {
     const verInternos = (!selE.length || selE.includes(INTERNO_ETQ)) && (!visiplan.sel.f.length || visiplan.sel.f.includes('actividad')) && !q;
     const filasInternas = !verInternos ? '' : vista.map(ven => internosDe(ven.id).map((t, i, lista) => {
         const c = { n: t, v: ven.id }, sg = seg[ven.id];
-        return `<tr class="vp-int${i === lista.length - 1 ? ' vp-int-fin' : ''}"><td class="vp-et">${todos ? `<b class="vp-vend">${esc(nombreVendedor(ven.id))}</b>` : ''}Trabajo Administrativo</td><th class="vp-cli" scope="row">${esc(t)}</th>`
+        return `<tr class="vp-int${i === 0 ? ' vp-int-ini' : ''}${i === lista.length - 1 ? ' vp-int-fin' : ''}"><td class="vp-et">${todos ? `<b class="vp-vend">${esc(nombreVendedor(ven.id))}</b>` : ''}Trabajo Administrativo</td><th class="vp-cli" scope="row">${esc(t)}</th>`
             + celdas(c, sg.internos.marcas[t] || [], sg.internos.reales[t] || vacio, vacio)
             + `<td class="vp-n plan"></td><td class="vp-n real"></td><td class="vp-n"></td><td class="vp-n"></td></tr>`;
     }).join('')).join('');
     const nCol = dias.length * 2 + 6;
-    const filas = filasInternas + clientes.slice(0, 600).map((c, i, l) => {
+    const filaCliente = (c, i, l) => {
         const sg = seg[c.v], m = sg.marcas[c.n] || [], r = sg.reales[c.n] || vacio, px = sg.proximas[c.n] || vacio;
         const etiqueta = todos ? `<b class="vp-vend">${esc(nombreVendedor(c.v))}</b>${esc(c.e)}` : esc(c.e);
-        const lead = c.t === LEAD, sep = lead && (!i || l[i - 1].t !== LEAD)
-            ? `<tr class="vp-sep-lead"><td colspan="${nCol}"><span class="chip proy">${LEAD}</span> Contactos nuevos · no suman en los totales de la Maestra</td></tr>` : '';
-        return `${sep}<tr${lead ? ' class="vp-lead"' : ''}><td class="vp-et">${etiqueta}</td><th class="vp-cli" scope="row" data-cliente="${esc(c.n)}" data-v="${c.v}" title="Ver historial de visitas">${esc(c.n)}</th>`
+        const lead = c.t === LEAD, ateneo = c.t === ATENEO;
+        const sep = lead && (!i || l[i - 1].t !== LEAD)
+            ? `<tr class="vp-sep-lead"><td colspan="${nCol}"><span class="chip proy">${LEAD}</span> Contactos nuevos · no suman en los totales de la Maestra</td></tr>`
+            : ateneo && (!i || l[i - 1].t !== ATENEO) ? `<tr class="vp-sep-ateneo"><td colspan="${nCol}"><span class="chip ateneo">Ateneos</span> Para todas las zonas · cuentan como visita y suman en Ateneos</td></tr>` : '';
+        const cli = ateneo ? `<th class="vp-cli" scope="row" data-ateneo="${esc(nombreFilaPlan(c.n))}" title="Ver historial del ateneo">${esc(nombreFilaPlan(c.n))}</th>`
+            : `<th class="vp-cli" scope="row" data-cliente="${esc(c.n)}" data-v="${c.v}" title="Ver historial de visitas">${esc(c.n)}</th>`;
+        return `${sep}<tr${lead ? ' class="vp-lead"' : ateneo ? ' class="vp-ateneo"' : ''}><td class="vp-et">${etiqueta}</td>${cli}`
             + celdas(c, m, r, px)
             + `<td class="vp-n plan"></td><td class="vp-n real"></td><td class="vp-n vp-pct"></td><td class="vp-n vp-pvis"></td></tr>`;
-    }).join('');
+    };
+    const filas = clientesZona.slice(0, 600).map(filaCliente).join('') + filasInternas + ateneos.map(filaCliente).join('') + leads.map(filaCliente).join('');
+    clientes = [...clientesZona, ...ateneos, ...leads];
     $('vpTabla').classList.toggle('bloqueada', !editable);
     $('vpTabla').classList.toggle('estirar', visiplan.periodo === 'mes');   // el mes llena el ancho; hoy y semana quedan compactos
     $('vpTabla').innerHTML = `<thead><tr><th rowspan="3" class="vp-et">${todos ? 'Vendedor · Etiqueta' : 'Etiqueta'}</th><th rowspan="3" class="vp-cli">Cliente</th>${cab1}<th rowspan="3" class="vp-n" title="Visitas programadas">Obj</th><th rowspan="3" class="vp-n" title="Visitas efectivas">Real</th><th rowspan="3" class="vp-n" title="Visitas efectivas en el día que se planearon / programadas">% Cump</th><th rowspan="3" class="vp-n" title="Visitas efectivas / visitas programadas">% Visitas</th></tr><tr>${cab2}</tr><tr>${cab3}</tr></thead><tbody>${filas || `<tr><td colspan="${dias.length * 2 + 6}" class="no-results">No hay clientes con estos filtros.</td></tr>`}</tbody>`
         + `<tfoot><tr class="vp-tot"><td class="vp-et"></td><th class="vp-cli" scope="row">Obj · Real del día</th>${dias.map(d => `<td class="vp-tp${claseDia(d)}" data-d="${d}"></td><td class="vp-tr${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpTotP"></td><td class="vp-n real" id="vpTotR"></td><td class="vp-n vp-pct" id="vpTotPct"></td><td class="vp-n vp-pvis" id="vpTotVis"></td></tr>`
+        + (clientes.some(c => c.t === ATENEO) ? `<tr class="vp-tot vp-tot-ateneo"><td class="vp-et"></td><th class="vp-cli" scope="row">Ateneos · Obj · Real</th>${dias.map(d => `<td class="vp-ap${claseDia(d)}" data-d="${d}"></td><td class="vp-ar${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpAtP"></td><td class="vp-n real" id="vpAtR"></td><td colspan="2" class="vp-n vp-lead-txt" id="vpAtTxt"></td></tr>` : '')
         + (clientes.some(c => c.t === LEAD) ? `<tr class="vp-tot vp-tot-lead"><td class="vp-et"></td><th class="vp-cli" scope="row">Leads · Obj · Real</th>${dias.map(d => `<td class="vp-lp${claseDia(d)}" data-d="${d}"></td><td class="vp-lr${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td class="vp-n plan" id="vpLeadP"></td><td class="vp-n real" id="vpLeadR"></td><td colspan="2" class="vp-n vp-lead-txt" id="vpLeadTxt"></td></tr>` : '')
         + `<tr class="vp-tot vp-tot-c"><td class="vp-et"></td><th class="vp-cli" scope="row">% Cump del día</th>${dias.map(d => `<td colspan="2" class="vp-dp${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpPieN"></td></tr>`
         + `<tr class="vp-tot vp-tot-v"><td class="vp-et"></td><th class="vp-cli" scope="row">% Visitas del día</th>${dias.map(d => `<td colspan="2" class="vp-dv${fs(d)}${claseDia(d)}" data-d="${d}"></td>`).join('')}<td colspan="4" class="vp-pie" id="vpPieV"></td></tr></tfoot>`;
@@ -1977,9 +2001,9 @@ function ponPct(celda, r, p) {
     if (p) celda.classList.add(r / p >= 0.9 ? 'bueno' : r / p >= 0.6 ? 'medio' : 'bajo');
 }
 function actualizarTotalesPlan() {
-    const tabla = $('vpTabla'), porDia = {}, T = { o: 0, r: 0, c: 0 }, leadDia = {}, L = { o: 0, r: 0, c: 0 };
+    const tabla = $('vpTabla'), porDia = {}, T = { o: 0, r: 0, c: 0 }, leadDia = {}, L = { o: 0, r: 0, c: 0 }, atDia = {}, A = { o: 0, r: 0 };
     tabla.querySelectorAll('tbody tr').forEach(fila => {
-        const k = { o: 0, r: 0, c: 0 }, interna = fila.classList.contains('vp-int'), lead = fila.classList.contains('vp-lead');
+        const k = { o: 0, r: 0, c: 0 }, interna = fila.classList.contains('vp-int'), lead = fila.classList.contains('vp-lead'), ateneo = fila.classList.contains('vp-ateneo');
         fila.querySelectorAll('.vp-x').forEach(x => {
             const plan = x.classList.contains('on'), real = x.nextElementSibling?.classList.contains('on');
             if (plan) k.o++;
@@ -1991,6 +2015,7 @@ function actualizarTotalesPlan() {
             if (plan) pd.o++;
             if (real) pd.r++;
             if (plan && real) pd.c++;
+            if (ateneo) { const pa = atDia[x.dataset.d] = atDia[x.dataset.d] || { o: 0, r: 0 }; if (plan) pa.o++; if (real) pa.r++; }   // también suman en Ateneos
         });
         const n = fila.querySelectorAll('.vp-n');
         if (n.length < 4) return;
@@ -1999,6 +2024,7 @@ function actualizarTotalesPlan() {
         ponPct(n[2], k.c, k.o); ponPct(n[3], k.r, k.o);
         const tot = lead ? L : T;
         tot.o += k.o; tot.r += k.r; tot.c += k.c;
+        if (ateneo) { A.o += k.o; A.r += k.r; }
     });
     tabla.querySelectorAll('tfoot .vp-tp').forEach(celda => {
         const d = celda.dataset.d, pd = porDia[d] || { o: 0, r: 0, c: 0 };
@@ -2012,6 +2038,16 @@ function actualizarTotalesPlan() {
         celda.textContent = pd.o || '';
         tabla.querySelector(`tfoot .vp-lr[data-d="${d}"]`).textContent = pd.r || '';
     });
+    tabla.querySelectorAll('tfoot .vp-ap').forEach(celda => {
+        const d = celda.dataset.d, pd = atDia[d] || { o: 0, r: 0 };
+        celda.textContent = pd.o || '';
+        tabla.querySelector(`tfoot .vp-ar[data-d="${d}"]`).textContent = pd.r || '';
+    });
+    if ($('vpAtP')) {
+        const filasAt = [...tabla.querySelectorAll('tbody tr.vp-ateneo')], vis = filasAt.filter(f => f.querySelector('.vp-r.on')).length;
+        $('vpAtP').textContent = A.o; $('vpAtR').textContent = A.r;
+        $('vpAtTxt').innerHTML = `<b>${vis}</b> visitado${vis === 1 ? '' : 's'} de ${filasAt.length}`;
+    }
     if ($('vpLeadP')) {
         const filasLead = [...tabla.querySelectorAll('tbody tr.vp-lead')], vis = filasLead.filter(f => f.querySelector('.vp-r.on')).length;
         $('vpLeadP').textContent = L.o; $('vpLeadR').textContent = L.r;
@@ -2034,7 +2070,7 @@ function actualizarTotalesPlan() {
         ponPct($('vpTotPct'), T.c, T.o); ponPct($('vpTotVis'), T.r, T.o);
     }
     // Resumen del periodo (hoy, semana o mes) sin filtros, del vendedor o de todo el equipo
-    let obj = 0, real = 0, cump = 0, clientesP = 0;
+    let obj = 0, real = 0, cump = 0, clientesP = 0, atObj = 0, atReal = 0;
     const enVista = new Set(visiplan.dias || []);
     (visiplan.vista || []).forEach(vid => {
         const { marcas, reales } = seguimientoPlan(vid, visiplan.mes);
@@ -2043,12 +2079,14 @@ function actualizarTotalesPlan() {
         Object.entries(marcas).filter(([n]) => !esLead(n)).forEach(([n, ds]) => {
             const k = indicadoresPlan(ds.filter(d => enVista.has(d)), rv(n)); obj += k.obj; cump += k.cump; if (k.obj) clientesP++;
         });
-        Object.keys(reales).filter(n => !esLead(n)).forEach(n => { real += rv(n).size; });
+        Object.keys(reales).filter(n => !esLead(n)).forEach(n => { real += rv(n).size; if (esFilaAteneo(n)) atReal += rv(n).size; });
+        Object.entries(marcas).filter(([n]) => esFilaAteneo(n)).forEach(([, ds]) => { atObj += ds.filter(d => enVista.has(d)).length; });
     });
     const chip = (f, clase, html, titulo) => { const on = visiplan.sel.f.includes(f); return `<button type="button" class="chip chip-filtro ${clase}${on ? ' activo' : ''}" onclick="filtrarPlan('${f}')" title="${titulo}" aria-pressed="${on}">${html}</button>`; };
     $('vpResumen').innerHTML = chip('plan', 'vp-chip-cli', `<b>${clientesP}</b> ${clientesP === 1 ? 'cliente planeado' : 'clientes planeados'}`, 'Ver solo los clientes planeados')
         + chip('plan', 'vp-chip-plan', `Obj ${obj}`, 'Ver solo los clientes planeados') + chip('real', 'vp-chip-real', `Real ${real}`, 'Ver los clientes con visita real')
         + (obj ? chip('cump', 'vp-chip-pct', `${pctPlan(cump, obj)} Cump`, 'Ver los cumplidos en el día planeado') + chip('visit', 'vp-chip-pct', `${pctPlan(real, obj)} Visitas`, 'Ver los planeados que ya se visitaron') : '')
+        + (atObj || atReal ? `<span class="chip ateneo" title="Visitas a ateneos (también suman en Obj y Real)">Ateneos · Obj ${atObj} · Real ${atReal}</span>` : '')
         + (visiplan.editable ? '' : '<span class="chip gris">🔒 Cerrado</span>');
 }
 
@@ -2425,7 +2463,7 @@ function pintarAgenda() {
     // Arriba los planeados por confirmar; los que no se confirmaron a tiempo quedan al final del día
     const tarjetaPlan = p => `
         <div class="producto-card plan-card ${p.estado === 'cerrada' ? 'cerrada' : ''}">
-            <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(p.vendedor))}</span>` : ''}<h3>${esc(p.contacto)}</h3></div><span class="chip ${p.estado === 'cerrada' ? 'gris' : 'azul'}">${p.estado === 'cerrada' ? 'No confirmada · cerrada' : 'Planeada'}</span></div>
+            <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(p.vendedor))}</span>` : ''}<h3>${esc(nombreFilaPlan(p.contacto))}</h3>${esFilaAteneo(p.contacto) ? '<span class="chip ateneo">Ateneo</span>' : ''}</div><span class="chip ${p.estado === 'cerrada' ? 'gris' : 'azul'}">${p.estado === 'cerrada' ? 'No confirmada · cerrada' : 'Planeada'}</span></div>
             ${p.estado === 'por confirmar' && puedeConfirmarPlan(f)
                 ? `<div class="acciones"><button class="bv ok" data-c="${esc(p.contacto)}" onclick="confirmarPlaneada(this.dataset.c, '${f}', '${p.vendedor}')">✓ Confirmar visita</button><span class="nota-cierre">${f === t ? 'Si no la confirmas hoy, queda cerrada y no se programa.' : `Confírmala antes de las ${HORA_LIMITE} a. m. del ${fechaCorta(f)} para que quede programada.`}</span></div>`
                 : p.estado === 'por confirmar' ? `<p class="nota-cierre">Se confirma desde el ${esc(fechaCorta(habilAnterior(f)))} (día hábil anterior).</p>` : ''}
@@ -3019,11 +3057,14 @@ async function abrirProgramar(id, contactoPlan) {
     if (v && v.clase === 'visita') avisoProgramacion(v);
     if (contactoPlan) {
         advertenciaAceptada = agenda.fecha;
+        const deAteneo = esFilaAteneo(contactoPlan);
+        if (deAteneo) contactoPlan = nombreFilaPlan(contactoPlan);
         $('fContacto').value = contactoPlan;
         const zona = comercial(agenda.vendedor)?.zona;
-        const p = buscarProyecto(zona, contactoPlan);
+        const p = deAteneo ? null : buscarProyecto(zona, contactoPlan);
+        if (deAteneo) $('fTipo').value = ATENEO;
         const m = maestraForm(contactoPlan);
-        $('fTipo').value = p ? 'nuevo' : esTrabajoInterno(contactoPlan) ? contactoPlan : m ? tipoDeCliente(m) : 'Visita Cliente';
+        $('fTipo').value = deAteneo ? ATENEO : p ? 'nuevo' : esTrabajoInterno(contactoPlan) ? contactoPlan : m ? tipoDeCliente(m) : 'Visita Cliente';
         if (p) $('fTipoNuevo').value = tipoSugerido(p.tipo || '');
         tiposForm = null;
         cambiarTipoProgramacion();
@@ -3506,12 +3547,12 @@ async function guardarProgramada(e, id) {
     }
     // Si eso mismo está en el Visiplan de ese día (sin confirmar), queda como la confirmación del plan (no se duplica)
     if (!id && !confirmandoPlan) {
-        const pl = planeadasDe(v.vendedor, fecha).find(p => p.estado === 'por confirmar' && normalizar(p.contacto) === normalizar(v.contacto));
+        const pl = planeadasDe(v.vendedor, fecha).find(p => p.estado === 'por confirmar' && normalizar(p.contacto) === normalizar(filaPlanDe(v)));
         if (pl) confirmandoPlan = { contacto: pl.contacto, fecha };
     }
     // Visita confirmada desde el Visiplan: queda enlazada al plan. Cuenta como programada solo si se confirmó
     // antes de las 8:00 a. m. del día; después queda como NO programada (y sin número de orden programado)
-    const deplan = !id && confirmandoPlan && confirmandoPlan.fecha === fecha && normalizar(confirmandoPlan.contacto) === normalizar(v.contacto);
+    const deplan = !id && confirmandoPlan && confirmandoPlan.fecha === fecha && normalizar(confirmandoPlan.contacto) === normalizar(filaPlanDe(v));
     if (deplan) {
         Object.assign(v, { programada: Date.now() < limiteProgramacion(fecha), origen: 'plan' });
         const pid = idPlan(v.vendedor, mesDe(fecha));
@@ -3975,6 +4016,35 @@ const PERIODOS_HIST = {
     t: { t: 'Trimestre', todos: 'Todos los trimestres', de: f => `${f.slice(0, 4)}-T${Math.ceil(+f.slice(5, 7) / 3)}`, nombre: v => `TRIM ${ROMANO[+v.slice(-1)]} ${v.slice(0, 4)}` },
     m: { t: 'Mes', todos: 'Todos los meses', de: f => mesDe(f), nombre: v => mayuscula(nombreMes(v)) }
 };
+// Tarjeta especial del ateneo (desde el Visiplan): histórico de las Visitas Ateneo Médico de todo el equipo
+function verAteneo(nombre) {
+    const vs = visibles().filter(x => x.clase === 'visita' && tiposDe(x).includes(ATENEO) && normalizar(x.contacto) === normalizar(nombre))
+        .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    const ok = vs.filter(x => x.estado === 'visitado'), equipo = [...new Set(vs.map(x => x.vendedor))];
+    const prox = vs.filter(x => x.estado === 'pendiente' && x.fecha >= hoy()).sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+    const at = buscarAteneo(nombre);
+    const est = { visitado: ['ok', 'Visitado'], no_visitado: ['no', 'No visitado'], pendiente: ['p', 'Pendiente'] };
+    abrirModal(`<div class="form-rc ficha historial ateneo-ficha">
+        <p class="ateneo-eyebrow"><span class="chip ateneo">Ateneo</span> Visita Ateneo Médico · para todas las zonas</p>
+        <h2>${esc(nombre)}</h2>
+        ${at ? `<p class="sub">${at.medicos} médicos en la Maestra · ${esc(at.zonas.join(', '))}</p>` : '<p class="sub">Clasificación 61</p>'}
+        <div class="resumen-dia hist-resumen">
+            <span class="chip gris"><b>${vs.length}</b> ${vs.length === 1 ? 'visita' : 'visitas'}</span>
+            <span class="chip ok">${ok.length} efectivas</span>
+            ${ok[0] ? `<span class="chip gris">Última: ${esc(fechaCorta(ok[0].fecha))}</span>` : ''}
+            ${prox ? `<span class="chip prox">Próxima: ${esc(fechaCorta(prox.fecha))}</span>` : ''}
+            ${equipo.length ? `<span class="chip ateneo">Apoyan: ${esc(equipo.map(primerNombre).join(', '))}</span>` : ''}
+        </div>
+        ${vs.map(x => { const [cls, txt] = est[x.estado] || ['p', x.estado];
+            const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
+            return `<div class="hist-item ${cls}"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
+                <p class="meta">${esc([nombreVendedor(x.vendedor), comercial(x.vendedor)?.zona, modalidadDe(x)].filter(Boolean).join(' · '))}</p>
+                ${partes.filter(Boolean).length ? `<div class="reporte">${partes.filter(Boolean).join('<br>')}</div>` : ''}${htmlAcompHist(x)}</div>`; }).join('')
+            || '<div class="no-results">Todavía no hay visitas a este ateneo.</div>'}
+        <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
+    </div>`);
+}
+
 function verCliente(nombre, vendedor) {
     historial = { nombre, vendedor, f: '', sel: { a: [], s: [], t: [], m: [] } };
     MULTI.historial.abierto = null; MULTI.historial.nivel = null;

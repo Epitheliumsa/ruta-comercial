@@ -218,7 +218,7 @@
                 <div class="resumen-dia" id="vpResumen"></div>
                 <p class="ayuda vp-ayuda">Toca una casilla <b>P</b> para poner o quitar la X (se guarda sola). La <b>R</b> se marca sola al reportar la visita. Toca un cliente para ver su historial. Toca un indicador para filtrar.</p>
             </div>
-            <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) return marcarPlan(c); const cl=event.target.closest('tbody [data-cliente]'); if(cl) verCliente(cl.dataset.cliente, cl.dataset.v)"></table></div>
+            <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) return marcarPlan(c); const at=event.target.closest('tbody [data-ateneo]'); if(at) return verAteneo(at.dataset.ateneo); const cl=event.target.closest('tbody [data-cliente]'); if(cl) verCliente(cl.dataset.cliente, cl.dataset.v)"></table></div>
         </div>
 
         <!-- MAESTRA CLIENTES -->
