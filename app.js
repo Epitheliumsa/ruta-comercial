@@ -61,7 +61,9 @@ const MATRIZ = window.MATRIZ_OBJETIVOS || { objetivos: {}, subcategorias: {}, va
 // Visita Ateneo Médico: visita general, abierta a todas las zonas, a los contactos de clasificación 61 o con "ateneo" en la etiqueta
 const ATENEO = 'Visita Ateneo Médico';
 // (los médicos 20, 21 y 22 no van, aunque su etiqueta diga "Ateneo")
-const esAteneo = c => !!c && (c.ateneo || String(c.cl) === '61');
+// Las entidades gubernamentales (ej: EAB) no son ateneo aunque sean clasificación 61
+const esCliente61Ateneo = c => String(c?.cl) === '61' && !/gubernamental/i.test(c?.e || '');
+const esAteneo = c => !!c && (c.ateneo || esCliente61Ateneo(c));
 const TIPOS_VISITA = Object.fromEntries(['Visita Médica', 'Visita Cliente', 'Punto de Venta', ...(MATRIZ.objetivos[ATENEO] ? [ATENEO] : [])].map(t => [t, MATRIZ.objetivos[t] || []]));
 // "Visita Médica Comercial": solo para clientes 20 y 21 (médicos que también compran), con sus propios objetivos
 // en la matriz (columna "Visita Médica Comercial", clave medcom:Visita Médica). nuevo = contacto nuevo.
@@ -903,7 +905,7 @@ const esFdll = c => /lleras|cdfll|fdll/i.test(c?.n || '');
 const contactosAteneo = () => {
     const vistos = new Set(), l = [];
     Object.values(contactos).forEach(z => (Array.isArray(z) ? z : []).forEach(c => {
-        if (String(c.cl) === '61' && !vistos.has(normalizar(c.n))) { vistos.add(normalizar(c.n)); l.push({ n: c.n, e: c.e || 'Clasificación 61' }); }
+        if (esCliente61Ateneo(c) && !vistos.has(normalizar(c.n))) { vistos.add(normalizar(c.n)); l.push({ n: c.n, e: c.e || 'Clasificación 61' }); }
     }));
     ateneosDeEtiqueta().forEach(a => l.push({ n: a.n, e: `Ateneo · ${a.medicos} médicos` }));
     return l;
@@ -1915,7 +1917,7 @@ function pintarVisiplan() {
     let clientes = [];
     vista.forEach(ven => {
         seg[ven.id] = seguimientoPlan(ven.id, mes);
-        clientes = clientes.concat((contactos[ven.zona] || []).filter(c => String(c.cl) !== '61' || esFdll(c)).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
+        clientes = clientes.concat((contactos[ven.zona] || []).filter(c => !esCliente61Ateneo(c) || esFdll(c)).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
             .concat(contactosAteneo().map(a => ({ n: PREF_ATENEO + a.n, e: a.e, t: ATENEO, v: ven.id })))
             .concat(leadsDelPlan(ven.zona).filter(p => leadEnPlan(p, mes)).map(p => ({ n: p.nombre, e: etiquetaLead(p.tipo), t: LEAD, v: ven.id }))));
     });
