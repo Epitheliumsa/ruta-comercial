@@ -1694,13 +1694,9 @@ details.ver-formato a { font-size: 12px; }
 .vp-tabla tr.vp-int td.vp-x:not(.on):not(.festivo):not(.dia-plan), .vp-tabla tr.vp-int td.vp-r:not(.on):not(.festivo):not(.dia-plan), .vp-tabla tr.vp-int td.vp-n { background-color: #f0f4f8; }
 .vp-tabla tr.vp-int-ini > * { border-top: 2px solid #94a3b8 !important; }
 .vp-tabla tr.vp-int-fin > * { border-bottom: 2px solid #94a3b8 !important; }
-/* Totales del Visiplan: línea entre cada fila (Obj · Real, Ateneos, Leads, % Cump, % Visitas) */
-.vp-tabla tfoot tr > td, .vp-tabla tfoot tr > th { border-top: 1px solid #a9c3bc !important; }
-.vp-tabla tfoot tr.vp-tot-ateneo > td, .vp-tabla tfoot tr.vp-tot-ateneo > th { border-top: 1px solid #a5b4fc !important; border-bottom: 1px solid #a5b4fc !important; }
 /* Totales fijos abajo: cada fila en su sitio (con Ateneos y/o Leads) y con línea de separación entre filas */
 .vp-tabla tfoot tr.vp-tot-ateneo td, .vp-tabla tfoot tr.vp-tot-ateneo th { bottom: 52px; }
 .vp-tabla tfoot:has(.vp-tot-ateneo) tr.vp-tot:first-child td, .vp-tabla tfoot:has(.vp-tot-ateneo) tr.vp-tot:first-child th { bottom: 78px; }
 .vp-tabla tfoot:has(.vp-tot-ateneo):has(.vp-tot-lead) tr.vp-tot-ateneo td, .vp-tabla tfoot:has(.vp-tot-ateneo):has(.vp-tot-lead) tr.vp-tot-ateneo th { bottom: 78px; }
 .vp-tabla tfoot:has(.vp-tot-ateneo):has(.vp-tot-lead) tr.vp-tot:first-child td, .vp-tabla tfoot:has(.vp-tot-ateneo):has(.vp-tot-lead) tr.vp-tot:first-child th { bottom: 104px; }
 .vp-tabla tfoot tr:not(:first-child) > td, .vp-tabla tfoot tr:not(:first-child) > th { box-shadow: inset 0 1px 0 #9fbdb5; }
-.vp-tabla tfoot tr.vp-tot-ateneo > td, .vp-tabla tfoot tr.vp-tot-ateneo > th { box-shadow: inset 0 1px 0 #818cf8, inset 0 -1px 0 #818cf8; }
