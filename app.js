@@ -126,8 +126,14 @@ function circularesDelCliente(cliente, fecha) {
         .filter(c => c.todos || (cliente && (c.canales.includes(String(cliente.cl || '')) || c.clientes.includes(cliente.n))));
 }
 // Parrilla Promocional: los productos de la circular de parrilla vigente para el cliente, en el orden de la circular
+// En la Visita Ateneo Médico la parrilla es la misma de los médicos (clasificaciones 20, 21 y 22)
+const CANALES_MEDICOS = ['20', '21', '22'];
 function parrillaCircular() {
-    const lista = circularesDelCliente(ctxCircular.cliente, ctxCircular.fecha)
+    const d = ctxCircular.fecha || hoy();
+    const base = ctxCircular.ateneo
+        ? CIRCULARES.filter(c => !c.interna && estadoCircular(c, d) === 'vigente' && (c.todos || CANALES_MEDICOS.some(x => c.canales.includes(x))))
+        : circularesDelCliente(ctxCircular.cliente, ctxCircular.fecha);
+    const lista = base
         .filter(c => esParrilla(c) && (c.productos || []).length)
         .flatMap(c => c.productos.map(p => productoPorCodigo[p.c] ? nombreProducto(p.c) : `[${p.c}]${p.n ? ' ' + p.n : ''}`));
     return [...new Set(lista)];
@@ -3213,7 +3219,7 @@ function pintarObjetivos(marcados, subsMarcados) {
     const tipo = tiposElegidos(), nuevo = origenElegido() === 'nuevo', cont = $('fObjetivos');
     const actuales = marcados || leerObjetivos(cont);
     const subs = subsMarcados || leerSubs(cont);
-    ctxCircular = { cliente: clienteDelForm() || null, fecha: $('fFecha').value || agenda.fecha };
+    ctxCircular = { cliente: clienteDelForm() || null, fecha: $('fFecha').value || agenda.fecha, ateneo: $('fTipo').value === ATENEO };
     const merc = conDetalleForm();
     const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : [...objetivosDeTipos(tipo, nuevo), ...(merc ? [PERSONALIZADA] : [])];
     $('cajaObjetivos').hidden = !lista.length;
@@ -3821,7 +3827,7 @@ function abrirRegistro(id, tipo) {
     const opciones = (lista, actual) => lista.map(o => `<option ${o === actual ? 'selected' : ''}>${esc(o)}</option>`).join('');
     if (!puedeGuardarReporte(v)) return toast(v.estado !== 'pendiente' ? 'El plazo para corregir esta visita ya cerró' : 'El plazo para reportar esta visita ya cerró');
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
-    ctxCircular = { cliente: mc || null, fecha: v.fecha };
+    ctxCircular = { cliente: mc || null, fecha: v.fecha, ateneo: tiposDe(v).includes(ATENEO) };
     const cab = (v.interno ? `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`
         : `<p class="cierre-cliente">${esc(v.contacto)}</p>${mc && (mc.cl || mc.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(mc.cl || '')}</b>${mc.ca ? ' · ' + esc(mc.ca) : ''}</p>` : ''}
         <p class="sub">${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`) + `
