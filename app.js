@@ -3848,8 +3848,8 @@ function abrirRegistro(id, tipo) {
         const ya = v.estado === 'visitado';
         abrirModal(`<form class="form-rc" novalidate onsubmit="guardarVisitado(event, '${id}')">
             <h2>Cierre de Visita</h2>${cab}
-            <label for="rAtendio">¿Quién atendió? ${REQ}</label>
-            <input id="rAtendio" required value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo" onblur="this.value = nombrePropio(this.value)">
+            ${esVisAteneo(v) ? '<input type="hidden" id="rAtendio" value="">' : `<label for="rAtendio">¿Quién atendió? ${REQ}</label>
+            <input id="rAtendio" required value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo" onblur="this.value = nombrePropio(this.value)">`}
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
@@ -3939,7 +3939,8 @@ function guardarVisitado(e, id) {
     e.preventDefault();
     if (!plazoAbierto(id)) return;
     actualizarCierreVisita();
-    if (!$('rAtendio').value.trim()) { $('rAtendio').focus(); return toast('Escribe quién atendió (nombre y cargo)'); }
+    // En la Visita Ateneo Médico no se pide quién atendió (es una visita general)
+    if (!esVisAteneo(registros[id]) && !$('rAtendio').value.trim()) { $('rAtendio').focus(); return toast('Escribe quién atendió (nombre y cargo)'); }
     // Números de pedido (Colocación): obligatorios y con su prefijo
     const pedidos = [];
     const colMarcada = !$('cajaPedido').hidden;

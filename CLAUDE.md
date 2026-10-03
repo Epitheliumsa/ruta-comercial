@@ -94,7 +94,7 @@
 - Tipo de visita abierto a todas las zonas. Contactos: los clientes de clasificación 61 y un contacto por cada etiqueta de la
   Maestra que dice "Ateneo" (ej: "Ateneo Universidad del Bosque", sin los médicos 20, 21 y 22), de cualquier zona (visita general con apoyo de las zonas). Objetivos (columna "Visita Ateneo Médico"
   de la hoja Visitas): Actividades, Entrega de Muestras, Parrilla Promocional (la misma de los médicos 20-21-22, aunque el
-  contacto sea un ateneo o un cliente 61) y Productos Nuevos (sin Codificación).
+  contacto sea un ateneo o un cliente 61) y Productos Nuevos (sin Codificación). En el cierre no se pide "¿Quién atendió?".
 
 - Visiplan (zonas comerciales), en este orden: clientes de la zona → Trabajo Administrativo (separado con una línea tenue) →
   **Ateneos** (sección índigo, igual para todas las zonas: los clientes 61 y los ateneos de las etiquetas; filas del plan como
