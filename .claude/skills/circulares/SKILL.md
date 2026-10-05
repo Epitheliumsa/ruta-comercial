@@ -32,6 +32,10 @@ Estado | Días vencida / restantes | Objetivo | Resumen de la actividad | Observ
   `[XX0000]` se leen de esa columna; el nombre sale del catálogo (productos.js) o, si no está, del texto de la circular.
 - Si no hay parrilla vigente para el cliente, se usa la hoja "Mensual" de la matriz (si tiene algo) o sale el aviso.
 
+## Revisión del PDF
+- Firmas: siempre va la del Gerente General (Hernán Reyes) y la de Erika Rodríguez (Mercadeo) o la de Jennifer Herrera.
+  No todas las casillas de Aprobaciones tienen que estar firmadas: no se anota como faltante.
+
 ## Pasos
 1. En una rama aparte: `python3 herramientas/circulares.py <ruta del Excel>` (copia el Excel a `datos/Circulares.xlsx`).
 2. Revisa lo que imprime: a quién va cada circular y los `AVISO:` (dirigida a un cliente que no está en la Maestra).

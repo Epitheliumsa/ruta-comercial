@@ -1587,7 +1587,7 @@ window.CIRCULARES = [
   "fin": "2026-11-30",
   "objetivo": "Impulsar la compra y codificación de los terminados de menor rotación bonificando 1 unidad de alta rotación por cada 6 compradas. Meta mensual: Sunskin Oil Free 66, Capilplus Shampoo 134, Hydrafort Face 108, Capilplus Acondicionador 42 y Revival Crema 66 uds",
   "resumen": "Por cada 6 uds de una referencia de baja rotación el cliente recibe 1 bonificada de alta rotación (paga solo el IVA): Sunskin Oil Free → Sensibath; Capilplus Shampoo → Capilplus DS; Hydrafort Face → Hydrafort pH5; Capilplus Acondicionador → Capilplus DS; Revival → Sunskin SPF 50+ Emulsión. Aplica por múltiplos de 6 en cada pedido, también a clientes que ya tienen el portafolio codificado. El bonificado se carga solo en Odoo.",
-  "obs": "Bonificado 6+1 cruzado. Los bonificados no suman en unidades vendidas. Falta firma de Ventas",
+  "obs": "Bonificado 6+1 cruzado. Los bonificados no suman en unidades vendidas",
   "pdf": "",
   "productos": [
    {
