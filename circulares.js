@@ -1577,6 +1577,26 @@ window.CIRCULARES = [
   "interna": false
  },
  {
+  "c": "2026-032",
+  "tipo": "Anulada",
+  "nombre": "Circular anulada",
+  "grupo": "",
+  "dirigida": "N/A",
+  "producto": "",
+  "ini": "",
+  "fin": "",
+  "objetivo": "",
+  "resumen": "La circular 2026-032 quedó anulada: no se presentó.",
+  "obs": "Anulada. No se presentó",
+  "pdf": "",
+  "productos": [],
+  "canales": [],
+  "clientes": [],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
+ },
+ {
   "c": "2026-033",
   "tipo": "Codificación y colocación",
   "nombre": "Bonificado Cruzado",

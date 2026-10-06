@@ -32,6 +32,10 @@ Estado | Días vencida / restantes | Objetivo | Resumen de la actividad | Observ
   `[XX0000]` se leen de esa columna; el nombre sale del catálogo (productos.js) o, si no está, del texto de la circular.
 - Si no hay parrilla vigente para el cliente, se usa la hoja "Mensual" de la matriz (si tiene algo) o sale el aviso.
 
+## Circular anulada
+- Tipo **"Anulada"** en el Excel (sin fechas, Dirigida a "N/A"): sale en el módulo en gris, con el chip "Anulada" y el
+  filtro "Anuladas", y nunca sale en las visitas. Los avisos de "sin fecha" y "N/A" del script son normales.
+
 ## Revisión del PDF
 - Firmas: siempre va la del Gerente General (Hernán Reyes) y la de Erika Rodríguez (Mercadeo) o la de Jennifer Herrera.
   No todas las casillas de Aprobaciones tienen que estar firmadas: no se anota como faltante.

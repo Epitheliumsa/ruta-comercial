@@ -113,7 +113,8 @@ const subcategoriasDe = (tipo, nuevo, objetivo, mes) => objetivo === 'Actividade
 // visita que van dirigidas a ese cliente (por su clasificación o por su nombre); las internas no salen.
 const CIRCULARES = window.CIRCULARES || [];
 let ctxCircular = { cliente: null, fecha: '' };
-const estadoCircular = (c, d = hoy()) => c.ini && c.ini > d ? 'proxima' : !c.fin || c.fin >= d ? 'vigente' : 'vencida';
+// Anulada (Tipo "Anulada" en el Excel): queda registrada en el módulo, pero nunca sale en las visitas
+const estadoCircular = (c, d = hoy()) => normalizar(c.tipo) === 'anulada' ? 'anulada' : c.ini && c.ini > d ? 'proxima' : !c.fin || c.fin >= d ? 'vigente' : 'vencida';
 const etiquetaCircular = c => `${c.c} · ${c.nombre}`;
 // Parrilla: su nombre dice "Parrilla Promocional" o es un alcance (prórroga) de una circular de parrilla
 const esParrilla = c => /parrilla promocional/i.test(c.nombre)
@@ -4207,19 +4208,19 @@ function verActividades(v) {
 const diasEntre = (a, b) => Math.round((deIso(b) - deIso(a)) / 864e5);
 function diasCircular(c) {
     const e = estadoCircular(c);
-    if (e === 'vencida') return '---';
+    if (e === 'vencida' || e === 'anulada') return '---';
     if (e === 'proxima') return `Empieza en ${diasEntre(hoy(), c.ini)} d`;
     if (!c.fin) return 'Indefinido';
     const n = diasEntre(hoy(), c.fin);
     return n === 0 ? 'Vence hoy' : `${n} ${n === 1 ? 'día' : 'días'}`;
 }
-const rangoCircular = c => `${fechaCorta(c.ini)}${c.fin ? (c.fin === c.ini ? '' : ' al ' + fechaCorta(c.fin)) : ' · sin fecha fin'} ${c.ini.slice(0, 4)}`;
+const rangoCircular = c => !c.ini ? 'Sin fechas' : `${fechaCorta(c.ini)}${c.fin ? (c.fin === c.ini ? '' : ' al ' + fechaCorta(c.fin)) : ' · sin fecha fin'} ${c.ini.slice(0, 4)}`;
 function pintarCirculares() {
-    const cuenta = { vigente: 0, vencida: 0, proxima: 0 };
+    const cuenta = { vigente: 0, vencida: 0, proxima: 0, anulada: 0 };
     CIRCULARES.forEach(c => cuenta[estadoCircular(c)]++);
     const f = circulares.filtro, q = normalizar(circulares.busca || '');
     const chip = (k, t, n) => `<button type="button" class="vp-vend-btn${f === k ? ' activo' : ''}" onclick="circulares.filtro='${k}'; pintarCirculares()">${t}${n !== undefined ? ` <small>${n}</small>` : ''}</button>`;
-    $('circFiltro').innerHTML = chip('vigente', 'Vigentes', cuenta.vigente) + (cuenta.proxima ? chip('proxima', 'Próximas', cuenta.proxima) : '') + chip('vencida', 'Vencidas', cuenta.vencida) + chip('todas', 'Todas', CIRCULARES.length);
+    $('circFiltro').innerHTML = chip('vigente', 'Vigentes', cuenta.vigente) + (cuenta.proxima ? chip('proxima', 'Próximas', cuenta.proxima) : '') + chip('vencida', 'Vencidas', cuenta.vencida) + (cuenta.anulada ? chip('anulada', 'Anuladas', cuenta.anulada) : '') + chip('todas', 'Todas', CIRCULARES.length);
     const base = CIRCULARES.filter(c => f === 'todas' || estadoCircular(c) === f)
         .filter(c => !q || normalizar([c.c, c.nombre, c.tipo, c.dirigida, c.producto, c.resumen].join(' ')).includes(q));
     // Orden: por número de circular, por fecha de inicio (más recientes primero) o por fecha final (las que vencen antes)
@@ -4243,7 +4244,7 @@ function pintarCirculares() {
         { k: 'g', t: 'Grupo de producto', todos: 'Todos los grupos', valores: grupos, cuenta: cuentaDe('g', grupos, (c, v) => gruposCircular(c).includes(v)) },
         { k: 't', t: 'Tipo', todos: 'Todos los tipos', valores: tipos, cuenta: cuentaDe('t', tipos, (c, v) => c.tipo === v) }
     ]);
-    const chipEstado = { vigente: '<span class="chip ok">Vigente</span>', vencida: '<span class="chip no">Vencida</span>', proxima: '<span class="chip azul">Próxima</span>' };
+    const chipEstado = { vigente: '<span class="chip ok">Vigente</span>', vencida: '<span class="chip no">Vencida</span>', proxima: '<span class="chip azul">Próxima</span>', anulada: '<span class="chip anulada">Anulada</span>' };
     const tarjeta = c => {
         const e = estadoCircular(c), pdfs = pdfsCircular(c);
         return `<div class="producto-card circ-card ${e}">
