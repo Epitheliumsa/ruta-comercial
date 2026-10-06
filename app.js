@@ -2450,7 +2450,7 @@ function pintarAgenda() {
     // En el celular se ve un solo anillo a la vez: botones Día · Semana · Mes (en el computador salen los tres)
     const verAn = agenda.anillo || 'dia';
     const tabsAn = ['dia', 'semana', 'mes'].map(x => `<button type="button" class="${x === verAn ? 'activo' : ''}" onclick="agenda.anillo='${x}'; pintarAgenda()">${{ dia: 'Día', semana: 'Semana', mes: 'Mes' }[x]}</button>`).join('');
-    $('agAnillo').innerHTML = delMes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '';
+    $('agAnillo').innerHTML = (delMes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '') + franjaVentas(vs, mesDe(f));
     // + Programar: no se programa en días que ya pasaron (en pruebas sigue abierto)
     const pasado = f < t;
     document.querySelectorAll('.btn-programar').forEach(b => { b.disabled = pasado; b.title = pasado ? 'Este día ya pasó: no se puede programar' : ''; });
@@ -4168,6 +4168,120 @@ function guardarNoVisitado(e, id) {
     cerrarModal();
     toast(repro ? `${antes.interno ? 'Programado' : 'Reprogramada'} para el ${fechaCorta(repro)}` : antes.interno ? 'Marcado como no realizado' : 'Marcada como no visitada');
     pintarAgenda();
+}
+
+// ---------- VENTAS DEL MES (cuota y venta, del "Informe de Ventas Mensual" que carga un jefe) ----------
+// Un registro por vendedor y mes (clase 'ventas', id ventas-<vendedor>-<mes>): el servidor le manda a cada
+// comercial solo el suyo; los jefes los reciben todos. Las cifras nunca van en el código (el repositorio es público).
+const LINEAS_VENTA = { 'PRODUCTO TERMINADO': 'Producto terminado', 'MAGISTRALES INDIVIDUALES': 'Magistrales individuales', 'MAGISTRAL DE PEDIDO': 'Magistral de pedido' };
+const ventasDe = (v, mes) => { const r = registros[`ventas-${v}-${mes}`]; return r && !r.borrado ? r : null; };
+const millones = n => `$${(n / 1e6).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} M`;
+const pctTxt = n => `${(n * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })} %`;
+function diasHabilesMes(mes) {
+    const dias = [];
+    for (let d = mes + '-01'; mesDe(d) === mes; d = sumarDias(d, 1)) if (esHabil(d)) dias.push(d);
+    return dias;
+}
+// Suma de los vendedores que se están viendo (los jefes pueden ver varios o todo el equipo)
+function ventasSuma(vs, mes) {
+    const regs = vs.map(v => ventasDe(v, mes)).filter(Boolean);
+    if (!regs.length) return null;
+    const lineas = Object.fromEntries(Object.keys(LINEAS_VENTA).map(l => [l, {
+        cuota: regs.reduce((a, r) => a + (r.lineas[l]?.cuota || 0), 0), venta: regs.reduce((a, r) => a + (r.lineas[l]?.venta || 0), 0) }]));
+    const cuota = Object.values(lineas).reduce((a, x) => a + x.cuota, 0), venta = Object.values(lineas).reduce((a, x) => a + x.venta, 0);
+    const extra = regs.reduce((a, r) => a + (r.extra?.venta || 0), 0);
+    const corte = regs.map(r => r.corte).sort().pop();
+    return { regs, lineas, cuota, venta, extra, corte };
+}
+// Ritmo esperado: días hábiles corridos hasta el corte sobre los del mes
+function ritmoVentas(mes, corte) {
+    const dias = diasHabilesMes(mes), dc = corte.slice(0, 10) < mes + '-01' ? mes + '-01' : corte.slice(0, 10);
+    const hechos = dias.filter(d => d <= dc).length;
+    return { esperado: dias.length ? hechos / dias.length : 0, quedan: dias.length - hechos };
+}
+function franjaVentas(vs, mes) {
+    const s = ventasSuma(vs, mes);
+    const boton = esJefe() ? `<button type="button" class="link-mini vm-cargar" onclick="event.stopPropagation(); cargarVentas()">${s ? 'Actualizar ventas' : 'Cargar ventas del mes'}</button>` : '';
+    const hayCargadas = Object.values(registros).some(r => r.clase === 'ventas' && r.mes === mes && !r.borrado);
+    if (!s) return esJefe() && !hayCargadas ? `<div class="ventas-mes vacia"><div class="vm-cab"><b>Ventas del mes</b><span>Aún no se ha cargado el informe de ${esc(nombreMes(mes).split(' ')[0])}</span>${boton}</div></div>` : '';
+    const cumple = s.cuota ? s.venta / s.cuota : 0, { esperado, quedan } = ritmoVentas(mes, s.corte);
+    const tono = !s.cuota ? '' : cumple >= esperado * 0.95 ? 'bien' : cumple >= esperado * 0.75 ? 'medio' : 'bajo';
+    const falta = Math.max(0, s.cuota - s.venta);
+    return `<div class="ventas-mes ${tono}" role="button" tabindex="0" onclick="verVentas()" title="Ver el detalle por línea">
+        <div class="vm-cab"><b>Ventas del mes</b><span><strong>${millones(s.venta)}</strong> de ${millones(s.cuota)}</span><strong class="vm-pct">${pctTxt(cumple)}</strong>${boton}</div>
+        <div class="vm-barra"><i style="width:${Math.min(100, cumple * 100).toFixed(1)}%"></i><em style="left:${(esperado * 100).toFixed(1)}%" title="Ritmo esperado"></em></div>
+        <div class="vm-pie"><span>Ritmo esperado al corte: <b>${pctTxt(esperado)}</b></span>${falta && quedan ? `<span>Faltan <b>${millones(falta)}</b> · ${millones(falta / quedan)} por día hábil</span>` : falta ? '' : '<span><b>¡Cuota cumplida!</b></span>'}<small>Corte: ${esc(fechaHora(s.corte))}</small></div>
+    </div>`;
+}
+function verVentas() {
+    const vs = vendedoresAgenda(), mes = mesDe(agenda.fecha), s = ventasSuma(vs, mes);
+    if (!s) return;
+    const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${millones(c)}</td><td>${millones(v)}</td><td>${c ? pctTxt(v / c) : '—'}</td></tr>`;
+    const porVend = s.regs.length > 1 ? `<h3>Por vendedor</h3><table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead><tbody>${s.regs.map(r => {
+        const c = Object.values(r.lineas).reduce((a, x) => a + x.cuota, 0), v = Object.values(r.lineas).reduce((a, x) => a + x.venta, 0);
+        return fila(nombreVendedor(r.vendedor), c, v); }).join('')}</tbody></table>` : '';
+    abrirModal(`<div class="form-rc ventas-detalle">
+        <h2>Ventas de ${esc(nombreMes(mes))}</h2>
+        <p class="ayuda">${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte: ${esc(fechaHora(s.corte))}</p>
+        <table class="vm-tabla"><thead><tr><th>Línea</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
+        <tbody>${Object.entries(LINEAS_VENTA).map(([l, t]) => fila(t, s.lineas[l].cuota, s.lineas[l].venta)).join('')}${fila('Total', s.cuota, s.venta, 'total')}</tbody></table>
+        ${s.extra ? `<p class="ayuda">Además, venta a empleados: ${millones(s.extra)} (sin cuota).</p>` : ''}
+        ${porVend}
+        <div class="acciones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
+    </div>`);
+}
+// Lee el Excel tal como sale del sistema: "Grupo de Venta <zona>" y debajo Vendedor | Línea | Cuota | Venta | Cumplimiento
+function leerInformeVentas(wb) {
+    const txt = c => c && typeof c === 'object' && !(c instanceof Date) ? (c.result ?? c.text ?? (c.richText || []).map(t => t.text).join('')) : c;
+    const porVend = {}, avisos = [];
+    let mes = '', grupo = '';
+    wb.worksheets[0].eachRow(row => {
+        const c = (row.values || []).map(txt).filter(x => x !== null && x !== undefined && String(x).trim() !== '');
+        if (!c.length) return;
+        if (c[0] === 'Fecha Inicio' && c[1] instanceof Date) mes = c[1].toISOString().slice(0, 7);
+        const g = String(c[0]).match(/^Grupo de Venta (.+)$/i);
+        if (g) { grupo = g[1].trim(); return; }
+        const linea = String(c[1] || '').trim().toUpperCase();
+        if (!grupo || !(linea in LINEAS_VENTA) || typeof c[2] !== 'number') return;
+        const nom = normalizar(String(c[0]));
+        const u = COMERCIALES.find(x => normalizar(x.nombre).split(' ').every(p => nom.includes(p))) || COMERCIALES.find(x => x.zona === grupo);
+        if (!u) { if (!avisos.includes(grupo)) avisos.push(grupo); return; }
+        const r = porVend[u.id] = porVend[u.id] || { lineas: {}, extra: { venta: 0 } };
+        // Lo de "Empleados" (sin cuota) va aparte, como venta adicional
+        if (/emplead/i.test(grupo)) r.extra.venta += Number(c[3]) || 0;
+        else r.lineas[linea] = { cuota: Number(c[2]) || 0, venta: Number(c[3]) || 0 };
+    });
+    return { mes, porVend, avisos };
+}
+function cargarVentas() {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.xlsx';
+    inp.onchange = async () => {
+        const archivo = inp.files[0];
+        if (!archivo) return;
+        try {
+            await cargarExcelJS();
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(await archivo.arrayBuffer());
+            const { mes, porVend, avisos } = leerInformeVentas(wb);
+            const ids = Object.keys(porVend).filter(v => Object.keys(porVend[v].lineas).length);
+            if (!mes || !ids.length) return toast('No encontré cuotas en ese Excel. Sube el "Informe de Ventas Mensual" tal como sale del sistema.');
+            const suma = k => ids.reduce((a, v) => a + Object.values(porVend[v].lineas).reduce((b, x) => b + x[k], 0), 0);
+            const ok = await dialogo({ titulo: `Ventas de ${nombreMes(mes)}`, aceptar: 'Cargar',
+                texto: `${ids.map(nombreVendedor).join(', ')}. Cuota ${millones(suma('cuota'))} · venta ${millones(suma('venta'))}.`
+                    + (avisos.length ? ` No reconocí: ${avisos.join(', ')}.` : '') + ' Cada uno verá solo lo suyo.' });
+            if (!ok) return;
+            const corte = new Date().toISOString();
+            ids.forEach(v => guardarRegistro({ ...(ventasDe(v, mes) || {}), id: `ventas-${v}-${mes}`, clase: 'ventas', vendedor: v, mes, fecha: mes + '-01',
+                lineas: porVend[v].lineas, extra: porVend[v].extra, corte, archivo: archivo.name, cargadoPor: sesion.id, borrado: false }));
+            toast(`Ventas de ${nombreMes(mes).split(' ')[0]} cargadas`);
+            pintarAgenda();
+        } catch (e) {
+            toast('No se pudo leer el Excel: ' + e.message);
+        }
+    };
+    inp.click();
 }
 
 // ---------- ACTIVIDADES-CIRCULARES ----------

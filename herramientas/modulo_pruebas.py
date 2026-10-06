@@ -1,6 +1,8 @@
 """Arma el "módulo de pruebas": copia idéntica de la app para ensayar cambios antes de publicarlos.
 
-Uso: python3 herramientas/modulo_pruebas.py <carpeta de salida>
+Uso: python3 herramientas/modulo_pruebas.py <carpeta de salida> [semilla.json]
+- semilla.json (opcional, fuera del repositorio): registros de ejemplo que se cargan en el navegador al abrir
+  (ej. las ventas del mes), solo si quien prueba no los tiene ya.
 - Misma app, con la franja de arriba (encabezado) en rojo y "PRUEBAS" en el título.
 - ETAPA_DATOS = 'pruebas' y sin servidor: todo queda solo en el navegador de quien prueba.
 - Se entra tocando el usuario (sin clave).
@@ -67,5 +69,12 @@ optgroup { font-weight: 700; }
 </style>
 '''
 h = h.replace('<title>Visita Comercial Pruebas</title>', '<title>Visita Comercial Pruebas</title>\n' + estilo, 1)
+if len(sys.argv) > 2:
+    semilla = Path(sys.argv[2]).read_text(encoding='utf-8')
+    (SALIDA / 'semilla.js').write_text(
+        "// Módulo de pruebas: registros de ejemplo (solo se agregan los que no estén ya en este navegador)\n"
+        f"try {{ const k = 'rc_registros', r = JSON.parse(localStorage.getItem(k) || '{{}}'); ({semilla}).forEach(x => {{ if (!r[x.id]) r[x.id] = x; }});"
+        " localStorage.setItem(k, JSON.stringify(r)); if (!localStorage.getItem('rc_etapa')) localStorage.setItem('rc_etapa', 'pruebas'); } catch (e) {}\n", encoding='utf-8')
+    h = re.sub(r'(<script src="app\.js)', '<script src="semilla.js"></script>\n    \\1', h, count=1)
 (SALIDA / 'index.html').write_text(h, encoding='utf-8')
 print('Módulo de pruebas en', SALIDA)

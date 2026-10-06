@@ -1707,3 +1707,27 @@ details.ver-formato a { font-size: 12px; }
 .circ-card.anulada h3 { color: #6b7280; text-decoration: line-through; }
 .circ-card.anulada .vend-card { background: #6b7280; }
 .circ-fechas b.anulada { color: #9aa5a2; letter-spacing: .1em; }
+/* Ventas del mes: franja bajo los anillos del plan de trabajo (cuota, venta y ritmo esperado) */
+.ventas-mes { max-width: 1210px; width: calc(100% - 30px); box-sizing: border-box; margin: 10px auto 0; background: #fff; border: 1px solid #e3ebe7; border-radius: 12px; padding: 10px 16px 12px; box-shadow: 0 2px 8px rgba(0, 60, 40, .06); cursor: pointer; display: grid; gap: 8px; --vm: #0f766e; }
+.ventas-mes.vacia { cursor: default; background: #f8faf9; box-shadow: none; }
+.ventas-mes.bien { --vm: #15803d; }
+.ventas-mes.medio { --vm: #d97706; }
+.ventas-mes.bajo { --vm: #dc2626; }
+.ventas-mes:focus-visible { outline: 2px solid #0b5c56; outline-offset: 2px; }
+.vm-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 14px; color: #334155; }
+.vm-cab > b { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #0b5c56; }
+.vm-cab strong { color: #0f172a; font-variant-numeric: tabular-nums; }
+.vm-cab .vm-pct { margin-left: auto; font-size: 20px; color: var(--vm); }
+.vm-cab .vm-cargar { margin-left: 4px; }
+.ventas-mes.vacia .vm-cab span { color: #64748b; }
+.vm-barra { position: relative; height: 12px; background: #eef2f1; border-radius: 99px; }
+.vm-barra i { position: absolute; inset: 0 auto 0 0; background: var(--vm); border-radius: 99px; min-width: 4px; }
+.vm-barra em { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: #1e293b; border-radius: 2px; }
+.vm-pie { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; color: #475569; font-variant-numeric: tabular-nums; }
+.vm-pie small { margin-left: auto; color: #94a3b8; }
+.vm-tabla { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; margin: 6px 0 12px; }
+.vm-tabla th, .vm-tabla td { padding: 7px 8px; border-bottom: 1px solid #e5ece9; text-align: right; }
+.vm-tabla th:first-child { text-align: left; }
+.vm-tabla thead th { font-size: 12px; color: #64748b; font-weight: 700; }
+.vm-tabla tr.total th, .vm-tabla tr.total td { font-weight: 800; border-top: 2px solid #94a3b8; }
+.ventas-detalle h3 { margin: 6px 0 0; font-size: 15px; }
