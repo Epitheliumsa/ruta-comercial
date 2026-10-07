@@ -4218,10 +4218,15 @@ function franjaVentas(vs, mes, dia) {
     const cumple = s.cuota ? s.venta / s.cuota : 0, { esperado, quedan } = ritmoVentas(mes, s.dia);
     const tono = !s.cuota ? '' : cumple >= esperado * 0.95 ? 'bien' : cumple >= esperado * 0.75 ? 'medio' : 'bajo';
     const falta = Math.max(0, s.cuota - s.venta);
-    return `<div class="ventas-mes ${tono}" role="button" tabindex="0" onclick="verVentas()" title="Ver el detalle por línea">
-        <div class="vm-cab"><b>Ventas del mes</b><span><strong>${millones(s.venta)}</strong> de ${millones(s.cuota)}</span><strong class="vm-pct">${pctTxt(cumple)}</strong>${boton}</div>
-        <div class="vm-barra"><i style="width:${Math.min(100, cumple * 100).toFixed(1)}%"></i><em style="left:${(esperado * 100).toFixed(1)}%" title="Ritmo esperado"></em></div>
-        <div class="vm-pie"><span>Ritmo esperado al corte: <b>${pctTxt(esperado)}</b></span>${falta && quedan ? `<span>Faltan <b>${millones(falta)}</b> · ${millones(falta / quedan)} por día hábil</span>` : falta ? '' : '<span><b>¡Cuota cumplida!</b></span>'}<small>Corte del ${esc(fechaCorta(s.dia))}${s.dia === dia ? '' : ' (el último hasta este día)'} · cargado ${esc(fechaHora(s.corte))}</small></div>
+    const estado = !s.cuota ? '' : !falta ? '🏆 ¡Cuota cumplida!' : tono === 'bien' ? (cumple >= esperado ? '▲ Vas por encima del ritmo' : '● Vas al día') : tono === 'medio' ? '▼ Un poco por debajo del ritmo' : '▼ Por debajo del ritmo: a recuperar';
+    const ancho = Math.min(100, cumple * 100), marca = Math.min(100, esperado * 100);
+    return `<div class="ventas-mes viva ${tono}" role="button" tabindex="0" onclick="verVentas()" title="Ver el detalle por línea">
+        <div class="vm-izq"><small>Ventas de ${esc(nombreMes(mes).split(' ')[0])}</small><strong class="vm-pct">${pctTxt(cumple)}</strong><span class="vm-estado">${estado}</span></div>
+        <div class="vm-der">
+            <div class="vm-cifras"><b>${millones(s.venta)}</b><span>de ${millones(s.cuota)}</span>${boton}</div>
+            <div class="vm-barra"><i style="width:${ancho.toFixed(1)}%"></i><em style="left:${marca.toFixed(1)}%"><u>Ritmo ${pctTxt(esperado)}</u></em></div>
+            <div class="vm-pie">${falta && quedan ? `<span>Faltan <b>${millones(falta)}</b> · <b>${millones(falta / quedan)}</b> por día hábil</span>` : ''}<small>Corte del ${esc(fechaCorta(s.dia))}${s.dia === dia ? '' : ' (el último hasta este día)'} · cargado ${esc(fechaHora(s.corte))}</small></div>
+        </div>
     </div>`;
 }
 function verVentas() {
