@@ -145,6 +145,7 @@
 
 ## Ventas del mes (franja en el Plan de trabajo)
 - Registro `ventas-<vendedor>-<mes>` (clase `ventas`), leído del "Informe de Ventas Mensual" (Excel del sistema).
+- Corte = día en que se carga (Odoo no entrega días atrás), una foto por día: al mirar un día se ve el último corte hasta ese día.
 - **Lo sube Tatiana (Maryi Tatiana Castro, `subeVentas`)** y, de respaldo, el administrador. Jennifer ya no lo sube.
 - Ver: los jefes (Jennifer y Hernán) ven todo, con Empleados incluido en el total; cada comercial solo su zona
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
