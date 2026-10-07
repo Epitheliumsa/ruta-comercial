@@ -1792,3 +1792,15 @@ body.es-logistica .mc-periodo-btn { display: none; }
 .fila-fecha.iguales { grid-template-columns: 1fr 1fr; }
 @media (max-width: 480px) { .lg-doc { grid-template-columns: 1fr 1fr auto; } .fila-fecha.iguales { grid-template-columns: 1fr; } }
 .resultados .grupo-titulo { grid-column: 1 / -1; margin: 10px 0 0; }
+/* Logística: clases de pedido (se marca lo que se lleva y salen sus números OV / OVI) */
+.lg-pedidos { display: grid; gap: 8px; margin-bottom: 6px; }
+.lg-pedido { display: grid; grid-template-columns: minmax(150px, 190px) 1fr; gap: 8px; align-items: start; }
+.form-rc .lg-pchk { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid #cfe3dc; border-radius: 10px; background: #fff; text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 700; color: #0f5f4a; cursor: pointer; }
+.form-rc .lg-pchk:has(input:checked) { background: #e7f5ef; border-color: #0f8a5f; }
+.form-rc .lg-pchk input { width: auto; margin: 0; accent-color: #0f8a5f; }
+.lg-pcampos { display: grid; gap: 6px; }
+.lg-pcampos[hidden] { display: none; }
+.form-rc .lg-pc { display: flex; align-items: stretch; margin: 0; border: 1px solid #d5dfdc; border-radius: 10px; overflow: hidden; background: #fff; text-transform: none; letter-spacing: 0; }
+.lg-pref { display: flex; align-items: center; justify-content: center; min-width: 54px; padding: 0 12px; background: #e6f1ed; color: #2f4f47; font-weight: 800; font-size: 12px; letter-spacing: .05em; }
+.form-rc .lg-pc input { border: 0; border-radius: 0; flex: 1; min-width: 0; margin: 0; box-shadow: none; background: #fff; }
+@media (max-width: 480px) { .lg-pedido { grid-template-columns: 1fr; } }

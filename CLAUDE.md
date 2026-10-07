@@ -153,8 +153,12 @@
 ## Módulo de Logística (`logistica.js`)
 - Usuarios: Javier Arjona (Coordinador Logístico, `coordLogistica`), Eric Ovalle y Deelan Barrero (auxiliares de domicilios y mensajería).
   Tipo de usuario `logistica` (en `app.js` y `backend/Codigo.gs`): solo ven Logística, Maestra Clientes (todas las zonas) y el Vademécum.
-- Registro `logistica` = una parada de la ruta (`tipo`: entrega, envío fuera de Bogotá, recolección en proveedor, vuelta de un área,
-  devolución, PQR). `vendedor` = mensajero asignado. Entregas y envíos piden número de factura y de pedido (varios por parada).
+- Registro `logistica` = una parada de la ruta. Se puede escoger **varios tipos** (`tipos`; `tipo` = el primero): entrega, envío fuera de
+  Bogotá, recolección en proveedor, vuelta de un área, devolución, PQR. `vendedor` = mensajero asignado.
+- Formulario (orden): fecha y mensajero → cliente (Maestra) → dirección y teléfono (salen solos; editables) → tipos de parada →
+  clases de pedido → datos del tipo. Clases de pedido (`documentos: [{clase, ov, ovi}]`): Producto Terminado = OVI (A);
+  Magistral Individual = OV (B) y OVI (A); Magistral de Pedido = OV (B). Entregas y envíos exigen al menos una clase con sus números.
+- Dirección y teléfono: de la Maestra (`dir` y `tel` en cada contacto, cuando se cargue la actualización) y, si no, de la última parada a ese cliente.
 - Reporte: entregado / no entregado (con motivo), quién recibió, guía (envíos), novedades, foto. Las fotos se reducen en el
   teléfono y se suben a Drive (carpeta "Ruta Comercial - Entregas de logística") en segundo plano; si no hay señal quedan
   pendientes en el teléfono y se reintentan en cada sincronización.
