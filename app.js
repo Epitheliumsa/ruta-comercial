@@ -4191,7 +4191,9 @@ function ventasSuma(vs, mes) {
     const cuota = Object.values(lineas).reduce((a, x) => a + x.cuota, 0), venta = Object.values(lineas).reduce((a, x) => a + x.venta, 0);
     const extra = regs.reduce((a, r) => a + (r.extra?.venta || 0), 0);
     const corte = regs.map(r => r.corte).sort().pop();
-    return { regs, lineas, cuota, venta, extra, corte };
+    // Los jefes ven en el total también la venta a empleados (sin cuota); los comerciales, solo su zona
+    const conExtra = esJefe() ? extra : 0;
+    return { regs, lineas, cuota, venta: venta + conExtra, extra, conExtra, corte };
 }
 // Ritmo esperado: días hábiles corridos hasta el corte sobre los del mes
 function ritmoVentas(mes, corte) {
@@ -4218,14 +4220,14 @@ function verVentas() {
     if (!s) return;
     const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${millones(c)}</td><td>${millones(v)}</td><td>${c ? pctTxt(v / c) : '—'}</td></tr>`;
     const porVend = s.regs.length > 1 ? `<h3>Por vendedor</h3><table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead><tbody>${s.regs.map(r => {
-        const c = Object.values(r.lineas).reduce((a, x) => a + x.cuota, 0), v = Object.values(r.lineas).reduce((a, x) => a + x.venta, 0);
+        const c = Object.values(r.lineas).reduce((a, x) => a + x.cuota, 0), v = Object.values(r.lineas).reduce((a, x) => a + x.venta, 0) + (s.conExtra ? r.extra?.venta || 0 : 0);
         return fila(nombreVendedor(r.vendedor), c, v); }).join('')}</tbody></table>` : '';
     abrirModal(`<div class="form-rc ventas-detalle">
         <h2>Ventas de ${esc(nombreMes(mes))}</h2>
         <p class="ayuda">${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte: ${esc(fechaHora(s.corte))}</p>
         <table class="vm-tabla"><thead><tr><th>Línea</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
-        <tbody>${Object.entries(LINEAS_VENTA).map(([l, t]) => fila(t, s.lineas[l].cuota, s.lineas[l].venta)).join('')}${fila('Total', s.cuota, s.venta, 'total')}</tbody></table>
-        ${s.extra ? `<p class="ayuda">Además, venta a empleados: ${millones(s.extra)} (sin cuota).</p>` : ''}
+        <tbody>${Object.entries(LINEAS_VENTA).map(([l, t]) => fila(t, s.lineas[l].cuota, s.lineas[l].venta)).join('')}${s.conExtra ? fila('Empleados (sin cuota)', 0, s.conExtra) : ''}${fila('Total', s.cuota, s.venta, 'total')}</tbody></table>
+        ${s.extra && !s.conExtra ? `<p class="ayuda">Además, venta a empleados: ${millones(s.extra)} (sin cuota).</p>` : ''}
         ${porVend}
         <div class="acciones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
     </div>`);
