@@ -4269,15 +4269,6 @@ function leerInformeVentas(wb) {
     });
     return { mes, porVend, avisos };
 }
-let ventasPend = null;
-function confirmarCorteVentas() {
-    const d = $('vCorte').value;
-    if (!d || d < ventasPend.ini || d > ventasPend.max) return toast('Elige un día de ese mes que ya haya llegado');
-    const { ok } = ventasPend;
-    ventasPend = null;
-    cerrarModal();
-    ok(d);
-}
 function cargarVentas() {
     const inp = document.createElement('input');
     inp.type = 'file';
@@ -4293,20 +4284,12 @@ function cargarVentas() {
             const ids = Object.keys(porVend).filter(v => Object.keys(porVend[v].lineas).length);
             if (!mes || !ids.length) return toast('No encontré cuotas en ese Excel. Sube el "Informe de Ventas Mensual" tal como sale del sistema.');
             const suma = k => ids.reduce((x, v) => x + Object.values(porVend[v].lineas).reduce((y, l) => y + l[k], 0), 0);
-            // El Excel trae el acumulado del mes: se pregunta a qué día corresponde ese corte (por defecto, hoy)
-            const t = hoy(), max = mesDe(t) === mes ? t : finDeMes(mes), ini = mes + '-01';
-            const dia = await new Promise(ok => {
-                ventasPend = { ok, ini, max };
-                abrirModal(`<form class="form-rc" onsubmit="event.preventDefault(); confirmarCorteVentas()">
-                    <h2>Ventas de ${esc(nombreMes(mes))}</h2>
-                    <p class="ayuda">${esc(ids.map(nombreVendedor).join(', '))}.<br>Cuota ${millones(suma('cuota'))} · venta ${millones(suma('venta'))}.${avisos.length ? `<br>No reconocí: ${esc(avisos.join(', '))}.` : ''}</p>
-                    <label for="vCorte">Este Excel es el acumulado del mes hasta el día</label>
-                    <input type="date" id="vCorte" required min="${ini}" max="${max}" value="${max}">
-                    <p class="ayuda">Si ya hay una carga de ese día, se reemplaza. Cada uno verá solo lo suyo.</p>
-                    <div class="acciones"><button type="button" class="btn-secundario" onclick="ventasPend.ok(''); ventasPend = null; cerrarModal()">Cancelar</button><button class="btn-primario">Cargar</button></div>
-                </form>`);
-            });
-            if (!dia) return;
+            // El Excel es el acumulado del mes hasta hoy (Odoo no da días atrás): el corte es el día de la carga
+            const dia = hoy() < mes + '-01' ? mes + '-01' : hoy() > finDeMes(mes) ? finDeMes(mes) : hoy();
+            const ok = await dialogo({ titulo: `Ventas de ${nombreMes(mes)}`, aceptar: 'Cargar',
+                texto: `${ids.map(nombreVendedor).join(', ')}. Cuota ${millones(suma('cuota'))} · venta ${millones(suma('venta'))}.`
+                    + (avisos.length ? ` No reconocí: ${avisos.join(', ')}.` : '') + ` Queda como el corte de hoy, ${fechaCorta(dia)} (si ya cargaron hoy, se reemplaza). Cada uno verá solo lo suyo.` });
+            if (!ok) return;
             const corte = new Date().toISOString();
             ids.forEach(v => guardarRegistro({ id: `ventas-${v}-${dia}`, clase: 'ventas', vendedor: v, mes, fecha: dia, diaCorte: dia,
                 lineas: porVend[v].lineas, extra: porVend[v].extra, corte, archivo: archivo.name, cargadoPor: sesion.id, borrado: false }));
