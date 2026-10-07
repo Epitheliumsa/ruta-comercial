@@ -1731,27 +1731,25 @@ details.ver-formato a { font-size: 12px; }
 .vm-tabla thead th { font-size: 12px; color: #64748b; font-weight: 700; }
 .vm-tabla tr.total th, .vm-tabla tr.total td { font-weight: 800; border-top: 2px solid #94a3b8; }
 .ventas-detalle h3 { margin: 6px 0 0; font-size: 15px; }
-/* Ventas del mes, versión llamativa: tarjeta de color según el ritmo, porcentaje grande y barra gruesa */
-.ventas-mes.viva { --v1: #0b5c56; --v2: #16a34a; background: linear-gradient(120deg, var(--v1), var(--v2)); color: #fff; border: 0; padding: 16px 22px 18px; gap: 6px 28px; grid-template-columns: auto minmax(0, 1fr); align-items: center; box-shadow: 0 6px 18px color-mix(in srgb, var(--v1) 35%, transparent); transition: transform .15s; }
+/* Ventas del mes, versión llamativa pero suave: degradé pastel según el ritmo, porcentaje grande y barra gruesa */
+.ventas-mes.viva { --c: #15803d; --c2: #4ade80; --f1: #bbf7d0; --f2: #ecfdf5; background: linear-gradient(115deg, var(--f1) 0%, var(--f2) 55%, #fff 100%); color: #1f2937; border: 1px solid color-mix(in srgb, var(--c) 22%, #fff); padding: 16px 22px 18px; gap: 6px 28px; grid-template-columns: auto minmax(0, 1fr); align-items: center; box-shadow: 0 4px 14px color-mix(in srgb, var(--c) 14%, transparent); transition: transform .15s; }
 .ventas-mes.viva:hover { transform: translateY(-1px); }
-.ventas-mes.viva.bien { --v1: #0b5c56; --v2: #1fa35a; }
-.ventas-mes.viva.medio { --v1: #a15207; --v2: #e08a0b; }
-.ventas-mes.viva.bajo { --v1: #9f1d1d; --v2: #e04848; }
+.ventas-mes.viva.medio { --c: #b45309; --c2: #fbbf24; --f1: #fde68a; --f2: #fffbeb; }
+.ventas-mes.viva.bajo { --c: #b91c1c; --c2: #f87171; --f1: #fecaca; --f2: #fef2f2; }
 .viva .vm-izq { display: grid; gap: 2px; justify-items: start; }
-.viva .vm-izq small { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
-.viva .vm-pct { font-size: clamp(38px, 7vw, 54px); line-height: 1; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-.viva .vm-estado { font-size: 12.5px; font-weight: 700; background: rgba(255, 255, 255, .2); padding: 3px 10px; border-radius: 99px; margin-top: 4px; }
+.viva .vm-izq small { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--c); opacity: .85; }
+.viva .vm-pct { font-size: clamp(38px, 7vw, 54px); line-height: 1; font-weight: 800; color: var(--c); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.viva .vm-estado { font-size: 12.5px; font-weight: 700; color: var(--c); background: color-mix(in srgb, var(--c) 12%, #fff); padding: 3px 10px; border-radius: 99px; margin-top: 4px; }
 .viva .vm-der { display: grid; gap: 12px; min-width: 0; }
-.viva .vm-cifras { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 15px; }
-.viva .vm-cifras b { font-size: clamp(22px, 4vw, 28px); font-variant-numeric: tabular-nums; }
-.viva .vm-cifras span { opacity: .9; }
-.viva .vm-cargar { margin-left: auto; color: #fff; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .45); border-radius: 8px; padding: 4px 10px; font-weight: 700; }
-.viva .vm-cargar:hover { background: rgba(255, 255, 255, .3); }
-.viva .vm-barra { height: 20px; background: rgba(0, 0, 0, .25); margin-top: 16px; overflow: visible; }
-.viva .vm-barra i { background: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, .25); min-width: 8px; }
-.viva .vm-barra em { top: -6px; bottom: -6px; width: 3px; margin-left: -1.5px; background: #fde68a; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
-.viva .vm-barra em u { position: absolute; bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%); white-space: nowrap; text-decoration: none; font-size: 11.5px; font-weight: 800; color: #fde68a; }
-.viva .vm-pie { color: #fff; font-size: 13px; }
-.viva .vm-pie b { font-size: 14px; }
-.viva .vm-pie small { color: rgba(255, 255, 255, .75); }
+.viva .vm-cifras { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 15px; color: #475569; }
+.viva .vm-cifras b { font-size: clamp(22px, 4vw, 28px); font-variant-numeric: tabular-nums; color: #111827; }
+.viva .vm-cargar { margin-left: auto; color: var(--c); background: rgba(255, 255, 255, .7); border: 1px solid color-mix(in srgb, var(--c) 40%, #fff); border-radius: 8px; padding: 4px 10px; font-weight: 700; }
+.viva .vm-cargar:hover { background: #fff; }
+.viva .vm-barra { height: 20px; background: rgba(15, 23, 42, .08); margin-top: 16px; overflow: visible; }
+.viva .vm-barra i { background: linear-gradient(90deg, var(--c), var(--c2)); min-width: 8px; }
+.viva .vm-barra em { top: -6px; bottom: -6px; width: 3px; margin-left: -1.5px; background: #1e293b; }
+.viva .vm-barra em u { position: absolute; bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%); white-space: nowrap; text-decoration: none; font-size: 11.5px; font-weight: 800; color: #334155; }
+.viva .vm-pie { color: #475569; font-size: 13px; }
+.viva .vm-pie b { font-size: 14px; color: #111827; }
+.viva .vm-pie small { color: #64748b; }
 @media (max-width: 640px) { .ventas-mes.viva { grid-template-columns: 1fr; padding: 14px 16px 16px; } .viva .vm-izq { grid-template-columns: auto 1fr; align-items: end; gap: 0 12px; } .viva .vm-izq small { grid-column: 1 / -1; } .viva .vm-estado { justify-self: start; align-self: center; margin: 0; } .viva .vm-pie small { margin-left: 0; } }
