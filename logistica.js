@@ -78,10 +78,14 @@ function pintarLog() {
     }
     // Semana
     const lunes = lunesDe(f), delMens = r => !logi.mensajero || r.vendedor === logi.mensajero;
+    // Cumpleaños del equipo de logística que se está viendo (el auxiliar, el suyo; el coordinador, el de todos o el del mensajero elegido)
+    const gente = esLogistica() && !esCoordLog() ? [sesion.id] : logi.mensajero ? [logi.mensajero] : USUARIOS.filter(u => u.tipo === 'logistica').map(u => u.id);
+    const cumplen = d => gente.filter(id => esCumple(id, d));
     $('logSemana').innerHTML = [0, 1, 2, 3, 4, 5, 6].map(i => {
         const d = sumarDias(lunes, i), ps = todos.filter(r => r.fecha === d && delMens(r)).sort(ordenLog);
         const puntos = ps.slice(0, 5).map(x => `<i class="${x.estado === 'entregado' ? 'ok' : x.estado === 'no_entregado' ? 'no' : ''}"></i>`).join('');
-        return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}${claseDia(d)}" onclick="logElegir('${d}')"><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span><span class="puntos">${puntos}</span></button>`;
+        const cu = cumplen(d);
+        return `<button class="sd${d === t ? ' hoy' : ''}${d === f ? ' sel' : ''}${claseDia(d)}${cu.length ? ' cumple' : ''}" onclick="logElegir('${d}')"${cu.length ? ` title="🎂 Cumpleaños de ${esc(cu.map(nombreVendedor).join(', '))}"` : ''}><b>${DIAS[deIso(d).getDay()]}</b><span>${deIso(d).getDate()}</span>${cu.length ? '<em class="em-cumple">🎂 Cumple</em>' : ''}<span class="puntos">${puntos}</span></button>`;
     }).join('');
     // Paradas del día
     const q = normalizar(logi.busca);
@@ -99,10 +103,11 @@ function pintarLog() {
     const grupos = {};
     lista.sort(ordenLog).forEach(r => (grupos[r.vendedor] = grupos[r.vendedor] || []).push(r));
     const varios = Object.keys(grupos).length > 1 || (esCoordLog() || esJefe());
-    $('logLista').innerHTML = !lista.length
+    const tarjetasCumple = cumplen(f).map(tarjetaCumple).join('');
+    $('logLista').innerHTML = tarjetasCumple + (!lista.length
         ? `<div class="no-results">${dia.length ? 'No hay paradas con este filtro.' : lectura ? 'No hay entregas a tus clientes este día.' : 'No hay paradas programadas para este día.'}${lectura ? '' : '<br><button class="btn-nuevo active" onclick="abrirLogForm()">+ Programar</button>'}</div>`
         : Object.entries(grupos).map(([m, ps]) => (varios ? `<p class="grupo-titulo">${esc(nombreVendedor(m))} · ${ps.length} ${ps.length === 1 ? 'parada' : 'paradas'}</p>` : '')
-            + ps.map(r => tarjetaLog(r, rutas[m].indexOf(r) + 1, rutas[m].length)).join('')).join('');
+            + ps.map(r => tarjetaLog(r, rutas[m].indexOf(r) + 1, rutas[m].length)).join('')).join(''));
 }
 
 function tarjetaLog(r, n, total) {

@@ -10,6 +10,7 @@ const ZONA_POR_ASIGNAR = 'Zona por asignar';
 
 // Usuarios: la clave no se guarda aquí, solo su huella SHA-256 de "usuario:clave" (en minúsculas).
 // cumple = fecha de nacimiento (AAAA-MM-DD): al crear un comercial se pide siempre; su día sale en morado en el Visiplan
+// (de Logística solo se conoce el día y el mes: el año 2000 es de relleno y no se usa)
 const USUARIOS = [
     { usuario: 'L.Ramos',     huella: '979ff4a2d9c7b874f250cb3045a80ca3c2fd83f1075fe25fa206b2ddd697a9cf', tipo: 'comercial', id: 'lramos',     nombre: 'Lizeth Ramos',      zona: 'Zona Norte', cumple: '1992-02-16' },
     { usuario: 'Y.Caballero', huella: 'fd091945acd620b35a25485c8c6822458a042e2191ba99fc94eea332477c1cd8', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur', cumple: '1989-03-26' },
@@ -17,9 +18,9 @@ const USUARIOS = [
     { usuario: 'M.Castro',    huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', tipo: 'comercial', id: 'mcastro',    nombre: 'Maryi Castro',      zona: 'Zona Desarrollo', cumple: '1999-07-09', subeVentas: true },
     { usuario: 'H.Reyes',     huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' },
     // Logística: coordinador y auxiliares de domicilios y mensajería (módulo Logística, Maestra Clientes y Vademécum)
-    { usuario: 'J.Arjona',    huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', tipo: 'logistica', id: 'jarjona',  nombre: 'Javier Arjona',  cargo: 'Coordinador Logístico', coordLogistica: true },
-    { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cargo: 'Auxiliar de Domicilios y Mensajería' },
-    { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cargo: 'Auxiliar de Domicilios y Mensajería' }
+    { usuario: 'J.Arjona',    huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', tipo: 'logistica', id: 'jarjona',  nombre: 'Javier Arjona',  cumple: '2000-07-02', cargo: 'Coordinador Logístico', coordLogistica: true },
+    { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cumple: '2000-06-30', cargo: 'Auxiliar de Domicilios y Mensajería' },
+    { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cumple: '2000-12-17', cargo: 'Auxiliar de Domicilios y Mensajería' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
 const MENSAJEROS = USUARIOS.filter(u => u.tipo === 'logistica' && !u.coordLogistica);
