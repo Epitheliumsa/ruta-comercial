@@ -2450,7 +2450,7 @@ function pintarAgenda() {
     // En el celular se ve un solo anillo a la vez: botones Día · Semana · Mes (en el computador salen los tres)
     const verAn = agenda.anillo || 'dia';
     const tabsAn = ['dia', 'semana', 'mes'].map(x => `<button type="button" class="${x === verAn ? 'activo' : ''}" onclick="agenda.anillo='${x}'; pintarAgenda()">${{ dia: 'Día', semana: 'Semana', mes: 'Mes' }[x]}</button>`).join('');
-    $('agAnillo').innerHTML = (delMes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '') + franjaVentas(vs, mesDe(f));
+    $('agAnillo').innerHTML = (delMes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '') + franjaVentas(vs, mesDe(f), f);
     // + Programar: no se programa en días que ya pasaron (en pruebas sigue abierto)
     const pasado = f < t;
     document.querySelectorAll('.btn-programar').forEach(b => { b.disabled = pasado; b.title = pasado ? 'Este día ya pasó: no se puede programar' : ''; });
@@ -4171,12 +4171,17 @@ function guardarNoVisitado(e, id) {
 }
 
 // ---------- VENTAS DEL MES (cuota y venta, del "Informe de Ventas Mensual" que carga un jefe) ----------
-// Un registro por vendedor y mes (clase 'ventas', id ventas-<vendedor>-<mes>): el servidor le manda a cada
-// comercial solo el suyo; los jefes los reciben todos. Las cifras nunca van en el código (el repositorio es público).
+// Una foto por vendedor y día de corte (clase 'ventas', id ventas-<vendedor>-<AAAA-MM-DD>): al mirar un día se ve el último
+// corte hasta ese día. El servidor le manda a cada comercial solo las suyas; los jefes las reciben todas.
+// Las cifras nunca van en el código (el repositorio es público).
 // Sube el informe: Tatiana (subeVentas) y el administrador. Ver sigue igual: jefes todo, comerciales solo lo suyo
 const subeVentas = () => !!(sesion && (USUARIOS.find(u => u.id === sesion.id)?.subeVentas || esAdmin()));
 const LINEAS_VENTA = { 'PRODUCTO TERMINADO': 'Producto terminado', 'MAGISTRALES INDIVIDUALES': 'Magistrales individuales', 'MAGISTRAL DE PEDIDO': 'Magistral de pedido' };
-const ventasDe = (v, mes) => { const r = registros[`ventas-${v}-${mes}`]; return r && !r.borrado ? r : null; };
+const diaCorte = r => r.diaCorte || (r.corte || '').slice(0, 10) || r.fecha;
+// Última foto del vendedor en ese mes con corte hasta el día dado (dia vacío = la más reciente)
+const ventasDe = (v, mes, dia = '9999-12-31') => Object.values(registros)
+    .filter(r => r.clase === 'ventas' && !r.borrado && r.vendedor === v && r.mes === mes && diaCorte(r) <= dia)
+    .sort((a, b) => diaCorte(a).localeCompare(diaCorte(b)) || (a.corte || '').localeCompare(b.corte || '')).pop() || null;
 const millones = n => `$${(n / 1e6).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} M`;
 const pctTxt = n => `${(n * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })} %`;
 function diasHabilesMes(mes) {
@@ -4185,40 +4190,42 @@ function diasHabilesMes(mes) {
     return dias;
 }
 // Suma de los vendedores que se están viendo (los jefes pueden ver varios o todo el equipo)
-function ventasSuma(vs, mes) {
-    const regs = vs.map(v => ventasDe(v, mes)).filter(Boolean);
+function ventasSuma(vs, mes, hasta) {
+    const regs = vs.map(v => ventasDe(v, mes, hasta)).filter(Boolean);
     if (!regs.length) return null;
     const lineas = Object.fromEntries(Object.keys(LINEAS_VENTA).map(l => [l, {
         cuota: regs.reduce((a, r) => a + (r.lineas[l]?.cuota || 0), 0), venta: regs.reduce((a, r) => a + (r.lineas[l]?.venta || 0), 0) }]));
     const cuota = Object.values(lineas).reduce((a, x) => a + x.cuota, 0), venta = Object.values(lineas).reduce((a, x) => a + x.venta, 0);
     const extra = regs.reduce((a, r) => a + (r.extra?.venta || 0), 0);
-    const corte = regs.map(r => r.corte).sort().pop();
+    const corte = regs.map(r => r.corte).sort().pop(), dia = regs.map(diaCorte).sort().pop();
     // Los jefes ven en el total también la venta a empleados (sin cuota); los comerciales, solo su zona
     const conExtra = esJefe() ? extra : 0;
-    return { regs, lineas, cuota, venta: venta + conExtra, extra, conExtra, corte };
+    return { regs, lineas, cuota, venta: venta + conExtra, extra, conExtra, corte, dia };
 }
 // Ritmo esperado: días hábiles corridos hasta el corte sobre los del mes
 function ritmoVentas(mes, corte) {
-    const dias = diasHabilesMes(mes), dc = corte.slice(0, 10) < mes + '-01' ? mes + '-01' : corte.slice(0, 10);
+    const dias = diasHabilesMes(mes), dc = corte < mes + '-01' ? mes + '-01' : corte;
     const hechos = dias.filter(d => d <= dc).length;
     return { esperado: dias.length ? hechos / dias.length : 0, quedan: dias.length - hechos };
 }
-function franjaVentas(vs, mes) {
-    const s = ventasSuma(vs, mes);
+function franjaVentas(vs, mes, dia) {
+    const s = ventasSuma(vs, mes, dia);
     const boton = subeVentas() ? `<button type="button" class="link-mini vm-cargar" onclick="event.stopPropagation(); cargarVentas()">${s ? 'Actualizar ventas' : 'Cargar ventas del mes'}</button>` : '';
     const hayCargadas = Object.values(registros).some(r => r.clase === 'ventas' && r.mes === mes && !r.borrado);
+    // Hay ventas en el mes pero ninguna con corte hasta este día
+    if (!s && hayCargadas) return `<div class="ventas-mes vacia"><div class="vm-cab"><b>Ventas del mes</b><span>Sin corte de ventas hasta el ${esc(fechaCorta(dia))}</span>${boton}</div></div>`;
     if (!s) return subeVentas() && !hayCargadas ? `<div class="ventas-mes vacia"><div class="vm-cab"><b>Ventas del mes</b><span>Aún no se ha cargado el informe de ${esc(nombreMes(mes).split(' ')[0])}</span>${boton}</div></div>` : '';
-    const cumple = s.cuota ? s.venta / s.cuota : 0, { esperado, quedan } = ritmoVentas(mes, s.corte);
+    const cumple = s.cuota ? s.venta / s.cuota : 0, { esperado, quedan } = ritmoVentas(mes, s.dia);
     const tono = !s.cuota ? '' : cumple >= esperado * 0.95 ? 'bien' : cumple >= esperado * 0.75 ? 'medio' : 'bajo';
     const falta = Math.max(0, s.cuota - s.venta);
     return `<div class="ventas-mes ${tono}" role="button" tabindex="0" onclick="verVentas()" title="Ver el detalle por línea">
         <div class="vm-cab"><b>Ventas del mes</b><span><strong>${millones(s.venta)}</strong> de ${millones(s.cuota)}</span><strong class="vm-pct">${pctTxt(cumple)}</strong>${boton}</div>
         <div class="vm-barra"><i style="width:${Math.min(100, cumple * 100).toFixed(1)}%"></i><em style="left:${(esperado * 100).toFixed(1)}%" title="Ritmo esperado"></em></div>
-        <div class="vm-pie"><span>Ritmo esperado al corte: <b>${pctTxt(esperado)}</b></span>${falta && quedan ? `<span>Faltan <b>${millones(falta)}</b> · ${millones(falta / quedan)} por día hábil</span>` : falta ? '' : '<span><b>¡Cuota cumplida!</b></span>'}<small>Corte: ${esc(fechaHora(s.corte))}</small></div>
+        <div class="vm-pie"><span>Ritmo esperado al corte: <b>${pctTxt(esperado)}</b></span>${falta && quedan ? `<span>Faltan <b>${millones(falta)}</b> · ${millones(falta / quedan)} por día hábil</span>` : falta ? '' : '<span><b>¡Cuota cumplida!</b></span>'}<small>Corte del ${esc(fechaCorta(s.dia))}${s.dia === dia ? '' : ' (el último hasta este día)'} · cargado ${esc(fechaHora(s.corte))}</small></div>
     </div>`;
 }
 function verVentas() {
-    const vs = vendedoresAgenda(), mes = mesDe(agenda.fecha), s = ventasSuma(vs, mes);
+    const vs = vendedoresAgenda(), mes = mesDe(agenda.fecha), s = ventasSuma(vs, mes, agenda.fecha);
     if (!s) return;
     const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${millones(c)}</td><td>${millones(v)}</td><td>${c ? pctTxt(v / c) : '—'}</td></tr>`;
     const porVend = s.regs.length > 1 ? `<h3>Por vendedor</h3><table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead><tbody>${s.regs.map(r => {
@@ -4226,7 +4233,7 @@ function verVentas() {
         return fila(nombreVendedor(r.vendedor), c, v); }).join('')}</tbody></table>` : '';
     abrirModal(`<div class="form-rc ventas-detalle">
         <h2>Ventas de ${esc(nombreMes(mes))}</h2>
-        <p class="ayuda">${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte: ${esc(fechaHora(s.corte))}</p>
+        <p class="ayuda">${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte del ${esc(fechaCorta(s.dia))}</p>
         <table class="vm-tabla"><thead><tr><th>Línea</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
         <tbody>${Object.entries(LINEAS_VENTA).map(([l, t]) => fila(t, s.lineas[l].cuota, s.lineas[l].venta)).join('')}${s.conExtra ? fila('Empleados (sin cuota)', 0, s.conExtra) : ''}${fila('Total', s.cuota, s.venta, 'total')}</tbody></table>
         ${s.extra && !s.conExtra ? `<p class="ayuda">Además, venta a empleados: ${millones(s.extra)} (sin cuota).</p>` : ''}
@@ -4257,6 +4264,15 @@ function leerInformeVentas(wb) {
     });
     return { mes, porVend, avisos };
 }
+let ventasPend = null;
+function confirmarCorteVentas() {
+    const d = $('vCorte').value;
+    if (!d || d < ventasPend.ini || d > ventasPend.max) return toast('Elige un día de ese mes que ya haya llegado');
+    const { ok } = ventasPend;
+    ventasPend = null;
+    cerrarModal();
+    ok(d);
+}
 function cargarVentas() {
     const inp = document.createElement('input');
     inp.type = 'file';
@@ -4271,13 +4287,23 @@ function cargarVentas() {
             const { mes, porVend, avisos } = leerInformeVentas(wb);
             const ids = Object.keys(porVend).filter(v => Object.keys(porVend[v].lineas).length);
             if (!mes || !ids.length) return toast('No encontré cuotas en ese Excel. Sube el "Informe de Ventas Mensual" tal como sale del sistema.');
-            const suma = k => ids.reduce((a, v) => a + Object.values(porVend[v].lineas).reduce((b, x) => b + x[k], 0), 0);
-            const ok = await dialogo({ titulo: `Ventas de ${nombreMes(mes)}`, aceptar: 'Cargar',
-                texto: `${ids.map(nombreVendedor).join(', ')}. Cuota ${millones(suma('cuota'))} · venta ${millones(suma('venta'))}.`
-                    + (avisos.length ? ` No reconocí: ${avisos.join(', ')}.` : '') + ' Cada uno verá solo lo suyo.' });
-            if (!ok) return;
+            const suma = k => ids.reduce((x, v) => x + Object.values(porVend[v].lineas).reduce((y, l) => y + l[k], 0), 0);
+            // El Excel trae el acumulado del mes: se pregunta a qué día corresponde ese corte (por defecto, hoy)
+            const t = hoy(), max = mesDe(t) === mes ? t : finDeMes(mes), ini = mes + '-01';
+            const dia = await new Promise(ok => {
+                ventasPend = { ok, ini, max };
+                abrirModal(`<form class="form-rc" onsubmit="event.preventDefault(); confirmarCorteVentas()">
+                    <h2>Ventas de ${esc(nombreMes(mes))}</h2>
+                    <p class="ayuda">${esc(ids.map(nombreVendedor).join(', '))}.<br>Cuota ${millones(suma('cuota'))} · venta ${millones(suma('venta'))}.${avisos.length ? `<br>No reconocí: ${esc(avisos.join(', '))}.` : ''}</p>
+                    <label for="vCorte">Este Excel es el acumulado del mes hasta el día</label>
+                    <input type="date" id="vCorte" required min="${ini}" max="${max}" value="${max}">
+                    <p class="ayuda">Si ya hay una carga de ese día, se reemplaza. Cada uno verá solo lo suyo.</p>
+                    <div class="acciones"><button type="button" class="btn-secundario" onclick="ventasPend.ok(''); ventasPend = null; cerrarModal()">Cancelar</button><button class="btn-primario">Cargar</button></div>
+                </form>`);
+            });
+            if (!dia) return;
             const corte = new Date().toISOString();
-            ids.forEach(v => guardarRegistro({ ...(ventasDe(v, mes) || {}), id: `ventas-${v}-${mes}`, clase: 'ventas', vendedor: v, mes, fecha: mes + '-01',
+            ids.forEach(v => guardarRegistro({ id: `ventas-${v}-${dia}`, clase: 'ventas', vendedor: v, mes, fecha: dia, diaCorte: dia,
                 lineas: porVend[v].lineas, extra: porVend[v].extra, corte, archivo: archivo.name, cargadoPor: sesion.id, borrado: false }));
             toast(`Ventas de ${nombreMes(mes).split(' ')[0]} cargadas`);
             pintarAgenda();
