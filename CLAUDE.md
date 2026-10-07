@@ -149,3 +149,18 @@
 - **Lo sube Tatiana (Maryi Tatiana Castro, `subeVentas`)** y, de respaldo, el administrador. Jennifer ya no lo sube.
 - Ver: los jefes (Jennifer y Hernán) ven todo, con Empleados incluido en el total; cada comercial solo su zona
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
+
+## Módulo de Logística (`logistica.js`)
+- Usuarios: Javier Arjona (Coordinador Logístico, `coordLogistica`), Eric Ovalle y Deelan Barrero (auxiliares de domicilios y mensajería).
+  Tipo de usuario `logistica` (en `app.js` y `backend/Codigo.gs`): solo ven Logística, Maestra Clientes (todas las zonas) y el Vademécum.
+- Registro `logistica` = una parada de la ruta (`tipo`: entrega, envío fuera de Bogotá, recolección en proveedor, vuelta de un área,
+  devolución, PQR). `vendedor` = mensajero asignado. Entregas y envíos piden número de factura y de pedido (varios por parada).
+- Reporte: entregado / no entregado (con motivo), quién recibió, guía (envíos), novedades, foto. Las fotos se reducen en el
+  teléfono y se suben a Drive (carpeta "Ruta Comercial - Entregas de logística") en segundo plano; si no hay señal quedan
+  pendientes en el teléfono y se reintentan en cada sincronización.
+- Lo reportado queda bloqueado: solo el coordinador (o el administrador) lo reabre para corregir y el reporte anterior queda en `correcciones`.
+- Conexión con lo comercial: cada parada con cliente de la Maestra guarda `zona` y `comercial` (el vendedor de la zona). Ese comercial
+  la ve en el historial del cliente y en "Entregas a tus clientes" (solo lectura); la jefe comercial ve todo lo de clientes; el administrador, todo.
+- Servidor: logística solo lee y escribe clase `logistica` (el auxiliar, lo suyo; el coordinador, todo); un comercial solo recibe las
+  paradas con `"comercial":"<su id>"`; un auxiliar no cambia un reporte ya cerrado (solo puede agregar fotos).
+- El Vademécum los reconoce por el código de acceso (`acceso`, SHA-256 de "vademecum:usuario:clave"); su clave no va en el código del Vademécum.
