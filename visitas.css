@@ -1753,5 +1753,3 @@ details.ver-formato a { font-size: 12px; }
 .viva .vm-pie b { font-size: 14px; color: #111827; }
 .viva .vm-pie small { color: #64748b; }
 @media (max-width: 640px) { .ventas-mes.viva { grid-template-columns: 1fr; padding: 14px 16px 16px; } .viva .vm-izq { grid-template-columns: auto 1fr; align-items: end; gap: 0 12px; } .viva .vm-izq small { grid-column: 1 / -1; } .viva .vm-estado { justify-self: start; align-self: center; margin: 0; } .viva .vm-pie small { margin-left: 0; } }
-
-.viva .vm-izq .vm-unidad { font-style: normal; font-size: 11.5px; font-weight: 600; color: #64748b; }

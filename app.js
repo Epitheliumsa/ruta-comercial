@@ -4182,8 +4182,8 @@ const diaCorte = r => r.diaCorte || (r.corte || '').slice(0, 10) || r.fecha;
 const ventasDe = (v, mes, dia = '9999-12-31') => Object.values(registros)
     .filter(r => r.clase === 'ventas' && !r.borrado && r.vendedor === v && r.mes === mes && diaCorte(r) <= dia)
     .sort((a, b) => diaCorte(a).localeCompare(diaCorte(b)) || (a.corte || '').localeCompare(b.corte || '')).pop() || null;
-// Las ventas se muestran en miles de pesos: $6.403.120 → $6.403
-const miles = n => '$' + Math.round(n / 1000).toLocaleString('es-CO');
+// Las ventas se muestran con la cifra completa en pesos: $6.403.120
+const cifra = n => '$' + Math.round(n).toLocaleString('es-CO');
 const pctTxt = n => `${(n * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })} %`;
 function diasHabilesMes(mes) {
     const dias = [];
@@ -4222,27 +4222,27 @@ function franjaVentas(vs, mes, dia) {
     const estado = !s.cuota ? '' : !falta ? '🏆 ¡Cuota cumplida!' : tono === 'bien' ? (cumple >= esperado ? '▲ Vas por encima del ritmo' : '● Vas al día') : tono === 'medio' ? '▼ Un poco por debajo del ritmo' : '▼ Por debajo del ritmo: a recuperar';
     const ancho = Math.min(100, cumple * 100), marca = Math.min(100, esperado * 100);
     return `<div class="ventas-mes viva ${tono}" role="button" tabindex="0" onclick="verVentas()" title="Ver el detalle por línea">
-        <div class="vm-izq"><small>Ventas de ${esc(nombreMes(mes).split(' ')[0])}</small><em class="vm-unidad">en miles de pesos</em><strong class="vm-pct">${pctTxt(cumple)}</strong><span class="vm-estado">${estado}</span></div>
+        <div class="vm-izq"><small>Ventas de ${esc(nombreMes(mes).split(' ')[0])}</small><strong class="vm-pct">${pctTxt(cumple)}</strong><span class="vm-estado">${estado}</span></div>
         <div class="vm-der">
-            <div class="vm-cifras"><b>${miles(s.venta)}</b><span>de ${miles(s.cuota)}</span>${boton}</div>
+            <div class="vm-cifras"><b>${cifra(s.venta)}</b><span>de ${cifra(s.cuota)}</span>${boton}</div>
             <div class="vm-barra"><i style="width:${ancho.toFixed(1)}%"></i><em style="left:${marca.toFixed(1)}%"><u>Ritmo ${pctTxt(esperado)}</u></em></div>
-            <div class="vm-pie">${falta && quedan ? `<span>Faltan <b>${miles(falta)}</b> · <b>${miles(falta / quedan)}</b> por día hábil</span>` : ''}<small>Corte del ${esc(fechaCorta(s.dia))}${s.dia === dia ? '' : ' (el último hasta este día)'} · cargado ${esc(fechaHora(s.corte))}</small></div>
+            <div class="vm-pie">${falta && quedan ? `<span>Faltan <b>${cifra(falta)}</b> · <b>${cifra(falta / quedan)}</b> por día hábil</span>` : ''}<small>Corte del ${esc(fechaCorta(s.dia))}${s.dia === dia ? '' : ' (el último hasta este día)'} · cargado ${esc(fechaHora(s.corte))}</small></div>
         </div>
     </div>`;
 }
 function verVentas() {
     const vs = vendedoresAgenda(), mes = mesDe(agenda.fecha), s = ventasSuma(vs, mes, agenda.fecha);
     if (!s) return;
-    const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${miles(c)}</td><td>${miles(v)}</td><td>${c ? pctTxt(v / c) : '—'}</td></tr>`;
+    const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${cifra(c)}</td><td>${cifra(v)}</td><td>${c ? pctTxt(v / c) : '—'}</td></tr>`;
     const porVend = s.regs.length > 1 ? `<h3>Por vendedor</h3><table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead><tbody>${s.regs.map(r => {
         const c = Object.values(r.lineas).reduce((a, x) => a + x.cuota, 0), v = Object.values(r.lineas).reduce((a, x) => a + x.venta, 0) + (s.conExtra ? r.extra?.venta || 0 : 0);
         return fila(nombreVendedor(r.vendedor), c, v); }).join('')}</tbody></table>` : '';
     abrirModal(`<div class="form-rc ventas-detalle">
         <h2>Ventas de ${esc(nombreMes(mes))}</h2>
-        <p class="ayuda">Cifras en miles de pesos · ${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte del ${esc(fechaCorta(s.dia))}</p>
+        <p class="ayuda">${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte del ${esc(fechaCorta(s.dia))}</p>
         <table class="vm-tabla"><thead><tr><th>Línea</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
         <tbody>${Object.entries(LINEAS_VENTA).map(([l, t]) => fila(t, s.lineas[l].cuota, s.lineas[l].venta)).join('')}${s.conExtra ? fila('Empleados (sin cuota)', 0, s.conExtra) : ''}${fila('Total', s.cuota, s.venta, 'total')}</tbody></table>
-        ${s.extra && !s.conExtra ? `<p class="ayuda">Además, venta a empleados: ${miles(s.extra)} (sin cuota).</p>` : ''}
+        ${s.extra && !s.conExtra ? `<p class="ayuda">Además, venta a empleados: ${cifra(s.extra)} (sin cuota).</p>` : ''}
         ${porVend}
         <div class="acciones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
     </div>`);
@@ -4288,7 +4288,7 @@ function cargarVentas() {
             // El Excel es el acumulado del mes hasta hoy (Odoo no da días atrás): el corte es el día de la carga
             const dia = hoy() < mes + '-01' ? mes + '-01' : hoy() > finDeMes(mes) ? finDeMes(mes) : hoy();
             const ok = await dialogo({ titulo: `Ventas de ${nombreMes(mes)}`, aceptar: 'Cargar',
-                texto: `${ids.map(nombreVendedor).join(', ')}. Cuota ${miles(suma('cuota'))} · venta ${miles(suma('venta'))}.`
+                texto: `${ids.map(nombreVendedor).join(', ')}. Cuota ${cifra(suma('cuota'))} · venta ${cifra(suma('venta'))}.`
                     + (avisos.length ? ` No reconocí: ${avisos.join(', ')}.` : '') + ` Queda como el corte de hoy, ${fechaCorta(dia)} (si ya cargaron hoy, se reemplaza). Cada uno verá solo lo suyo.` });
             if (!ok) return;
             const corte = new Date().toISOString();
