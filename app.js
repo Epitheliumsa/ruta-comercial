@@ -14,7 +14,7 @@ const USUARIOS = [
     { usuario: 'L.Ramos',     huella: '979ff4a2d9c7b874f250cb3045a80ca3c2fd83f1075fe25fa206b2ddd697a9cf', tipo: 'comercial', id: 'lramos',     nombre: 'Lizeth Ramos',      zona: 'Zona Norte', cumple: '1992-02-16' },
     { usuario: 'Y.Caballero', huella: 'fd091945acd620b35a25485c8c6822458a042e2191ba99fc94eea332477c1cd8', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur', cumple: '1989-03-26' },
     { usuario: 'J.Herrera',   huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', cumple: '1988-04-03', jefe: true, cargo: 'Coordinadora Comercial' },
-    { usuario: 'M.Castro',    huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', tipo: 'comercial', id: 'mcastro',    nombre: 'Maryi Castro',      zona: 'Zona Desarrollo', cumple: '1999-07-09' },
+    { usuario: 'M.Castro',    huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', tipo: 'comercial', id: 'mcastro',    nombre: 'Maryi Castro',      zona: 'Zona Desarrollo', cumple: '1999-07-09', subeVentas: true },
     { usuario: 'H.Reyes',     huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
@@ -4173,6 +4173,8 @@ function guardarNoVisitado(e, id) {
 // ---------- VENTAS DEL MES (cuota y venta, del "Informe de Ventas Mensual" que carga un jefe) ----------
 // Un registro por vendedor y mes (clase 'ventas', id ventas-<vendedor>-<mes>): el servidor le manda a cada
 // comercial solo el suyo; los jefes los reciben todos. Las cifras nunca van en el código (el repositorio es público).
+// Sube el informe: Tatiana (subeVentas) y el administrador. Ver sigue igual: jefes todo, comerciales solo lo suyo
+const subeVentas = () => !!(sesion && (USUARIOS.find(u => u.id === sesion.id)?.subeVentas || esAdmin()));
 const LINEAS_VENTA = { 'PRODUCTO TERMINADO': 'Producto terminado', 'MAGISTRALES INDIVIDUALES': 'Magistrales individuales', 'MAGISTRAL DE PEDIDO': 'Magistral de pedido' };
 const ventasDe = (v, mes) => { const r = registros[`ventas-${v}-${mes}`]; return r && !r.borrado ? r : null; };
 const millones = n => `$${(n / 1e6).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} M`;
@@ -4203,9 +4205,9 @@ function ritmoVentas(mes, corte) {
 }
 function franjaVentas(vs, mes) {
     const s = ventasSuma(vs, mes);
-    const boton = esJefe() ? `<button type="button" class="link-mini vm-cargar" onclick="event.stopPropagation(); cargarVentas()">${s ? 'Actualizar ventas' : 'Cargar ventas del mes'}</button>` : '';
+    const boton = subeVentas() ? `<button type="button" class="link-mini vm-cargar" onclick="event.stopPropagation(); cargarVentas()">${s ? 'Actualizar ventas' : 'Cargar ventas del mes'}</button>` : '';
     const hayCargadas = Object.values(registros).some(r => r.clase === 'ventas' && r.mes === mes && !r.borrado);
-    if (!s) return esJefe() && !hayCargadas ? `<div class="ventas-mes vacia"><div class="vm-cab"><b>Ventas del mes</b><span>Aún no se ha cargado el informe de ${esc(nombreMes(mes).split(' ')[0])}</span>${boton}</div></div>` : '';
+    if (!s) return subeVentas() && !hayCargadas ? `<div class="ventas-mes vacia"><div class="vm-cab"><b>Ventas del mes</b><span>Aún no se ha cargado el informe de ${esc(nombreMes(mes).split(' ')[0])}</span>${boton}</div></div>` : '';
     const cumple = s.cuota ? s.venta / s.cuota : 0, { esperado, quedan } = ritmoVentas(mes, s.corte);
     const tono = !s.cuota ? '' : cumple >= esperado * 0.95 ? 'bien' : cumple >= esperado * 0.75 ? 'medio' : 'bajo';
     const falta = Math.max(0, s.cuota - s.venta);

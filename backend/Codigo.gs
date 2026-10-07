@@ -17,7 +17,7 @@ const USUARIOS = {
   'l.ramos':     { huella: '979ff4a2d9c7b874f250cb3045a80ca3c2fd83f1075fe25fa206b2ddd697a9cf', id: 'lramos',     tipo: 'comercial' },
   'y.caballero': { huella: 'fd091945acd620b35a25485c8c6822458a042e2191ba99fc94eea332477c1cd8', id: 'ycaballero', tipo: 'comercial' },
   'j.herrera':   { huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', id: 'jherrera',   tipo: 'jefe' },  // Jefe comercial: ve y registra para todo el equipo
-  'm.castro':    { huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', id: 'mcastro',    tipo: 'comercial' },
+  'm.castro':    { huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', id: 'mcastro',    tipo: 'comercial', subeVentas: true },  // carga el informe de ventas del mes de todos
   'h.reyes':     { huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', id: 'hreyes',     tipo: 'jefe', admin: true }
 };
 
@@ -95,7 +95,10 @@ function guardar_(usuario, registros) {
       const previo = n0 ? JSON.parse(valores[n0 - 1][6]) : null;
       // Acompañamiento: lo guarda quien acompaña (vendedor) o quien lo pidió (solicitante, sin cambiarlo)
       const esSolicitante = r.clase === 'acompanamiento' && r.solicitante === usuario.id && (!previo || previo.solicitante === usuario.id);
-      if (usuario.tipo !== 'jefe' && r.vendedor !== usuario.id && !esSolicitante) return;
+      // Ventas del mes: las carga quien tiene subeVentas (Tatiana) o el administrador; cada comercial solo recibe las suyas
+      if (r.clase === 'ventas' && !usuario.subeVentas && !usuario.admin) return;
+      const subeVentas = r.clase === 'ventas' && usuario.subeVentas;
+      if (usuario.tipo !== 'jefe' && r.vendedor !== usuario.id && !esSolicitante && !subeVentas) return;
       // Para el rango de fechas, la actividad usa su fecha (o el primer día del mes)
       const fecha = r.fecha || (r.mes ? r.mes + '-01' : '');
       const fila = [r.id, r.clase, r.vendedor, fecha, r.actualizado || '', r.borrado ? 'si' : '', JSON.stringify(r)];

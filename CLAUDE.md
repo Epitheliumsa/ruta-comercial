@@ -142,3 +142,9 @@
 - En la visita, el objetivo "Actividades" muestra las circulares vigentes dirigidas al cliente (por clasificación o nombre).
 - PDF: el jefe lo sube a Google Drive y pega el enlace en la app (registro `circulares-pdf`, clase `mensual`).
 
+
+## Ventas del mes (franja en el Plan de trabajo)
+- Registro `ventas-<vendedor>-<mes>` (clase `ventas`), leído del "Informe de Ventas Mensual" (Excel del sistema).
+- **Lo sube Tatiana (Maryi Tatiana Castro, `subeVentas`)** y, de respaldo, el administrador. Jennifer ya no lo sube.
+- Ver: los jefes (Jennifer y Hernán) ven todo, con Empleados incluido en el total; cada comercial solo su zona
+  (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
