@@ -67,6 +67,7 @@ function pintarLog() {
     $('logFechaTxt').textContent = f === t ? 'Hoy, ' + fechaLarga(f) : mayuscula(fechaLarga(f));
     $('logFechaPick').value = f;
     $('logProgramar').hidden = lectura;
+    $('logDescargar').hidden = !(esCoordLog() || esAdmin() || esJefe());
     const todos = logVisibles();
     // Chips de mensajero (coordinador, administrador y jefes)
     const verMens = esCoordLog() || esJefe();
@@ -425,4 +426,127 @@ function htmlEntregasCliente(nombre) {
             <div class="reporte">${[docs, ...det.filter(Boolean).map(esc)].filter(Boolean).join('<br>')}${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}</div>
         </div>`;
     }).join('');
+}
+
+// ---------- INFORME EN EXCEL ----------
+// Una fila por factura/pedido de cada parada (así se busca una factura y se ve qué pasó con ella); hoja "Resumen" por mensajero y tipo.
+function abrirLogInforme() {
+    if (!(esCoordLog() || esAdmin() || esJefe())) return;
+    abrirModal(`<form class="form-rc" onsubmit="descargarLogInforme(event)">
+        <h2>Descargar informe de logística</h2>
+        <p class="sub">Excel con cada parada: factura, pedido, quién recibió, hora, novedades y fotos.</p>
+        <label for="lgiMes">Mes</label>
+        <input id="lgiMes" type="month" required value="${mesDe(logi.fecha || hoy())}">
+        ${esCoordLog() || esAdmin() ? `<label for="lgiMens">Mensajero</label><select id="lgiMens"><option value="">Todos</option>${MENSAJEROS.map(m => `<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>` : ''}
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario" id="lgiBtn">Descargar Excel</button>
+        </div>
+    </form>`);
+}
+
+async function descargarLogInforme(e) {
+    e.preventDefault();
+    const btn = $('lgiBtn');
+    btn.disabled = true; btn.textContent = 'Generando…';
+    try {
+        const mes = $('lgiMes').value, mens = $('lgiMens')?.value || '';
+        await sincronizar(mes);
+        await cargarExcelJS();
+        const regs = logVisibles().filter(r => mesDe(r.fecha) === mes && (!mens || r.vendedor === mens)).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.vendedor.localeCompare(b.vendedor) || ordenLog(a, b));
+        const libro = armarLibroLog(regs, mes, mens);
+        const buffer = await libro.xlsx.writeBuffer();
+        bajarArchivo(buffer, `Logistica_${mens ? nombreVendedor(mens).replace(/\s+/g, '_') : 'Equipo'}_${mes}.xlsx`);
+        cerrarModal();
+        toast(regs.length ? 'Informe descargado' : 'Informe descargado (sin paradas ese mes)');
+    } catch (err) {
+        console.error(err);
+        toast('No se pudo generar el Excel. Revisa tu conexión e intenta de nuevo.');
+        btn.disabled = false; btn.textContent = 'Descargar Excel';
+    }
+}
+
+function armarLibroLog(regs, mes, mens) {
+    const libro = new ExcelJS.Workbook();
+    const naranja = 'FFC2410C', claro = 'FFFFEDD5', gris = 'FF475569';
+    // Excel no maneja zonas horarias: la fecha va a medianoche UTC y la hora, ya corrida a hora de Colombia (UTC-5, sin horario de verano)
+    const diaXl = f => { const [y, m, d] = f.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+    const horaXl = iso => new Date(new Date(iso).getTime() - 5 * 3600e3);
+    const filas = [];
+    regs.forEach(r => {
+        const tp = TIPOS_LOG[r.tipo], rp = r.reporte || {};
+        const docs = (r.documentos || []).length ? r.documentos : [{ factura: '', pedido: '' }];
+        const fotos = (r.fotos || []).map(f => f.url).filter(Boolean);
+        docs.forEach((d, i) => filas.push([
+            diaXl(r.fecha), nombreVendedor(r.vendedor), tp.t, r.tipo === 'recoleccion' ? r.proveedor : r.tipo === 'vuelta' ? r.area : r.contacto,
+            r.zona || '', r.comercial ? nombreVendedor(r.comercial) : '', r.destino || '', r.transportadora || '',
+            d.factura || '', d.pedido || '', r.estado === 'entregado' ? tp.ok : r.estado === 'no_entregado' ? tp.no : 'Pendiente',
+            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.novedad].filter(Boolean).join(' · '),
+            [r.direccion, r.detalle].filter(Boolean).join(' · '), i === 0 && fotos.length ? fotos.length : '', i === 0 ? fotos.join('\n') : '',
+            r.reportadoPor ? nombreVendedor(r.reportadoPor) : '', (r.correcciones || []).length || ''
+        ]));
+    });
+    const cols = [['Fecha', 12], ['Mensajero', 18], ['Tipo de parada', 26], ['Cliente / proveedor / área', 34], ['Zona', 18], ['Comercial', 18], ['Destino', 16], ['Transportadora', 16],
+        ['Factura', 14], ['Pedido', 14], ['Estado', 14], ['Fecha y hora del reporte', 20], ['Recibió / entregó', 24], ['Guía', 14], ['Motivo (no realizada)', 24], ['Novedades', 40],
+        ['Dirección e indicaciones', 36], ['Fotos', 8], ['Enlaces de las fotos', 40], ['Reportó', 16], ['Correcciones', 12]];
+    const h = libro.addWorksheet('Entregas', { views: [{ showGridLines: false, state: 'frozen', ySplit: 4 }] });
+    h.getCell('A1').value = `Logística · ${mayuscula(nombreMes(mes))}${mens ? ' · ' + nombreVendedor(mens) : ''}`;
+    h.getCell('A1').font = { bold: true, size: 14, color: { argb: naranja } };
+    h.getCell('A2').value = `${filas.length} ${filas.length === 1 ? 'fila' : 'filas'} · ${regs.length} ${regs.length === 1 ? 'parada' : 'paradas'} · una fila por factura y pedido`;
+    h.getCell('A2').font = { color: { argb: gris } };
+    h.getCell('A3').value = `Descargado el ${fechaHora(new Date().toISOString())}`;
+    h.getCell('A3').font = { italic: true, size: 9, color: { argb: 'FF777777' } };
+    const cab = h.getRow(4);
+    cols.forEach(([t, w], i) => {
+        const c = cab.getCell(i + 1);
+        c.value = t; c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: naranja } };
+        c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        h.getColumn(i + 1).width = w;
+    });
+    cab.height = 30;
+    const colorEstado = { Pendiente: 'FFFEF3C7' };
+    filas.forEach((f, n) => {
+        const fila = h.getRow(5 + n);
+        f.forEach((v, i) => { fila.getCell(i + 1).value = v === '' ? null : v; });
+        fila.getCell(1).numFmt = 'dd/mm/yyyy'; fila.getCell(12).numFmt = 'dd/mm/yyyy hh:mm AM/PM';
+        fila.eachCell({ includeEmpty: true }, c => {
+            c.font = { size: 10 };
+            c.alignment = { vertical: 'top', wrapText: true };
+            c.border = { bottom: { style: 'thin', color: { argb: 'FFE8E1D9' } } };
+        });
+        const est = f[10], ce = h.getCell(5 + n, 11);
+        ce.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: est === 'Pendiente' ? 'FFFEF3C7' : /^No /.test(est) ? 'FFFEE2E2' : 'FFDCFCE7' } };
+        ce.font = { size: 10, bold: true, color: { argb: est === 'Pendiente' ? 'FF92400E' : /^No /.test(est) ? 'FF991B1B' : 'FF166534' } };
+    });
+    if (filas.length) h.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + filas.length, column: cols.length } };
+    // Resumen por mensajero y por tipo
+    const r = libro.addWorksheet('Resumen', { views: [{ showGridLines: false }] });
+    r.getCell('A1').value = `Resumen · ${mayuscula(nombreMes(mes))}`;
+    r.getCell('A1').font = { bold: true, size: 14, color: { argb: naranja } };
+    const tabla = (fila0, titulo, primera, grupos, claveDe) => {
+        r.getCell(fila0, 1).value = titulo; r.getCell(fila0, 1).font = { bold: true, size: 11, color: { argb: gris } };
+        ['', 'Paradas', 'Realizadas', 'Con novedad', 'Pendientes', '% realizadas'].forEach((t, i) => {
+            const c = r.getCell(fila0 + 1, i + 1);
+            c.value = t || primera; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: naranja } }; c.alignment = { horizontal: i ? 'center' : 'left' };
+        });
+        let n = fila0 + 2;
+        grupos.forEach(([clave, nombre]) => {
+            const g = regs.filter(x => claveDe(x) === clave); if (!g.length) return;
+            const ok = g.filter(x => x.estado === 'entregado').length, no = g.filter(x => x.estado === 'no_entregado').length, pe = g.length - ok - no;
+            [nombre, g.length, ok, no, pe, g.length - pe ? ok / (g.length - pe) : 0].forEach((v, i) => {
+                const c = r.getCell(n, i + 1); c.value = v; c.border = { bottom: { style: 'thin', color: { argb: 'FFE8E1D9' } } };
+                if (i === 5) c.numFmt = '0%'; if (i) c.alignment = { horizontal: 'center' };
+            });
+            n++;
+        });
+        return n;
+    };
+    let sig = tabla(3, 'Por mensajero', 'Mensajero', MENSAJEROS.map(m => [m.id, m.nombre]), x => x.vendedor);
+    tabla(sig + 1, 'Por tipo de parada', 'Tipo de parada', Object.entries(TIPOS_LOG).map(([k, v]) => [k, v.t]), x => x.tipo);
+    r.getColumn(1).width = 34; for (let i = 2; i <= 6; i++) r.getColumn(i).width = 14;
+    r.getCell(sig + 9, 1).value = '"% realizadas" = realizadas sobre las paradas ya reportadas (no cuenta las pendientes).';
+    r.getCell(sig + 9, 1).font = { italic: true, size: 9, color: { argb: 'FF777777' } };
+    return libro;
 }

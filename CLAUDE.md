@@ -164,3 +164,6 @@
 - Servidor: logística solo lee y escribe clase `logistica` (el auxiliar, lo suyo; el coordinador, todo); un comercial solo recibe las
   paradas con `"comercial":"<su id>"`; un auxiliar no cambia un reporte ya cerrado (solo puede agregar fotos).
 - El Vademécum los reconoce por el código de acceso (`acceso`, SHA-256 de "vademecum:usuario:clave"); su clave no va en el código del Vademécum.
+- Informe en Excel (botón "⬇ Excel" en Logística: coordinador, administrador y jefe comercial): una fila por factura/pedido de cada parada
+  (estado, hora del reporte en hora de Colombia, quién recibió, guía, novedades, enlaces de las fotos, correcciones) y hoja "Resumen"
+  por mensajero y por tipo. Sin líneas de cuadrícula.

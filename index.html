@@ -154,6 +154,7 @@
                     <button class="btn-nuevo" onclick="logElegir(hoy())">Hoy</button>
                     <input type="date" id="logFechaPick" onchange="logElegir(this.value)" aria-label="Elegir fecha">
                     <input type="search" id="logBuscar" class="ag-buscar-in" placeholder="Buscar cliente, factura o pedido..." aria-label="Buscar" oninput="logi.busca=this.value; pintarLog()">
+                    <button class="btn-nuevo" id="logDescargar" onclick="abrirLogInforme()" hidden>⬇ Excel</button>
                     <button class="btn-nuevo active btn-programar" id="logProgramar" onclick="abrirLogForm()">+ Programar</button>
                 </div>
             </div>
