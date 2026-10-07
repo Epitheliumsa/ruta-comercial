@@ -18,7 +18,11 @@ const USUARIOS = {
   'y.caballero': { huella: 'fd091945acd620b35a25485c8c6822458a042e2191ba99fc94eea332477c1cd8', id: 'ycaballero', tipo: 'comercial' },
   'j.herrera':   { huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', id: 'jherrera',   tipo: 'jefe' },  // Jefe comercial: ve y registra para todo el equipo
   'm.castro':    { huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', id: 'mcastro',    tipo: 'comercial', subeVentas: true },  // carga el informe de ventas del mes de todos
-  'h.reyes':     { huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', id: 'hreyes',     tipo: 'jefe', admin: true }
+  'h.reyes':     { huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', id: 'hreyes',     tipo: 'jefe', admin: true },
+  // Logística: solo ven y guardan registros de clase 'logistica' (el coordinador, los de todos; cada auxiliar, los suyos)
+  'j.arjona':    { huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', id: 'jarjona',  tipo: 'logistica', area: 'logistica', coordLogistica: true },
+  'e.ovalle':    { huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', id: 'eovalle',  tipo: 'logistica', area: 'logistica' },
+  'd.barrero':   { huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', id: 'dbarrero', tipo: 'logistica', area: 'logistica' }
 };
 
 const HOJA = 'Registros';
@@ -71,8 +75,13 @@ function listar_(usuario, desde, hasta) {
   return filas
     // La parrilla, las actividades del mes y los PDF de las circulares (clase 'mensual') los ve todo el equipo
     // Acompañamientos: también los ve quien pidió el acompañamiento (dueño de la visita)
-    .filter(f => f[0] && (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'
-      || (f[1] === 'acompanamiento' && String(f[6]).indexOf('"solicitante":"' + usuario.id + '"') >= 0)))
+    .filter(f => f[0] && (usuario.area === 'logistica'
+      // Logística: solo lo de logística (el coordinador, de todos los auxiliares; cada auxiliar, lo suyo)
+      ? f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id)
+      : (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'
+      || (f[1] === 'acompanamiento' && String(f[6]).indexOf('"solicitante":"' + usuario.id + '"') >= 0)
+      // Cada comercial ve las entregas de logística de sus clientes
+      || (f[1] === 'logistica' && String(f[6]).indexOf('"comercial":"' + usuario.id + '"') >= 0))))
     // Los contactos proyecto y los PDF de las circulares se envían siempre, sin importar la fecha
     .filter(f => f[1] === 'proyecto' || f[0] === 'circulares-pdf' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
     .map(f => JSON.parse(f[6]));
@@ -98,7 +107,11 @@ function guardar_(usuario, registros) {
       // Ventas del mes: las carga quien tiene subeVentas (Tatiana) o el administrador; cada comercial solo recibe las suyas
       if (r.clase === 'ventas' && !usuario.subeVentas && !usuario.admin) return;
       const subeVentas = r.clase === 'ventas' && usuario.subeVentas;
-      if (usuario.tipo !== 'jefe' && r.vendedor !== usuario.id && !esSolicitante && !subeVentas) return;
+      // Logística: solo logística escribe registros de logística (el coordinador, los de todos; el auxiliar, los suyos)
+      if (usuario.area === 'logistica' && r.clase !== 'logistica') return;
+      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id) : usuario.admin);
+      if (r.clase === 'logistica' && !logistica) return;
+      if (!logistica && usuario.tipo !== 'jefe' && r.vendedor !== usuario.id && !esSolicitante && !subeVentas) return;
       // Para el rango de fechas, la actividad usa su fecha (o el primer día del mes)
       const fecha = r.fecha || (r.mes ? r.mes + '-01' : '');
       const fila = [r.id, r.clase, r.vendedor, fecha, r.actualizado || '', r.borrado ? 'si' : '', JSON.stringify(r)];
@@ -121,6 +134,11 @@ function guardar_(usuario, registros) {
           // después, solo con la corrección autorizada por el Gerente General (24 horas)
           return;
         }
+      }
+      // Logística: un auxiliar no cambia lo ya reportado (solo puede agregar fotos); lo corrige el coordinador o el administrador
+      if (r.clase === 'logistica' && actual && actual.estado && actual.estado !== 'pendiente' && !usuario.coordLogistica && !usuario.admin) {
+        if (r.borrado || r.estado !== actual.estado || JSON.stringify(r.reporte) !== JSON.stringify(actual.reporte)
+          || JSON.stringify(r.documentos) !== JSON.stringify(actual.documentos)) return;
       }
       if (n) {
         if (String(valores[n - 1][4]) > String(r.actualizado || '')) return;
@@ -149,7 +167,8 @@ function subirArchivo_(usuario, pedido) {
   const bytes = Utilities.base64Decode(String(pedido.datos || ''));
   if (!bytes.length) throw new Error('Archivo vacío');
   if (bytes.length > 15 * 1024 * 1024) throw new Error('El archivo pesa más de 15 MB');
-  const carpeta = carpeta_(pedido.carpeta);
+  // Logística solo sube a su carpeta (fotos de entrega)
+  const carpeta = carpeta_(usuario.area === 'logistica' ? 'Entregas de logística' : pedido.carpeta);
   const fecha = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd HH.mm');
   const nombre = fecha + ' · ' + usuario.id + ' · ' + String(pedido.nombre || 'archivo').replace(/[\\/]/g, '-');
   const archivo = carpeta.createFile(Utilities.newBlob(bytes, pedido.tipo || 'application/octet-stream', nombre));

@@ -52,6 +52,10 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="10" width="34" height="31" rx="3"/><path d="M7 19h34M16 6v8M32 6v8"/><path d="M16 28l4 4 8-8"/></svg>
                     <span class="home-btn-text"><strong>Plan de Trabajo</strong><small id="homeAgendaTxt">Programa y registra tus visitas del día</small></span>
                 </button>
+                <button class="home-btn home-btn-log para-log" id="btnLogistica" onclick="abrirLogistica()" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 12h26v22H4zM30 20h9l5 6v8H30z"/><circle cx="13" cy="36" r="4"/><circle cx="36" cy="36" r="4"/></svg>
+                    <span class="home-btn-text"><strong>Logística</strong><small id="homeLogTxt">Programa la ruta y reporta entregas, envíos y recolecciones</small></span>
+                </button>
                 <button class="home-btn home-btn-visiplan" onclick="abrirVisiplan()">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="32" rx="3"/><path d="M6 18h36M15 5v8M33 5v8M18 18v23M30 18v23M6 29.5h36"/><path d="M21.5 22.5l5 5M26.5 22.5l-5 5"/></svg>
                     <span class="home-btn-text"><strong>Visiplan del mes</strong><small id="homeVisiplanTxt">Marca con X qué días visitas a cada cliente</small></span>
@@ -64,11 +68,11 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 12h22M17 24h22M17 36h22"/><path d="M6 11l3 3 5-5M6 23l3 3 5-5"/><rect x="6" y="33" width="7" height="7" rx="1.5"/></svg>
                     <span class="home-btn-text"><strong>Actividades-Circulares</strong><small id="homeActTxt">Circulares vigentes y tareas del mes</small></span>
                 </button>
-                <button class="home-btn home-btn-maestra" onclick="abrirMaestra()">
+                <button class="home-btn home-btn-maestra para-log" onclick="abrirMaestra()">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="6" width="32" height="36" rx="3"/><circle cx="24" cy="18" r="5"/><path d="M15 32c1.5-5 5-7 9-7s7.5 2 9 7"/><path d="M15 37h18"/></svg>
                     <span class="home-btn-text"><strong>Maestra Clientes</strong><small id="maestraTxt">Clientes de tu zona</small></span>
                 </button>
-                <a class="home-btn home-btn-vade" href="https://epitheliumsa.github.io/vademecum-epithelium/" target="_blank" rel="noopener" onclick="abrirVademecum(event)">
+                <a class="home-btn home-btn-vade para-log" href="https://epitheliumsa.github.io/vademecum-epithelium/" target="_blank" rel="noopener" onclick="abrirVademecum(event)">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 6h16v6H16zM13 12h22a3 3 0 0 1 3 3v24a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3V15a3 3 0 0 1 3-3z"/><path d="M10 22h28M10 34h28"/><path d="M24 25.5c-2 2.6-2 4.5 0 4.5s2-1.9 0-4.5z"/></svg>
                     <span class="home-btn-text"><strong>Vademécum Epithelium</strong><small>Productos, materias primas y portafolios de clientes</small></span>
                 </a>
@@ -126,6 +130,35 @@
             <div id="agAnillo"></div>
             <div class="resumen-dia" id="agResumen"></div>
             <div id="agLista" class="resultados"></div>
+        </div>
+
+        <!-- LOGÍSTICA: plan de trabajo de mensajería -->
+        <div id="logScreen" class="screen app-screen tema-naranja">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1 id="logTitulo">Logística</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+
+            <div class="filters filtros-rc">
+                <div id="logMensajeros" class="vp-vends" aria-label="Mensajeros" hidden></div>
+                <div class="nav-fecha">
+                    <button class="btn-nav" onclick="logMover(-1)" aria-label="Día anterior">&lsaquo;</button>
+                    <div class="nav-titulo"><strong id="logFechaTxt"></strong></div>
+                    <button class="btn-nav" onclick="logMover(1)" aria-label="Día siguiente">&rsaquo;</button>
+                </div>
+                <div class="semana" id="logSemana"></div>
+                <div class="fila-botones">
+                    <button class="btn-nuevo" onclick="logElegir(hoy())">Hoy</button>
+                    <input type="date" id="logFechaPick" onchange="logElegir(this.value)" aria-label="Elegir fecha">
+                    <input type="search" id="logBuscar" class="ag-buscar-in" placeholder="Buscar cliente, factura o pedido..." aria-label="Buscar" oninput="logi.busca=this.value; pintarLog()">
+                    <button class="btn-nuevo active btn-programar" id="logProgramar" onclick="abrirLogForm()">+ Programar</button>
+                </div>
+            </div>
+            <div class="resumen-dia" id="logResumen"></div>
+            <div id="logLista" class="resultados"></div>
         </div>
 
         <!-- ACTIVIDADES DEL MES -->
@@ -340,5 +373,6 @@
     <script src="productos.js?v=202610070959"></script>
     <script src="portafolios.js?v=202610070959"></script>
     <script src="app.js?v=202610070959"></script>
+    <script src="logistica.js?v=202610070959"></script>
 </body>
 </html>

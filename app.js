@@ -15,9 +15,14 @@ const USUARIOS = [
     { usuario: 'Y.Caballero', huella: 'fd091945acd620b35a25485c8c6822458a042e2191ba99fc94eea332477c1cd8', tipo: 'comercial', id: 'ycaballero', nombre: 'Yunelis Caballero', zona: 'Zona Sur', cumple: '1989-03-26' },
     { usuario: 'J.Herrera',   huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', cumple: '1988-04-03', jefe: true, cargo: 'Coordinadora Comercial' },
     { usuario: 'M.Castro',    huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', tipo: 'comercial', id: 'mcastro',    nombre: 'Maryi Castro',      zona: 'Zona Desarrollo', cumple: '1999-07-09', subeVentas: true },
-    { usuario: 'H.Reyes',     huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' }
+    { usuario: 'H.Reyes',     huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' },
+    // Logística: coordinador y auxiliares de domicilios y mensajería (módulo Logística, Maestra Clientes y Vademécum)
+    { usuario: 'J.Arjona',    huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', tipo: 'logistica', id: 'jarjona',  nombre: 'Javier Arjona',  cargo: 'Coordinador Logístico', coordLogistica: true },
+    { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cargo: 'Auxiliar de Domicilios y Mensajería' },
+    { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cargo: 'Auxiliar de Domicilios y Mensajería' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
+const MENSAJEROS = USUARIOS.filter(u => u.tipo === 'logistica' && !u.coordLogistica);
 const esCumple = (id, d) => { const u = USUARIOS.find(x => x.id === id); return !!u?.cumple && u.cumple.slice(5) === d.slice(5); };
 
 // Acceso directo al Vademécum Epithelium: los dos sitios están en epitheliumsa.github.io y comparten el
@@ -29,7 +34,10 @@ const PERFIL_VADEMECUM = {
     ycaballero: { tipo: 'comercial', zona: 'Zona Sur' },
     jherrera: { tipo: 'equipo', zona: null },   // jefe comercial: ve todas las zonas
     mcastro: { tipo: 'comercial', zona: 'Zona Desarrollo' },
-    hreyes: { tipo: 'equipo', zona: null }
+    hreyes: { tipo: 'equipo', zona: null },
+    jarjona: { tipo: 'equipo', zona: null },   // logística: ve todos los portafolios
+    eovalle: { tipo: 'equipo', zona: null },
+    dbarrero: { tipo: 'equipo', zona: null }
 };
 
 // El enlace lleva además un código de acceso (SHA-256 de "vademecum:usuario:clave") que el Vademécum
@@ -566,6 +574,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         programarAvisos();
         ultimaSync = new Date();
         errorSync = '';
+        subirFotosPend();
     } catch (e) {
         console.warn('No se pudo sincronizar:', e);
         errorSync = navigator.onLine ? (e.message || 'Error de conexión') : 'Sin internet';
@@ -631,6 +640,7 @@ async function cerrarSesion() {
     if (pendientes.size && API_URL && !await dialogo({ titulo: 'Hay cambios sin subir', texto: `Hay ${pendientes.size} cambios sin subir al servidor. Si sales ahora se quedan en este dispositivo.`, aceptar: 'Salir de todas formas' })) return;
     localStorage.removeItem('rc_sesion');
     sesion = null;
+    document.body.classList.remove('es-logistica');
     $('accessUser').value = '';
     $('accessCode').value = '';
     mostrarPantalla('loginScreen');
@@ -648,13 +658,15 @@ function entrarApp() {
     detalle.textContent = [sesion.cargo || 'Visitador Médico Comercial', sesion.zona].filter(Boolean).join(' · ');
     saludo.appendChild(detalle);
     intro.appendChild(saludo);
+    // Logística: solo ve el módulo de Logística, la Maestra Clientes y el Vademécum
+    document.body.classList.toggle('es-logistica', esLogistica());
     $('btnPanel').style.display = esJefe() ? '' : 'none';
-    $('maestraTxt').textContent = esJefe() ? 'Clientes por zona y vendedor' : 'Clientes de tu zona';
+    $('maestraTxt').textContent = veTodasZonas() ? 'Clientes por zona y vendedor' : 'Clientes de tu zona';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
     // Comerciales: en el título de cada pantalla, debajo, su nombre
     document.querySelectorAll('.header-logo h1').forEach(h => {
         h.dataset.titulo = h.dataset.titulo || h.textContent;
-        h.innerHTML = esc(h.dataset.titulo) + (esComercial() ? `<small class="h1-vend">${esc(sesion.nombre)}</small>` : '');
+        h.innerHTML = esc(h.dataset.titulo) + (esComercial() || esLogistica() ? `<small class="h1-vend">${esc(sesion.nombre)}</small>` : '');
     });
     const opciones = COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)} · ${esc(c.zona)}</option>`).join('');
     $('actVendedor').innerHTML = '<option value="">Todo el equipo</option>' + opciones;
@@ -683,6 +695,7 @@ function repintarPantallaActiva() {
     if (p === 'panelScreen') pintarPanel();
     if (p === 'visiplanScreen') pintarVisiplan();
     if (p === 'maestraScreen') pintarMaestra();
+    if (p === 'logScreen') pintarLog();
 }
 
 // Al salir de una pantalla se borran sus filtros: al volver se ve todo
@@ -726,6 +739,7 @@ function pintarInicio() {
     $('solicitudesTxt').textContent = sols.length + corrs ? [sols.length && `${sols.length} de eliminación`, corrs && `${corrs} de corrección`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
     const vigentes = CIRCULARES.filter(c => estadoCircular(c) === 'vigente').length;
     $('homeActTxt').textContent = `${vigentes} ${vigentes === 1 ? 'circular vigente' : 'circulares vigentes'}` + (acts.length ? ` · ${hechas} de ${acts.length} tareas del mes` : '');
+    pintarInicioLog();
     pintarEstadoSync();
 }
 
@@ -1496,8 +1510,8 @@ const zonasMaestra = () => [...new Set([...Object.keys(contactos), ...proyectos(
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
 
 function abrirMaestra() {
-    if (!maestra.zonas) maestra.zonas = esJefe() ? zonasMaestra() : [comercial(sesion.id)?.zona].filter(Boolean);
-    $('mcZonas').hidden = !esJefe();
+    if (!maestra.zonas) maestra.zonas = veTodasZonas() ? zonasMaestra() : [comercial(sesion.id)?.zona].filter(Boolean);
+    $('mcZonas').hidden = !veTodasZonas();
     pintarMaestra();
     mostrarPantalla('maestraScreen');
 }
@@ -1642,7 +1656,7 @@ function pintarFiltrosMaestra(base) {
 function pintarMaestra() {
     const todas = zonasMaestra(), sel = maestra.zonas || [];
     $('mcPeriodoTxt').textContent = mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, ''));
-    if (esJefe()) {
+    if (veTodasZonas()) {
         $('mcZonas').innerHTML = `<button type="button" class="vp-vend-btn todos${sel.length === todas.length ? ' activo' : ''}" onclick="elegirZonaMaestra('todas', event)">Todas las zonas</button>`
             + todas.map(z => {
                 const v = vendedorDeZona(z);
@@ -1663,6 +1677,8 @@ function pintarMaestra() {
     const ultima = {};
     visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado')
         .forEach(x => { const k = normalizar(x.contacto); if (!ultima[k] || x.fecha > ultima[k]) ultima[k] = x.fecha; });
+    // Logística: en vez de la última visita, la última entrega al cliente
+    if (esLogistica()) logVisibles().filter(r => r.estado === 'entregado' && r.contacto).forEach(r => { const k = normalizar(r.contacto); if (!ultima[k] || r.fecha > ultima[k]) ultima[k] = r.fecha; });
     $('mcResumen').textContent = `${lista.length} ${lista.length === 1 ? 'cliente' : 'clientes'}${lista.length !== base.length ? ` de ${base.length}` : ''} · toca un cliente para ver su historial`;
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
@@ -1671,7 +1687,7 @@ function pintarMaestra() {
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
                 <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
                 ${!c.lead && portafolioDe(c.n).length ? `<span class="mc-portafolio" role="button" tabindex="0" data-c="${esc(c.n)}" onclick="verPortafolio(event, this.dataset.c)">📋 Portafolio del cliente <b>${portafolioDe(c.n).length}</b></span>` : ''}</span>
-            <span class="mc-ultima">${u ? 'Última visita<br><b>' + esc(fechaCorta(u)) + '</b>' : '<i>Sin visitas</i>'}</span>
+            <span class="mc-ultima">${u ? (esLogistica() ? 'Última entrega' : 'Última visita') + '<br><b>' + esc(fechaCorta(u)) + '</b>' : `<i>${esLogistica() ? 'Sin entregas' : 'Sin visitas'}</i>`}</span>
         </button>`;
     };
     // Jefes: agrupado por zona con el nombre del vendedor
@@ -1680,7 +1696,7 @@ function pintarMaestra() {
             const deZona = lista.filter(c => c.z === z);
             if (!deZona.length) return '';
             const v = vendedorDeZona(z);
-            return (esJefe() ? `<p class="grupo-titulo">${esc(z)} · ${esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
+            return (veTodasZonas() ? `<p class="grupo-titulo">${esc(z)} · ${esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
         }).join('');
 }
 
@@ -4091,15 +4107,16 @@ function pintarHistorial() {
         <h2>${esc(nombre)}</h2>
         <p class="sub">${esc([m?.e || (p ? etiquetaLead(p.tipo) : ''), m?.c || p?.ciudad || ''].filter(Boolean).join(' · '))}</p>
         ${m && (m.cl || m.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(m.cl || '')}</b>${m.ca ? ' · ' + esc(m.ca) : ''}</p>` : ''}
-        ${chipsMes}
-        <div class="resumen-dia hist-resumen">
+        ${esLogistica() ? '' : chipsMes}
+        <div class="resumen-dia hist-resumen"${esLogistica() ? ' hidden' : ''}>
             ${boton('', 'gris', `<b>${lista.length}</b> ${lista.length === 1 ? 'visita' : 'visitas'}`)}
             ${boton('ok', 'ok', `${efectivas.length} efectivas`)}
             ${efectivas[0] ? boton('ultima', 'gris', `Última: ${esc(fechaCorta(efectivas[0].fecha))}`) : ''}
             ${proxima ? boton('prox', 'prox', `Próxima: ${esc(fechaCorta(proxima.fecha))}`) : ''}
         </div>
-        ${historial.f || conFiltroPeriodo ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${visitasCliente(nombre).length}</p>` : ''}
-        ${filas || `<div class="no-results">${visitasCliente(nombre).length ? 'No hay visitas con este filtro.' : 'Todavía no hay visitas registradas para este cliente.'}</div>`}
+        ${!esLogistica() && (historial.f || conFiltroPeriodo) ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${visitasCliente(nombre).length}</p>` : ''}
+        ${esLogistica() ? '' : filas || `<div class="no-results">${visitasCliente(nombre).length ? 'No hay visitas con este filtro.' : 'Todavía no hay visitas registradas para este cliente.'}</div>`}
+        ${htmlEntregasCliente(nombre)}
         <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
     </div>`);
     if ($('histMeses')) {

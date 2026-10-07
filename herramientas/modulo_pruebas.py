@@ -14,7 +14,7 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 SALIDA = Path(sys.argv[1] if len(sys.argv) > 1 else 'modulo-pruebas')
-ARCHIVOS = ['index.html', 'app.js', 'styles.css', 'visitas.css', 'ciudades.js', 'objetivos.js', 'circulares.js', 'productos.js',
+ARCHIVOS = ['index.html', 'app.js', 'logistica.js', 'styles.css', 'visitas.css', 'ciudades.js', 'objetivos.js', 'circulares.js', 'productos.js',
             'portafolios.js', 'contactos.json', 'logo.png', 'logo-blanco.png', 'version.txt', 'icons', 'lib']
 
 if SALIDA.exists():
