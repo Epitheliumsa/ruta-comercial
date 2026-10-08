@@ -2589,7 +2589,7 @@ function filtrarAgenda(f) {
 
 function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     const clase = v.estado === 'visitado' ? 'ok' : v.estado === 'no_visitado' ? 'no' : '';
-    const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visitado', 'No visitado'];
+    const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visita Efectiva', 'Visita No Efectiva'];
     const chip = v.estado === 'visitado' ? `<span class="chip ok">${txtOk}</span>`
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
         : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Próxima visita' : 'Reprogramada'}</span>`
@@ -3929,7 +3929,7 @@ function abrirRegistro(id, tipo) {
     } else {
         const ya = v.estado === 'no_visitado';
         abrirModal(`<form class="form-rc" onsubmit="guardarNoVisitado(event, '${id}')">
-            <h2>${v.interno ? 'No realizado' : 'No visitado'}</h2>${cab}
+            <h2>${v.interno ? 'No realizado' : 'Visita No Efectiva'}</h2>${cab}
             ${v.interno ? '' : `<label for="nMotivo">Motivo</label>
             <select id="nMotivo">${opciones(MOTIVOS, v.motivo)}</select>`}
             ${v.interno ? `<div class="fila-fecha compacta"><div><label for="nRepro">Fecha para programar <small>(opcional)</small></label>
