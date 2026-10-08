@@ -1848,3 +1848,10 @@ body.es-logistica #btnLogistica { order: -1; }
 #logResumen:not(:empty) { max-width: 1240px; margin: 8px auto 0; padding: 0 15px; align-items: center; }
 .anillo-dia.fijo.clic .anillo-ley li { cursor: pointer; }
 .anillo-dia svg text { pointer-events: none; }
+/* Semáforo del % en el detalle de ventas (mismo criterio de la franja) */
+.vm-sem { display: inline-block; min-width: 58px; padding: 2px 8px; border-radius: 99px; font-weight: 800; text-align: center; }
+.vm-sem.bien { background: #dcfce7; color: #15803d; }
+.vm-sem.medio { background: #fef3c7; color: #b45309; }
+.vm-sem.bajo { background: #fee2e2; color: #b91c1c; }
+.vm-ley { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 6px; font-size: 11.5px; }
+.vm-ley .vm-sem { min-width: 0; font-weight: 700; }

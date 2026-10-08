@@ -4276,6 +4276,8 @@ function ritmoVentas(mes, corte) {
     const hechos = dias.filter(d => d <= dc).length;
     return { esperado: dias.length ? hechos / dias.length : 0, quedan: dias.length - hechos };
 }
+// Semáforo de ventas: verde si va al ritmo (95 % o más de lo esperado al corte), amarillo de 75 % a 95 %, rojo por debajo
+const tonoVentas = (cumple, esperado, cuota) => !cuota ? '' : cumple >= esperado * 0.95 ? 'bien' : cumple >= esperado * 0.75 ? 'medio' : 'bajo';
 function franjaVentas(vs, mes, dia) {
     const s = ventasSuma(vs, mes, dia);
     const boton = subeVentas() ? `<button type="button" class="link-mini vm-cargar" onclick="event.stopPropagation(); cargarVentas()">${s ? 'Actualizar ventas' : 'Cargar ventas del mes'}</button>` : '';
@@ -4284,7 +4286,7 @@ function franjaVentas(vs, mes, dia) {
     if (!s && hayCargadas) return `<div class="ventas-mes vacia"><div class="vm-cab"><b>Ventas del mes</b><span>Sin corte de ventas hasta el ${esc(fechaCorta(dia))}</span>${boton}</div></div>`;
     if (!s) return subeVentas() && !hayCargadas ? `<div class="ventas-mes vacia"><div class="vm-cab"><b>Ventas del mes</b><span>Aún no se ha cargado el informe de ${esc(nombreMes(mes).split(' ')[0])}</span>${boton}</div></div>` : '';
     const cumple = s.cuota ? s.venta / s.cuota : 0, { esperado, quedan } = ritmoVentas(mes, s.dia);
-    const tono = !s.cuota ? '' : cumple >= esperado * 0.95 ? 'bien' : cumple >= esperado * 0.75 ? 'medio' : 'bajo';
+    const tono = tonoVentas(cumple, esperado, s.cuota);
     const falta = Math.max(0, s.cuota - s.venta);
     const estado = !s.cuota ? '' : !falta ? '🏆 ¡Cuota cumplida!' : tono === 'bien' ? (cumple >= esperado ? '▲ Vas por encima del ritmo' : '● Vas al día') : tono === 'medio' ? '▼ Un poco por debajo del ritmo' : '▼ Por debajo del ritmo: a recuperar';
     const ancho = Math.min(100, cumple * 100), marca = Math.min(100, esperado * 100);
@@ -4300,13 +4302,15 @@ function franjaVentas(vs, mes, dia) {
 function verVentas() {
     const vs = vendedoresAgenda(), mes = mesDe(agenda.fecha), s = ventasSuma(vs, mes, agenda.fecha);
     if (!s) return;
-    const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${cifra(c)}</td><td>${cifra(v)}</td><td>${c ? pctTxt(v / c) : '—'}</td></tr>`;
+    const { esperado } = ritmoVentas(mes, s.dia);
+    const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${cifra(c)}</td><td>${cifra(v)}</td><td>${c ? `<span class="vm-sem ${tonoVentas(v / c, esperado, c)}">${pctTxt(v / c)}</span>` : '—'}</td></tr>`;
     const porVend = s.regs.length > 1 ? `<h3>Por vendedor</h3><table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead><tbody>${s.regs.map(r => {
         const c = Object.values(r.lineas).reduce((a, x) => a + x.cuota, 0), v = Object.values(r.lineas).reduce((a, x) => a + x.venta, 0) + (s.conExtra ? r.extra?.venta || 0 : 0);
         return fila(nombreVendedor(r.vendedor), c, v); }).join('')}</tbody></table>` : '';
     abrirModal(`<div class="form-rc ventas-detalle">
         <h2>Ventas de ${esc(nombreMes(mes))}</h2>
-        <p class="ayuda">${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte del ${esc(fechaCorta(s.dia))}</p>
+        <p class="ayuda">${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte del ${esc(fechaCorta(s.dia))} · Ritmo esperado ${pctTxt(esperado)}</p>
+        <p class="vm-ley"><span class="vm-sem bien">Al ritmo</span><span class="vm-sem medio">Un poco por debajo</span><span class="vm-sem bajo">A recuperar</span></p>
         <table class="vm-tabla"><thead><tr><th>Línea</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
         <tbody>${Object.entries(LINEAS_VENTA).map(([l, t]) => fila(t, s.lineas[l].cuota, s.lineas[l].venta)).join('')}${s.conExtra ? fila('Empleados (sin cuota)', 0, s.conExtra) : ''}${fila('Total', s.cuota, s.venta, 'total')}</tbody></table>
         ${s.extra && !s.conExtra ? `<p class="ayuda">Además, venta a empleados: ${cifra(s.extra)} (sin cuota).</p>` : ''}
@@ -4644,7 +4648,7 @@ function moverMesPanel(n) {
 // visitadas; lo reprogramado y el trabajo interno quedan aparte mientras no se realicen
 const PARTES_ANILLO = [
     { f: 'ok', t: 'Visita Efectiva', c: '#16a34a' }, { f: 'p', t: 'Pendientes', c: '#d97706' },
-    { f: 'no', t: 'Visita No Efectiva', c: '#dc2626' }, { f: 'sin', t: 'No visitadas', c: '#374151' },
+    { f: 'no', t: 'Visita No Efectiva', c: '#f472b6' }, { f: 'sin', t: 'No visitadas', c: '#b91c1c' },
     { f: 'rep', t: 'Reprogramadas', c: '#7c3aed' }, { f: 'repNo', t: 'Reprogramadas no efectivas', c: '#9f1239' }, { f: 'int', t: 'Trabajo Administrativo', c: '#94a3b8' },
     { f: 'intNo', t: 'Trabajo Administrativo no realizado', c: '#475569' },
     { f: 'lead', t: 'Lead visitado', c: '#0891b2' }, { f: 'leadNo', t: 'Lead no visitado', c: '#7dd3e8' },
