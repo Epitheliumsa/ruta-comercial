@@ -308,8 +308,9 @@
                 <select id="panTipo" onchange="filtrarPanel()" aria-label="Tipo de visita"></select>
                 <select id="panEstado" onchange="filtrarPanel()" aria-label="Estado">
                     <option value="">Todos los estados</option>
-                    <option value="visitado">Visitadas / realizadas</option>
-                    <option value="no_visitado">No visitadas / no realizadas</option>
+                    <option value="visitado">Visita Efectiva / realizadas</option>
+                    <option value="no_visitado">Visita No Efectiva / no realizadas</option>
+                    <option value="sin">No visitadas (sin reporte)</option>
                     <option value="pendiente">Pendientes</option>
                 </select>
             </div>
@@ -318,7 +319,7 @@
                 <div class="kpis" id="panKpis"></div>
                 <div class="panel-bloque">
                     <h2>Visitas por día</h2>
-                    <div class="leyenda"><span><i style="background:#0a6647"></i>Visitadas</span><span><i style="background:#e66a5f"></i>No visitadas</span><span><i style="background:#b9c4bf"></i>Pendientes</span></div>
+                    <div class="leyenda"><span><i style="background:#0a6647"></i>Visita Efectiva</span><span><i style="background:#f472b6"></i>Visita No Efectiva</span><span><i style="background:#b91c1c"></i>No visitadas</span><span><i style="background:#b9c4bf"></i>Pendientes</span></div>
                     <div class="grafica" id="grafDias"></div>
                 </div>
                 <div class="panel-dos">

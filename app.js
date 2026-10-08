@@ -1786,7 +1786,7 @@ function filtrarComposicion(v) {
 // al confirmarla se programa la visita (con lo que se va a hacer). Si no se confirma ese día, queda cerrada.
 const visiplan = { mes: sumarMes(mesDe(hoy()), 0), vendedores: null, busca: '', sel: { t: [], e: [], f: [] }, periodo: 'mes', dia: hoy() };
 const INTERNO_ETQ = 'Trabajo Administrativo';
-const NOMBRES_FILTRO_PLAN = { plan: 'Planeados', noplan: 'No planeados', real: 'Con visita real', cump: 'Cumplidos en el día planeado', visit: 'Planeados y visitados', lead: 'Leads' };
+const NOMBRES_FILTRO_PLAN = { plan: 'Planeados', noplan: 'No planeados', real: 'Con visita real', cump: 'Cumplidos en el día planeado', visit: 'Planeados con visita efectiva', lead: 'Leads' };
 let esperaPlan = null;
 
 // En vivo el plan tiene otro id: así el Visiplan de pruebas (capacitaciones) se conserva en la hoja
@@ -1950,7 +1950,7 @@ function pintarVisiplan() {
     if (!visiplan.oculto) pintarMultis($('vpMultis'), 'visiplan', [
         { k: 't', t: 'Tipo de cliente', todos: 'Todos los tipos de cliente', valores: unicos('t'), cuenta: cuentaDe('t') },
         { k: 'e', t: 'Etiqueta', todos: 'Todas las etiquetas', valores: [INTERNO_ETQ, ...unicos('e')], cuenta: { ...cuentaDe('e'), [INTERNO_ETQ]: vista.reduce((n, ven) => n + internosDe(ven.id).length, 0) } },
-        { k: 'f', t: 'Mostrar', todos: 'Todos los clientes', valores: Object.keys(NOMBRES_FILTRO_PLAN), nombre: f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o visitados' }
+        { k: 'f', t: 'Mostrar', todos: 'Todos los clientes', valores: Object.keys(NOMBRES_FILTRO_PLAN), nombre: f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o con visita efectiva' }
     ]);
     const q = normalizar(visiplan.busca);
     document.querySelectorAll('#vpPeriodo button').forEach(b => b.classList.toggle('activo', b.dataset.p === visiplan.periodo));
@@ -2084,14 +2084,14 @@ function actualizarTotalesPlan() {
     const filasCli = [...tabla.querySelectorAll('tbody tr:not(.vp-int):not(.vp-lead):not(.vp-ateneo)')].filter(f => f.querySelector('.vp-x'));
     const nCli = filasCli.length, nPlan = filasCli.filter(f => f.querySelector('.vp-x.on')).length, nVis = filasCli.filter(f => f.querySelector('.vp-r.on')).length;
     if ($('vpPieN')) {
-        $('vpPieN').innerHTML = `<b>${nCli}</b> ${nCli === 1 ? 'cliente' : 'clientes'} · <span class="p">planeados <b>${nPlan}</b> (${pctPlan(nPlan, nCli) || '0%'})</span> · <span class="v">visitados <b>${nVis}</b> (${pctPlan(nVis, nCli) || '0%'})</span>`;
+        $('vpPieN').innerHTML = `<b>${nCli}</b> ${nCli === 1 ? 'cliente' : 'clientes'} · <span class="p">planeados <b>${nPlan}</b> (${pctPlan(nPlan, nCli) || '0%'})</span> · <span class="v">visita efectiva <b>${nVis}</b> (${pctPlan(nVis, nCli) || '0%'})</span>`;
         // Barra de progreso de las visitas: reales frente a las programadas (Obj)
         const avance = T.o ? Math.min(T.r / T.o, 1) : 0, nivel = !T.o ? '' : T.r / T.o >= 0.9 ? 'bueno' : T.r / T.o >= 0.6 ? 'medio' : 'bajo';
         $('vpPieV').innerHTML = `<div class="vp-prog"><div class="vp-barra-prog ${nivel}" title="Visitas reales frente a las programadas"><span style="width:${Math.round(avance * 100)}%"></span></div>`
             + `<small class="vp-barra-txt">Visitas <b>${T.r}</b> de <b>${T.o}</b> · ${pctPlan(T.r, T.o) || '0%'}</small></div>`;
     }
     // Celular: tarjetas grandes con clientes, planeados y visitados
-    $('vpKpis').innerHTML = `<div><b>${nCli}</b><span>Clientes</span></div><div class="p"><b>${nPlan}</b><span>Planeados · ${pctPlan(nPlan, nCli) || '0%'}</span></div><div class="v"><b>${nVis}</b><span>Visitados · ${pctPlan(nVis, nCli) || '0%'}</span></div>`;
+    $('vpKpis').innerHTML = `<div><b>${nCli}</b><span>Clientes</span></div><div class="p"><b>${nPlan}</b><span>Planeados · ${pctPlan(nPlan, nCli) || '0%'}</span></div><div class="v"><b>${nVis}</b><span>Visita Efectiva · ${pctPlan(nVis, nCli) || '0%'}</span></div>`;
     if ($('vpTotP')) {
         $('vpTotP').textContent = T.o; $('vpTotR').textContent = T.r;
         ponPct($('vpTotPct'), T.c, T.o); ponPct($('vpTotVis'), T.r, T.o);
@@ -2196,7 +2196,7 @@ function libroVisiplanPantalla(libro = new ExcelJS.Workbook()) {
     const periodo = visiplan.periodo === 'hoy' ? (visiplan.dia === hoy() ? 'Hoy' : mayuscula(fechaLarga(visiplan.dia))) : { semana: 'Esta semana', mes: 'Mes completo' }[visiplan.periodo];
     const txt = l => l.includes(NINGUNA) ? 'Ninguna' : l.join(', ');
     const filtros = [visiplan.busca && `Búsqueda: ${visiplan.busca}`, txt(visiplan.sel.t), txt(visiplan.sel.e),
-        visiplan.sel.f.includes(NINGUNA) ? 'Ninguno' : visiplan.sel.f.map(f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o visitados').join(', ')].filter(Boolean).join(' · ');
+        visiplan.sel.f.includes(NINGUNA) ? 'Ninguno' : visiplan.sel.f.map(f => NOMBRES_FILTRO_PLAN[f] || 'Planeados o con visita efectiva').join(', ')].filter(Boolean).join(' · ');
     h.getCell('A1').value = `Visiplan del mes · ${mayuscula(nombreMes(visiplan.mes))}`;
     h.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0B5C56' } };
     h.getCell('A2').value = vend;
@@ -2589,7 +2589,7 @@ function filtrarAgenda(f) {
 
 function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     const clase = v.estado === 'visitado' ? 'ok' : v.estado === 'no_visitado' ? 'no' : '';
-    const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visita Efectiva', 'Visita No Efectiva'];
+    const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visita Efectiva', v.cierreAutomatico ? 'No visitada' : 'Visita No Efectiva'];
     const chip = v.estado === 'visitado' ? `<span class="chip ok">${txtOk}</span>`
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
         : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Próxima visita' : 'Reprogramada'}</span>`
@@ -2868,7 +2868,7 @@ function htmlAcompHist(x) {
         const otro = soyDueno ? a.vendedor : a.solicitante;
         const ov = registros[soyDueno ? a.visitaAcomp : a.visitaId];
         const rep = ov && !ov.borrado && ov.estado !== 'pendiente' ? { estado: ov.estado, texto: textoReporte(ov) } : soyDueno ? a.reporteAcomp : a.reporteDueno;
-        const est = rep ? (rep.estado === 'visitado' ? 'Visitado' : 'No visitado') : 'Sin reportar todavía';
+        const est = rep ? (rep.estado === 'visitado' ? 'Visita Efectiva' : 'Visita No Efectiva') : 'Sin reportar todavía';
         return `<div class="acomp-hist">🤝 <b>Visita acompañada</b> con ${esc(nombreVendedor(otro))} · <i>${est}</i>${rep?.texto ? `<br>${esc(rep.texto)}` : ''}</div>`;
     }).join('');
 }
@@ -4065,7 +4065,7 @@ function verAteneo(nombre) {
     const ok = vs.filter(x => x.estado === 'visitado'), equipo = [...new Set(vs.map(x => x.vendedor))];
     const prox = vs.filter(x => x.estado === 'pendiente' && x.fecha >= hoy()).sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
     const at = buscarAteneo(nombre);
-    const est = { visitado: ['ok', 'Visitado'], no_visitado: ['no', 'No visitado'], pendiente: ['p', 'Pendiente'] };
+    const est = { visitado: ['ok', 'Visita Efectiva'], no_visitado: ['no', 'Visita No Efectiva'], pendiente: ['p', 'Pendiente'] };
     abrirModal(`<div class="form-rc ficha historial ateneo-ficha">
         <p class="ateneo-eyebrow"><span class="chip ateneo">Ateneo</span> Visita Ateneo Médico · para todas las zonas</p>
         <h2>${esc(nombre)}</h2>
@@ -4077,7 +4077,7 @@ function verAteneo(nombre) {
             ${prox ? `<span class="chip prox">Próxima: ${esc(fechaCorta(prox.fecha))}</span>` : ''}
             ${equipo.length ? `<span class="chip ateneo">Apoyan: ${esc(equipo.map(primerNombre).join(', '))}</span>` : ''}
         </div>
-        ${vs.map(x => { const [cls, txt] = est[x.estado] || ['p', x.estado];
+        ${vs.map(x => { const [cls, txt] = sinReporte(x) ? ['no', 'No visitada'] : est[x.estado] || ['p', x.estado];
             const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
             return `<div class="hist-item ${cls}"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
                 <p class="meta">${esc([nombreVendedor(x.vendedor), comercial(x.vendedor)?.zona, modalidadDe(x)].filter(Boolean).join(' · '))}</p>
@@ -4124,13 +4124,13 @@ function pintarHistorial() {
     const m = buscarMaestra(zona, nombre) || buscarEnTodas(nombre), p = buscarProyecto(zona, nombre);
     const efectivas = lista.filter(x => x.estado === 'visitado');
     const proxima = lista.filter(x => x.estado === 'pendiente' && x.fecha >= hoy()).sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
-    const estadoTxt = { visitado: ['ok', 'Visitado'], no_visitado: ['no', 'No visitado'], pendiente: ['p', 'Pendiente'] };
+    const estadoTxt = { visitado: ['ok', 'Visita Efectiva'], no_visitado: ['no', 'Visita No Efectiva'], pendiente: ['p', 'Pendiente'] };
     const filtro = { ok: x => x.estado === 'visitado', ultima: x => x === efectivas[0], prox: x => x === proxima }[historial.f] || (() => true);
     const vistas = lista.filter(filtro);
     const boton = (f, clase, html) => `<button type="button" class="chip chip-filtro ${clase}${historial.f === f ? ' activo' : ''}" onclick="filtrarHistorial('${f}')" aria-pressed="${historial.f === f}">${html}</button>`;
     const chipsMes = visitasCliente(nombre).length > 1 ? '<div class="hist-periodos" id="histMeses"></div>' : '';
     const filas = vistas.map(x => {
-        const [cls, txt] = estadoTxt[x.estado] || ['p', x.estado];
+        const [cls, txt] = sinReporte(x) ? ['no', 'No visitada'] : estadoTxt[x.estado] || ['p', x.estado];
         const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
@@ -4656,6 +4656,10 @@ const PARTES_ANILLO = [
 ];
 // Visitas a ateneos: como los leads, van por aparte (no suman con la Maestra de clientes)
 const esVisAteneo = x => !x.interno && tiposDe(x).includes(ATENEO);
+// Nombre del estado de una visita a cliente: Visita Efectiva, Visita No Efectiva (reportada) o No visitada (programada sin reporte)
+const sinReporte = x => !x.interno && ((x.estado === 'no_visitado' && !!x.cierreAutomatico) || (x.estado === 'pendiente' && x.fecha < hoy()));
+const estadoVisitaTxt = x => x.interno ? ({ visitado: 'Realizado', no_visitado: 'No realizado' }[x.estado] || 'Pendiente')
+    : x.estado === 'visitado' ? 'Visita Efectiva' : sinReporte(x) ? 'No visitada' : x.estado === 'no_visitado' ? 'Visita No Efectiva' : 'Pendiente';
 function claseAnillo(x) {
     if (x.esProyecto && !x.interno) return x.estado === 'visitado' ? 'lead' : 'leadNo';   // los leads van por aparte
     if (esVisAteneo(x)) return x.estado === 'visitado' ? 'ateneo' : 'ateneoNo';   // los ateneos también
@@ -4695,11 +4699,12 @@ function cuentaVisitas(todas) {
     const leads = todas.filter(v => !v.interno && v.esProyecto);
     const ateneos = todas.filter(esVisAteneo);
     const ok = lista.filter(v => v.estado === 'visitado').length;
-    const no = lista.filter(v => v.estado === 'no_visitado').length;
+    const sin = lista.filter(sinReporte).length;                                       // programadas sin reporte (No visitadas)
+    const no = lista.filter(v => v.estado === 'no_visitado').length - lista.filter(v => v.estado === 'no_visitado' && sinReporte(v)).length;   // reportadas como no efectivas
     const prog = lista.filter(esProgramada);
     const okProg = prog.filter(v => v.estado === 'visitado').length;
     return {
-        t: lista.length, ok, no, p: lista.length - ok - no,
+        t: lista.length, ok, no, sin, p: lista.length - ok - no - sin,
         prog: prog.length, noProg: lista.length - prog.length, okProg,
         cumpl: prog.length ? okProg / prog.length : 0,
         virtual: lista.filter(v => v.modalidad === 'virtual').length,
@@ -4745,8 +4750,9 @@ function pintarPanel() {
     $('panKpis').innerHTML = `
         <div class="kpi"><small>Programadas</small><b>${c.prog}</b></div>
         <div class="kpi np"><small>No programadas</small><b>${c.noProg}</b></div>
-        <div class="kpi ok"><small>Visitadas</small><b>${c.ok}</b></div>
-        <div class="kpi no"><small>No visitadas</small><b>${c.no}</b></div>
+        <div class="kpi ok"><small>Visita Efectiva</small><b>${c.ok}</b></div>
+        <div class="kpi no"><small>Visita No Efectiva</small><b>${c.no}</b></div>
+        <div class="kpi sin"><small>No visitadas</small><b>${c.sin}</b></div>
         <div class="kpi p"><small>Pendientes</small><b>${c.p}</b></div>
         <div class="kpi"><small>Cumplimiento</small><b>${pct(c)}</b></div>
         <div class="kpi azul"><small>Virtuales</small><b>${c.virtual}</b></div>
@@ -4766,20 +4772,20 @@ function pintarPanel() {
     const t = hoy();
     const deHoy = visibles().filter(x => x.clase === 'visita' && x.fecha === t).filter(pasaFiltro);
     $('panHoyTxt').textContent = mayuscula(fechaLarga(t)) + (nombreFestivo(t) ? ` · Festivo: ${nombreFestivo(t)}` : '');
-    $('panHoy').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">Visit.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th class="n">Trab. interno</th></tr></thead><tbody>`
+    $('panHoy').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">V. efect.</th><th class="n">V. no efect.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th class="n">Trab. interno</th></tr></thead><tbody>`
         + vendedores.map(v => {
             const k = cuentaVisitas(deHoy.filter(x => x.vendedor === v.id));
             const nov = novedadesDe(v.id, t)[0];
             return `<tr><td><b>${esc(v.nombre)}</b><small>${esc(v.zona)}</small>${nov ? `<span class="chip gris">${esc(nov.tipo)}</span>` : ''}</td>
-                <td class="n">${k.prog}</td><td class="n${k.noProg ? ' alerta' : ''}">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.p}</td><td class="n lead">${k.leadsOk}</td><td class="n lead">${k.leadsNo}</td><td class="n">${k.internos}</td></tr>`;
+                <td class="n">${k.prog}</td><td class="n${k.noProg ? ' alerta' : ''}">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.sin}</td><td class="n">${k.p}</td><td class="n lead">${k.leadsOk}</td><td class="n lead">${k.leadsNo}</td><td class="n">${k.internos}</td></tr>`;
         }).join('') + '</tbody>';
 
-    $('panTabla').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">Visit.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Virtual</th><th class="n">Pedidos</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th>Cumplimiento</th><th class="n">Actividades</th></tr></thead><tbody>`
+    $('panTabla').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">V. efect.</th><th class="n">V. no efect.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Virtual</th><th class="n">Pedidos</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th>Cumplimiento</th><th class="n">Actividades</th></tr></thead><tbody>`
         + vendedores.map(v => {
             const k = cuentaVisitas(vis.filter(x => x.vendedor === v.id));
             const a = acts.filter(x => x.vendedor === v.id);
             return `<tr><td><b>${esc(v.nombre)}</b><small>${esc(v.zona)}</small></td>
-                <td class="n">${k.prog}</td><td class="n">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.p}</td><td class="n">${k.virtual}</td><td class="n">${k.pedidos}</td><td class="n lead">${k.leadsOk}</td><td class="n lead">${k.leadsNo}</td>
+                <td class="n">${k.prog}</td><td class="n">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.sin}</td><td class="n">${k.p}</td><td class="n">${k.virtual}</td><td class="n">${k.pedidos}</td><td class="n lead">${k.leadsOk}</td><td class="n lead">${k.leadsNo}</td>
                 <td>${barra(k)}</td><td class="n">${a.filter(x => x.hecha).length}/${a.length}</td></tr>`;
         }).join('') + '</tbody>';
 
@@ -4791,12 +4797,12 @@ function pintarPanel() {
         : '<p class="no-results" style="padding:10px">Sin visitas fallidas este mes.</p>';
 
     // Detalle de cada visita (más recientes primero)
-    const det = vis.filter(v => !filtroPanel.estado || v.estado === filtroPanel.estado)
+    const det = vis.filter(v => !filtroPanel.estado || (filtroPanel.estado === 'sin' ? sinReporte(v) : filtroPanel.estado === 'no_visitado' ? v.estado === 'no_visitado' && !sinReporte(v) : v.estado === filtroPanel.estado && !sinReporte(v)))
         .sort((a, b) => b.fecha.localeCompare(a.fecha) || ordenCita(a, b));
     $('panDetTxt').textContent = `${det.length} ${det.length === 1 ? 'registro' : 'registros'}`;
     $('panDetalle').innerHTML = det.length ? det.map(v => {
-        const est = v.estado === 'visitado' ? `<span class="chip ok">${v.interno ? 'Realizado' : 'Visitado'}</span>`
-            : v.estado === 'no_visitado' ? `<span class="chip no">${v.interno ? 'No realizado' : 'No visitado'}</span>` : '<span class="chip p">Pendiente</span>';
+        const est = v.estado === 'visitado' ? `<span class="chip ok">${estadoVisitaTxt(v)}</span>`
+            : v.estado === 'no_visitado' || sinReporte(v) ? `<span class="chip no">${estadoVisitaTxt(v)}</span>` : '<span class="chip p">Pendiente</span>';
         const cumpl = v.estado === 'visitado' && v.objetivos?.length ? ` · ${cumplidosProgramados(v).length}/${v.objetivos.length} objetivos` : '';
         return `<button class="fila-det" onclick="verDetalleVisita('${v.id}')">
             <span class="fd-fecha">${esc(fechaCorta(v.fecha))}${v.hora ? `<small>${esc(horaBonita(v.hora))}</small>` : ''}</span>
@@ -4808,7 +4814,7 @@ function pintarPanel() {
 
 // ---------- GRÁFICAS DEL PANEL (SVG) ----------
 // Estados: verde = visitado, rojo = no visitado, gris = pendiente (validados para daltonismo con separación de 2px y leyenda)
-const COLOR = { ok: '#0a6647', no: '#e66a5f', p: '#b9c4bf', obj: '#9fd3bd', objOk: '#0a6647', tipo: '#009460' };
+const COLOR = { ok: '#0a6647', no: '#f472b6', sin: '#b91c1c', p: '#b9c4bf', obj: '#9fd3bd', objOk: '#0a6647', tipo: '#009460' };
 
 function pintarGraficaDias(vis) {
     const dias = Number(finDeMes(mesPanel).slice(8));
@@ -4816,9 +4822,9 @@ function pintarGraficaDias(vis) {
     for (let d = 1; d <= dias; d++) {
         const f = `${mesPanel}-${String(d).padStart(2, '0')}`;
         const k = cuentaVisitas(vis.filter(v => v.fecha === f));
-        datos.push({ f, d, ok: k.ok, no: k.no, p: k.p });
+        datos.push({ f, d, ok: k.ok, no: k.no, sin: k.sin, p: k.p });
     }
-    const max = Math.max(4, ...datos.map(x => x.ok + x.no + x.p));
+    const max = Math.max(4, ...datos.map(x => x.ok + x.no + x.sin + x.p));
     const paso = max <= 6 ? 2 : max <= 12 ? 3 : Math.ceil(max / 4);
     const tope = Math.ceil(max / paso) * paso;
     const W = anchoGrafica('grafDias'), H = 220, izq = 30, der = 8, arr = 12, abj = 26;
@@ -4832,7 +4838,7 @@ function pintarGraficaDias(vis) {
     datos.forEach((x, i) => {
         const cx = izq + ancho * i + (ancho - barra) / 2;
         let base = y(0);
-        const tramos = [['ok', x.ok], ['no', x.no], ['p', x.p]].filter(t => t[1] > 0);
+        const tramos = [['ok', x.ok], ['no', x.no], ['sin', x.sin], ['p', x.p]].filter(t => t[1] > 0);
         tramos.forEach(([clave, n], j) => {
             const alto = y(0) - y(n);
             const ultimo = j === tramos.length - 1;
@@ -4840,7 +4846,7 @@ function pintarGraficaDias(vis) {
             svg += ultimo ? rectRedondo(cx, base - alto + hueco, barra, alto - hueco, COLOR[clave]) : `<rect x="${cx}" y="${base - alto + hueco}" width="${barra}" height="${Math.max(0, alto - hueco)}" fill="${COLOR[clave]}"/>`;
             base -= alto;
         });
-        const tip = `${fechaCorta(x.f)}: ${x.ok} visitadas · ${x.no} no visitadas · ${x.p} pendientes`;
+        const tip = `${fechaCorta(x.f)}: ${x.ok} Visita Efectiva · ${x.no} Visita No Efectiva · ${x.sin} No visitadas · ${x.p} pendientes`;
         svg += `<rect x="${izq + ancho * i}" y="${arr}" width="${ancho}" height="${H - arr - abj}" fill="transparent" data-tip="${esc(tip)}"/>`;
         if (x.d === 1 || x.d % 5 === 0) svg += `<text x="${cx + barra / 2}" y="${H - 8}" class="g-eje" text-anchor="middle">${x.d}</text>`;
     });
@@ -4921,7 +4927,7 @@ document.addEventListener('pointermove', e => {
 function verDetalleVisita(id) {
     const v = registros[id];
     const fila = (t, x) => x ? `<strong>${t}</strong><p>${esc(x)}</p>` : '';
-    const estado = v.estado === 'visitado' ? (v.interno ? 'Realizado' : 'Visitado') : v.estado === 'no_visitado' ? (v.interno ? 'No realizado' : 'No visitado') : 'Pendiente';
+    const estado = estadoVisitaTxt(v);
     const cumplidos = v.objetivosCumplidos || [];
     abrirModal(`<div class="form-rc ficha">
         <h2>${esc(v.contacto)}</h2>
@@ -5011,7 +5017,7 @@ function armarLibro(mes, vend, solo) {
     const libro = new ExcelJS.Workbook();
     libro.creator = 'Visita Comercial';
     const verde = 'FF006B4F';
-    const estadoTxt = { visitado: 'Visitado', no_visitado: 'No visitado', pendiente: 'Pendiente' };
+    const estadoTxt = { visitado: 'Visita Efectiva', no_visitado: 'Visita No Efectiva', pendiente: 'Pendiente' };
     // ExcelJS guarda las fechas en UTC: se arman en UTC para que no se corran de día
     const fecha = s => { if (!s) return null; const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
     // vend: un vendedor, varios (lista, solo para el Visiplan) o todos ('')
@@ -5051,7 +5057,7 @@ function armarLibro(mes, vend, solo) {
     const r = hoja('Resumen');
     const colsR = [
         { t: 'Vendedor', w: 22 }, { t: 'Zona', w: 20 }, { t: 'Programadas', w: 13 }, { t: 'No programadas', w: 16 },
-        { t: 'Visitadas', w: 12 }, { t: 'No visitadas', w: 13 }, { t: 'Pendientes', w: 12 }, { t: 'Cumplimiento', w: 14, f: '0%' },
+        { t: 'Visita Efectiva', w: 14 }, { t: 'Visita No Efectiva', w: 17 }, { t: 'No visitadas', w: 13 }, { t: 'Pendientes', w: 12 }, { t: 'Cumplimiento', w: 14, f: '0%' },
         { t: 'Presenciales', w: 13 }, { t: 'Virtuales', w: 11 }, { t: 'Pedidos', w: 10 }, { t: 'Valor pedidos', w: 16, f: '"$" #,##0' },
         { t: 'Lead visitado', w: 13 }, { t: 'Lead no visitado', w: 15 },
         { t: 'Trabajo Administrativo', w: 15 }, { t: 'Actividades', w: 12 }, { t: 'Act. realizadas', w: 15 }
@@ -5061,7 +5067,7 @@ function armarLibro(mes, vend, solo) {
         const k = cuentaVisitas(lv);
         const la = acts.filter(x => x.vendedor === v.id);
         const valor = lv.filter(x => x.pedido === 'si').reduce((s, x) => s + (Number(x.valorPedido) || 0), 0);
-        return [v.nombre, v.zona, k.prog, k.noProg, k.ok, k.no, k.p, k.cumpl, k.t - k.virtual, k.virtual, k.pedidos, valor,
+        return [v.nombre, v.zona, k.prog, k.noProg, k.ok, k.no, k.sin, k.p, k.cumpl, k.t - k.virtual, k.virtual, k.pedidos, valor,
             k.leadsOk, k.leadsNo, k.internos, la.length, la.filter(x => x.hecha).length];
     }));
 
@@ -5087,7 +5093,7 @@ function armarLibro(mes, vend, solo) {
         v.estado === 'visitado' ? (v.objetivosCumplidos || []).join(', ') : '', v.estado === 'visitado' ? textoSubsExcel(v.subCumplidos) : '',
         v.estado === 'visitado' && v.objetivos?.length ? cumplidosProgramados(v).length / v.objetivos.length : null,
         v.esProyecto ? 'Sí' : v.eraProyecto ? 'Vinculado' : '', v.objetivo || '',
-        (v.interno ? { visitado: 'Realizado', no_visitado: 'No realizado' }[v.estado] : null) || estadoTxt[v.estado] || v.estado, v.gestion || '', v.atendio || '', v.productos || '', v.muestras || '',
+        estadoVisitaTxt(v), v.gestion || '', v.atendio || '', v.productos || '', v.muestras || '',
         v.pedido === 'si' ? 'Sí' : v.estado === 'visitado' ? 'No' : '', textoPedidos(v), textoSelProductos(v.productosPedidos),
         v.compromisos || '', v.motivo || '', fecha(v.reprogramadaPara), v.observaciones || '',
         v.estado === 'pendiente' ? null : horaCol(v.registrada),
