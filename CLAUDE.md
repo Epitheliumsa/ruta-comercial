@@ -150,6 +150,10 @@
 - Ver: los jefes (Jennifer y Hernán) ven todo, con Empleados incluido en el total; cada comercial solo su zona
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
 
+## Anillos del Plan de Trabajo
+- Día, Acumulado de la semana y Acumulado del mes: toda parte de los tres se puede tocar. El del día filtra la lista del día
+  (`an:<parte>`); los de semana y mes (`an-semana:<parte>`, `an-mes:<parte>`) muestran esas visitas agrupadas por día. "Quitar filtro" vuelve.
+
 ## Módulo de Logística (`logistica.js`)
 - Usuarios: Javier Arjona (Coordinador Logístico, `coordLogistica`), Eric Ovalle y Deelan Barrero (auxiliares de domicilios y mensajería).
   Javier programa las paradas de sus auxiliares y también se puede asignar paradas a sí mismo (`MENSAJEROS` lo incluye de último).

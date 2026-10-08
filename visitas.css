@@ -1846,3 +1846,5 @@ body.es-logistica #btnLogistica { order: -1; }
 .lg-filtro-act i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .lg-anillo svg text { pointer-events: none; }
 #logResumen:not(:empty) { max-width: 1240px; margin: 8px auto 0; padding: 0 15px; align-items: center; }
+.anillo-dia.fijo.clic .anillo-ley li { cursor: pointer; }
+.anillo-dia svg text { pointer-events: none; }

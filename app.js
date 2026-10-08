@@ -2501,6 +2501,18 @@ function pintarAgenda() {
     const bloquePlan = abiertas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${abiertas.length} ${abiertas.length === 1 ? 'cliente planeado' : 'clientes planeados'}</p>${abiertas.map(tarjetaPlan).join('')}</div>` : '';
     const bloqueCerradas = cerradas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${cerradas.length} ${cerradas.length === 1 ? 'planeado no confirmado' : 'planeados no confirmados'}</p>${cerradas.map(tarjetaPlan).join('')}</div>` : '';
     const cont = $('agLista');
+    const porPeriodo = /^an-(semana|mes):(.+)$/.exec(agenda.filtro || '');
+    if (porPeriodo) {
+        const [, per, parteF] = porPeriodo, parte = PARTES_ANILLO.find(x => x.f === parteF);
+        const vp = (per === 'semana' ? deSemana : delMes).filter(x => claseAnillo(x) === parteF).filter(pasaBusca)
+            .sort((a, b) => a.fecha.localeCompare(b.fecha) || vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || ordenCita(a, b));
+        const porDia = {};
+        vp.forEach(x => (porDia[x.fecha] = porDia[x.fecha] || []).push(x));
+        cont.innerHTML = `<p class="grupo-titulo filtro-activo">${esc(parte?.t || '')} · ${per === 'semana' ? 'acumulado de la semana' : 'acumulado del mes'} · ${vp.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>`
+            + (Object.entries(porDia).map(([d, xs]) => `<p class="grupo-titulo">${esc(mayuscula(fechaLarga(d)))} · ${xs.length}</p>` + xs.map(x => tarjetaVisita(x, null, null, varios)).join('')).join('')
+                || '<div class="no-results">No hay visitas con este filtro.</div>');
+        return;
+    }
     if (!lista.length && !novs.length && !plan.length) {
         cont.innerHTML = tarjetasInvitaciones() + tarjetasCumple + `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>` + eliminadasDe(vs, f).map(tarjetaEliminada).join('');
         return;
@@ -4657,16 +4669,17 @@ function anilloDia(lista, titulo, conFiltro = true, periodo = '') {
         .filter(x => x.n || x.f === 'ok' || x.f === 'no');
     const R = 42, C = 2 * Math.PI * R, hueco = partes.filter(x => x.n).length > 1 ? 2 : 0;
     const porc = (n) => Math.round(n / total * 100) + '%';
-    const clic = x => conFiltro ? ` onclick="filtrarAgenda('an:${x.f}')"` : '';
+    const llave = x => conFiltro ? 'an:' + x.f : periodo ? `an-${periodo}:${x.f}` : '';
+    const clic = x => llave(x) ? ` onclick="filtrarAgenda('${llave(x)}')"` : '';
     let ac = 0;
     const arcos = partes.filter(x => x.n).map(x => {
-        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)"${clic(x)}${conFiltro ? ' style="cursor:pointer"' : ''}><title>${x.t}: ${x.n} (${porc(x.n)})</title></circle>`;
+        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)"${clic(x)}${llave(x) ? ' style="cursor:pointer"' : ''}><title>${x.t}: ${x.n} (${porc(x.n)})</title></circle>`;
         ac += largo;
         return arco;
     }).join('');
     const [vis, ...resto] = partes;
-    const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${conFiltro && agenda.filtro === 'an:' + x.f ? ' activo' : ''}"${clic(x)}><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
-    return `<div class="anillo-dia${conFiltro ? '' : ' fijo'}" data-p="${periodo}"><svg viewBox="0 0 110 110" role="img" aria-label="${esc(titulo)}">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
+    const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${llave(x) && agenda.filtro === llave(x) ? ' activo' : ''}"${clic(x)}><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
+    return `<div class="anillo-dia${conFiltro ? '' : ' fijo'}${periodo ? ' clic' : ''}" data-p="${periodo}"><svg viewBox="0 0 110 110" role="img" aria-label="${esc(titulo)}">${`<circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>`}${arcos}
             <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">${total === 1 ? 'visita' : 'visitas'}</text></svg>
         <div class="anillo-cuerpo"><p class="anillo-titulo">${titulo.split(' · ').map((x, i) => i ? `<b>${esc(x)}</b>` : `<span>${esc(x)}</span>`).join('')}</p><ul class="anillo-ley">${fila(vis, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div></div>`;
 }
