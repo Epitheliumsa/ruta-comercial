@@ -183,6 +183,8 @@
   o "Galería o captura"). El historial del cliente muestra la hora del reporte. Las fotos se reducen en el
   teléfono y se suben a Drive (carpeta "Ruta Comercial - Entregas de logística") en segundo plano; si no hay señal quedan
   pendientes en el teléfono y se reintentan en cada sincronización.
+- No entregado: "¿Qué se hace?" (opcional) → 📅 Reprogramar (fecha y hora; crea una parada nueva pendiente con lo mismo,
+  `vieneDe` = fecha original) o 🏢 Devolver a la oficina (`reporte.accion`). En comercial, "Reprogramar para" también lleva hora.
 - Lo reportado queda bloqueado: solo el coordinador (o el administrador) lo reabre para corregir y el reporte anterior queda en `correcciones`.
 - Conexión con lo comercial: cada parada con cliente de la Maestra guarda `zona` y `comercial` (el vendedor de la zona). Ese comercial
   la ve en el historial del cliente y en "Entregas a tus clientes" (solo lectura); la jefe comercial ve todo lo de clientes; el administrador, todo.

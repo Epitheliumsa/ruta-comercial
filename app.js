@@ -3922,8 +3922,9 @@ function abrirRegistro(id, tipo) {
             ${v.interno ? `<div class="fila-fecha compacta"><div><label for="nRepro">Fecha para programar <small>(opcional)</small></label>
                 <input id="nRepro" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div>
                 <div><label for="nReproHora">Hora <small>(opcional)</small></label><input id="nReproHora" type="time" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div></div>`
-            : `<label for="nRepro">Reprogramar para (opcional)</label>
-            <input id="nRepro" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}>`}
+            : `<div class="fila-fecha compacta"><div><label for="nRepro">Reprogramar para <small>(opcional)</small></label>
+                <input id="nRepro" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div>
+                <div><label for="nReproHora">Hora <small>(opcional)</small></label><input id="nReproHora" type="time" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div></div>`}
             <label for="nObs">Observaciones ${REQ} <small>(máximo 100 caracteres)</small></label>
             <textarea id="nObs" required maxlength="100" oninput="$('nObsCuenta').textContent = this.value.length + ' / 100'" placeholder="${v.interno ? 'Ej: se movió por reunión con gerencia' : 'Ej: la doctora estaba en cirugía'}">${esc(ya ? v.observaciones : '')}</textarea>
             <p class="ayuda cuenta-nota" id="nObsCuenta">${(ya ? v.observaciones || '' : '').length} / 100</p>
