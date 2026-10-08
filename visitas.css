@@ -1837,3 +1837,6 @@ body.es-logistica .mc-periodo-btn { display: none; }
 .form-rc .lg-dir-entrega { background: #f1f8f6; border: 1px solid #d5e6e1; border-radius: 10px; padding: 10px 12px; font-size: 13.5px; line-height: 1.5; color: #2f4f47; margin: 4px 0 6px; }
 .form-rc .lg-dir-entrega a { color: inherit; font-weight: 700; }
 .form-rc .lg-cambiar { display: inline-flex; margin: 0 0 6px; }
+/* Logística: su módulo va de primero en el inicio (para los demás, después de Leads) */
+body.es-logistica .home-menu .home-intro { order: -2; }
+body.es-logistica #btnLogistica { order: -1; }
