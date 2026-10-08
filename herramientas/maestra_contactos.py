@@ -6,6 +6,7 @@ Uso:  python3 herramientas/maestra_contactos.py <Maestra_de_Contactos.xlsx> [AAA
 
 Reglas (definidas por Hernán Reyes):
 - No se suben las columnas QUITAR ("Nombre" y "Lista de Precios"); el nombre que usa la app es "Nombre Público".
+- Tampoco los datos personales (PRIVADAS: correo, documento, dirección, teléfonos).
 - El equipo "Empleados" no se sube.
 - La zona sale del comercial (COMERCIAL_ZONA); si no está ahí, de "Equipo de ventas".
   Lo que dice "Vacante Epithelium" es de Yunelis Caballero (Zona Sur).
@@ -18,6 +19,10 @@ import openpyxl
 
 RAIZ = Path(__file__).resolve().parent.parent
 QUITAR = {'Nombre', 'Lista de Precios'}
+# Datos personales: nunca se suben al repositorio (es público). Las direcciones y teléfonos van al Google Sheet
+# desde la app (Maestra > "Subir direcciones", solo el administrador).
+PRIVADAS = {'Correo electrónico', 'Document Type', 'Número de Identificación', 'Calle', 'Calle2', 'Teléfono', 'Móvil'}
+QUITAR |= PRIVADAS
 NO_SUBIR_EQUIPOS = {'Empleados'}
 ZONAS = ['Clientes Especiales', 'Zona Norte', 'Zona Sur', 'Zona Desarrollo']
 COMERCIAL_ZONA = {
