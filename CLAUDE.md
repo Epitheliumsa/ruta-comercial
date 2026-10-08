@@ -160,7 +160,7 @@
   `vendedor` = mensajero asignado. `hora` opcional = cita a hora fija: esas paradas van primero, por hora, y no se mueven con Subir/Bajar.
 - Formulario (orden): fecha, hora (si es fija) y mensajero → cliente (Maestra) → dirección y teléfono (salen solos; editables) →
   tipo de parada → datos del tipo. Bloque "Factura" (`documentos: [{clase, ov, ovi}]`; en pantalla solo A y B): Producto Terminado = A (OVI);
-  Magistral Individual = B (OV) y/u A (OVI), basta una; Magistral de Pedido = B (OV). Facturas y nota crédito RNC: 6 cifras,
+  Magistral Individual = A (OVI) y/o B (OV), basta una (primero A); Magistral de Pedido = B (OV). Facturas y nota crédito RNC: 6 cifras,
   se completan con ceros a la izquierda (`seisCifras`: 58 → 000058).
   Entregas y envíos exigen al menos una clase con sus números
   (una entrega sin pedido vale si recoge devolución o PQR).
@@ -172,6 +172,13 @@
   calle y teléfonos): el administrador sube la Maestra de Odoo en Logística > "📇 Direcciones"; va a la hoja "Directorio" del Google Sheet
   (acciones `directorio` y `guardarDirectorio` en `Codigo.gs`). Logística, jefes y administrador traen todo; cada comercial, solo su zona
   (columna Zona). Se ven en la tarjeta del cliente (Maestra) y llenan solos la parada; si no hay, se usa la última parada a ese cliente.
+- Envío fuera de Bogotá: al programar solo se marca la factura. Al reportar "Enviado" se llenan ciudad de destino (sale la del
+  cliente en formato de municipios, `ciudadCliente`; si se cambia se piden dirección y teléfono de allá: `dirDestino`, `telDestino`),
+  transportadora (lista de las usadas antes) y número de guía; quedan en la parada (`destino`, `transportadora`) y en el Excel.
+- Memoria: al reportar sale la lista de quienes recibieron antes en ese cliente (`antesCliente`); en el cierre de visita comercial,
+  la de quienes atendieron antes (`htmlAtendioAntes`).
+- Ficha del cliente: visitas (verde azulado) y entregas (naranja) con etiqueta y título de sección; botones por cada día con movimiento
+  (🤝 visitas, 🚚 entregas) y "Ver un día" con calendario: muestra todo lo que pasó ese día (`historial.dia`).
 - Reporte: entregado / no entregado (con motivo), quién recibió, guía (envíos), novedades, hasta 4 fotos ("Tomar foto" con la cámara
   o "Galería o captura"). El historial del cliente muestra la hora del reporte. Las fotos se reducen en el
   teléfono y se suben a Drive (carpeta "Ruta Comercial - Entregas de logística") en segundo plano; si no hay señal quedan

@@ -3869,7 +3869,8 @@ function abrirRegistro(id, tipo) {
         abrirModal(`<form class="form-rc" novalidate onsubmit="guardarVisitado(event, '${id}')">
             <h2>Cierre de Visita</h2>${cab}
             ${esVisAteneo(v) ? '<input type="hidden" id="rAtendio" value="">' : `<label for="rAtendio">¿Quién atendió? ${REQ}</label>
-            <input id="rAtendio" required value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo" onblur="this.value = nombrePropio(this.value)">`}
+            <input id="rAtendio" list="dlAtendio" required value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo" onblur="this.value = nombrePropio(this.value)">
+            ${htmlAtendioAntes(v)}`}
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
@@ -4073,12 +4074,29 @@ function verAteneo(nombre) {
 }
 
 function verCliente(nombre, vendedor) {
-    historial = { nombre, vendedor, f: '', sel: { a: [], s: [], t: [], m: [] } };
+    historial = { nombre, vendedor, f: '', dia: '', sel: { a: [], s: [], t: [], m: [] } };
     MULTI.historial.abierto = null; MULTI.historial.nivel = null;
 
     pintarHistorial();
 }
 function filtrarHistorial(f) { historial.f = historial.f === f ? '' : f; pintarHistorial(); }
+// Ver todo lo que pasó con el cliente un día (visitas y entregas); tocar el mismo día otra vez lo quita
+function diaHistorial(d) { historial.dia = historial.dia === d ? '' : (d || ''); pintarHistorial(); }
+// Días con movimiento del cliente: visitas (no para logística) y entregas, los más recientes primero
+function diasCliente(nombre) {
+    const dias = {};
+    (esLogistica() ? [] : visitasCliente(nombre)).forEach(x => { (dias[x.fecha] = dias[x.fecha] || { v: 0, l: 0 }).v++; });
+    entregasCliente(nombre).forEach(x => { (dias[x.fecha] = dias[x.fecha] || { v: 0, l: 0 }).l++; });
+    return Object.entries(dias).sort((a, b) => b[0].localeCompare(a[0]));
+}
+function htmlDiasCliente(nombre) {
+    const dias = diasCliente(nombre), sel = historial.dia;
+    if (!dias.length) return '';
+    return `<div class="hist-dias">
+        <label class="hist-dia-pick">📅 Ver un día <input type="date" value="${esc(sel)}" onchange="historial.dia = ''; diaHistorial(this.value)"></label>
+        <div class="hist-dia-btns">${sel ? `<button type="button" class="chip chip-filtro gris" onclick="diaHistorial('')">✕ Todos los días</button>` : ''}${dias.map(([d, n]) => `<button type="button" class="chip chip-filtro hist-dia${sel === d ? ' activo' : ''}" onclick="diaHistorial('${d}')" aria-pressed="${sel === d}">${esc(fechaCorta(d))}${n.v ? ` <span class="hist-n v">🤝${n.v}</span>` : ''}${n.l ? ` <span class="hist-n l">🚚${n.l}</span>` : ''}</button>`).join('')}</div>
+    </div>`;
+}
 const visitasCliente = nombre => visibles().filter(x => x.clase === 'visita' && !x.interno && normalizar(x.contacto) === normalizar(nombre))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 const valoresHistorial = k => [...new Set(visitasCliente(historial.nombre).map(x => PERIODOS_HIST[k].de(x.fecha)))].sort();
@@ -4086,7 +4104,8 @@ const pasaPeriodo = (k, x) => { const sel = historial.sel[k]; return !sel.length
 function pintarHistorial() {
     const { nombre, vendedor } = historial;
     const conFiltroPeriodo = Object.values(historial.sel).some(l => l.length);
-    const lista = visitasCliente(nombre).filter(x => Object.keys(PERIODOS_HIST).every(k => pasaPeriodo(k, x)));
+    const dia = historial.dia;
+    const lista = visitasCliente(nombre).filter(x => dia ? x.fecha === dia : Object.keys(PERIODOS_HIST).every(k => pasaPeriodo(k, x)));
     const zona = comercial(vendedor)?.zona;
     const m = buscarMaestra(zona, nombre) || buscarEnTodas(nombre), p = buscarProyecto(zona, nombre);
     const efectivas = lista.filter(x => x.estado === 'visitado');
@@ -4101,7 +4120,7 @@ function pintarHistorial() {
         const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
-            <p class="meta">${esc([nombreTipo(x), modalidadDe(x), nombreVendedor(x.vendedor)].filter(Boolean).join(' · '))}</p>
+            <p class="meta"><span class="hist-tag v">Visita</span>${esc([nombreTipo(x), modalidadDe(x), nombreVendedor(x.vendedor)].filter(Boolean).join(' · '))}</p>
             ${partes.filter(Boolean).length ? `<div class="reporte">${partes.filter(Boolean).join('<br>')}</div>` : ''}
             ${htmlAcompHist(x)}
         </div>`;
@@ -4111,16 +4130,19 @@ function pintarHistorial() {
         <p class="sub">${esc([m?.e || (p ? etiquetaLead(p.tipo) : ''), m?.c || p?.ciudad || ''].filter(Boolean).join(' · '))}</p>
         ${htmlDirectorioCliente(nombre)}
         ${m && (m.cl || m.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(m.cl || '')}</b>${m.ca ? ' · ' + esc(m.ca) : ''}</p>` : ''}
-        ${esLogistica() ? '' : chipsMes}
-        <div class="resumen-dia hist-resumen"${esLogistica() ? ' hidden' : ''}>
+        ${esLogistica() || dia ? '' : chipsMes}
+        ${htmlDiasCliente(nombre)}
+        ${dia ? `<p class="hist-dia-titulo">Lo que pasó el ${esc(fechaLarga(dia))}</p>` : ''}
+        <div class="resumen-dia hist-resumen"${esLogistica() || dia ? ' hidden' : ''}>
             ${boton('', 'gris', `<b>${lista.length}</b> ${lista.length === 1 ? 'visita' : 'visitas'}`)}
             ${boton('ok', 'ok', `${efectivas.length} efectivas`)}
             ${efectivas[0] ? boton('ultima', 'gris', `Última: ${esc(fechaCorta(efectivas[0].fecha))}`) : ''}
             ${proxima ? boton('prox', 'prox', `Próxima: ${esc(fechaCorta(proxima.fecha))}`) : ''}
         </div>
-        ${!esLogistica() && (historial.f || conFiltroPeriodo) ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${visitasCliente(nombre).length}</p>` : ''}
-        ${esLogistica() ? '' : filas || `<div class="no-results">${visitasCliente(nombre).length ? 'No hay visitas con este filtro.' : 'Todavía no hay visitas registradas para este cliente.'}</div>`}
-        ${htmlEntregasCliente(nombre)}
+        ${!esLogistica() && !dia && (historial.f || conFiltroPeriodo) ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${visitasCliente(nombre).length}</p>` : ''}
+        ${esLogistica() || (dia && !vistas.length) ? '' : `<p class="grupo-titulo hist-sec v">🤝 Visitas · ${vistas.length}</p>` + (filas || `<div class="no-results">${visitasCliente(nombre).length ? 'No hay visitas con este filtro.' : 'Todavía no hay visitas registradas para este cliente.'}</div>`)}
+        ${htmlEntregasCliente(nombre, dia)}
+        ${dia && !vistas.length && !entregasCliente(nombre).some(r => r.fecha === dia) ? '<div class="no-results">Ese día no hubo visitas ni entregas a este cliente.</div>' : ''}
         <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
     </div>`);
     if ($('histMeses')) {
@@ -4131,6 +4153,16 @@ function pintarHistorial() {
             return { k, t: d.t, todos: d.todos, valores, nombre: d.nombre, cuenta: Object.fromEntries(valores.map(v => [v, base.filter(x => d.de(x.fecha) === v).length])) };
         }));
     }
+}
+
+// Quiénes han atendido antes en ese cliente (los más recientes primero): lista para escoger y botones rápidos
+function htmlAtendioAntes(v) {
+    const previas = visibles().filter(x => x.clase === 'visita' && x.id !== v.id && x.atendio && normalizar(x.contacto) === normalizar(v.contacto))
+        .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    const nombres = [...new Set(previas.map(x => x.atendio))];
+    if (!nombres.length) return '';
+    return `<datalist id="dlAtendio">${nombres.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+        <div class="lg-chips lg-recibio"><small>Antes atendieron:</small>${nombres.slice(0, 4).map(x => `<button type="button" class="lg-chip-btn" data-v="${esc(x)}" onclick="$('rAtendio').value = this.dataset.v">${esc(x)}</button>`).join('')}</div>`;
 }
 
 function guardarInternoRealizado(e, id) {

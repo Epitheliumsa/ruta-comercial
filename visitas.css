@@ -1815,3 +1815,22 @@ body.es-logistica .mc-periodo-btn { display: none; }
 .form-rc .lg-foto-btn { display: flex; align-items: center; justify-content: center; margin: 0; padding: 10px 8px; text-align: center; text-transform: none; letter-spacing: 0; cursor: pointer; font-size: 14px; }
 .dir-cliente { margin: 4px 0 6px; font-size: 13.5px; line-height: 1.5; color: #2f4f47; }
 .dir-cliente a { color: inherit; font-weight: 700; }
+/* Memoria de quién recibió / atendió antes */
+.form-rc .lg-recibio { margin: 4px 0 8px; align-items: center; }
+.form-rc .lg-recibio small { color: #5a716d; font-size: 12px; margin-right: 2px; }
+.lg-chip-btn { border: 1px solid #c9dcd6; background: #f1f8f6; color: #2f4f47; border-radius: 99px; padding: 4px 10px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.lg-chip-btn:hover { background: #dff0eb; }
+/* Ficha del cliente: visitas (verde azulado) y entregas (naranja) bien diferenciadas, y filtro por día */
+.hist-tag { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px; }
+.hist-tag.v { background: #d7f0ea; color: #0b5c56; }
+.hist-tag.l { background: #ffe6cc; color: #b4530b; }
+.grupo-titulo.hist-sec { padding: 6px 10px; border-radius: 8px; margin-top: 12px; }
+.grupo-titulo.hist-sec.v { background: #e3f4f0; color: #0b5c56; }
+.grupo-titulo.hist-sec.l { background: #fff0e0; color: #b4530b; }
+.hist-dias { display: grid; gap: 6px; margin: 6px 0 4px; }
+.hist-dia-pick { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: #2f4f47; text-transform: none; letter-spacing: 0; margin: 0; }
+.hist-dia-pick input { width: auto; margin: 0; padding: 4px 8px; }
+.hist-dia-btns { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.hist-dia-btns .chip { flex: 0 0 auto; white-space: nowrap; }
+.hist-n { font-weight: 800; font-size: 11px; }
+.hist-dia-titulo { margin: 8px 0 0; font-weight: 800; color: #17302d; }
