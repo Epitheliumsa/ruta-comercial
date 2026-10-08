@@ -44,6 +44,12 @@ def zona_de(comercial, equipo):
             return zona
     return equipo if equipo in ZONAS else None
 
+# Algunas exportaciones de Odoo traen otros nombres de columna: el plazo puede venir como "Condiciones de pago de cliente".
+# Si la maestra no trae "Provincia" (departamento), se conserva la que ya tenía cada cliente.
+COL_PLAZO = next((n for n in ('Plazos de Pago', 'Condiciones de pago de cliente') if n in col), None)
+anterior = json.loads((RAIZ / 'contactos.json').read_text(encoding='utf-8'))
+provincia_ant = {x['n']: x.get('p', '') for l in anterior.values() for x in l}
+
 nuevo, sin_zona = {z: [] for z in ZONAS}, []
 filas_limpias = []
 for fila in ws.iter_rows(min_row=2, values_only=True):
@@ -62,17 +68,16 @@ for fila in ws.iter_rows(min_row=2, values_only=True):
         continue
     # n nombre, c ciudad, e etiquetas, t título, p provincia, f cliente para facturar, cl clasificación, ca categoría, pz plazo de pago
     facturar = fila[col['Cliente para Facturar']] if 'Cliente para Facturar' in col else None
-    extra = {'t': val('Título') if 'Título' in col else '', 'p': val('Provincia') if 'Provincia' in col else '',
+    extra = {'t': val('Título') if 'Título' in col else '', 'p': val('Provincia') if 'Provincia' in col else provincia_ant.get(nombre, ''),
              'f': facturar in (True, 'True', 'true', 1, 'Sí', 'Si'),
              'cl': val('Categoría de cliente/Clasificación') if 'Categoría de cliente/Clasificación' in col else '',
              'ca': val('Categoría de cliente') if 'Categoría de cliente' in col else '',
-             'pz': val('Plazos de Pago') if 'Plazos de Pago' in col else ''}
+             'pz': val(COL_PLAZO) if COL_PLAZO else ''}
     nuevo[zona].append({'n': nombre, 'c': val('Ciudad'), 'e': val('Etiquetas'), **{k: v for k, v in extra.items() if v not in ('', None)}})
     filas_limpias.append([fila[i] for i, n in enumerate(cab) if n not in QUITAR] + [zona])
 for z in ZONAS:
     nuevo[z].sort(key=lambda x: x['n'].lower())
 
-anterior = json.loads((RAIZ / 'contactos.json').read_text(encoding='utf-8'))
 zona_ant = {x['n']: z for z, l in anterior.items() for x in l}
 zona_new = {x['n']: z for z, l in nuevo.items() for x in l}
 cambios = [(n, 'nuevo', '', z) for n, z in zona_new.items() if n not in zona_ant] \
