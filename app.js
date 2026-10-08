@@ -2473,7 +2473,7 @@ function pintarAgenda() {
     $('agAnillo').innerHTML = (delMes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '') + franjaVentas(vs, mesDe(f), f);
     // + Programar: no se programa en días que ya pasaron (en pruebas sigue abierto)
     const pasado = f < t;
-    document.querySelectorAll('.btn-programar').forEach(b => { b.disabled = pasado; b.title = pasado ? 'Este día ya pasó: no se puede programar' : ''; });
+    document.querySelectorAll('#agendaScreen .btn-programar').forEach(b => { b.disabled = pasado; b.title = pasado ? 'Este día ya pasó: no se puede programar' : ''; });
     $('agResumen').innerHTML = lista.length
         ? boton('prog', 'prog', `<b>${k.prog}</b> ${k.prog === 1 ? 'programada' : 'programadas'}`)
             + (k.noProg ? boton('noProg', 'np', `${k.noProg} no programadas`) : '')

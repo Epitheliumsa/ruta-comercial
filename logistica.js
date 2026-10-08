@@ -96,6 +96,7 @@ function pintarLog() {
     $('logFechaTxt').textContent = f === t ? 'Hoy, ' + fechaLarga(f) : mayuscula(fechaLarga(f));
     $('logFechaPick').value = f;
     $('logProgramar').hidden = lectura;
+    $('logProgramar').disabled = false; $('logProgramar').title = '';   // Logística programa desde hoy, a cualquier hora
     $('logDescargar').hidden = !(esCoordLog() || esAdmin() || esJefe());
     $('logDirectorio').hidden = !esAdmin();
     const todos = logVisibles();
