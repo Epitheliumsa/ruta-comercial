@@ -73,7 +73,7 @@ function pintarInicioLog() {
     const ver = esLogistica() || esJefe() || esComercial();
     b.style.display = ver ? '' : 'none';
     if (!ver) return;
-    b.querySelector('strong').textContent = tituloModuloLog();
+    b.querySelector('strong').innerHTML = `${esc(tituloModuloLog())} <span class="en-pruebas">- en pruebas</span>`;   // mientras arranca
     const hoyL = logVisibles().filter(r => r.fecha === hoy());
     const pend = hoyL.filter(r => r.estado === 'pendiente').length;
     $('homeLogTxt').textContent = hoyL.length ? `Hoy: ${hoyL.length} ${hoyL.length === 1 ? 'parada' : 'paradas'}${pend ? ` · ${pend} pendientes` : ' · todas reportadas'}`
