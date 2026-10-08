@@ -153,11 +153,16 @@
 ## Módulo de Logística (`logistica.js`)
 - Usuarios: Javier Arjona (Coordinador Logístico, `coordLogistica`), Eric Ovalle y Deelan Barrero (auxiliares de domicilios y mensajería).
   Tipo de usuario `logistica` (en `app.js` y `backend/Codigo.gs`): solo ven Logística, Maestra Clientes (todas las zonas) y el Vademécum.
-- Registro `logistica` = una parada de la ruta. Se puede escoger **varios tipos** (`tipos`; `tipo` = el primero): entrega, envío fuera de
-  Bogotá, recolección en proveedor, vuelta de un área, devolución, PQR. `vendedor` = mensajero asignado.
-- Formulario (orden): fecha y mensajero → cliente (Maestra) → dirección y teléfono (salen solos; editables) → tipos de parada →
-  clases de pedido → datos del tipo. Clases de pedido (`documentos: [{clase, ov, ovi}]`): Producto Terminado = OVI (A);
-  Magistral Individual = OV (B) y OVI (A); Magistral de Pedido = OV (B). Entregas y envíos exigen al menos una clase con sus números.
+- Registro `logistica` = una parada de la ruta. **Un solo tipo** por parada (`tipo`; `tipos:[tipo]` por compatibilidad):
+  Entrega Bogotá y A.M. (`entrega`; puede incluir `incluye: devolucion | pqr` = también se recoge devolución o PQR),
+  Envío fuera de Bogotá (`envio`), Radicación de documentos (`radicacion`), Proveedor (`recoleccion`) y Trámite área (`vuelta`).
+  `vendedor` = mensajero asignado. `hora` opcional = cita a hora fija: esas paradas van primero, por hora, y no se mueven con Subir/Bajar.
+- Formulario (orden): fecha, hora (si es fija) y mensajero → cliente (Maestra) → dirección y teléfono (salen solos; editables) →
+  tipo de parada → datos del tipo. Clases de pedido (`documentos: [{clase, ov, ovi}]`): Producto Terminado = OVI (A);
+  Magistral Individual = OV (B) y OVI (A); Magistral de Pedido = OV (B). Entregas y envíos exigen al menos una clase con sus números
+  (una entrega sin pedido vale si recoge devolución o PQR).
+- Radicación (`radicacion: [{doc:'factura', serie:'A'|'B', numero}, {doc:'nc', numero}, {doc:'otros', texto}]`): factura A = OVI,
+  factura B = OV; nota crédito RNC; otros. Al reportar se anota el número de radicado.
 - Dirección y teléfono: de la Maestra (`dir` y `tel` en cada contacto, cuando se cargue la actualización) y, si no, de la última parada a ese cliente.
 - Reporte: entregado / no entregado (con motivo), quién recibió, guía (envíos), novedades, foto. Las fotos se reducen en el
   teléfono y se suben a Drive (carpeta "Ruta Comercial - Entregas de logística") en segundo plano; si no hay señal quedan
@@ -169,5 +174,5 @@
   paradas con `"comercial":"<su id>"`; un auxiliar no cambia un reporte ya cerrado (solo puede agregar fotos).
 - El Vademécum los reconoce por el código de acceso (`acceso`, SHA-256 de "vademecum:usuario:clave"); su clave no va en el código del Vademécum.
 - Informe en Excel (botón "⬇ Excel" en Logística: coordinador, administrador y jefe comercial): una fila por factura/pedido de cada parada
-  (estado, hora del reporte en hora de Colombia, quién recibió, guía, novedades, enlaces de las fotos, correcciones) y hoja "Resumen"
+  (estado, hora del reporte en hora de Colombia, quién recibió, guía, radicado, novedades, enlaces de las fotos, correcciones) y hoja "Resumen"
   por mensajero y por tipo. Sin líneas de cuadrícula.
