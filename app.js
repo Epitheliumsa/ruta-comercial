@@ -4643,9 +4643,9 @@ function moverMesPanel(n) {
 // Anillo del día: cada visita real cuenta una sola vez (el trabajo interno también). Lo realizado pasa a
 // visitadas; lo reprogramado y el trabajo interno quedan aparte mientras no se realicen
 const PARTES_ANILLO = [
-    { f: 'ok', t: 'Visitadas', c: '#16a34a' }, { f: 'p', t: 'Pendientes', c: '#d97706' },
-    { f: 'no', t: 'No visitadas', c: '#dc2626' }, { f: 'rep', t: 'Reprogramadas', c: '#7c3aed' },
-    { f: 'repNo', t: 'Reprogramadas no visitadas', c: '#9f1239' }, { f: 'int', t: 'Trabajo Administrativo', c: '#94a3b8' },
+    { f: 'ok', t: 'Visita Efectiva', c: '#16a34a' }, { f: 'p', t: 'Pendientes', c: '#d97706' },
+    { f: 'no', t: 'Visita No Efectiva', c: '#dc2626' }, { f: 'sin', t: 'No visitadas', c: '#374151' },
+    { f: 'rep', t: 'Reprogramadas', c: '#7c3aed' }, { f: 'repNo', t: 'Reprogramadas no efectivas', c: '#9f1239' }, { f: 'int', t: 'Trabajo Administrativo', c: '#94a3b8' },
     { f: 'intNo', t: 'Trabajo Administrativo no realizado', c: '#475569' },
     { f: 'lead', t: 'Lead visitado', c: '#0891b2' }, { f: 'leadNo', t: 'Lead no visitado', c: '#7dd3e8' },
     { f: 'ateneo', t: 'Ateneo visitado', c: '#4f46e5' }, { f: 'ateneoNo', t: 'Ateneo no visitado', c: '#a5b4fc' }
@@ -4658,6 +4658,8 @@ function claseAnillo(x) {
     if (x.estado === 'visitado') return 'ok';
     const no = x.estado === 'no_visitado';
     if (x.interno) return no ? 'intNo' : 'int';
+    // No visitada: se programó y no se reportó (día pasado sin reporte, o cerrada por el sistema)
+    if ((x.estado === 'pendiente' && x.fecha < hoy()) || x.cierreAutomatico) return 'sin';
     if (x.origen === 'reprogramada') return no ? 'repNo' : 'rep';
     return no ? 'no' : 'p';
 }

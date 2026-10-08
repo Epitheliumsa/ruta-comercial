@@ -151,6 +151,8 @@
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
 
 ## Anillos del Plan de Trabajo
+- Partes: Visita Efectiva (visitada), Visita No Efectiva (reportada como no visitada), No visitadas (programada y sin reporte:
+  día pasado aún pendiente o cerrada por el sistema, `claseAnillo` → 'sin'), Pendientes (hoy o futuro), Reprogramadas, Leads, Ateneos.
 - Día, Acumulado de la semana y Acumulado del mes: toda parte de los tres se puede tocar. El del día filtra la lista del día
   (`an:<parte>`); los de semana y mes (`an-semana:<parte>`, `an-mes:<parte>`) muestran esas visitas agrupadas por día. "Quitar filtro" vuelve.
 
