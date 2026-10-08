@@ -411,7 +411,6 @@ function abrirLogReporte(id, ok) {
                 <datalist id="dlTransp">${transportadoras().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
                 <div><label for="lgGuia">Número de guía ${REQ}</label><input id="lgGuia" autocomplete="off" maxlength="40" required></div>
             </div>` : ''}
-            ${conRadicacion(r) ? `<label for="lgRadicado">Número o sello de radicado <small>(opcional)</small></label><input id="lgRadicado" autocomplete="off" maxlength="40">` : ''}
             ${detalle ? `<label for="lgRDetalle">${esc(detalle)} <small>(opcional)</small></label><textarea id="lgRDetalle" rows="2" maxlength="200"></textarea>` : ''}
             <label for="lgNovedad">Novedades <small>(opcional)</small></label>
             <textarea id="lgNovedad" rows="2" maxlength="200" placeholder="Ej: faltó una unidad, el cliente pidió cambiar la factura…"></textarea>
@@ -503,7 +502,7 @@ async function guardarLogReporte(e, id, ok) {
         if ($('lgDestino') && !validarCiudad($('lgDestino'))) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Escoge la ciudad de destino de la lista'); }
         const accion = ok ? '' : document.querySelector('#lgAccion input:checked')?.value || '';
         if (accion === 'reprogramar' && !val('lgReproFecha')) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Escoge la fecha para reprogramar'); }
-        const reporte = ok ? { recibio: nombrePropio(val('lgRecibio')), guia: val('lgGuia'), radicado: val('lgRadicado'), detalle: val('lgRDetalle'), novedad: val('lgNovedad') }
+        const reporte = ok ? { recibio: nombrePropio(val('lgRecibio')), guia: val('lgGuia'), detalle: val('lgRDetalle'), novedad: val('lgNovedad') }
             : { motivo: val('lgMotivo'), novedad: val('lgNovedad'), accion,
                 ...(accion === 'reprogramar' ? { reprogramadaPara: val('lgReproFecha'), horaRepro: val('lgReproHora') } : {}) };
         // Envío: destino, transportadora y guía quedan en la parada (los usa el Excel y la tarjeta)
@@ -604,7 +603,9 @@ const dirDe = nombre => {
     const d = nombre ? directorio.filas[normalizar(nombre)] : null;
     return d && (esLogistica() || esJefe() || esAdmin() || !d.z || d.z === comercial(sesion?.id)?.zona) ? d : null;
 };
-function borrarDirectorio() { directorio = { filas: {} }; try { localStorage.removeItem(DIR_LOCAL); } catch (e) { /* nada */ } }
+function borrarDirectorio() {
+    if (!API_URL) return;   // módulo de pruebas: el directorio viene con la página
+    directorio = { filas: {} }; try { localStorage.removeItem(DIR_LOCAL); } catch (e) { /* nada */ } }
 let trayendoDir = false;
 async function cargarDirectorio(forzar = false) {
     if (!API_URL || !veDirectorio() || trayendoDir) return;
@@ -736,13 +737,13 @@ function armarLibroLog(regs, mes, mens) {
             diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), r.contacto || r.proveedor || r.area || '',
             r.zona || '', r.comercial ? nombreVendedor(r.comercial) : '', [r.destino, r.dirDestino, r.telDestino].filter(Boolean).join(' · '), r.transportadora || '',
             d.doc || '', d.ov || '', d.ovi || '', d.otro || '', r.estado === 'entregado' ? okTxt(r) : r.estado === 'no_entregado' ? noTxt(r) : 'Pendiente',
-            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.radicado || '', rp.motivo || '', [rp.detalle, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · '),
+            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · '),
             [r.direccion, r.telefono && `Tel. ${r.telefono}`, r.proveedor && r.contacto ? `Proveedor: ${r.proveedor}` : '', r.detalle].filter(Boolean).join(' · '), i === 0 && fotos.length ? fotos.length : '', i === 0 ? fotos.join('\n') : '',
             r.reportadoPor ? nombreVendedor(r.reportadoPor) : '', (r.correcciones || []).length || ''
         ]));
     });
     const cols = [['Fecha', 12], ['Hora fija', 11], ['Mensajero', 18], ['Tipo de parada', 26], ['Cliente / proveedor / área', 34], ['Zona', 18], ['Comercial', 18], ['Destino', 16], ['Transportadora', 16],
-        ['Pedido o documento', 24], ['Factura B (OV)', 14], ['Factura A (OVI)', 14], ['Otro número / detalle', 18], ['Estado', 14], ['Fecha y hora del reporte', 20], ['Recibió / entregó', 24], ['Guía', 14], ['Radicado', 14], ['Motivo (no realizada)', 24], ['Novedades', 40],
+        ['Pedido o documento', 24], ['Factura B (OV)', 14], ['Factura A (OVI)', 14], ['Otro número / detalle', 18], ['Estado', 14], ['Fecha y hora del reporte', 20], ['Recibió / entregó', 24], ['Guía', 14], ['Motivo (no realizada)', 24], ['Novedades', 40],
         ['Dirección e indicaciones', 36], ['Fotos', 8], ['Enlaces de las fotos', 40], ['Reportó', 16], ['Correcciones', 12]];
     const h = libro.addWorksheet('Entregas', { views: [{ showGridLines: false, state: 'frozen', ySplit: 4 }] });
     h.getCell('A1').value = `Logística · ${mayuscula(nombreMes(mes))}${mens ? ' · ' + nombreVendedor(mens) : ''}`;

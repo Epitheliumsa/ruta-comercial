@@ -165,7 +165,7 @@
   Entregas y envíos exigen al menos una clase con sus números
   (una entrega sin pedido vale si recoge devolución o PQR).
 - Radicación (`radicacion: [{doc:'factura', serie:'A'|'B', numero}, {doc:'nc', numero}, {doc:'otros', texto}]`): factura A = OVI,
-  factura B = OV; nota crédito RNC; otros. Al reportar se anota el número de radicado.
+  factura B = OV; nota crédito RNC; otros. (No se pide número de radicado; basta la foto del sello.)
 - Módulo de pruebas con direcciones: `python3 herramientas/modulo_pruebas.py <salida> <semilla.json> <Maestra Odoo con direcciones.xlsx>`
   (el Excel nunca va al repositorio; el módulo es una página privada).
 - Dirección y teléfono (**datos personales: nunca en el repositorio**, que es público; `maestra_contactos.py` descarta correo, documento,
@@ -192,5 +192,5 @@
   paradas con `"comercial":"<su id>"`; un auxiliar no cambia un reporte ya cerrado (solo puede agregar fotos).
 - El Vademécum los reconoce por el código de acceso (`acceso`, SHA-256 de "vademecum:usuario:clave"); su clave no va en el código del Vademécum.
 - Informe en Excel (botón "⬇ Excel" en Logística: coordinador, administrador y jefe comercial): una fila por factura/pedido de cada parada
-  (estado, hora del reporte en hora de Colombia, quién recibió, guía, radicado, novedades, enlaces de las fotos, correcciones) y hoja "Resumen"
+  (estado, hora del reporte en hora de Colombia, quién recibió, guía, novedades, enlaces de las fotos, correcciones) y hoja "Resumen"
   por mensajero y por tipo. Sin líneas de cuadrícula.
