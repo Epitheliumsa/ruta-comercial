@@ -1811,3 +1811,7 @@ body.es-logistica .mc-periodo-btn { display: none; }
 .lg-doc-chip.rad { background: #eef2ff; border-color: #c7d2fe; color: #3730a3; }
 .lg-tipo.radicacion { background: #e0f2fe; color: #075985; }
 .lg-card .cita-fija { margin-bottom: 4px; }
+.form-rc .lg-foto-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.form-rc .lg-foto-btn { display: flex; align-items: center; justify-content: center; margin: 0; padding: 10px 8px; text-align: center; text-transform: none; letter-spacing: 0; cursor: pointer; font-size: 14px; }
+.dir-cliente { margin: 4px 0 6px; font-size: 13.5px; line-height: 1.5; color: #2f4f47; }
+.dir-cliente a { color: inherit; font-weight: 700; }

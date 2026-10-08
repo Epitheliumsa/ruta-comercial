@@ -53,6 +53,7 @@ const claseDoc = k => CLASES_PEDIDO.find(c => c.k === k);
 const textoDoc = d => [claseDoc(d.clase)?.t, d.ov && `OV ${d.ov}`, d.ovi && `OVI ${d.ovi}`].filter(Boolean).join(' · ');
 const textoRad = d => d.doc === 'factura' ? `Radicar factura ${d.serie} (${SERIES_FACTURA[d.serie] || ''}) ${d.numero || ''}`.trim()
     : d.doc === 'nc' ? `Radicar nota crédito RNC ${d.numero || ''}`.trim() : `Radicar: ${d.texto || ''}`;
+const horaLog = iso => new Date(iso).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: 'numeric', minute: '2-digit' });
 const chipEstadoLog = r => r.estado === 'entregado' ? `<span class="chip ok">${esc(okTxt(r))}</span>`
     : r.estado === 'no_entregado' ? `<span class="chip no">${esc(noTxt(r))}</span>` : '<span class="chip p">Pendiente</span>';
 const urlFoto = f => f.url || f.data || '';
@@ -89,6 +90,7 @@ function pintarLog() {
     $('logFechaPick').value = f;
     $('logProgramar').hidden = lectura;
     $('logDescargar').hidden = !(esCoordLog() || esAdmin() || esJefe());
+    $('logDirectorio').hidden = !esAdmin();
     const todos = logVisibles();
     // Chips de mensajero (coordinador, administrador y jefes)
     const verMens = esCoordLog() || esJefe();
@@ -148,7 +150,7 @@ function tarjetaLog(r, n, total) {
     ].filter(Boolean).map(x => `<p class="nota-plan">${x}</p>`).join('');
     let reporte = '';
     if (cerrada) {
-        const hora = r.registrada ? new Date(r.registrada).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: 'numeric', minute: '2-digit' }) : '';
+        const hora = r.registrada ? horaLog(r.registrada) : '';
         const partes = r.estado === 'entregado'
             ? [`<b>${esc(ok)}</b>${hora ? ' a las ' + esc(hora) : ''}`, rp.recibio ? `<b>${esc(tp.rec)}:</b> ${esc(rp.recibio)}` : '', rp.guia ? `<b>Guía:</b> ${esc(rp.guia)}` : '', rp.radicado ? `<b>Radicado:</b> ${esc(rp.radicado)}` : '', rp.detalle ? `<b>Detalle:</b> ${esc(rp.detalle)}` : '', rp.novedad ? `<b>Novedad:</b> ${esc(rp.novedad)}` : '']
             : [`<b>${esc(no)}</b>${hora ? ' · ' + esc(hora) : ''}`, `<b>Motivo:</b> ${esc(rp.motivo || '')}`, rp.novedad ? esc(rp.novedad) : ''];
@@ -221,7 +223,7 @@ function abrirLogForm(id) {
             <label>Facturas y pedidos <span id="lgReqDoc">${REQ}</span> <small>(marca qué llevas)</small></label>
             <div class="lg-pedidos">${CLASES_PEDIDO.map(c => `<div class="lg-pedido" data-k="${c.k}">
                 <label class="lg-pchk"><input type="checkbox"${doc(c.k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
-                <div class="lg-pcampos">${c.campos.map(([f, t]) => `<label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="20" value="${esc(doc(c.k)?.[f] || '')}"></label>`).join('')}</div>
+                <div class="lg-pcampos">${c.campos.map(([f, t]) => `<label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]{6}" title="Número de 6 cifras" oninput="this.value = this.value.replace(/[^0-9]/g, '')" value="${esc(doc(c.k)?.[f] || '')}"></label>`).join('')}</div>
             </div>`).join('')}</div>
         </div>
         <div id="lgBRad">
@@ -229,7 +231,7 @@ function abrirLogForm(id) {
             <div class="lg-pedidos">${DOCS_RADICACION.map(c => `<div class="lg-pedido lg-rad" data-k="${c.k}">
                 <label class="lg-pchk"><input type="checkbox"${rad(c.k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
                 <div class="lg-pcampos">${c.k === 'factura'
-                    ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${rad('factura')?.serie === s ? ' selected' : ''}>${s} · ${t}</option>`).join('')}</select><input data-f="numero" placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="20" value="${esc(rad('factura')?.numero || '')}"></label>`
+                    ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${rad('factura')?.serie === s ? ' selected' : ''}>${s} · ${t}</option>`).join('')}</select><input data-f="numero" placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]{6}" title="Número de 6 cifras" oninput="this.value = this.value.replace(/[^0-9]/g, '')" value="${esc(rad('factura')?.numero || '')}"></label>`
                     : c.k === 'nc' ? `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="20" value="${esc(rad('nc')?.numero || '')}"></label>`
                     : `<label class="lg-pc"><input data-f="texto" placeholder="Qué documento se radica" autocomplete="off" maxlength="80" value="${esc(rad('otros')?.texto || '')}"></label>`}</div>
             </div>`).join('')}</div>
@@ -282,13 +284,14 @@ function logCampos() {
         const visible = !fila.closest('[hidden]'), on = fila.querySelector('.lg-pchk input').checked && visible;
         fila.classList.toggle('on', on);
         fila.querySelector('.lg-pcampos').hidden = !on;
-        fila.querySelectorAll('.lg-pcampos input').forEach(i => i.required = on);
+        const campos = fila.querySelectorAll('.lg-pcampos input');
+        campos.forEach(i => i.required = on && campos.length === 1);   // Magistral Individual: basta OV u OVI
     });
 }
 // A quién le llega la entrega (el vendedor de la zona del cliente) y los datos del cliente en la Maestra
 function datosClienteLog(nombre) {
-    const zona = nombre ? zonaDeContacto(nombre) : '', c = zona ? buscarMaestra(zona, nombre) : null;
-    return { zona: zona || '', comercial: zona ? vendedorDeZona(zona)?.id || '' : '', ciudad: c?.c || '', dir: c?.dir || '', tel: c?.tel || '' };
+    const zona = nombre ? zonaDeContacto(nombre) : '', c = zona ? buscarMaestra(zona, nombre) : null, d = nombre ? directorio.filas[normalizar(nombre)] : null;
+    return { zona: zona || '', comercial: zona ? vendedorDeZona(zona)?.id || '' : '', ciudad: c?.c || d?.c || '', dir: d?.dir || '', tel: d?.tel || '' };
 }
 // Dirección y teléfono: los de la Maestra y, si la Maestra aún no los tiene, los de la última parada a ese cliente.
 // Solo se llenan si el campo está vacío o se llenó solo (lo que escribe logística no se pisa).
@@ -321,6 +324,8 @@ function guardarLog(e, id) {
     });
     const documentos = tp.docs ? leer('#lgBDocs .lg-pedido').map(({ k, d }) => ({ clase: k, ...d })) : [];
     const radicacion = tp.radicacion ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
+    const sinNumero = documentos.find(d => !d.ov && !d.ovi);
+    if (sinNumero) return toast(`${claseDoc(sinNumero.clase)?.t}: escribe al menos la OV o la OVI`);
     if ((tipo === 'envio' || (tipo === 'entrega' && !incluye.length)) && !documentos.length) return toast('Marca qué pedido llevas y escribe sus números');
     if (tp.radicacion && !radicacion.length) return toast('Marca qué se radica: factura, nota crédito u otros');
     // El cliente de la Maestra se guarda con su nombre exacto; uno que no esté en la Maestra, con nombre propio
@@ -368,6 +373,7 @@ function abrirLogReporte(id, ok) {
     const tp = TIPOS_LOG[r.tipo], tieneEnvio = r.tipo === 'envio';
     const req = !!tp.cliente;   // entregas, envíos y radicaciones piden quién recibió
     const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' ? 'Resultado' : r.incluye?.length ? `Qué se recogió (${incluyeTxt(r)})` : '';
+    fotosLogSel = [];
     abrirModal(`<form class="form-rc" onsubmit="guardarLogReporte(event, '${id}', ${ok})">
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
         <p class="sub">${esc(tituloLog(r))}${(r.documentos || []).length ? ' · ' + esc(r.documentos.map(textoDoc).join(' · ')) : ''}${(r.radicacion || []).length ? ' · ' + esc(r.radicacion.map(textoRad).join(' · ')) : ''}</p>
@@ -386,7 +392,10 @@ function abrirLogReporte(id, ok) {
             <textarea id="lgNovedad" rows="3" maxlength="200" required placeholder="Qué pasó y qué se acordó con el cliente"></textarea>
         `}
         <label for="lgFotos">Foto <small>${ok ? (tp.radicacion ? '(recomendada: foto del sello de radicado)' : '(recomendada: foto de la entrega o del recibido)') : '(opcional)'}</small></label>
-        <input type="file" id="lgFotos" accept="image/*" capture="environment" multiple onchange="$('lgFotosTxt').textContent = this.files.length ? this.files.length + (this.files.length === 1 ? ' foto lista' : ' fotos listas') : ''">
+        <div class="lg-foto-btns">
+            <label class="btn-secundario lg-foto-btn">📷 Tomar foto<input type="file" accept="image/*" capture="environment" hidden onchange="agregarFotosLog(this)"></label>
+            <label class="btn-secundario lg-foto-btn">🖼 Galería o captura<input type="file" accept="image/*" multiple hidden onchange="agregarFotosLog(this)"></label>
+        </div>
         <p class="ayuda" id="lgFotosTxt"></p>
         <p class="ayuda">Se guarda con la hora de ahora: ${esc(fechaHora(new Date().toISOString()))}</p>
         <div class="form-botones">
@@ -396,13 +405,21 @@ function abrirLogReporte(id, ok) {
     </form>`, ok ? '' : 'theme-rojo');
 }
 
+// Fotos elegidas para el reporte (de la cámara y de la galería, hasta 4)
+let fotosLogSel = [];
+function agregarFotosLog(input) {
+    fotosLogSel = [...fotosLogSel, ...input.files].slice(0, 4);
+    input.value = '';
+    const n = fotosLogSel.length;
+    $('lgFotosTxt').innerHTML = n ? `${n} ${n === 1 ? 'foto lista' : 'fotos listas'}${n === 4 ? ' (máximo 4)' : ''} · <a href="#" onclick="fotosLogSel = []; $('lgFotosTxt').textContent = ''; return false">Quitar</a>` : '';
+}
 async function guardarLogReporte(e, id, ok) {
     e.preventDefault();
     const r = registros[id], btn = $('lgBtnRep');
     if (!r || r.estado !== 'pendiente') return;
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
-        const archivos = [...($('lgFotos')?.files || [])].slice(0, 4);
+        const archivos = fotosLogSel.slice(0, 4);
         const fotos = [];
         for (const f of archivos) fotos.push(await comprimirFoto(f, API_URL ? 1280 : 480, API_URL ? 0.72 : 0.6));
         const val = k => $(k)?.value.trim() || '';
@@ -477,6 +494,76 @@ async function subirFotosPend() {
     }
 }
 
+// ---------- DIRECTORIO: dirección y teléfono de los clientes ----------
+// Son datos personales: no van en contactos.json (el repositorio es público). El administrador sube la Maestra de Odoo
+// (con Calle, Teléfono y Móvil) y quedan en la hoja "Directorio" del servidor. Logística, los jefes y el administrador
+// traen todos; cada comercial, solo los de su zona (lo filtra el servidor). Se refrescan cada 6 horas y se borran
+// del teléfono al cerrar sesión.
+const DIR_LOCAL = 'rc_directorio';
+const veDirectorio = () => !!sesion;
+let directorio = (() => { try { return JSON.parse(localStorage.getItem(DIR_LOCAL)) || { filas: {} }; } catch (e) { return { filas: {} }; } })();
+function ponerDirectorio(filas, actualizado) {
+    const m = {};
+    filas.forEach(([n, c, dir, tel]) => { if (n) m[normalizar(n)] = { c, dir, tel }; });
+    directorio = { filas: m, actualizado: actualizado || '', traido: Date.now() };
+    try { localStorage.setItem(DIR_LOCAL, JSON.stringify(directorio)); } catch (e) { /* sin espacio: queda en memoria */ }
+}
+function borrarDirectorio() { directorio = { filas: {} }; try { localStorage.removeItem(DIR_LOCAL); } catch (e) { /* nada */ } }
+let trayendoDir = false;
+async function cargarDirectorio(forzar = false) {
+    if (!API_URL || !veDirectorio() || trayendoDir) return;
+    if (!forzar && directorio.traido && Date.now() - directorio.traido < 6 * 3600e3) return;
+    trayendoDir = true;
+    try { const r = await llamarApi({ accion: 'directorio' }); ponerDirectorio(r.filas || [], r.actualizado); }
+    catch (e) { console.warn('No se pudo traer el directorio:', e); }
+    finally { trayendoDir = false; }
+}
+// El administrador sube la Maestra de Contactos de Odoo tal como sale (Nombre Público, Ciudad, Calle, Teléfono, Móvil)
+function subirDirectorio() {
+    if (!esAdmin()) return;
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.xlsx';
+    inp.onchange = async () => {
+        const archivo = inp.files[0];
+        if (!archivo) return;
+        try {
+            await cargarExcelJS();
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(await archivo.arrayBuffer());
+            const ws = wb.worksheets[0], cab = {};
+            ws.getRow(1).eachCell((c, i) => { cab[String(c.text).trim()] = i; });
+            if (!cab['Nombre Público'] || !cab['Calle']) return toast('No encontré las columnas "Nombre Público" y "Calle": sube la Maestra de Contactos de Odoo con direcciones y teléfonos.');
+            const val = (fila, n) => cab[n] ? String(fila.getCell(cab[n]).text || '').trim() : '';
+            const filas = [], vistos = new Set();
+            ws.eachRow((fila, i) => {
+                const n = val(fila, 'Nombre Público');
+                if (i === 1 || !n || /emplead/i.test(val(fila, 'Equipo de ventas')) || vistos.has(normalizar(n))) return;
+                vistos.add(normalizar(n));
+                const tel = [...new Set([val(fila, 'Móvil'), val(fila, 'Teléfono')].filter(Boolean))].join(' / ');
+                filas.push([n, val(fila, 'Ciudad'), val(fila, 'Calle'), tel, zonaDeContacto(n) || '']);
+            });
+            const conDir = filas.filter(f => f[2]).length, conTel = filas.filter(f => f[3]).length;
+            if (!await dialogo({ titulo: 'Direcciones y teléfonos', aceptar: 'Subir',
+                texto: `${filas.length} clientes: ${conDir} con dirección y ${conTel} con teléfono. Reemplaza el directorio anterior. Los ven Logística, los jefes y tú; cada comercial, solo los de su zona. No quedan en la app publicada.` })) return;
+            let cuando = new Date().toISOString();
+            if (API_URL) cuando = (await llamarApi({ accion: 'guardarDirectorio', filas }, 90000)).actualizado || cuando;
+            ponerDirectorio(filas, cuando);
+            toast(`Directorio actualizado: ${filas.length} clientes`);
+        } catch (e) {
+            toast('No se pudo subir el directorio: ' + e.message);
+        }
+    };
+    inp.click();
+}
+
+// Dirección y teléfono en la tarjeta del cliente (Maestra)
+function htmlDirectorioCliente(nombre) {
+    const d = directorio.filas[normalizar(nombre || '')];
+    if (!d || !(d.dir || d.tel)) return '';
+    const tels = (d.tel || '').split(' / ').filter(Boolean).map(t => `<a href="tel:${esc(t.replace(/[^0-9+]/g, ''))}">${esc(t)}</a>`).join(' · ');
+    return `<p class="dir-cliente">${d.dir ? `📍 ${esc(d.dir)}` : ''}${d.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>`;
+}
+
 // ---------- HISTORIAL DEL CLIENTE (Maestra) ----------
 const entregasCliente = nombre => logVisibles().filter(r => hayTipo(r, 'cliente') && r.contacto && normalizar(r.contacto) === normalizar(nombre))
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || ordenLog(b, a));
@@ -489,7 +576,7 @@ function htmlEntregasCliente(nombre) {
         const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad] : ['Pendiente de reportar'];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         return `<div class="hist-item ${cls}">
-            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b>${chipEstadoLog(r)}</div>
+            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : r.hora ? ' · hora fija ' + esc(horaBonita(r.hora)) : ''}</b>${chipEstadoLog(r)}</div>
             <p class="meta">${esc([nombreTipos(r), nombreVendedor(r.vendedor)].join(' · '))}</p>
             <div class="reporte">${[docs, ...det.filter(Boolean).map(esc)].filter(Boolean).join('<br>')}${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}</div>
         </div>`;

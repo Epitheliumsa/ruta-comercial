@@ -576,6 +576,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         ultimaSync = new Date();
         errorSync = '';
         subirFotosPend();
+        cargarDirectorio();
     } catch (e) {
         console.warn('No se pudo sincronizar:', e);
         errorSync = navigator.onLine ? (e.message || 'Error de conexión') : 'Sin internet';
@@ -640,6 +641,7 @@ async function cerrarSesion() {
     if (!await dialogo({ titulo: '¿Cerrar sesión?', aceptar: 'Cerrar sesión' })) return;
     if (pendientes.size && API_URL && !await dialogo({ titulo: 'Hay cambios sin subir', texto: `Hay ${pendientes.size} cambios sin subir al servidor. Si sales ahora se quedan en este dispositivo.`, aceptar: 'Salir de todas formas' })) return;
     localStorage.removeItem('rc_sesion');
+    borrarDirectorio();
     sesion = null;
     document.body.classList.remove('es-logistica');
     $('accessUser').value = '';
@@ -4107,6 +4109,7 @@ function pintarHistorial() {
     abrirModal(`<div class="form-rc ficha historial">
         <h2>${esc(nombre)}</h2>
         <p class="sub">${esc([m?.e || (p ? etiquetaLead(p.tipo) : ''), m?.c || p?.ciudad || ''].filter(Boolean).join(' · '))}</p>
+        ${htmlDirectorioCliente(nombre)}
         ${m && (m.cl || m.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(m.cl || '')}</b>${m.ca ? ' · ' + esc(m.ca) : ''}</p>` : ''}
         ${esLogistica() ? '' : chipsMes}
         <div class="resumen-dia hist-resumen"${esLogistica() ? ' hidden' : ''}>

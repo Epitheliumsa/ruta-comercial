@@ -14,10 +14,10 @@
 
 // Mismas huellas que visitas/app.js: SHA-256 de "usuario:clave" en minúsculas
 const USUARIOS = {
-  'l.ramos':     { huella: '979ff4a2d9c7b874f250cb3045a80ca3c2fd83f1075fe25fa206b2ddd697a9cf', id: 'lramos',     tipo: 'comercial' },
-  'y.caballero': { huella: 'fd091945acd620b35a25485c8c6822458a042e2191ba99fc94eea332477c1cd8', id: 'ycaballero', tipo: 'comercial' },
+  'l.ramos':     { huella: '979ff4a2d9c7b874f250cb3045a80ca3c2fd83f1075fe25fa206b2ddd697a9cf', id: 'lramos',     tipo: 'comercial', zona: 'Zona Norte' },
+  'y.caballero': { huella: 'fd091945acd620b35a25485c8c6822458a042e2191ba99fc94eea332477c1cd8', id: 'ycaballero', tipo: 'comercial', zona: 'Zona Sur' },
   'j.herrera':   { huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', id: 'jherrera',   tipo: 'jefe' },  // Jefe comercial: ve y registra para todo el equipo
-  'm.castro':    { huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', id: 'mcastro',    tipo: 'comercial', subeVentas: true },  // carga el informe de ventas del mes de todos
+  'm.castro':    { huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', id: 'mcastro',    tipo: 'comercial', zona: 'Zona Desarrollo', subeVentas: true },  // carga el informe de ventas del mes de todos
   'h.reyes':     { huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', id: 'hreyes',     tipo: 'jefe', admin: true },
   // Logística: solo ven y guardan registros de clase 'logistica' (el coordinador, los de todos; cada auxiliar, los suyos)
   'j.arjona':    { huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', id: 'jarjona',  tipo: 'logistica', area: 'logistica', coordLogistica: true },
@@ -36,6 +36,8 @@ function doPost(e) {
     if (pedido.accion === 'listar') return responder_({ ok: true, registros: listar_(usuario, pedido.desde, pedido.hasta) });
     if (pedido.accion === 'guardar') return responder_({ ok: true, guardados: guardar_(usuario, pedido.registros || []) });
     if (pedido.accion === 'subirArchivo') return responder_(Object.assign({ ok: true }, subirArchivo_(usuario, pedido)));
+    if (pedido.accion === 'directorio') return responder_(Object.assign({ ok: true }, directorio_(usuario)));
+    if (pedido.accion === 'guardarDirectorio') return responder_(Object.assign({ ok: true }, guardarDirectorio_(usuario, pedido.filas)));
     if (pedido.accion === 'firmarFormato') return responder_(Object.assign({ ok: true }, firmarFormato_(usuario, pedido)));
     return responder_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
@@ -230,6 +232,38 @@ function firmarFormato_(usuario, pedido) {
 
 // Ejecútala desde el editor (▶ Ejecutar) para que Google pida TODOS los permisos (Drive completo y conexión externa).
 // Crea la carpeta de los formatos (si no existe), escribe un archivo de prueba y lo borra.
+// ---------- DIRECTORIO: dirección y teléfono de los clientes ----------
+// Son datos personales: no van en la app publicada (el repositorio es público), sino en la hoja "Directorio".
+// Logística (para la ruta), los jefes y el administrador ven todos; cada comercial, solo los clientes de su zona
+// (columna Zona, que la app llena con la Maestra al subir). Solo el administrador los reemplaza.
+const HOJA_DIR = 'Directorio';
+const COLUMNAS_DIR = ['Nombre', 'Ciudad', 'Dirección', 'Teléfono', 'Zona'];
+function veTodoDirectorio_(u) { return u.area === 'logistica' || u.tipo === 'jefe' || !!u.admin; }
+function directorio_(usuario) {
+  const todo = veTodoDirectorio_(usuario);
+  if (!todo && !usuario.zona) throw new Error('Sin permiso para ver el directorio');
+  const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_DIR);
+  if (!h) return { filas: [], actualizado: '' };
+  const valores = h.getDataRange().getValues();
+  const filas = valores.slice(1).filter(f => f[0] && (todo || String(f[4]) === usuario.zona)).map(f => f.slice(0, COLUMNAS_DIR.length).map(String));
+  return { filas: filas, actualizado: String(valores[0][COLUMNAS_DIR.length] || '') };
+}
+function guardarDirectorio_(usuario, filas) {
+  if (!usuario.admin) throw new Error('Solo el administrador sube el directorio');
+  if (!Array.isArray(filas) || !filas.length) throw new Error('El directorio llegó vacío');
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const h = libro.getSheetByName(HOJA_DIR) || libro.insertSheet(HOJA_DIR);
+  const datos = filas.map(f => COLUMNAS_DIR.map((_, i) => String((f || [])[i] || '').slice(0, 200)));
+  h.clear();
+  h.getRange(1, 1, datos.length + 1, COLUMNAS_DIR.length).setNumberFormat('@')
+    .setValues([COLUMNAS_DIR].concat(datos));
+  h.getRange(1, 1, 1, COLUMNAS_DIR.length).setFontWeight('bold');
+  h.setFrozenRows(1);
+  const cuando = new Date().toISOString();
+  h.getRange(1, COLUMNAS_DIR.length + 1).setNumberFormat('@').setValue(cuando);   // fecha de la subida, al lado de los títulos
+  return { guardados: datos.length, actualizado: cuando };
+}
+
 function probarDrive() {
   UrlFetchApp.fetch('https://www.googleapis.com/discovery/v1/apis?name=drive', { muteHttpExceptions: true });
   const carpeta = carpeta_('Formatos de creación de clientes');

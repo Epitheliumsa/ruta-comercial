@@ -155,6 +155,7 @@
                     <input type="date" id="logFechaPick" onchange="logElegir(this.value)" aria-label="Elegir fecha">
                     <input type="search" id="logBuscar" class="ag-buscar-in" placeholder="Buscar cliente, OV u OVI..." aria-label="Buscar" oninput="logi.busca=this.value; pintarLog()">
                     <button class="btn-nuevo" id="logDescargar" onclick="abrirLogInforme()" hidden>⬇ Excel</button>
+                    <button class="btn-nuevo" id="logDirectorio" onclick="subirDirectorio()" hidden title="Direcciones y teléfonos de los clientes (Maestra de Odoo)">📇 Direcciones</button>
                     <button class="btn-nuevo active btn-programar" id="logProgramar" onclick="abrirLogForm()">+ Programar</button>
                 </div>
             </div>

@@ -159,12 +159,17 @@
   `vendedor` = mensajero asignado. `hora` opcional = cita a hora fija: esas paradas van primero, por hora, y no se mueven con Subir/Bajar.
 - Formulario (orden): fecha, hora (si es fija) y mensajero → cliente (Maestra) → dirección y teléfono (salen solos; editables) →
   tipo de parada → datos del tipo. Clases de pedido (`documentos: [{clase, ov, ovi}]`): Producto Terminado = OVI (A);
-  Magistral Individual = OV (B) y OVI (A); Magistral de Pedido = OV (B). Entregas y envíos exigen al menos una clase con sus números
+  Magistral Individual = OV (B) y/u OVI (A), basta una; Magistral de Pedido = OV (B). OV, OVI y número de factura: siempre 6 cifras.
+  Entregas y envíos exigen al menos una clase con sus números
   (una entrega sin pedido vale si recoge devolución o PQR).
 - Radicación (`radicacion: [{doc:'factura', serie:'A'|'B', numero}, {doc:'nc', numero}, {doc:'otros', texto}]`): factura A = OVI,
   factura B = OV; nota crédito RNC; otros. Al reportar se anota el número de radicado.
-- Dirección y teléfono: de la Maestra (`dir` y `tel` en cada contacto, cuando se cargue la actualización) y, si no, de la última parada a ese cliente.
-- Reporte: entregado / no entregado (con motivo), quién recibió, guía (envíos), novedades, foto. Las fotos se reducen en el
+- Dirección y teléfono (**datos personales: nunca en el repositorio**, que es público; `maestra_contactos.py` descarta correo, documento,
+  calle y teléfonos): el administrador sube la Maestra de Odoo en Logística > "📇 Direcciones"; va a la hoja "Directorio" del Google Sheet
+  (acciones `directorio` y `guardarDirectorio` en `Codigo.gs`). Logística, jefes y administrador traen todo; cada comercial, solo su zona
+  (columna Zona). Se ven en la tarjeta del cliente (Maestra) y llenan solos la parada; si no hay, se usa la última parada a ese cliente.
+- Reporte: entregado / no entregado (con motivo), quién recibió, guía (envíos), novedades, hasta 4 fotos ("Tomar foto" con la cámara
+  o "Galería o captura"). El historial del cliente muestra la hora del reporte. Las fotos se reducen en el
   teléfono y se suben a Drive (carpeta "Ruta Comercial - Entregas de logística") en segundo plano; si no hay señal quedan
   pendientes en el teléfono y se reintentan en cada sincronización.
 - Lo reportado queda bloqueado: solo el coordinador (o el administrador) lo reabre para corregir y el reporte anterior queda en `correcciones`.
