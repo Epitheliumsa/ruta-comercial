@@ -148,7 +148,7 @@ function tarjetaLog(r, n, total) {
     const docs = (r.documentos || []).map(d => `<span class="lg-doc-chip">${esc(claseDoc(d.clase)?.t || 'Pedido')}${d.ovi ? ` · A <b>${esc(d.ovi)}</b>` : ''}${d.ov ? ` · B <b>${esc(d.ov)}</b>` : ''}</span>`).join('')
         + (r.radicacion || []).map(d => `<span class="lg-doc-chip rad">${esc(textoRad(d))}</span>`).join('');
     const lineas = [
-        r.destino ? `<b>Destino:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${esc(r.dirDestino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
+        r.destino ? `<b>${r.tipo === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${esc(r.dirDestino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
         r.proveedor && (r.contacto || r.materiales?.length) ? `<b>Proveedor:</b> ${esc(r.proveedor)}` : '',
         r.materiales?.length ? `<b>Recoger:</b> ${esc(r.materiales.join(', '))}` : '',
         r.direccion ? `<b>Dirección:</b> ${esc(r.direccion)}` : '',
@@ -385,7 +385,7 @@ function abrirLogReporte(id, ok) {
     const r = registros[id];
     if (!r || r.estado !== 'pendiente' || !puedeOperarLog()) return;
     const tp = TIPOS_LOG[r.tipo], tieneEnvio = r.tipo === 'envio';
-    const req = !!tp.cliente && !tieneEnvio;   // entregas y radicaciones piden quién recibió (en el envío: transportadora y guía)
+    const req = !!tp.cliente;   // entregas y radicaciones piden quién recibió (en el envío no: van transportadora y guía)
     const ciudadCli = ciudadCliente(r.contacto), ant = antesCliente(r.contacto);
     const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' ? 'Resultado' : r.incluye?.length ? `Qué se recogió (${incluyeTxt(r)})` : '';
     fotosLogSel = [];
@@ -393,19 +393,21 @@ function abrirLogReporte(id, ok) {
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
         <p class="sub">${esc(tituloLog(r))}${(r.documentos || []).length ? ' · ' + esc(r.documentos.map(textoDoc).join(' · ')) : ''}${(r.radicacion || []).length ? ' · ' + esc(r.radicacion.map(textoRad).join(' · ')) : ''}</p>
         ${ok ? `
-            <label for="lgRecibio">${esc(tp.quien)} ${req ? REQ : '<small>(opcional)</small>'}</label>
+            ${tp.cliente ? `<div class="lg-dir-entrega">📍 <b>Dirección de entrega</b><br>${esc([ciudadCli, r.direccion].filter(Boolean).join(' · ') || 'Sin dirección registrada')}${r.telefono ? `<br>📞 ${enlacesTel(r.telefono)}` : ''}</div>
+            <label class="lg-chip lg-cambiar"><input type="checkbox" id="lgCambiarDir" onchange="cambiarDirLog()"><span>Cambiar la dirección de entrega</span></label>
+            <div id="lgDestOtro" hidden>
+                <label for="lgDestino">Ciudad ${REQ}</label>
+                ${campoCiudad('lgDestino', ciudadCli, false)}
+                <label for="lgDirDest">Dirección ${REQ}</label>
+                <input id="lgDirDest" autocomplete="off" maxlength="120">
+                <label for="lgTelDest">Teléfono de quien recibe <small>(opcional)</small></label>
+                <input id="lgTelDest" type="tel" autocomplete="off" maxlength="40">
+            </div>` : ''}
+            ${tieneEnvio ? '' : `<label for="lgRecibio">${esc(tp.quien)} ${req ? REQ : '<small>(opcional)</small>'}</label>
             <input id="lgRecibio" list="dlRecibio" autocomplete="off" maxlength="80" ${req ? 'required' : ''} placeholder="${ant.recibio.length ? 'Escribe o escoge de quienes han recibido antes' : ''}" onblur="this.value = nombrePropio(this.value)">
             <datalist id="dlRecibio">${ant.recibio.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
-            ${ant.recibio.length ? `<div class="lg-chips lg-recibio">${ant.recibio.slice(0, 4).map(x => `<button type="button" class="lg-chip-btn" data-v="${esc(x)}" onclick="$('lgRecibio').value = this.dataset.v">${esc(x)}</button>`).join('')}</div>` : ''}
+            ${ant.recibio.length ? `<div class="lg-chips lg-recibio">${ant.recibio.slice(0, 4).map(x => `<button type="button" class="lg-chip-btn" data-v="${esc(x)}" onclick="$('lgRecibio').value = this.dataset.v">${esc(x)}</button>`).join('')}</div>` : ''}`}
             ${tieneEnvio ? `
-            <label for="lgDestino">Ciudad de destino ${REQ} <small>(la del cliente; puedes cambiarla)</small></label>
-            ${campoCiudad('lgDestino', r.destino || ciudadCli, true)}
-            <div id="lgDestOtro" hidden>
-                <label for="lgDirDest" id="lgLblDirDest">Dirección de entrega ${REQ}</label>
-                <input id="lgDirDest" autocomplete="off" maxlength="120" value="${esc(r.dirDestino || '')}">
-                <label for="lgTelDest">Teléfono de quien recibe <small>(opcional)</small></label>
-                <input id="lgTelDest" type="tel" autocomplete="off" maxlength="40" value="${esc(r.telDestino || '')}">
-            </div>
             <div class="fila-fecha iguales">
                 <div><label for="lgTransp">Transportadora ${REQ}</label><input id="lgTransp" list="dlTransp" autocomplete="off" maxlength="60" required value="${esc(r.transportadora || '')}">
                 <datalist id="dlTransp">${transportadoras().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
@@ -441,16 +443,6 @@ function abrirLogReporte(id, ok) {
             <button class="btn-primario" id="lgBtnRep">Guardar</button>
         </div>
     </form>`, ok ? '' : 'theme-rojo');
-    // Envío: si la ciudad de destino no es la del cliente, se pide la dirección (y el teléfono) de allá
-    const dest = $('lgDestino');
-    if (dest) {
-        const ver = () => {
-            const otra = !!dest.value.trim() && normalizar(dest.value) !== normalizar(ciudadCli);
-            $('lgDestOtro').hidden = !otra; $('lgDirDest').required = otra;
-            $('lgLblDirDest').innerHTML = `Dirección en ${esc(dest.value.split(' - ')[0] || 'el destino')} ${REQ}`;
-        };
-        dest.addEventListener('change', ver); dest.addEventListener('input', ver); ver();
-    }
 }
 // No entregado: reprogramar (pide fecha y hora) o devolver a la oficina; tocar la opción marcada la quita
 function accionNoEntrega(el) {
@@ -462,6 +454,12 @@ function accionNoEntrega(el) {
 // Qué se hizo con lo no entregado (para la tarjeta, el historial y el Excel)
 const textoAccionLog = rp => rp?.accion === 'oficina' ? 'Se devuelve a la oficina'
     : rp?.reprogramadaPara ? `Reprogramada para el ${fechaCorta(rp.reprogramadaPara)}${rp.horaRepro ? ' a las ' + horaBonita(rp.horaRepro) : ''}` : '';
+// La dirección de entrega es la de la parada; solo si se marca "Cambiar" se piden ciudad, dirección y teléfono
+function cambiarDirLog() {
+    const on = $('lgCambiarDir').checked;
+    $('lgDestOtro').hidden = !on; $('lgDestino').required = on; $('lgDirDest').required = on;
+    if (on) $('lgDirDest').focus();
+}
 // Ciudad del cliente en el formato de la lista de municipios ("Pereira - Risaralda"), con la Maestra y el directorio
 function ciudadCliente(nombre) {
     if (!nombre) return '';
@@ -499,15 +497,16 @@ async function guardarLogReporte(e, id, ok) {
         const fotos = [];
         for (const f of archivos) fotos.push(await comprimirFoto(f, API_URL ? 1280 : 480, API_URL ? 0.72 : 0.6));
         const val = k => $(k)?.value.trim() || '';
-        if ($('lgDestino') && !validarCiudad($('lgDestino'))) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Escoge la ciudad de destino de la lista'); }
+        const cambio = ok && !!$('lgCambiarDir')?.checked;
+        if (cambio && !validarCiudad($('lgDestino'))) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Escoge la ciudad de destino de la lista'); }
         const accion = ok ? '' : document.querySelector('#lgAccion input:checked')?.value || '';
         if (accion === 'reprogramar' && !val('lgReproFecha')) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Escoge la fecha para reprogramar'); }
         const reporte = ok ? { recibio: nombrePropio(val('lgRecibio')), guia: val('lgGuia'), detalle: val('lgRDetalle'), novedad: val('lgNovedad') }
             : { motivo: val('lgMotivo'), novedad: val('lgNovedad'), accion,
                 ...(accion === 'reprogramar' ? { reprogramadaPara: val('lgReproFecha'), horaRepro: val('lgReproHora') } : {}) };
-        // Envío: destino, transportadora y guía quedan en la parada (los usa el Excel y la tarjeta)
-        const envio = ok && $('lgDestino') ? { destino: val('lgDestino'), dirDestino: $('lgDestOtro').hidden ? '' : val('lgDirDest'),
-            telDestino: $('lgDestOtro').hidden ? '' : val('lgTelDest'), transportadora: val('lgTransp') } : {};
+        // Dirección cambiada al entregar y, en el envío, destino (la ciudad del cliente si no se cambió), transportadora y guía
+        const envio = { ...(cambio ? { destino: val('lgDestino'), dirDestino: val('lgDirDest'), telDestino: val('lgTelDest') } : {}),
+            ...(ok && r.tipo === 'envio' ? { transportadora: val('lgTransp'), ...(cambio ? {} : { destino: ciudadCliente(r.contacto), dirDestino: '', telDestino: '' }) } : {}) };
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
         guardarRegistro({ ...r, ...envio, estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
             fotos: [...(r.fotos || []), ...(API_URL ? [] : fotos.map(d => ({ data: d })))] });

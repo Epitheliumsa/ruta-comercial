@@ -1834,3 +1834,6 @@ body.es-logistica .mc-periodo-btn { display: none; }
 .hist-dia-btns .chip { flex: 0 0 auto; white-space: nowrap; }
 .hist-n { font-weight: 800; font-size: 11px; }
 .hist-dia-titulo { margin: 8px 0 0; font-weight: 800; color: #17302d; }
+.form-rc .lg-dir-entrega { background: #f1f8f6; border: 1px solid #d5e6e1; border-radius: 10px; padding: 10px 12px; font-size: 13.5px; line-height: 1.5; color: #2f4f47; margin: 4px 0 6px; }
+.form-rc .lg-dir-entrega a { color: inherit; font-weight: 700; }
+.form-rc .lg-cambiar { display: inline-flex; margin: 0 0 6px; }

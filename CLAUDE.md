@@ -172,9 +172,10 @@
   calle y teléfonos): el administrador sube la Maestra de Odoo en Logística > "📇 Direcciones"; va a la hoja "Directorio" del Google Sheet
   (acciones `directorio` y `guardarDirectorio` en `Codigo.gs`). Logística, jefes y administrador traen todo; cada comercial, solo su zona
   (columna Zona). Se ven en la tarjeta del cliente (Maestra) y llenan solos la parada; si no hay, se usa la última parada a ese cliente.
-- Envío fuera de Bogotá: al programar solo se marca la factura. Al reportar "Enviado" se llenan ciudad de destino (sale la del
-  cliente en formato de municipios, `ciudadCliente`; si se cambia se piden dirección y teléfono de allá: `dirDestino`, `telDestino`),
-  transportadora (lista de las usadas antes) y número de guía; quedan en la parada (`destino`, `transportadora`) y en el Excel.
+- Envío fuera de Bogotá: al programar solo se marca la factura. Al reportar "Enviado" se piden transportadora (lista de las usadas
+  antes) y número de guía; no se pregunta quién recibió. Destino = la ciudad del cliente (`ciudadCliente`, formato de municipios).
+- Dirección de entrega: al reportar una parada con cliente (entrega, envío, radicación) se muestra siempre la de la parada; solo si se
+  marca "Cambiar la dirección de entrega" se piden ciudad (municipios), dirección y teléfono (`destino`, `dirDestino`, `telDestino`).
 - Memoria: al reportar sale la lista de quienes recibieron antes en ese cliente (`antesCliente`); en el cierre de visita comercial,
   la de quienes atendieron antes (`htmlAtendioAntes`).
 - Ficha del cliente: visitas (verde azulado) y entregas (naranja) con etiqueta y título de sección; botones por cada día con movimiento
