@@ -152,6 +152,7 @@
 
 ## Módulo de Logística (`logistica.js`)
 - Usuarios: Javier Arjona (Coordinador Logístico, `coordLogistica`), Eric Ovalle y Deelan Barrero (auxiliares de domicilios y mensajería).
+  Javier programa las paradas de sus auxiliares y también se puede asignar paradas a sí mismo (`MENSAJEROS` lo incluye de último).
   Tipo de usuario `logistica` (en `app.js` y `backend/Codigo.gs`): solo ven Logística, Maestra Clientes (todas las zonas) y el Vademécum.
 - Registro `logistica` = una parada de la ruta. **Un solo tipo** por parada (`tipo`), salvo la radicación, que puede ir sola
   (`tipo:'radicacion'`) o sumarse a cualquier otro (`tipos:[tipo,'radicacion']`; usar `tiposLog`/`hayTipo`/`conRadicacion`):

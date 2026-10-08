@@ -23,7 +23,8 @@ const USUARIOS = [
     { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cumple: '2000-12-17', cargo: 'Auxiliar de Domicilios y Mensajería' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
-const MENSAJEROS = USUARIOS.filter(u => u.tipo === 'logistica' && !u.coordLogistica);
+// Quienes hacen paradas: los auxiliares y también el coordinador (que además programa a sus auxiliares); el coordinador va de último
+const MENSAJEROS = [...USUARIOS.filter(u => u.tipo === 'logistica' && !u.coordLogistica), ...USUARIOS.filter(u => u.tipo === 'logistica' && u.coordLogistica)];
 const esCumple = (id, d) => { const u = USUARIOS.find(x => x.id === id); return !!u?.cumple && u.cumple.slice(5) === d.slice(5); };
 
 // Acceso directo al Vademécum Epithelium: los dos sitios están en epitheliumsa.github.io y comparten el
