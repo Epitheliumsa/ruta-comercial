@@ -1,8 +1,10 @@
 """Arma el "módulo de pruebas": copia idéntica de la app para ensayar cambios antes de publicarlos.
 
-Uso: python3 herramientas/modulo_pruebas.py <carpeta de salida> [semilla.json]
+Uso: python3 herramientas/modulo_pruebas.py <carpeta de salida> [semilla.json] [Maestra_Odoo_con_direcciones.xlsx]
 - semilla.json (opcional, fuera del repositorio): registros de ejemplo que se cargan en el navegador al abrir
   (ej. las ventas del mes), solo si quien prueba no los tiene ya.
+- Maestra de Odoo con direcciones (opcional, fuera del repositorio): carga el directorio de direcciones y teléfonos
+  como si lo hubiera traído del servidor. Son datos personales: solo para el módulo de pruebas (página privada).
 - Misma app, con la franja de arriba (encabezado) en rojo y "PRUEBAS" en el título.
 - ETAPA_DATOS = 'pruebas' y sin servidor: todo queda solo en el navegador de quien prueba.
 - Se entra tocando el usuario (sin clave).
@@ -75,6 +77,29 @@ if len(sys.argv) > 2:
         "// Módulo de pruebas: registros de ejemplo (solo se agregan los que no estén ya en este navegador)\n"
         f"try {{ const k = 'rc_registros', r = JSON.parse(localStorage.getItem(k) || '{{}}'); ({semilla}).forEach(x => {{ if (!r[x.id]) r[x.id] = x; }});"
         " localStorage.setItem(k, JSON.stringify(r)); if (!localStorage.getItem('rc_etapa')) localStorage.setItem('rc_etapa', 'pruebas'); } catch (e) {}\n", encoding='utf-8')
+    if len(sys.argv) > 3:
+        import json, time, unicodedata, openpyxl
+        norm = lambda t: re.sub('[\u0300-\u036f]', '', unicodedata.normalize('NFD', str(t))).lower().strip()   # igual que normalizar() de app.js
+        contactos = json.loads((RAIZ / 'contactos.json').read_text(encoding='utf-8'))
+        zona_de = {norm(x['n']): z for z, l in contactos.items() for x in l}
+        ws = openpyxl.load_workbook(sys.argv[3], read_only=True, data_only=True).active
+        filas_x = list(ws.iter_rows(values_only=True))
+        col = {str(n or '').strip(): i for i, n in enumerate(filas_x[0])}
+        val = lambda f, n: str(f[col[n]]).strip() if n in col and f[col[n]] not in (None, False) else ''
+        dirs, vistos = [], set()
+        for f in filas_x[1:]:
+            n = val(f, 'Nombre Público')
+            if not n or 'emplead' in val(f, 'Equipo de ventas').lower() or norm(n) in vistos:
+                continue
+            vistos.add(norm(n))
+            tel = ' / '.join(dict.fromkeys(t for t in (val(f, 'Móvil'), val(f, 'Teléfono')) if t))
+            dirs.append([n, val(f, 'Ciudad'), val(f, 'Calle'), tel, zona_de.get(norm(n), '')])
+        # Misma forma que ponerDirectorio() en logistica.js (llave = nombre normalizado)
+        m = {norm(d[0]): {'c': d[1], 'dir': d[2], 'tel': d[3], 'z': d[4]} for d in dirs}
+        with open(SALIDA / 'semilla.js', 'a', encoding='utf-8') as js:
+            js.write("try { localStorage.setItem('rc_directorio', JSON.stringify(" + json.dumps(
+                {'filas': m, 'actualizado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'traido': 0}, ensure_ascii=False) + ")); } catch (e) {}\n")
+        print('Directorio de pruebas:', len(dirs), 'clientes')
     h = re.sub(r'(<script src="app\.js)', '<script src="semilla.js"></script>\n    \\1', h, count=1)
 (SALIDA / 'index.html').write_text(h, encoding='utf-8')
 print('Módulo de pruebas en', SALIDA)

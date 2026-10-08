@@ -10,7 +10,8 @@ const puedeOperarLog = () => esLogistica() || esAdmin();          // programa y 
 const puedeCorregirLog = () => esCoordLog() || esAdmin();         // reabre un reporte para corregirlo
 const veTodasZonas = () => esJefe() || esLogistica();             // Maestra Clientes con todas las zonas
 
-// Tipo de parada (se escoge uno). En la entrega en Bogotá y Área Metropolitana se marca además si se recoge devolución o PQR.
+// Tipo de parada: se escoge uno; la radicación de documentos es la única que se puede sumar a otro tipo (o ir sola).
+// En la entrega en Bogotá y Área Metropolitana se marca además si se recoge devolución o PQR.
 const TIPOS_LOG = {
     entrega:     { t: 'Entrega Bogotá y A.M.', corto: 'Entrega', cliente: true, docs: true, ok: 'Entregado', no: 'No entregado', quien: '¿Quién recibió?', rec: 'Recibió' },
     envio:       { t: 'Envío fuera de Bogotá', corto: 'Envío', cliente: true, docs: true, envio: true, ok: 'Enviado', no: 'No enviado', quien: '¿Quién lo recibió? (transportadora o persona)', rec: 'Recibió' },
@@ -21,7 +22,7 @@ const TIPOS_LOG = {
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
 // Radicación: factura (serie A = OVI o B = OV) con su número, nota crédito (RNC) con su número, u otros (texto)
 const DOCS_RADICACION = [{ k: 'factura', t: 'Factura' }, { k: 'nc', t: 'Nota crédito RNC' }, { k: 'otros', t: 'Otros' }];
-const SERIES_FACTURA = { A: 'OVI', B: 'OV' };
+const SERIES_FACTURA = { A: 'OVI', B: 'OV' };   // en pantalla solo se ve la letra
 const MATERIALES_LOG = ['Materias primas', 'Envases', 'Plegadizas', 'Etiquetas', 'Otros'];
 const AREAS_LOG = ['Recursos Humanos', 'Producción', 'Contabilidad', 'Calidad', 'Gerencia', 'Mercadeo', 'Comercial', 'Compras', 'Otra'];
 const MOTIVOS_LOG = ['No estaba quien recibe', 'Lugar cerrado', 'Dirección incorrecta o no se encontró', 'Rechazó la entrega', 'El material no estaba listo', 'Pidió reprogramar', 'Otro'];
@@ -34,28 +35,34 @@ const logRegs = () => visibles().filter(r => r.clase === 'logistica');
 const logVisibles = () => logRegs().filter(r => esLogistica() ? (esCoordLog() || r.vendedor === sesion.id) : esAdmin() ? true : esJefe() ? hayTipo(r, 'cliente') : r.comercial === sesion.id);
 const tituloModuloLog = () => esLogistica() || esAdmin() ? 'Logística' : esJefe() ? 'Entregas a clientes' : 'Entregas a tus clientes';
 const zonaDeContacto = nombre => Object.keys(contactos).find(z => buscarMaestra(z, nombre));
-const tiposLog = r => [r.tipo].filter(k => TIPOS_LOG[k]);
-const hayTipo = (r, campo) => !!TIPOS_LOG[r.tipo]?.[campo];
+const tiposLog = r => (r.tipos?.length ? r.tipos : [r.tipo]).filter(k => TIPOS_LOG[k]);
+const hayTipo = (r, campo) => tiposLog(r).some(k => TIPOS_LOG[k][campo]);
+const conRadicacion = r => hayTipo(r, 'radicacion');
 const okTxt = r => TIPOS_LOG[r.tipo]?.ok || 'Realizada';
 const noTxt = r => TIPOS_LOG[r.tipo]?.no || 'No realizada';
 const incluyeTxt = r => (r.incluye || []).map(k => k === 'pqr' ? 'PQR' : 'devolución').join(' y ');
-const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (r.incluye?.length ? ` + recoge ${incluyeTxt(r)}` : '');
+const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (r.incluye?.length ? ` + recoge ${incluyeTxt(r)}` : '') + (r.tipo !== 'radicacion' && conRadicacion(r) ? ' + radicación' : '');
 const tituloLog = r => r.contacto || r.proveedor || (r.area ? `Trámite · ${r.area}` : 'Parada');
 // Paradas con hora fija primero (por hora) y después el resto en el orden de la ruta
 const ordenLog = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '').localeCompare(b.hora || '') || (a.orden ?? 1e9) - (b.orden ?? 1e9) || (a.creado || '').localeCompare(b.creado || '');
-// Pedidos que se llevan: OVI (A) en terminados; OV (B) y OVI (A) en magistral individual; OV (B) en magistral de pedido
+// Facturas que se llevan (en pantalla A = OVI y B = OV, siempre de 6 cifras): A en terminados; B y/o A en magistral individual; B en magistral de pedido
 const CLASES_PEDIDO = [
-    { k: 'pt', t: 'Producto Terminado', campos: [['ovi', 'OVI']] },
-    { k: 'mi', t: 'Magistral Individual', campos: [['ov', 'OV'], ['ovi', 'OVI']] },
-    { k: 'mp', t: 'Magistral de Pedido', campos: [['ov', 'OV']] }
+    { k: 'pt', t: 'Producto Terminado', campos: [['ovi', 'A']] },
+    { k: 'mi', t: 'Magistral Individual', campos: [['ov', 'B'], ['ovi', 'A']] },
+    { k: 'mp', t: 'Magistral de Pedido', campos: [['ov', 'B']] }
 ];
 const claseDoc = k => CLASES_PEDIDO.find(c => c.k === k);
-const textoDoc = d => [claseDoc(d.clase)?.t, d.ov && `OV ${d.ov}`, d.ovi && `OVI ${d.ovi}`].filter(Boolean).join(' · ');
-const textoRad = d => d.doc === 'factura' ? `Radicar factura ${d.serie} (${SERIES_FACTURA[d.serie] || ''}) ${d.numero || ''}`.trim()
+const textoDoc = d => [claseDoc(d.clase)?.t, d.ovi && `A ${d.ovi}`, d.ov && `B ${d.ov}`].filter(Boolean).join(' · ');
+// Números de factura y nota crédito: 6 cifras, se completan con ceros a la izquierda (58 → 000058)
+const seisCifras = v => { v = String(v || '').replace(/\D/g, ''); return v ? v.slice(-6).padStart(6, '0') : ''; };
+const NUM6 = `placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="6" title="6 cifras: se completa con ceros" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="this.value = seisCifras(this.value)"`;
+const textoRad = d => d.doc === 'factura' ? `Radicar factura ${d.serie} ${d.numero || ''}`.trim()
     : d.doc === 'nc' ? `Radicar nota crédito RNC ${d.numero || ''}`.trim() : `Radicar: ${d.texto || ''}`;
 const horaLog = iso => new Date(iso).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: 'numeric', minute: '2-digit' });
 const chipEstadoLog = r => r.estado === 'entregado' ? `<span class="chip ok">${esc(okTxt(r))}</span>`
     : r.estado === 'no_entregado' ? `<span class="chip no">${esc(noTxt(r))}</span>` : '<span class="chip p">Pendiente</span>';
+// Uno o varios teléfonos ("300… / 601…"), cada uno con su enlace para llamar
+const enlacesTel = t => String(t || '').split(/\s*[\/,;]\s*/).filter(Boolean).map(x => `<a href="tel:${esc(x.replace(/[^0-9+]/g, ''))}">${esc(x)}</a>`).join(' · ');
 const urlFoto = f => f.url || f.data || '';
 const miniFoto = f => f.id ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(f.id)}&sz=w400` : (f.data || '');
 
@@ -138,14 +145,14 @@ function tarjetaLog(r, n, total) {
     const tp = TIPOS_LOG[r.tipo] || TIPOS_LOG.entrega, cerrada = r.estado !== 'pendiente', rp = r.reporte || {}, ok = okTxt(r), no = noTxt(r);
     const clase = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : '';
     const titulo = r.contacto ? `<h3 class="cliente-link" data-c="${esc(r.contacto)}" onclick="verCliente(this.dataset.c, '${esc(r.comercial || '')}')" title="Ver historial del cliente">${esc(r.contacto)}</h3>` : `<h3>${esc(tituloLog(r))}</h3>`;
-    const docs = (r.documentos || []).map(d => `<span class="lg-doc-chip">${esc(claseDoc(d.clase)?.t || 'Pedido')}${d.ov ? ` · OV <b>${esc(d.ov)}</b>` : ''}${d.ovi ? ` · OVI <b>${esc(d.ovi)}</b>` : ''}</span>`).join('')
+    const docs = (r.documentos || []).map(d => `<span class="lg-doc-chip">${esc(claseDoc(d.clase)?.t || 'Pedido')}${d.ovi ? ` · A <b>${esc(d.ovi)}</b>` : ''}${d.ov ? ` · B <b>${esc(d.ov)}</b>` : ''}</span>`).join('')
         + (r.radicacion || []).map(d => `<span class="lg-doc-chip rad">${esc(textoRad(d))}</span>`).join('');
     const lineas = [
         r.destino ? `<b>Destino:</b> ${esc(r.destino)}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
         r.proveedor && (r.contacto || r.materiales?.length) ? `<b>Proveedor:</b> ${esc(r.proveedor)}` : '',
         r.materiales?.length ? `<b>Recoger:</b> ${esc(r.materiales.join(', '))}` : '',
         r.direccion ? `<b>Dirección:</b> ${esc(r.direccion)}` : '',
-        r.telefono ? `<b>Teléfono:</b> <a href="tel:${esc(r.telefono.replace(/[^0-9+]/g, ''))}">${esc(r.telefono)}</a>` : '',
+        r.telefono ? `<b>Teléfono:</b> ${enlacesTel(r.telefono)}` : '',
         r.detalle ? `<b>Indicaciones:</b> ${esc(r.detalle)}` : ''
     ].filter(Boolean).map(x => `<p class="nota-plan">${x}</p>`).join('');
     let reporte = '';
@@ -177,7 +184,7 @@ function tarjetaLog(r, n, total) {
         <button type="button" onclick="moverLog('${r.id}', -1)" ${k === 0 ? 'disabled' : ''}>▲ Subir</button><button type="button" onclick="moverLog('${r.id}', 1)" ${k === sueltas.length - 1 ? 'disabled' : ''}>▼ Bajar</button></div>` : '';
     const meta = [nombreTipos(r), r.zona || ''].filter(Boolean).join(' · ');
     return `<div class="producto-card visita-card lg-card ${clase} lg-${r.tipo}">
-        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${k === 'pqr' ? 'PQR' : 'Devolución'}</span>`).join('')}${titulo}</div>${chipEstadoLog(r)}</div>
+        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${k === 'pqr' ? 'PQR' : 'Devolución'}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${titulo}</div>${chipEstadoLog(r)}</div>
         ${mover}
         <p class="meta">${esc(meta)}</p>
         ${docs ? `<div class="lg-docs">${docs}</div>` : ''}
@@ -214,16 +221,18 @@ function abrirLogForm(id) {
         <label for="lgTel">Teléfono <small>(sale solo con el cliente; puedes cambiarlo)</small></label>
         <input id="lgTel" type="tel" autocomplete="off" maxlength="40" value="${esc(r?.telefono || '')}" oninput="this.dataset.auto = ''">
         <label>Tipo de parada ${REQ}</label>
-        <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onchange="logCampos()"><span>${esc(v.t)}</span></label>`).join('')}</div>
+        <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).filter(([k]) => k !== 'radicacion').map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onclick="tipoClick(this)"><span>${esc(v.t)}</span></label>`).join('')}
+            <label class="lg-chip lg-chip-rad"><input type="checkbox" id="lgRadChk"${r && conRadicacion(r) ? ' checked' : ''} onchange="logCampos()"><span>${esc(TIPOS_LOG.radicacion.t)}</span></label></div>
+        <p class="ayuda">Escoge uno. La radicación de documentos puede ir sola o sumarse a cualquier otro.</p>
         <div id="lgBIncluye">
             <label>En esta entrega también se recoge <small>(opcional)</small></label>
             <div class="lg-chips" id="lgIncluye">${Object.entries(INCLUYE_ENTREGA).map(([k, t]) => `<label class="lg-chip"><input type="checkbox" value="${k}"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>`).join('')}</div>
         </div>
         <div id="lgBDocs">
-            <label>Facturas y pedidos <span id="lgReqDoc">${REQ}</span> <small>(marca qué llevas)</small></label>
+            <label>Factura <span id="lgReqDoc">${REQ}</span> <small>(marca qué llevas)</small></label>
             <div class="lg-pedidos">${CLASES_PEDIDO.map(c => `<div class="lg-pedido" data-k="${c.k}">
                 <label class="lg-pchk"><input type="checkbox"${doc(c.k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
-                <div class="lg-pcampos">${c.campos.map(([f, t]) => `<label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]{6}" title="Número de 6 cifras" oninput="this.value = this.value.replace(/[^0-9]/g, '')" value="${esc(doc(c.k)?.[f] || '')}"></label>`).join('')}</div>
+                <div class="lg-pcampos">${c.campos.map(([f, t]) => `<label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" ${NUM6} value="${esc(doc(c.k)?.[f] || '')}"></label>`).join('')}</div>
             </div>`).join('')}</div>
         </div>
         <div id="lgBRad">
@@ -231,8 +240,8 @@ function abrirLogForm(id) {
             <div class="lg-pedidos">${DOCS_RADICACION.map(c => `<div class="lg-pedido lg-rad" data-k="${c.k}">
                 <label class="lg-pchk"><input type="checkbox"${rad(c.k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
                 <div class="lg-pcampos">${c.k === 'factura'
-                    ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${rad('factura')?.serie === s ? ' selected' : ''}>${s} · ${t}</option>`).join('')}</select><input data-f="numero" placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]{6}" title="Número de 6 cifras" oninput="this.value = this.value.replace(/[^0-9]/g, '')" value="${esc(rad('factura')?.numero || '')}"></label>`
-                    : c.k === 'nc' ? `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="20" value="${esc(rad('nc')?.numero || '')}"></label>`
+                    ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${rad('factura')?.serie === s ? ' selected' : ''}>${s}</option>`).join('')}</select><input data-f="numero" ${NUM6} value="${esc(rad('factura')?.numero || '')}"></label>`
+                    : c.k === 'nc' ? `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" ${NUM6} value="${esc(rad('nc')?.numero || '')}"></label>`
                     : `<label class="lg-pc"><input data-f="texto" placeholder="Qué documento se radica" autocomplete="off" maxlength="80" value="${esc(rad('otros')?.texto || '')}"></label>`}</div>
             </div>`).join('')}</div>
         </div>
@@ -261,19 +270,28 @@ function abrirLogForm(id) {
     logInfoCliente(false);
 }
 
-const tipoMarcado = () => document.querySelector('#lgTipos input:checked')?.value || '';
+// El tipo principal (radio) o, si solo se marcó la radicación, 'radicacion'
+const radMarcada = () => !!$('lgRadChk')?.checked;
+const tipoMarcado = () => document.querySelector('#lgTipos input[name=lgTipo]:checked')?.value || (radMarcada() ? 'radicacion' : '');
+// Tocar otra vez el tipo marcado lo desmarca (para dejar solo la radicación)
+function tipoClick(el) {
+    if (el.dataset.on === '1') el.checked = false;
+    document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
+    logCampos();
+}
 const incluyeMarcado = () => [...document.querySelectorAll('#lgIncluye input:checked')].map(i => i.value);
 // Muestra solo los campos del tipo de parada escogido
 function logCampos() {
-    const k = tipoMarcado(), tp = TIPOS_LOG[k] || {};
-    $('lgReqCli').innerHTML = tp.cliente ? REQ : '<small>(si aplica)</small>';
-    $('lgCliente').required = !!tp.cliente;
+    document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
+    const k = tipoMarcado(), tp = TIPOS_LOG[k] || {}, conRad = radMarcada();
+    $('lgReqCli').innerHTML = tp.cliente || conRad ? REQ : '<small>(si aplica)</small>';
+    $('lgCliente').required = !!(tp.cliente || conRad);
     $('lgBIncluye').hidden = k !== 'entrega';
     $('lgBDocs').hidden = !tp.docs;
     // En la entrega, los pedidos son obligatorios salvo que solo se vaya a recoger una devolución o una PQR
     const docsObl = k === 'envio' || (k === 'entrega' && !incluyeMarcado().length);
     $('lgReqDoc').innerHTML = docsObl ? REQ : '<small>(opcional)</small>';
-    $('lgBRad').hidden = !tp.radicacion;
+    $('lgBRad').hidden = !conRad;
     $('lgBEnvio').hidden = !tp.envio; $('lgDestino').required = !!tp.envio; $('lgTransp').required = !!tp.envio;
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = !!tp.recoleccion;
     $('lgBVuelta').hidden = !tp.vuelta;
@@ -285,12 +303,12 @@ function logCampos() {
         fila.classList.toggle('on', on);
         fila.querySelector('.lg-pcampos').hidden = !on;
         const campos = fila.querySelectorAll('.lg-pcampos input');
-        campos.forEach(i => i.required = on && campos.length === 1);   // Magistral Individual: basta OV u OVI
+        campos.forEach(i => i.required = on && campos.length === 1);   // Magistral Individual: basta A o B
     });
 }
 // A quién le llega la entrega (el vendedor de la zona del cliente) y los datos del cliente en la Maestra
 function datosClienteLog(nombre) {
-    const zona = nombre ? zonaDeContacto(nombre) : '', c = zona ? buscarMaestra(zona, nombre) : null, d = nombre ? directorio.filas[normalizar(nombre)] : null;
+    const zona = nombre ? zonaDeContacto(nombre) : '', c = zona ? buscarMaestra(zona, nombre) : null, d = dirDe(nombre);
     return { zona: zona || '', comercial: zona ? vendedorDeZona(zona)?.id || '' : '', ciudad: c?.c || d?.c || '', dir: d?.dir || '', tel: d?.tel || '' };
 }
 // Dirección y teléfono: los de la Maestra y, si la Maestra aún no los tiene, los de la última parada a ese cliente.
@@ -313,21 +331,23 @@ function guardarLog(e, id) {
     e.preventDefault();
     const antes = id ? registros[id] : null, tipo = tipoMarcado(), tp = TIPOS_LOG[tipo], fecha = $('lgFecha').value;
     if (!tp) return toast('Escoge el tipo de parada');
+    const conRad = radMarcada(), tipos = conRad && tipo !== 'radicacion' ? [tipo, 'radicacion'] : [tipo];
     if (!fecha) return toast('Elige la fecha');
     if (!antes && fecha < hoy()) return toast('Ese día ya pasó: programa desde hoy');
     const vendedor = $('lgMens') ? $('lgMens').value : (antes?.vendedor || sesion.id);
     const incluye = tipo === 'entrega' ? incluyeMarcado() : [];
     const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).map(f => {
         const d = {};
-        f.querySelectorAll('.lg-pcampos [data-f]').forEach(i => { d[i.dataset.f] = i.value.trim(); });
+        f.querySelectorAll('.lg-pcampos [data-f]').forEach(i => { d[i.dataset.f] = ['ov', 'ovi', 'numero'].includes(i.dataset.f) ? seisCifras(i.value) : i.value.trim(); });
         return { k: f.dataset.k, d };
     });
     const documentos = tp.docs ? leer('#lgBDocs .lg-pedido').map(({ k, d }) => ({ clase: k, ...d })) : [];
-    const radicacion = tp.radicacion ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
+    const radicacion = conRad ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
     const sinNumero = documentos.find(d => !d.ov && !d.ovi);
-    if (sinNumero) return toast(`${claseDoc(sinNumero.clase)?.t}: escribe al menos la OV o la OVI`);
+    if (sinNumero) return toast(`${claseDoc(sinNumero.clase)?.t}: escribe al menos la factura A o la B`);
     if ((tipo === 'envio' || (tipo === 'entrega' && !incluye.length)) && !documentos.length) return toast('Marca qué pedido llevas y escribe sus números');
-    if (tp.radicacion && !radicacion.length) return toast('Marca qué se radica: factura, nota crédito u otros');
+    if (conRad && !radicacion.length) return toast('Marca qué se radica: factura, nota crédito u otros');
+    if (radicacion.some(d => d.doc !== 'otros' ? !d.numero : !d.texto)) return toast('Escribe el número (o el documento) de lo que se radica');
     // El cliente de la Maestra se guarda con su nombre exacto; uno que no esté en la Maestra, con nombre propio
     const escrito = $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
     const contacto = zonaC ? buscarMaestra(zonaC, escrito).n : escrito ? nombrePropio(escrito) : '';
@@ -336,7 +356,7 @@ function guardarLog(e, id) {
     const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === vendedor && x.id !== base.id);
     const orden = antes && antes.fecha === fecha && antes.vendedor === vendedor ? antes.orden : Math.max(0, ...mismo.map(x => x.orden || 0)) + 1;
     guardarRegistro({
-        ...base, tipo, tipos: [tipo], incluye, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
+        ...base, tipo, tipos, incluye, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
         destino: tp.envio ? $('lgDestino').value.trim() : '', transportadora: tp.envio ? $('lgTransp').value.trim() : '',
         proveedor: tp.recoleccion ? $('lgProv').value.trim() : '', materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
@@ -381,7 +401,7 @@ function abrirLogReporte(id, ok) {
             <label for="lgRecibio">${esc(tp.quien)} ${req ? REQ : '<small>(opcional)</small>'}</label>
             <input id="lgRecibio" autocomplete="off" maxlength="80" ${req ? 'required' : ''}>
             ${tieneEnvio ? `<label for="lgGuia">Número de guía ${REQ}</label><input id="lgGuia" autocomplete="off" maxlength="40" required>` : ''}
-            ${tp.radicacion ? `<label for="lgRadicado">Número o sello de radicado <small>(opcional)</small></label><input id="lgRadicado" autocomplete="off" maxlength="40">` : ''}
+            ${conRadicacion(r) ? `<label for="lgRadicado">Número o sello de radicado <small>(opcional)</small></label><input id="lgRadicado" autocomplete="off" maxlength="40">` : ''}
             ${detalle ? `<label for="lgRDetalle">${esc(detalle)} <small>(opcional)</small></label><textarea id="lgRDetalle" rows="2" maxlength="200"></textarea>` : ''}
             <label for="lgNovedad">Novedades <small>(opcional)</small></label>
             <textarea id="lgNovedad" rows="2" maxlength="200" placeholder="Ej: faltó una unidad, el cliente pidió cambiar la factura…"></textarea>
@@ -391,7 +411,7 @@ function abrirLogReporte(id, ok) {
             <label for="lgNovedad">Cuéntalo con más detalle ${REQ}</label>
             <textarea id="lgNovedad" rows="3" maxlength="200" required placeholder="Qué pasó y qué se acordó con el cliente"></textarea>
         `}
-        <label for="lgFotos">Foto <small>${ok ? (tp.radicacion ? '(recomendada: foto del sello de radicado)' : '(recomendada: foto de la entrega o del recibido)') : '(opcional)'}</small></label>
+        <label for="lgFotos">Foto <small>${ok ? (conRadicacion(r) ? '(recomendada: foto del sello de radicado)' : '(recomendada: foto de la entrega o del recibido)') : '(opcional)'}</small></label>
         <div class="lg-foto-btns">
             <label class="btn-secundario lg-foto-btn">📷 Tomar foto<input type="file" accept="image/*" capture="environment" hidden onchange="agregarFotosLog(this)"></label>
             <label class="btn-secundario lg-foto-btn">🖼 Galería o captura<input type="file" accept="image/*" multiple hidden onchange="agregarFotosLog(this)"></label>
@@ -504,10 +524,15 @@ const veDirectorio = () => !!sesion;
 let directorio = (() => { try { return JSON.parse(localStorage.getItem(DIR_LOCAL)) || { filas: {} }; } catch (e) { return { filas: {} }; } })();
 function ponerDirectorio(filas, actualizado) {
     const m = {};
-    filas.forEach(([n, c, dir, tel]) => { if (n) m[normalizar(n)] = { c, dir, tel }; });
+    filas.forEach(([n, c, dir, tel, z]) => { if (n) m[normalizar(n)] = { c, dir, tel, z }; });
     directorio = { filas: m, actualizado: actualizado || '', traido: Date.now() };
     try { localStorage.setItem(DIR_LOCAL, JSON.stringify(directorio)); } catch (e) { /* sin espacio: queda en memoria */ }
 }
+// Cada comercial solo ve los de su zona (el servidor ya filtra; esto cubre el módulo de pruebas)
+const dirDe = nombre => {
+    const d = nombre ? directorio.filas[normalizar(nombre)] : null;
+    return d && (esLogistica() || esJefe() || esAdmin() || !d.z || d.z === comercial(sesion?.id)?.zona) ? d : null;
+};
 function borrarDirectorio() { directorio = { filas: {} }; try { localStorage.removeItem(DIR_LOCAL); } catch (e) { /* nada */ } }
 let trayendoDir = false;
 async function cargarDirectorio(forzar = false) {
@@ -558,9 +583,9 @@ function subirDirectorio() {
 
 // Dirección y teléfono en la tarjeta del cliente (Maestra)
 function htmlDirectorioCliente(nombre) {
-    const d = directorio.filas[normalizar(nombre || '')];
+    const d = dirDe(nombre);
     if (!d || !(d.dir || d.tel)) return '';
-    const tels = (d.tel || '').split(' / ').filter(Boolean).map(t => `<a href="tel:${esc(t.replace(/[^0-9+]/g, ''))}">${esc(t)}</a>`).join(' · ');
+    const tels = enlacesTel(d.tel);
     return `<p class="dir-cliente">${d.dir ? `📍 ${esc(d.dir)}` : ''}${d.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>`;
 }
 
@@ -646,7 +671,7 @@ function armarLibroLog(regs, mes, mens) {
         ]));
     });
     const cols = [['Fecha', 12], ['Hora fija', 11], ['Mensajero', 18], ['Tipo de parada', 26], ['Cliente / proveedor / área', 34], ['Zona', 18], ['Comercial', 18], ['Destino', 16], ['Transportadora', 16],
-        ['Pedido o documento', 24], ['OV', 12], ['OVI', 12], ['Otro número / detalle', 18], ['Estado', 14], ['Fecha y hora del reporte', 20], ['Recibió / entregó', 24], ['Guía', 14], ['Radicado', 14], ['Motivo (no realizada)', 24], ['Novedades', 40],
+        ['Pedido o documento', 24], ['Factura B (OV)', 14], ['Factura A (OVI)', 14], ['Otro número / detalle', 18], ['Estado', 14], ['Fecha y hora del reporte', 20], ['Recibió / entregó', 24], ['Guía', 14], ['Radicado', 14], ['Motivo (no realizada)', 24], ['Novedades', 40],
         ['Dirección e indicaciones', 36], ['Fotos', 8], ['Enlaces de las fotos', 40], ['Reportó', 16], ['Correcciones', 12]];
     const h = libro.addWorksheet('Entregas', { views: [{ showGridLines: false, state: 'frozen', ySplit: 4 }] });
     h.getCell('A1').value = `Logística · ${mayuscula(nombreMes(mes))}${mens ? ' · ' + nombreVendedor(mens) : ''}`;

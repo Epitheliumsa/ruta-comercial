@@ -153,17 +153,21 @@
 ## Módulo de Logística (`logistica.js`)
 - Usuarios: Javier Arjona (Coordinador Logístico, `coordLogistica`), Eric Ovalle y Deelan Barrero (auxiliares de domicilios y mensajería).
   Tipo de usuario `logistica` (en `app.js` y `backend/Codigo.gs`): solo ven Logística, Maestra Clientes (todas las zonas) y el Vademécum.
-- Registro `logistica` = una parada de la ruta. **Un solo tipo** por parada (`tipo`; `tipos:[tipo]` por compatibilidad):
+- Registro `logistica` = una parada de la ruta. **Un solo tipo** por parada (`tipo`), salvo la radicación, que puede ir sola
+  (`tipo:'radicacion'`) o sumarse a cualquier otro (`tipos:[tipo,'radicacion']`; usar `tiposLog`/`hayTipo`/`conRadicacion`):
   Entrega Bogotá y A.M. (`entrega`; puede incluir `incluye: devolucion | pqr` = también se recoge devolución o PQR),
   Envío fuera de Bogotá (`envio`), Radicación de documentos (`radicacion`), Proveedor (`recoleccion`) y Trámite área (`vuelta`).
   `vendedor` = mensajero asignado. `hora` opcional = cita a hora fija: esas paradas van primero, por hora, y no se mueven con Subir/Bajar.
 - Formulario (orden): fecha, hora (si es fija) y mensajero → cliente (Maestra) → dirección y teléfono (salen solos; editables) →
-  tipo de parada → datos del tipo. Clases de pedido (`documentos: [{clase, ov, ovi}]`): Producto Terminado = OVI (A);
-  Magistral Individual = OV (B) y/u OVI (A), basta una; Magistral de Pedido = OV (B). OV, OVI y número de factura: siempre 6 cifras.
+  tipo de parada → datos del tipo. Bloque "Factura" (`documentos: [{clase, ov, ovi}]`; en pantalla solo A y B): Producto Terminado = A (OVI);
+  Magistral Individual = B (OV) y/u A (OVI), basta una; Magistral de Pedido = B (OV). Facturas y nota crédito RNC: 6 cifras,
+  se completan con ceros a la izquierda (`seisCifras`: 58 → 000058).
   Entregas y envíos exigen al menos una clase con sus números
   (una entrega sin pedido vale si recoge devolución o PQR).
 - Radicación (`radicacion: [{doc:'factura', serie:'A'|'B', numero}, {doc:'nc', numero}, {doc:'otros', texto}]`): factura A = OVI,
   factura B = OV; nota crédito RNC; otros. Al reportar se anota el número de radicado.
+- Módulo de pruebas con direcciones: `python3 herramientas/modulo_pruebas.py <salida> <semilla.json> <Maestra Odoo con direcciones.xlsx>`
+  (el Excel nunca va al repositorio; el módulo es una página privada).
 - Dirección y teléfono (**datos personales: nunca en el repositorio**, que es público; `maestra_contactos.py` descarta correo, documento,
   calle y teléfonos): el administrador sube la Maestra de Odoo en Logística > "📇 Direcciones"; va a la hoja "Directorio" del Google Sheet
   (acciones `directorio` y `guardarDirectorio` en `Codigo.gs`). Logística, jefes y administrador traen todo; cada comercial, solo su zona
