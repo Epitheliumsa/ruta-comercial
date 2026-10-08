@@ -1840,3 +1840,9 @@ body.es-logistica .mc-periodo-btn { display: none; }
 /* Logística: su módulo va de primero en el inicio (para los demás, después de Leads) */
 body.es-logistica .home-menu .home-intro { order: -2; }
 body.es-logistica #btnLogistica { order: -1; }
+/* Logística: anillos del día, la semana y el mes; en todos se puede tocar cada parte */
+.lg-anillo .anillo-ley li, .anillo-dia.fijo.lg-anillo .anillo-ley li { cursor: pointer; }
+.lg-filtro-act { display: inline-flex; align-items: center; gap: 6px; }
+.lg-filtro-act i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.lg-anillo svg text { pointer-events: none; }
+#logResumen:not(:empty) { max-width: 1240px; margin: 8px auto 0; padding: 0 15px; align-items: center; }

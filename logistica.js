@@ -121,24 +121,60 @@ function pintarLog() {
     // Paradas del día
     const q = normalizar(logi.busca);
     const dia = todos.filter(r => r.fecha === f && delMens(r));
-    const cuenta = { '': dia.length, pendiente: dia.filter(r => r.estado === 'pendiente').length, entregado: dia.filter(r => r.estado === 'entregado').length, no_entregado: dia.filter(r => r.estado === 'no_entregado').length };
-    const boton = (k, clase, texto) => `<button type="button" class="chip chip-filtro ${clase}${logi.filtro === k ? ' activo' : ''}" onclick="logi.filtro = logi.filtro === '${k}' ? '' : '${k}'; pintarLog()" aria-pressed="${logi.filtro === k}">${texto}</button>`;
-    $('logResumen').innerHTML = dia.length ? boton('', 'gris', `<b>${cuenta['']}</b> ${cuenta[''] === 1 ? 'parada' : 'paradas'}`)
-        + boton('entregado', 'ok', `${cuenta.entregado} reportadas con éxito`) + boton('pendiente', 'p', `${cuenta.pendiente} pendientes`)
-        + (cuenta.no_entregado ? boton('no_entregado', 'no', `${cuenta.no_entregado} con novedad`) : '') : '';
-    const lista = dia.filter(r => (!logi.filtro || r.estado === logi.filtro)
+    // Anillos del día, de la semana (lunes hasta el día) y del mes (hasta el día): cada parte se puede tocar y filtra la lista
+    const semana = todos.filter(r => r.fecha >= lunes && r.fecha <= f && delMens(r));
+    const mes = todos.filter(r => r.fecha >= mesDe(f) + '-01' && r.fecha <= f && delMens(r));
+    const deP = { dia, semana, mes };
+    const [fp, fe] = (logi.filtro || '').split(':');
+    const tSem = lunes === f ? 'Lunes ' + fechaCorta(f) : `Del ${deIso(lunes).getDate()}${mesDe(lunes) === mesDe(f) ? '' : ' de ' + nombreMes(mesDe(lunes)).split(' ')[0].slice(0, 3)} al ${fechaCorta(f)}`;
+    const tMes = `${mayuscula(nombreMes(mesDe(f)).split(' ')[0])}, hasta el ${deIso(f).getDate()}`;
+    const anillos = anilloLog(dia, 'Día', fechaCorta(f), 'dia') + anilloLog(semana, 'Acumulado de la semana', tSem, 'semana') + anilloLog(mes, 'Acumulado del mes', tMes, 'mes');
+    const verAn = logi.anillo || 'dia';
+    const tabsAn = ['dia', 'semana', 'mes'].map(x => `<button type="button" class="${x === verAn ? 'activo' : ''}" onclick="logi.anillo='${x}'; pintarLog()">${{ dia: 'Día', semana: 'Semana', mes: 'Mes' }[x]}</button>`).join('');
+    $('logAnillo').innerHTML = mes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '';
+    const parte = PARTES_LOG.find(x => x.f === fe);
+    $('logResumen').innerHTML = fp && parte ? `<span class="chip chip-filtro activo lg-filtro-act"><i style="background:${parte.c}"></i>${esc(parte.t)} · ${esc({ dia: 'día ' + fechaCorta(f), semana: tSem.toLowerCase(), mes: tMes.toLowerCase() }[fp])}</span><button type="button" class="link-mini" onclick="filtrarLog('')">✕ Quitar filtro</button>` : '';
+    const base = fp && fp !== 'dia' ? deP[fp] : dia;
+    const lista = base.filter(r => (!parte || r.estado === parte.f)
         && (!q || normalizar([tituloLog(r), r.proveedor, r.direccion, r.telefono, r.destino, ...(r.documentos || []).flatMap(d => [d.ov, d.ovi]), ...(r.radicacion || []).map(textoRad)].join(' ')).includes(q)));
-    // Cada mensajero tiene su ruta numerada (el número no cambia aunque se filtre la lista)
-    const rutas = {};
-    dia.slice().sort(ordenLog).forEach(r => (rutas[r.vendedor] = rutas[r.vendedor] || []).push(r));
+    // Cada mensajero tiene su ruta numerada por día (el número no cambia aunque se filtre la lista)
+    const rutas = {}, clave = r => r.fecha + '|' + r.vendedor;
+    todos.filter(r => base.includes(r) || r.fecha === f).filter(delMens).slice().sort(ordenLog).forEach(r => (rutas[clave(r)] = rutas[clave(r)] || []).push(r));
     const grupos = {};
-    lista.sort(ordenLog).forEach(r => (grupos[r.vendedor] = grupos[r.vendedor] || []).push(r));
-    const varios = Object.keys(grupos).length > 1 || (esCoordLog() || esJefe());
-    const tarjetasCumple = cumplen(f).map(tarjetaCumple).join('');
+    const varios = fp === 'semana' || fp === 'mes';
+    lista.sort((a, b) => a.fecha.localeCompare(b.fecha) || ordenLog(a, b)).forEach(r => { const g = varios ? r.fecha : r.vendedor; (grupos[g] = grupos[g] || []).push(r); });
+    const conTitulo = varios || Object.keys(grupos).length > 1 || esCoordLog() || esJefe();
+    const tarjetasCumple = varios ? '' : cumplen(f).map(tarjetaCumple).join('');
     $('logLista').innerHTML = tarjetasCumple + (!lista.length
-        ? `<div class="no-results">${dia.length ? 'No hay paradas con este filtro.' : lectura ? 'No hay entregas a tus clientes este día.' : 'No hay paradas programadas para este día.'}${lectura ? '' : '<br><button class="btn-nuevo active" onclick="abrirLogForm()">+ Programar</button>'}</div>`
-        : Object.entries(grupos).map(([m, ps]) => (varios ? `<p class="grupo-titulo">${esc(nombreVendedor(m))} · ${ps.length} ${ps.length === 1 ? 'parada' : 'paradas'}</p>` : '')
-            + ps.map(r => tarjetaLog(r, rutas[m].indexOf(r) + 1, rutas[m].length)).join('')).join(''));
+        ? `<div class="no-results">${base.length ? 'No hay paradas con este filtro.' : lectura ? 'No hay entregas a tus clientes este día.' : 'No hay paradas programadas para este día.'}${lectura || varios ? '' : '<br><button class="btn-nuevo active" onclick="abrirLogForm()">+ Programar</button>'}</div>`
+        : Object.entries(grupos).map(([g, ps]) => (conTitulo ? `<p class="grupo-titulo">${esc(varios ? mayuscula(fechaLarga(g)) : nombreVendedor(g))} · ${ps.length} ${ps.length === 1 ? 'parada' : 'paradas'}</p>` : '')
+            + ps.map(r => { const ru = rutas[clave(r)] || [r]; return tarjetaLog(r, ru.indexOf(r) + 1, ru.length); }).join('')).join(''));
+}
+// Partes de los anillos de Logística (mismo estilo de los de comercial)
+const PARTES_LOG = [
+    { f: 'entregado', t: 'Entregadas', c: '#16a34a' }, { f: 'pendiente', t: 'Pendientes', c: '#d97706' }, { f: 'no_entregado', t: 'No entregadas', c: '#dc2626' }
+];
+// Tocar una parte (del día, la semana o el mes) muestra esas paradas; tocarla otra vez quita el filtro
+function filtrarLog(k) { logi.filtro = logi.filtro === k ? '' : k; pintarLog(); }
+function anilloLog(lista, etiqueta, titulo, periodo) {
+    const total = lista.length;
+    const cab = `<p class="anillo-titulo"><span>${esc(etiqueta)}</span><b>${esc(titulo)}</b></p>`;
+    if (!total) return `<div class="anillo-dia${periodo === 'dia' ? '' : ' fijo'} vacio" data-p="${periodo}">${cab}<p class="ayuda">Sin paradas</p></div>`;
+    const partes = PARTES_LOG.map(x => ({ ...x, n: lista.filter(r => r.estado === x.f).length }));
+    const R = 42, C = 2 * Math.PI * R, hueco = partes.filter(x => x.n).length > 1 ? 2 : 0;
+    const porc = n => Math.round(n / total * 100) + '%';
+    const clic = x => ` onclick="filtrarLog('${periodo}:${x.f}')"`;
+    let ac = 0;
+    const arcos = partes.filter(x => x.n).map(x => {
+        const largo = x.n / total * C, arco = `<circle r="${R}" cx="55" cy="55" fill="none" stroke="${x.c}" stroke-width="14" stroke-dasharray="${Math.max(largo - hueco, 0.1)} ${C}" stroke-dashoffset="${-ac}" transform="rotate(-90 55 55)"${clic(x)} style="cursor:pointer"><title>${x.t}: ${x.n} (${porc(x.n)})</title></circle>`;
+        ac += largo;
+        return arco;
+    }).join('');
+    const fila = (x, clase = '') => `<li class="${clase}${x.n ? '' : ' cero'}${logi.filtro === periodo + ':' + x.f ? ' activo' : ''}"${clic(x)}><i style="background:${x.c}"></i>${x.t}<b>${x.n}</b><small>${porc(x.n)}</small></li>`;
+    const [ok, ...resto] = partes;
+    return `<div class="anillo-dia${periodo === 'dia' ? '' : ' fijo'} lg-anillo" data-p="${periodo}"><svg viewBox="0 0 110 110" role="img" aria-label="${esc(etiqueta + ' ' + titulo)}"><circle r="${R}" cx="55" cy="55" fill="none" stroke="#eef3f2" stroke-width="14"/>${arcos}
+            <text x="55" y="53" text-anchor="middle" class="an-n">${total}</text><text x="55" y="68" text-anchor="middle" class="an-t">${total === 1 ? 'parada' : 'paradas'}</text></svg>
+        <div class="anillo-cuerpo">${cab}<ul class="anillo-ley">${fila(ok, 'principal')}${resto.map(x => fila(x)).join('')}</ul></div></div>`;
 }
 
 function tarjetaLog(r, n, total) {

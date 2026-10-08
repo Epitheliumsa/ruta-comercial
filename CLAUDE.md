@@ -187,6 +187,9 @@
   pendientes en el teléfono y se reintentan en cada sincronización.
 - No entregado: "¿Qué se hace?" (opcional) → 📅 Reprogramar (fecha y hora; crea una parada nueva pendiente con lo mismo,
   `vieneDe` = fecha original) o 🏢 Devolver a la oficina (`reporte.accion`). En comercial, "Reprogramar para" también lleva hora.
+- Anillos (como en comercial): Día, Acumulado de la semana (lunes al día) y Acumulado del mes (hasta el día), con Entregadas /
+  Pendientes / No entregadas. Toda parte de los tres anillos se puede tocar (`filtrarLog('semana:no_entregado')`): la lista muestra
+  esas paradas agrupadas por día; "✕ Quitar filtro" vuelve al día. En el celular se ve un anillo a la vez (botones Día · Semana · Mes).
 - Lo reportado queda bloqueado: solo el coordinador (o el administrador) lo reabre para corregir y el reporte anterior queda en `correcciones`.
 - Conexión con lo comercial: cada parada con cliente de la Maestra guarda `zona` y `comercial` (el vendedor de la zona). Ese comercial
   la ve en el historial del cliente y en "Entregas a tus clientes" (solo lectura); la jefe comercial ve todo lo de clientes; el administrador, todo.
