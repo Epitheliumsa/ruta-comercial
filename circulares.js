@@ -1820,5 +1820,29 @@ window.CIRCULARES = [
   ],
   "todos": false,
   "interna": false
+ },
+ {
+  "c": "2026-034",
+  "tipo": "Incentivo Fuerza de Ventas",
+  "nombre": "Afilia y gana con Protocolo Medico",
+  "grupo": "Todo portafolio",
+  "dirigida": "Canales 20, 21, 22 (Protocolo Médico)",
+  "producto": "Todo el portafolio",
+  "ini": "2026-10-07",
+  "fin": "2026-11-30",
+  "objetivo": "Ampliar la cobertura del Protocolo Médico: captar médicos nuevos y reactivar los de la lista (clasificación 20, 21 y 22) para que más médicos formulen cada mes",
+  "resumen": "Incentivo a la visitadora que cumpla la meta de su zona: Zona Norte y Zona Sur, 5 médicos activados o reactivados (mínimo 1 reactivado) y $249.551 cada una; Zona Desarrollo, 1 médico por activar y $100.000. Cuenta la formulación facturada de al menos $10.000 entre el 1 de septiembre y el 30 de noviembre de 2026. Se paga en diciembre con la liquidación del Protocolo Médico.",
+  "obs": "Anexo 1: 9 médicos por reactivar. Anexo 2: 235 por activar. Anexo 3: 29 activos (no cuentan para la meta). Los anexos no vienen en el PDF. En Zona Sur el incentivo es para Yunelis Caballero. Incluye el Formulador del Año Revival (circular 2026-001)",
+  "pdf": "",
+  "productos": [],
+  "canales": [
+   "20",
+   "21",
+   "22"
+  ],
+  "clientes": [],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
  }
 ];
