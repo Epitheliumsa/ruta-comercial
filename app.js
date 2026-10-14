@@ -2589,7 +2589,7 @@ function filtrarAgenda(f) {
 
 function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     const clase = v.estado === 'visitado' ? 'ok' : v.estado === 'no_visitado' ? 'no' : '';
-    const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visita Efectiva', v.cierreAutomatico ? 'No visitada' : 'Visita No Efectiva'];
+    const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visita Efectiva', v.cierreAutomatico ? 'Sin reporte a tiempo' : 'Visita No Efectiva'];
     const chip = v.estado === 'visitado' ? `<span class="chip ok">${txtOk}</span>`
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
         : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Próxima visita' : 'Reprogramada'}</span>`
@@ -4077,7 +4077,7 @@ function verAteneo(nombre) {
             ${prox ? `<span class="chip prox">Próxima: ${esc(fechaCorta(prox.fecha))}</span>` : ''}
             ${equipo.length ? `<span class="chip ateneo">Apoyan: ${esc(equipo.map(primerNombre).join(', '))}</span>` : ''}
         </div>
-        ${vs.map(x => { const [cls, txt] = sinReporte(x) ? ['no', 'No visitada'] : est[x.estado] || ['p', x.estado];
+        ${vs.map(x => { const [cls, txt] = sinReporte(x) ? ['no', 'Sin reporte a tiempo'] : est[x.estado] || ['p', x.estado];
             const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
             return `<div class="hist-item ${cls}"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
                 <p class="meta">${esc([nombreVendedor(x.vendedor), comercial(x.vendedor)?.zona, modalidadDe(x)].filter(Boolean).join(' · '))}</p>
@@ -4130,7 +4130,7 @@ function pintarHistorial() {
     const boton = (f, clase, html) => `<button type="button" class="chip chip-filtro ${clase}${historial.f === f ? ' activo' : ''}" onclick="filtrarHistorial('${f}')" aria-pressed="${historial.f === f}">${html}</button>`;
     const chipsMes = visitasCliente(nombre).length > 1 ? '<div class="hist-periodos" id="histMeses"></div>' : '';
     const filas = vistas.map(x => {
-        const [cls, txt] = sinReporte(x) ? ['no', 'No visitada'] : estadoTxt[x.estado] || ['p', x.estado];
+        const [cls, txt] = sinReporte(x) ? ['no', 'Sin reporte a tiempo'] : estadoTxt[x.estado] || ['p', x.estado];
         const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
@@ -4648,7 +4648,7 @@ function moverMesPanel(n) {
 // visitadas; lo reprogramado y el trabajo interno quedan aparte mientras no se realicen
 const PARTES_ANILLO = [
     { f: 'ok', t: 'Visita Efectiva', c: '#16a34a' }, { f: 'p', t: 'Pendientes', c: '#d97706' },
-    { f: 'no', t: 'Visita No Efectiva', c: '#f472b6' }, { f: 'sin', t: 'No visitadas', c: '#b91c1c' },
+    { f: 'no', t: 'Visita No Efectiva', c: '#f472b6' }, { f: 'sin', t: 'Sin reporte a tiempo', c: '#b91c1c' },
     { f: 'rep', t: 'Reprogramadas', c: '#7c3aed' }, { f: 'repNo', t: 'Reprogramadas no efectivas', c: '#9f1239' }, { f: 'int', t: 'Trabajo Administrativo', c: '#94a3b8' },
     { f: 'intNo', t: 'Trabajo Administrativo no realizado', c: '#475569' },
     { f: 'lead', t: 'Lead visitado', c: '#0891b2' }, { f: 'leadNo', t: 'Lead no visitado', c: '#7dd3e8' },
@@ -4656,17 +4656,17 @@ const PARTES_ANILLO = [
 ];
 // Visitas a ateneos: como los leads, van por aparte (no suman con la Maestra de clientes)
 const esVisAteneo = x => !x.interno && tiposDe(x).includes(ATENEO);
-// Nombre del estado de una visita a cliente: Visita Efectiva, Visita No Efectiva (reportada) o No visitada (programada sin reporte)
+// Nombre del estado de una visita a cliente: Visita Efectiva, Visita No Efectiva (reportada) o Sin reporte a tiempo (programada y no reportada)
 const sinReporte = x => !x.interno && ((x.estado === 'no_visitado' && !!x.cierreAutomatico) || (x.estado === 'pendiente' && x.fecha < hoy()));
 const estadoVisitaTxt = x => x.interno ? ({ visitado: 'Realizado', no_visitado: 'No realizado' }[x.estado] || 'Pendiente')
-    : x.estado === 'visitado' ? 'Visita Efectiva' : sinReporte(x) ? 'No visitada' : x.estado === 'no_visitado' ? 'Visita No Efectiva' : 'Pendiente';
+    : x.estado === 'visitado' ? 'Visita Efectiva' : sinReporte(x) ? 'Sin reporte a tiempo' : x.estado === 'no_visitado' ? 'Visita No Efectiva' : 'Pendiente';
 function claseAnillo(x) {
     if (x.esProyecto && !x.interno) return x.estado === 'visitado' ? 'lead' : 'leadNo';   // los leads van por aparte
     if (esVisAteneo(x)) return x.estado === 'visitado' ? 'ateneo' : 'ateneoNo';   // los ateneos también
     if (x.estado === 'visitado') return 'ok';
     const no = x.estado === 'no_visitado';
     if (x.interno) return no ? 'intNo' : 'int';
-    // No visitada: se programó y no se reportó (día pasado sin reporte, o cerrada por el sistema)
+    // Sin reporte a tiempo: se programó y no se reportó (día pasado sin reporte, o cerrada por el sistema)
     if ((x.estado === 'pendiente' && x.fecha < hoy()) || x.cierreAutomatico) return 'sin';
     if (x.origen === 'reprogramada') return no ? 'repNo' : 'rep';
     return no ? 'no' : 'p';
@@ -4699,7 +4699,7 @@ function cuentaVisitas(todas) {
     const leads = todas.filter(v => !v.interno && v.esProyecto);
     const ateneos = todas.filter(esVisAteneo);
     const ok = lista.filter(v => v.estado === 'visitado').length;
-    const sin = lista.filter(sinReporte).length;                                       // programadas sin reporte (No visitadas)
+    const sin = lista.filter(sinReporte).length;                                       // programadas sin reporte a tiempo
     const no = lista.filter(v => v.estado === 'no_visitado').length - lista.filter(v => v.estado === 'no_visitado' && sinReporte(v)).length;   // reportadas como no efectivas
     const prog = lista.filter(esProgramada);
     const okProg = prog.filter(v => v.estado === 'visitado').length;
@@ -4752,7 +4752,7 @@ function pintarPanel() {
         <div class="kpi np"><small>No programadas</small><b>${c.noProg}</b></div>
         <div class="kpi ok"><small>Visita Efectiva</small><b>${c.ok}</b></div>
         <div class="kpi no"><small>Visita No Efectiva</small><b>${c.no}</b></div>
-        <div class="kpi sin"><small>No visitadas</small><b>${c.sin}</b></div>
+        <div class="kpi sin"><small>Sin reporte a tiempo</small><b>${c.sin}</b></div>
         <div class="kpi p"><small>Pendientes</small><b>${c.p}</b></div>
         <div class="kpi"><small>Cumplimiento</small><b>${pct(c)}</b></div>
         <div class="kpi azul"><small>Virtuales</small><b>${c.virtual}</b></div>
@@ -4772,7 +4772,7 @@ function pintarPanel() {
     const t = hoy();
     const deHoy = visibles().filter(x => x.clase === 'visita' && x.fecha === t).filter(pasaFiltro);
     $('panHoyTxt').textContent = mayuscula(fechaLarga(t)) + (nombreFestivo(t) ? ` · Festivo: ${nombreFestivo(t)}` : '');
-    $('panHoy').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">V. efect.</th><th class="n">V. no efect.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th class="n">Trab. interno</th></tr></thead><tbody>`
+    $('panHoy').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">V. efect.</th><th class="n">V. no efect.</th><th class="n">Sin rep.</th><th class="n">Pend.</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th class="n">Trab. interno</th></tr></thead><tbody>`
         + vendedores.map(v => {
             const k = cuentaVisitas(deHoy.filter(x => x.vendedor === v.id));
             const nov = novedadesDe(v.id, t)[0];
@@ -4780,7 +4780,7 @@ function pintarPanel() {
                 <td class="n">${k.prog}</td><td class="n${k.noProg ? ' alerta' : ''}">${k.noProg}</td><td class="n">${k.ok}</td><td class="n">${k.no}</td><td class="n">${k.sin}</td><td class="n">${k.p}</td><td class="n lead">${k.leadsOk}</td><td class="n lead">${k.leadsNo}</td><td class="n">${k.internos}</td></tr>`;
         }).join('') + '</tbody>';
 
-    $('panTabla').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">V. efect.</th><th class="n">V. no efect.</th><th class="n">No visit.</th><th class="n">Pend.</th><th class="n">Virtual</th><th class="n">Pedidos</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th>Cumplimiento</th><th class="n">Actividades</th></tr></thead><tbody>`
+    $('panTabla').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">V. efect.</th><th class="n">V. no efect.</th><th class="n">Sin rep.</th><th class="n">Pend.</th><th class="n">Virtual</th><th class="n">Pedidos</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th>Cumplimiento</th><th class="n">Actividades</th></tr></thead><tbody>`
         + vendedores.map(v => {
             const k = cuentaVisitas(vis.filter(x => x.vendedor === v.id));
             const a = acts.filter(x => x.vendedor === v.id);
@@ -4846,7 +4846,7 @@ function pintarGraficaDias(vis) {
             svg += ultimo ? rectRedondo(cx, base - alto + hueco, barra, alto - hueco, COLOR[clave]) : `<rect x="${cx}" y="${base - alto + hueco}" width="${barra}" height="${Math.max(0, alto - hueco)}" fill="${COLOR[clave]}"/>`;
             base -= alto;
         });
-        const tip = `${fechaCorta(x.f)}: ${x.ok} Visita Efectiva · ${x.no} Visita No Efectiva · ${x.sin} No visitadas · ${x.p} pendientes`;
+        const tip = `${fechaCorta(x.f)}: ${x.ok} Visita Efectiva · ${x.no} Visita No Efectiva · ${x.sin} Sin reporte a tiempo · ${x.p} pendientes`;
         svg += `<rect x="${izq + ancho * i}" y="${arr}" width="${ancho}" height="${H - arr - abj}" fill="transparent" data-tip="${esc(tip)}"/>`;
         if (x.d === 1 || x.d % 5 === 0) svg += `<text x="${cx + barra / 2}" y="${H - 8}" class="g-eje" text-anchor="middle">${x.d}</text>`;
     });
@@ -5057,7 +5057,7 @@ function armarLibro(mes, vend, solo) {
     const r = hoja('Resumen');
     const colsR = [
         { t: 'Vendedor', w: 22 }, { t: 'Zona', w: 20 }, { t: 'Programadas', w: 13 }, { t: 'No programadas', w: 16 },
-        { t: 'Visita Efectiva', w: 14 }, { t: 'Visita No Efectiva', w: 17 }, { t: 'No visitadas', w: 13 }, { t: 'Pendientes', w: 12 }, { t: 'Cumplimiento', w: 14, f: '0%' },
+        { t: 'Visita Efectiva', w: 14 }, { t: 'Visita No Efectiva', w: 17 }, { t: 'Sin reporte a tiempo', w: 19 }, { t: 'Pendientes', w: 12 }, { t: 'Cumplimiento', w: 14, f: '0%' },
         { t: 'Presenciales', w: 13 }, { t: 'Virtuales', w: 11 }, { t: 'Pedidos', w: 10 }, { t: 'Valor pedidos', w: 16, f: '"$" #,##0' },
         { t: 'Lead visitado', w: 13 }, { t: 'Lead no visitado', w: 15 },
         { t: 'Trabajo Administrativo', w: 15 }, { t: 'Actividades', w: 12 }, { t: 'Act. realizadas', w: 15 }

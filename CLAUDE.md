@@ -151,13 +151,13 @@
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
 
 ## Nombres del estado de una visita a cliente
-- Visita Efectiva (reportada visitada), Visita No Efectiva (reportada como no visitada) y No visitada (programada sin reporte: cerrada por
+- Visita Efectiva (reportada visitada), Visita No Efectiva (reportada como no visitada) y Sin reporte a tiempo (programada y no reportada: cerrada por
   el sistema o día pasado aún pendiente; `sinReporte`). Se usan igual en tarjeta, anillos, historial, Panel (KPIs, tablas, gráfica,
   filtro de estado), Excel (Resumen y Visitas) y Visiplan. `estadoVisitaTxt(v)` da el texto; `cuentaVisitas` devuelve `ok`, `no`, `sin`, `p`.
   El trabajo administrativo sigue con Realizado / No realizado y los Leads y Ateneos con "visitado / no visitado".
 
 ## Anillos del Plan de Trabajo
-- Partes: Visita Efectiva (visitada), Visita No Efectiva (reportada como no visitada), No visitadas (programada y sin reporte:
+- Partes: Visita Efectiva (visitada), Visita No Efectiva (reportada como no visitada), Sin reporte a tiempo (programada y no reportada:
   día pasado aún pendiente o cerrada por el sistema, `claseAnillo` → 'sin'), Pendientes (hoy o futuro), Reprogramadas, Leads, Ateneos.
 - Día, Acumulado de la semana y Acumulado del mes: toda parte de los tres se puede tocar. El del día filtra la lista del día
   (`an:<parte>`); los de semana y mes (`an-semana:<parte>`, `an-mes:<parte>`) muestran esas visitas agrupadas por día. "Quitar filtro" vuelve.
