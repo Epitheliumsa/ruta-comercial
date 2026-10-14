@@ -151,6 +151,7 @@
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
 
 ## Nombres del estado de una visita a cliente
+- La visita pendiente que nace de la casilla "Próxima visita" del cierre (`origen: 'proxima'`) lleva la etiqueta **Visita de seguimiento**; la que nace de un "Reprogramar para" lleva **Reprogramada**.
 - Visita Efectiva (reportada visitada), Visita No Efectiva (reportada como no visitada) y Sin reporte a tiempo (programada y no reportada: cerrada por
   el sistema o día pasado aún pendiente; `sinReporte`). Se usan igual en tarjeta, anillos, historial, Panel (KPIs, tablas, gráfica,
   filtro de estado), Excel (Resumen y Visitas) y Visiplan. `estadoVisitaTxt(v)` da el texto; `cuentaVisitas` devuelve `ok`, `no`, `sin`, `p`.

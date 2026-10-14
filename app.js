@@ -2592,7 +2592,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visita Efectiva', v.cierreAutomatico ? 'Sin reporte a tiempo' : 'Visita No Efectiva'];
     const chip = v.estado === 'visitado' ? `<span class="chip ok">${txtOk}</span>`
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
-        : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Próxima visita' : 'Reprogramada'}</span>`
+        : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Visita de seguimiento' : 'Reprogramada'}</span>`
         : '<span class="chip p">Pendiente</span>';
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
     const meta = [mc?.cl ? `Clasificación <b>${esc(mc.cl)}</b>` : '', ...[nombreEtq(v.tipoContacto), v.ciudad].filter(Boolean).map(esc)].filter(Boolean).join(' · ');
