@@ -240,8 +240,9 @@ function abrirLogForm(id) {
     const mens = esCoordLog() || esAdmin();
     const clientes = [...new Set(Object.values(contactos).flat().map(c => c.n))].sort((a, b) => a.localeCompare(b, 'es'));
     const provs = [...new Set(logRegs().map(x => x.proveedor).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-    const doc = k => (r?.documentos || []).find(d => d.clase === k);
-    const rad = k => (r?.radicacion || []).find(d => d.doc === k);
+    const docs = k => (r?.documentos || []).filter(d => d.clase === k);
+    const rads = k => (r?.radicacion || []).filter(d => d.doc === k);
+    const rad = k => rads(k)[0];
     abrirModal(`<form class="form-rc" onsubmit="guardarLog(event, '${id || ''}')">
         <h2>${r ? 'Editar parada' : 'Programar parada'}</h2>
         <div class="fila-fecha lg-fila-fecha">
@@ -268,18 +269,19 @@ function abrirLogForm(id) {
         <div id="lgBDocs">
             <label>Factura <span id="lgReqDoc">${REQ}</span> <small>(marca qué llevas)</small></label>
             <div class="lg-pedidos">${CLASES_PEDIDO.map(c => `<div class="lg-pedido" data-k="${c.k}">
-                <label class="lg-pchk"><input type="checkbox"${doc(c.k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
-                <div class="lg-pcampos">${c.campos.map(([f, t]) => `<label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" ${NUM6} value="${esc(doc(c.k)?.[f] || '')}"></label>`).join('')}</div>
+                <label class="lg-pchk"><input type="checkbox"${docs(c.k).length ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
+                <div class="lg-pcampos">${(docs(c.k).length ? docs(c.k) : [{}]).map(d => `<div class="lg-pset">${c.campos.map(([f, t]) => `<label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" ${NUM6} value="${esc(d[f] || '')}"></label>`).join('')}<button type="button" class="lg-quitar" title="Quitar esta factura" aria-label="Quitar esta factura" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra factura</button></div>
             </div>`).join('')}</div>
         </div>
         <div id="lgBRad">
             <label>Qué se radica ${REQ}</label>
             <div class="lg-pedidos">${DOCS_RADICACION.map(c => `<div class="lg-pedido lg-rad" data-k="${c.k}">
                 <label class="lg-pchk"><input type="checkbox"${rad(c.k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
-                <div class="lg-pcampos">${c.k === 'factura'
-                    ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${rad('factura')?.serie === s ? ' selected' : ''}>${s}</option>`).join('')}</select><input data-f="numero" ${NUM6} value="${esc(rad('factura')?.numero || '')}"></label>`
-                    : c.k === 'nc' ? `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" ${NUM6} value="${esc(rad('nc')?.numero || '')}"></label>`
-                    : `<label class="lg-pc"><input data-f="texto" placeholder="Qué documento se radica" autocomplete="off" maxlength="80" value="${esc(rad('otros')?.texto || '')}"></label>`}</div>
+                <div class="lg-pcampos">${c.k === 'otros'
+                    ? `<label class="lg-pc"><input data-f="texto" placeholder="Qué documento se radica" autocomplete="off" maxlength="80" value="${esc(rad('otros')?.texto || '')}"></label>`
+                    : `${(rads(c.k).length ? rads(c.k) : [{}]).map(d => `<div class="lg-pset">${c.k === 'factura'
+                        ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${d.serie === s ? ' selected' : ''}>${s}</option>`).join('')}</select><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`
+                        : `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`}<button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra ${c.k === 'factura' ? 'factura' : 'nota crédito'}</button>`}</div>
             </div>`).join('')}</div>
         </div>
         <div id="lgBRecol">
@@ -334,8 +336,10 @@ function logCampos() {
         const visible = !fila.closest('[hidden]'), on = fila.querySelector('.lg-pchk input').checked && visible;
         fila.classList.toggle('on', on);
         fila.querySelector('.lg-pcampos').hidden = !on;
-        const campos = fila.querySelectorAll('.lg-pcampos input');
-        campos.forEach(i => i.required = on && campos.length === 1);   // Magistral Individual: basta A o B
+        // Solo la primera factura es obligatoria (Magistral Individual: basta A o B); las demás, si se dejan vacías, se ignoran
+        const primera = fila.querySelector('.lg-pset')?.querySelectorAll('input') || fila.querySelectorAll('.lg-pcampos input');
+        fila.querySelectorAll('.lg-pcampos input').forEach(i => { i.required = on && primera.length === 1 && [...primera].includes(i); });
+        fila.querySelectorAll('.lg-pcampos').forEach(pc => refrescarSetsLog(pc));
     });
 }
 // A quién le llega la entrega (el vendedor de la zona del cliente) y los datos del cliente en la Maestra
@@ -368,13 +372,19 @@ function guardarLog(e, id) {
     if (!antes && fecha < hoy()) return toast('Ese día ya pasó: programa desde hoy');
     const vendedor = $('lgMens') ? $('lgMens').value : (antes?.vendedor || sesion.id);
     const incluye = tipo === 'entrega' ? incluyeMarcado() : [];
-    const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).map(f => {
-        const d = {};
-        f.querySelectorAll('.lg-pcampos [data-f]').forEach(i => { d[i.dataset.f] = ['ov', 'ovi', 'numero'].includes(i.dataset.f) ? seisCifras(i.value) : i.value.trim(); });
-        return { k: f.dataset.k, d };
+    // Cada línea marcada puede tener varias facturas (una por bloque); los bloques vacíos de más se ignoran
+    const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).flatMap(f => {
+        const sets = [...f.querySelectorAll('.lg-pset')], bloques = sets.length ? sets : [f.querySelector('.lg-pcampos')];
+        const lista = bloques.map(b => { const d = {}; b.querySelectorAll('[data-f]').forEach(i => { d[i.dataset.f] = ['ov', 'ovi', 'numero'].includes(i.dataset.f) ? seisCifras(i.value) : i.value.trim(); }); return { k: f.dataset.k, d }; });
+        const llenos = lista.filter(x => Object.entries(x.d).some(([c, v]) => c !== 'serie' && v));
+        return llenos.length ? llenos : lista.slice(0, 1);
     });
     const documentos = tp.docs ? leer('#lgBDocs .lg-pedido').map(({ k, d }) => ({ clase: k, ...d })) : [];
     const radicacion = conRad ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
+    // Una misma factura no se repite dentro de la parada
+    const claves = [...documentos.flatMap(d => [d.ov && `B ${d.clase} ${d.ov}`, d.ovi && `A ${d.clase} ${d.ovi}`]), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
+    const repetida = claves.find((x, i) => claves.indexOf(x) !== i);
+    if (repetida) return toast('Hay una factura repetida en la parada: revisa los números');
     const sinNumero = documentos.find(d => !d.ov && !d.ovi);
     if (sinNumero) return toast(`${claseDoc(sinNumero.clase)?.t}: escribe al menos la factura A o la B`);
     if ((tipo === 'envio' || (tipo === 'entrega' && !incluye.length)) && !documentos.length) return toast('Marca qué pedido llevas y escribe sus números');
@@ -491,6 +501,15 @@ function accionNoEntrega(el) {
 // Qué se hizo con lo no entregado (para la tarjeta, el historial y el Excel)
 const textoAccionLog = rp => rp?.accion === 'oficina' ? 'Se devuelve a la oficina'
     : rp?.reprogramadaPara ? `Reprogramada para el ${fechaCorta(rp.reprogramadaPara)}${rp.horaRepro ? ' a las ' + horaBonita(rp.horaRepro) : ''}` : '';
+// Varias facturas de la misma línea: "+ Otra factura" agrega un bloque nuevo (copia el anterior sin números)
+function refrescarSetsLog(pc) { const sets = pc.querySelectorAll('.lg-pset'); sets.forEach(s => { const q = s.querySelector('.lg-quitar'); if (q) q.hidden = sets.length < 2; }); }
+function masSetLog(btn) {
+    const pc = btn.parentElement, sets = pc.querySelectorAll('.lg-pset'), ultimo = sets[sets.length - 1], nuevo = ultimo.cloneNode(true);
+    nuevo.querySelectorAll('input').forEach(i => { i.value = ''; i.required = false; });
+    const sel = ultimo.querySelector('select'); if (sel) nuevo.querySelector('select').value = sel.value;
+    pc.insertBefore(nuevo, btn); refrescarSetsLog(pc); nuevo.querySelector('input').focus();
+}
+function quitarSetLog(btn) { const pc = btn.closest('.lg-pcampos'); btn.closest('.lg-pset').remove(); refrescarSetsLog(pc); }
 // La dirección de entrega es la de la parada; solo si se marca "Cambiar" se piden ciudad, dirección y teléfono
 function cambiarDirLog() {
     const on = $('lgCambiarDir').checked;

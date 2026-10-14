@@ -1856,3 +1856,13 @@ body.es-logistica #btnLogistica { order: -1; }
 .vm-sem.bajo { background: #fee2e2; color: #b91c1c; }
 .vm-ley { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 6px; font-size: 11.5px; }
 .vm-ley .vm-sem { min-width: 0; font-weight: 700; }
+/* Varios pedidos / facturas por línea */
+.p-grupo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.p-quitar, .lg-quitar { border: 0; background: #fde8e8; color: #b91c1c; border-radius: 8px; width: 30px; font-size: 18px; line-height: 1; cursor: pointer; margin-left: 4px; }
+.p-quitar[hidden], .lg-quitar[hidden] { display: none; }
+.p-mas, .lg-mas { align-self: center; color: #0b5c56; font-weight: 700; }
+.lg-pset { display: grid; gap: 6px; grid-template-columns: 1fr auto; align-items: start; }
+.lg-pset > .lg-pc { grid-column: 1; }
+.lg-pset > .lg-quitar { grid-column: 2; grid-row: 1; align-self: stretch; }
+.lg-pset + .lg-pset { border-top: 1px dashed #c9dcd6; padding-top: 6px; }
+.lg-mas { justify-self: start; }

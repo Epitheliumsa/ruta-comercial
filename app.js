@@ -3824,6 +3824,17 @@ function leerMuestras() {
     return r;
 }
 const textoMuestras = m => Object.entries(m || {}).filter(([, l]) => l.length).map(([t, l]) => `${t}: ${l.map(x => `${nombreProducto(x.c)} x${x.q}`).join(', ')}`).join(' · ');
+// Una casilla de número de pedido (6 cifras) con su prefijo; la × quita las casillas de más
+const filaPedidoNum = (cat, pref, dig = '', quitar = false) => `<div class="p-num"><span class="p-pref">${pref}</span>
+    <input class="n-pedido" data-cat="${esc(cat)}" data-pref="${pref}" inputmode="numeric" maxlength="${DIGITOS_PEDIDO}" placeholder="000000" autocomplete="off" value="${esc(dig)}"
+        oninput="this.value = this.value.replace(/\\D/g, '')" onblur="this.value = cifrasPedido(this.value)"><button type="button" class="p-quitar" title="Quitar este pedido" aria-label="Quitar este pedido" onclick="quitarPedidoNum(this)"${quitar ? '' : ' hidden'}>×</button></div>`;
+const refrescarPedidoGrupo = g => { const filas = g.querySelectorAll('.p-num'); filas.forEach(f => { f.querySelector('.p-quitar').hidden = filas.length < 2; }); };
+function masPedidoNum(btn) {
+    const g = btn.parentElement, nueva = g.querySelector('.p-num').cloneNode(true);
+    nueva.querySelector('input').value = '';
+    g.insertBefore(nueva, btn); refrescarPedidoGrupo(g); nueva.querySelector('input').focus();
+}
+function quitarPedidoNum(btn) { const g = btn.closest('.p-grupo'); btn.closest('.p-num').remove(); refrescarPedidoGrupo(g); }
 const textoPedidos = v => (v.pedidos || []).map(p => `${p.cat} ${p.num || '(sin número)'}`).join(' · ');
 
 // Muestra u oculta pedido, productos pedidos y muestras según lo que se marca en los objetivos cumplidos
@@ -3897,9 +3908,11 @@ function abrirRegistro(id, tipo) {
                 ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => {
                     const antes = ((ya && v.pedidos) || []).filter(p => p.cat === cat).map(p => partesPedido(p.num));
                     return `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}"><label class="check p-check"><input type="checkbox" class="p-cat" ${antes.length ? 'checked' : ''} onchange="this.dataset.tocada = 1; actualizarCierreVisita()"><span>${esc(cat)}</span></label>
-                    <div class="p-nums">${pre.map(x => `<div class="p-num"><span class="p-pref">${x}</span>
-                        <input class="n-pedido" data-cat="${esc(cat)}" data-pref="${x}" inputmode="numeric" maxlength="${DIGITOS_PEDIDO}" placeholder="000000" autocomplete="off" value="${esc(antes.find(a => a.pre === x)?.dig || '')}"
-                            oninput="this.value = this.value.replace(/\\D/g, '')" onblur="this.value = cifrasPedido(this.value)"></div>`).join('')}</div></div>`;
+                    <div class="p-nums">${pre.map(x => {
+                        const previos = antes.filter(a => a.pre === x).map(a => a.dig);
+                        // Cada línea puede llevar más de un pedido (ej: dos Magistral de Pedido OV): "+ Otro OV" agrega otra casilla
+                        return `<div class="p-grupo">${(previos.length ? previos : ['']).map(d => filaPedidoNum(cat, x, d, previos.length > 1)).join('')}<button type="button" class="link-mini p-mas" onclick="masPedidoNum(this)">+ Otro ${x}</button></div>`;
+                    }).join('')}</div></div>`;
                 }).join('')}
             </div>
             <div id="cajaProdPedidos" hidden>
@@ -3990,7 +4003,13 @@ function guardarVisitado(e, id) {
         const llenos = inps.filter(i => Number(cifrasPedido(i.value)));
         // El número de pedido es opcional: si falta, queda la categoría sin número
         if (!llenos.length) { pedidos.push({ cat, num: '' }); continue; }
-        llenos.forEach(i => { i.value = cifrasPedido(i.value); pedidos.push({ cat, num: i.dataset.pref + i.value }); });
+        const vistos = new Set();
+        for (const i of llenos) {
+            i.value = cifrasPedido(i.value);
+            const num = i.dataset.pref + i.value;
+            if (vistos.has(num)) { i.focus(); return toast(`El pedido ${num} está repetido en ${cat}`); }
+            vistos.add(num); pedidos.push({ cat, num });
+        }
     }
     const muestrasDetalle = $('cajaMuestras').hidden ? {} : leerMuestras();
     for (const [t, l] of Object.entries(muestrasDetalle)) {

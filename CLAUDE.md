@@ -150,6 +150,14 @@
 - Ver: los jefes (Jennifer y Hernán) ven todo, con Empleados incluido en el total; cada comercial solo su zona
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
 
+## Varios pedidos / facturas por línea
+- Cierre de visita (Colocación): cada categoría (Producto Terminado, Magistral Individual, Magistral de Pedido) puede llevar más de un número de
+  pedido: "+ Otro OV / OVI" agrega casillas y la × las quita (`filaPedidoNum`, `masPedidoNum`). Se guarda cada uno en `pedidos: [{cat, num}]`;
+  un mismo número no se repite en la categoría.
+- Logística: cada línea de factura (Producto Terminado, Magistral Individual, Magistral de Pedido) y, en radicación, Factura y Nota crédito RNC pueden
+  llevar varios bloques ("+ Otra factura"; `masSetLog`, `quitarSetLog`): `documentos` y `radicacion` repiten la línea una vez por factura.
+  Los bloques de más que se dejan vacíos se ignoran; la primera sigue siendo obligatoria y una factura repetida en la parada no se deja guardar.
+
 ## Colocación en la Visita Médica de clientes 20 y 21
 - Los médicos que compran (clasificación 20 y 21) tienen también **Colocación** en la Visita Médica (con sus subcategorías y el pedido),
   sin tener que marcar Visita Médica Comercial. Los 22 no la tienen. `esMedicoComprador`, `conColocacionMedica`, `objetivosDeTipos(tipos, nuevo, cliente)`.
