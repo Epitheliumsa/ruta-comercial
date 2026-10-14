@@ -89,9 +89,14 @@ const listaTipos = t => (Array.isArray(t) ? t : [t]).filter(Boolean);
 const tiposDe = v => v.tiposVisita?.length ? v.tiposVisita : listaTipos(v.tipoVisita);
 const nombreTipo = v => tiposDe(v).join(' + ');
 // Varios tipos a la vez (Visita Médica y Visita Médica Comercial): una sola lista unida, en orden alfabético
-const objetivosDeTipos = (tipos, nuevo) => {
+// Clientes 20 y 21 (médicos que compran): en la Visita Médica también sale Colocación, con las subcategorías y el pedido
+// de la Visita Médica Comercial. Los 22 (que no compran) no la tienen.
+const esMedicoComprador = c => !!c && ['20', '21'].includes(String(c.cl));
+const conColocacionMedica = (ts, cliente) => esMedicoComprador(cliente) && ts.includes('Visita Médica') && !ts.includes(VMC);
+const objetivosDeTipos = (tipos, nuevo, cliente) => {
     const ts = listaTipos(tipos), todos = [...new Set(ts.flatMap(t => objetivosDeTipo(t, nuevo)))];
-    return ts.length > 1 ? todos.sort((a, b) => normalizar(a).localeCompare(normalizar(b), 'es')) : todos;
+    if (conColocacionMedica(ts, cliente) && !todos.includes('Colocación')) todos.push('Colocación');
+    return ts.length > 1 || todos.includes('Colocación') ? todos.sort((a, b) => normalizar(a).localeCompare(normalizar(b), 'es')) : todos;
 };
 // Tipos de visita en que sale un cliente según su clasificación (hoja "Tipo de visita" de datos/Matriz_App.xlsx).
 // Sin clasificación o sin marcar en la matriz: sale en todos.
@@ -117,7 +122,7 @@ const subcategoriasDe = (tipo, nuevo, objetivo, mes) => objetivo === 'Actividade
     : objetivo === 'Parrilla Promocional' && parrillaCircular().length ? parrillaCircular()
     : esVariable(objetivo)
     ? listasDelMes(mes)[objetivo] || []
-    : unirListas(listaTipos(tipo).map(t => ((MATRIZ.subcategorias || {})[claveTipo(t, nuevo)] || {})[objetivo] || []));
+    : unirListas([...listaTipos(tipo), ...(objetivo === 'Colocación' && conColocacionMedica(listaTipos(tipo), ctxCircular.cliente) ? [VMC] : [])].map(t => ((MATRIZ.subcategorias || {})[claveTipo(t, nuevo)] || {})[objetivo] || []));
 // ---------- CIRCULARES (circulares.js, desde datos/Circulares.xlsx con herramientas/circulares.py) ----------
 // En la visita, el objetivo "Actividades" muestra como subcategorías las circulares vigentes en la fecha de la
 // visita que van dirigidas a ese cliente (por su clasificación o por su nombre); las internas no salen.
@@ -190,7 +195,7 @@ function cerrarPdf() {
 // En el cierre solo salen los objetivos de la matriz vigente. Los nombres viejos de visitas programadas
 // antes del cambio se pasan al nombre nuevo; los que ya no existen no salen.
 const NOMBRES_VIEJOS = { 'Cartera': 'Administración de Cartera', 'Visita personalizada': 'Otros', 'Mapa del Cliente - Ampliación Portafolio': 'Mapa del Cliente', 'Seguimiento': 'Seguimientos' };
-const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto), ...((v.objetivos || []).includes(PERSONALIZADA) || conDetalle(v) ? [PERSONALIZADA] : [])];
+const objetivosCierre = v => [...objetivosDeTipos(tiposDe(v), v.esProyecto, v.interno ? null : buscarEnTodas(v.contacto)), ...((v.objetivos || []).includes(PERSONALIZADA) || conDetalle(v) ? [PERSONALIZADA] : [])];
 const programadosVigentes = v => {
     const base = objetivosCierre(v);
     return (v.objetivos || []).map(o => NOMBRES_VIEJOS[o] || o).filter(o => base.includes(o));
@@ -3254,7 +3259,7 @@ function pintarObjetivos(marcados, subsMarcados) {
     const subs = subsMarcados || leerSubs(cont);
     ctxCircular = { cliente: clienteDelForm() || null, fecha: $('fFecha').value || agenda.fecha, ateneo: $('fTipo').value === ATENEO };
     const merc = conDetalleForm();
-    const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : [...objetivosDeTipos(tipo, nuevo), ...(merc ? [PERSONALIZADA] : [])];
+    const lista = esTipoVisita($('fTipo').value) && !clienteDelForm() ? [] : [...objetivosDeTipos(tipo, nuevo, clienteDelForm()), ...(merc ? [PERSONALIZADA] : [])];
     $('cajaObjetivos').hidden = !lista.length;
     const textoAntes = $('fPersonal') ? $('fPersonal').value : textoPersonalForm;
     const conPersonal = lista.length && !esTrabajoInterno(tipoBase()) && !merc;

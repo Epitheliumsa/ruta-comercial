@@ -150,6 +150,10 @@
 - Ver: los jefes (Jennifer y Hernán) ven todo, con Empleados incluido en el total; cada comercial solo su zona
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
 
+## Colocación en la Visita Médica de clientes 20 y 21
+- Los médicos que compran (clasificación 20 y 21) tienen también **Colocación** en la Visita Médica (con sus subcategorías y el pedido),
+  sin tener que marcar Visita Médica Comercial. Los 22 no la tienen. `esMedicoComprador`, `conColocacionMedica`, `objetivosDeTipos(tipos, nuevo, cliente)`.
+
 ## Nombres del estado de una visita a cliente
 - La visita pendiente que nace de la casilla "Próxima visita" del cierre (`origen: 'proxima'`) lleva la etiqueta **Visita de seguimiento**; la que nace de un "Reprogramar para" lleva **Reprogramada**.
 - Visita Efectiva (reportada visitada), Visita No Efectiva (reportada como no visitada) y Sin reporte a tiempo (programada y no reportada: cerrada por
