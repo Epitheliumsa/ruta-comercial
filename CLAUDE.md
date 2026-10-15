@@ -57,6 +57,11 @@
   "✔ FIRMADO ELECTRÓNICAMENTE" en la casilla de cada firma.
 - Responder en español, con tono sencillo, claro y conciso, tuteando.
 
+## Aviso de derechos (protección de datos)
+- Pie fijo, justificado y pequeño con el aviso de derechos reservados de Epithelium S.A. en todas las pantallas, **menos el login**
+  (`avisoLegal` en `index.html`, `mostrarPantalla` en `app.js`, estilos al final de `visitas.css`). El año se calcula solo.
+- Sin sello de seguridad en esta app (el sello es solo para usuarios externos del Vademécum).
+
 ## En vivo desde el 1 de octubre de 2026
 - `ETAPA_DATOS = 'vivo'`. Lo de `pruebas` sigue en la hoja para capacitaciones (la app en vivo lo ignora).
 - El Visiplan en vivo usa otro id (`plan-<vendedor>-<mes>-vivo`) para no pisar el de pruebas. La configuración del mes

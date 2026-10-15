@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610150824';
+const APP_VERSION = '202610151414';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -721,7 +721,22 @@ function entrarApp() {
 function mostrarPantalla(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     $(id).classList.add('active');
+    // Aviso de derechos de Epithelium: fijo abajo en todas las pantallas, menos en el login
+    const enLogin = id === 'loginScreen';
+    $('avisoLegal').hidden = enLogin;
+    document.body.classList.toggle('con-aviso-legal', !enLogin);
+    if (!enLogin) {
+        $('anioLegal').textContent = new Date().getFullYear();
+        ajustarPie();
+    }
 }
+
+// Mide el aviso de derechos para dejar espacio al final de las pantallas
+function ajustarPie() {
+    const pie = $('avisoLegal');
+    if (!pie.hidden) document.documentElement.style.setProperty('--pie-alto', pie.offsetHeight + 'px');
+}
+window.addEventListener('resize', ajustarPie);
 
 function pantallaActiva() {
     return document.querySelector('.screen.active')?.id;

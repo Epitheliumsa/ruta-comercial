@@ -1896,3 +1896,18 @@ body.es-logistica #btnLogistica { order: -1; }
 .ag-novedades .chip.nov { background: #f3efff; color: #5b21b6; border-color: #d9ccf7; }
 .ag-novedades .chip.nov.activo { background: #6d28d9; color: #fff; border-color: #6d28d9; }
 .ag-novedades .chip.nov[disabled] { opacity: .45; cursor: default; }
+
+/* Protección de datos: pie fijo, justificado y pequeño (queda por debajo de avisos, diálogos y recuadros) */
+.aviso-legal {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; margin: 0;
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, .96); border-top: 1px solid #d7e5e0;
+    font-size: 8.5px; line-height: 1.3; color: #5a6f68; text-align: justify; text-justify: inter-word; hyphens: auto;
+}
+.aviso-legal strong { color: #3f544d; }
+.aviso-legal[hidden] { display: none; }
+@media (min-width: 700px) {
+    .aviso-legal { font-size: 10px; padding-left: max(16px, calc((100% - 1000px) / 2)); padding-right: max(16px, calc((100% - 1000px) / 2)); }
+}
+/* Deja espacio para que el aviso no tape el final de las pantallas */
+body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px); }
