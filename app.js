@@ -3545,7 +3545,9 @@ function textoSubs(v, o) {
     }
     const prog = (v.subobjetivos || {})[o] || [], cumpl = (v.subCumplidos || {})[o] || [];
     const todas = [...prog, ...cumpl.filter(x => !prog.includes(x))];
-    return todas.length ? `<small class="sub-chip">: ${todas.map(x => (cumpl.includes(x) ? '✓ ' : '') + esc(x)).join(', ')}</small>` : '';
+    // Visita ya reportada: lo programado que sí se hizo lleva ✓ y lo que no se hizo lleva una rayita (–)
+    const cerrada = v.estado === 'visitado';
+    return todas.length ? `<small class="sub-chip">: ${todas.map(x => cumpl.includes(x) ? '✓ ' + esc(x) : (cerrada ? '<span class="sub-no" title="Programado y no se hizo">–</span> ' : '') + esc(x)).join(', ')}</small>` : '';
 }
 
 
