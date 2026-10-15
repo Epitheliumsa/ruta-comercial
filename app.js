@@ -1908,7 +1908,7 @@ function planeadasDe(vendedor, fecha) {
         const visitaId = (plan.confirmadas || {})[clavePlan(contacto, fecha)];
         const estado = visitaId && registros[visitaId] && !registros[visitaId].borrado && !registros[visitaId].eliminada ? 'confirmada'
             : (plan.ignoradas || {})[clavePlan(contacto, fecha)] ? 'ignorada' : fecha < hoy() ? 'cerrada' : 'por confirmar';
-        return { contacto, fecha, estado, visitaId };
+        return { contacto, fecha, estado, visitaId, huella: (plan.ignoradas || {})[clavePlan(contacto, fecha)] };
     }).sort((a, b) => a.contacto.localeCompare(b.contacto));
 }
 
@@ -2587,8 +2587,13 @@ function pintarAgenda() {
     // Búsqueda de cliente por nombre (visitas y lo planeado del Visiplan)
     const qb = normalizar(agenda.busca || '');
     const pasaBusca = x => !qb || normalizar(x.contacto || '').includes(qb);
-    const plan = deTodos(x => planeadasDe(x, f).map(p => ({ ...p, vendedor: x }))).filter(p => p.estado !== 'confirmada' && p.estado !== 'ignorada' && pasaBusca(p));
+    const plan = deTodos(x => planeadasDe(x, f).map(p => ({ ...p, vendedor: x }))).filter(p => p.estado !== 'confirmada' && pasaBusca(p));
     // Arriba los planeados por confirmar; los que no se confirmaron a tiempo quedan al final del día
+    // Lo ignorado o reprogramado deja su huella: queda al final, en gris y tachado, con quién y cuándo
+    const tarjetaHuella = p => { const h = p.huella || {};
+        return `<div class="producto-card plan-card cerrada plan-huella">
+            <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(p.vendedor))}</span>` : ''}<h3><s>${esc(nombreFilaPlan(p.contacto))}</s></h3></div><span class="chip gris">${h.reprogramadaPara ? 'Reprogramada' : 'Ignorada'}</span></div>
+            <p class="nota-cierre">${h.reprogramadaPara ? `Reprogramada para el ${esc(fechaCorta(h.reprogramadaPara))}` : 'Ignorada'} por ${esc(nombreVendedor(h.por))}${h.cuando ? ' · ' + esc(fechaHora(h.cuando)) : ''}</p></div>`; };
     const tarjetaPlan = p => `
         <div class="producto-card plan-card ${p.estado === 'cerrada' ? 'cerrada' : ''}">
             <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(p.vendedor))}</span>` : ''}<h3>${esc(nombreFilaPlan(p.contacto))}</h3>${esFilaAteneo(p.contacto) ? '<span class="chip ateneo">Ateneo</span>' : ''}</div><span class="chip ${p.estado === 'cerrada' ? 'gris' : 'azul'}">${p.estado === 'cerrada' ? 'No confirmada · cerrada' : 'Planeada'}</span></div>
@@ -2599,9 +2604,11 @@ function pintarAgenda() {
         </div>`;
     // Después de las 8:00 a. m. los que no se confirmaron también bajan al final (se pueden confirmar mientras sea el día)
     const tarde = p => p.estado === 'cerrada' || Date.now() >= limiteProgramacion(f);
-    const abiertas = plan.filter(p => !tarde(p)), cerradas = plan.filter(tarde);
+    const huellas = plan.filter(p => p.estado === 'ignorada');
+    const abiertas = plan.filter(p => p.estado !== 'ignorada' && !tarde(p)), cerradas = plan.filter(p => p.estado !== 'ignorada' && tarde(p));
     const bloquePlan = abiertas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${abiertas.length} ${abiertas.length === 1 ? 'cliente planeado' : 'clientes planeados'}</p>${abiertas.map(tarjetaPlan).join('')}</div>` : '';
     const bloqueCerradas = cerradas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${cerradas.length} ${cerradas.length === 1 ? 'planeado no confirmado' : 'planeados no confirmados'}</p>${cerradas.map(tarjetaPlan).join('')}</div>` : '';
+    const bloqueHuellas = huellas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${huellas.length} ${huellas.length === 1 ? 'ignorado o reprogramado' : 'ignorados o reprogramados'}</p>${huellas.map(tarjetaHuella).join('')}</div>` : '';
     const cont = $('agLista');
     const porPeriodo = /^an-(semana|mes):(.+)$/.exec(agenda.filtro || '');
     if (porPeriodo) {
@@ -2642,7 +2649,7 @@ function pintarAgenda() {
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
     cont.innerHTML = (filtrando ? '' : tarjetasInvitaciones() + tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
-        + (filtrando ? '' : bloqueCerradas + eliminadasDe(vs, f).map(tarjetaEliminada).join(''));
+        + (filtrando ? '' : bloqueCerradas + bloqueHuellas + eliminadasDe(vs, f).map(tarjetaEliminada).join(''));
 }
 
 // Si el cliente buscado no está en el día, se ofrece abrir su historial (hasta 5 coincidencias)
@@ -2705,7 +2712,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const horario = v.diaCompleto === false && v.horaInicio ? `${horaBonita(v.horaInicio)} a ${horaBonita(v.horaFin)}` : 'Todo el día';
     const marcas = v.interno ? `<span class="chip gris">Trabajo Administrativo</span><span class="chip azul">🕗 ${esc(horario)}</span>${noProgTxt}`
-        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esVisAteneo(v) ? '<span class="chip ateneo">Ateneo · no suma en la Maestra</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
+        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esVisAteneo(v) ? '<span class="chip ateneo">Ateneo · no suma en la Maestra</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.vieneDePlan ? `<span class="chip prox">Viene del Visiplan del ${esc(fechaCorta(v.vieneDePlan))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
         reporte = v.observaciones && v.contacto !== MERCADEO ? `<div class="reporte">${esc(v.observaciones)}</div>` : '';
@@ -3547,7 +3554,7 @@ function textoSubs(v, o) {
     const todas = [...prog, ...cumpl.filter(x => !prog.includes(x))];
     // Visita ya reportada: lo programado que sí se hizo lleva ✓ y lo que no se hizo lleva una rayita (–)
     const cerrada = v.estado === 'visitado';
-    return todas.length ? `<small class="sub-chip">: ${todas.map(x => cumpl.includes(x) ? '✓ ' + esc(x) : (cerrada ? '<span class="sub-no" title="Programado y no se hizo">–</span> ' : '') + esc(x)).join(', ')}</small>` : '';
+    return todas.length ? `<small class="sub-chip">: ${todas.map(x => cumpl.includes(x) ? '✓ ' + esc(x) : (cerrada ? '' : '') + (cerrada ? `<s class="sub-no" title="Programado y no se hizo">${esc(x)}</s>` : esc(x))).join(', ')}</small>` : '';
 }
 
 
@@ -3710,6 +3717,7 @@ async function guardarProgramada(e, id) {
     // Viene de "Reprogramar" en el Visiplan: la visita planeada del día original sale de la agenda
     if (!id && reprogramandoPlan && reprogramandoPlan.nueva === fecha && normalizar(reprogramandoPlan.contacto) === normalizar(filaPlanDe(v))) {
         marcarPlanIgnorada(reprogramandoPlan.vendedor || v.vendedor, reprogramandoPlan.contacto, reprogramandoPlan.fecha, { reprogramadaPara: fecha, visitaId: v.id });
+        v.vieneDePlan = reprogramandoPlan.fecha;
     }
     reprogramandoPlan = null;
     if (merc) Object.assign(v, { detalleObjetivos: detMerc.det, proyectoMercadeo: asegurarProyecto(detMerc.proyecto, v.vendedor) });

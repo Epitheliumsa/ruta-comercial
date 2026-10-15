@@ -1869,4 +1869,6 @@ body.es-logistica #btnLogistica { order: -1; }
 .lg-mas { justify-self: start; }
 
 .mc-tipos { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
-.sub-chip .sub-no { color: #b91c1c; font-weight: 700; }
+.sub-chip .sub-no { color: #9aa5a2; text-decoration: line-through; font-weight: 500; }
+.plan-huella { opacity: .75; }
+.plan-huella h3 s { color: #7a8a84; }
