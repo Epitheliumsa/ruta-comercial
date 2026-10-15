@@ -246,5 +246,5 @@
 - La Maestra Clientes ahora se llama **Maestro Medico-Cliente** (clientes, médicos, clientes y médicos, puntos de venta y leads en una sola lista)
   y tiene el filtro **Tipo** al comienzo.
 - El tipo se calcula por **clasificación**, no por la etiqueta de texto (`claseContacto` en app.js): Médico = 20-21-22 · Cliente = solo los **facturables** (Facturar = Sí) de las
-  clasificaciones distintas de 12, 22 y 80 (un 20 o 21 que factura es médico y cliente; si no factura, solo médico) · Punto de venta = 12 · **80 = empleados: no aparece** (Maestro ni Visiplan). Los 20 y 21 son médico y cliente a la vez
+  clasificaciones distintas de 12, 22 y 80 (un 20 o 21 que factura es médico y cliente; si no factura, solo médico) · Punto de venta = 12 · **80 = empleados: no aparece** (Maestro ni Visiplan). Tampoco sale en el Maestro un contacto sin ningún rol (no médico, no cliente facturable, no punto de venta; hoy: Piel y Vida Prod. Dermatologicos LIQUIDADA). Los 20 y 21 son médico y cliente a la vez
   y cuentan en ambos; el resumen lo dice ("N médicos · N clientes · N puntos de venta"). Facturar Sí/No sigue siendo un filtro aparte (dato de Odoo).

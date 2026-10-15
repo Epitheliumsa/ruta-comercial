@@ -1547,6 +1547,8 @@ function claseContacto(c) {
     return r.lead ? 'lead' : r.medico && r.cliente ? 'ambos' : r.medico ? 'medico' : r.pv ? 'pv' : 'cliente';
 }
 const esEmpleado = c => String(c.cl || '') === '80';
+// Contactos sin ningún rol (ni médico, ni cliente facturable, ni punto de venta; p. ej. un accionista liquidado que no factura) no salen en el Maestro Medico-Cliente
+const sinRolContacto = c => { const r = rolesContacto(c); return !c.lead && !r.medico && !r.cliente && !r.pv; };
 const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('lead') ? 'lead' : n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
 const zonasMaestra = () => [...new Set([...Object.keys(contactos), ...proyectos().filter(p => p.estado !== 'vinculado').map(p => p.zona)])].filter(z => z && ((contactos[z] || []).length || proyectosDeZona(z).length));
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
@@ -1719,7 +1721,7 @@ function pintarMaestra() {
                 return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${(contactos[z] || []).length + proyectosDeZona(z).length}</small></button>`;
             }).join('') + AYUDA_CHIPS;
     }
-    const base = sel.flatMap(z => [...(contactos[z] || []).filter(c => !esEmpleado(c)).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
+    const base = sel.flatMap(z => [...(contactos[z] || []).filter(c => !esEmpleado(c) && !sinRolContacto(c)).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
     // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
     maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && !tiposDe(x).includes(ATENEO) && enPeriodoMaestra(x.fecha))
         .map(x => normalizar(x.contacto)));
