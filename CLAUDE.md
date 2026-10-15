@@ -150,6 +150,10 @@
 - Ver: los jefes (Jennifer y Hernán) ven todo, con Empleados incluido en el total; cada comercial solo su zona
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
 
+## ¿Quién atendió? por defecto
+- Si el cliente es persona natural (título "Doctor" en la Maestra, o un nombre de persona sin razón social: `esPersonaNatural`), su nombre sale ya puesto en
+  "¿Quién atendió?" del cierre de visita; se puede editar. Empresas y clínicas quedan vacías. Al corregir un reporte ya hecho se respeta lo que se escribió.
+
 ## Varios pedidos / facturas por línea
 - Cierre de visita (Colocación): cada categoría (Producto Terminado, Magistral Individual, Magistral de Pedido) puede llevar más de un número de
   pedido: "+ Otro OV / OVI" agrega casillas y la × las quita (`filaPedidoNum`, `masPedidoNum`). Se guarda cada uno en `pedidos: [{cat, num}]`;

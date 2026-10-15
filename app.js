@@ -92,6 +92,16 @@ const nombreTipo = v => tiposDe(v).join(' + ');
 // Clientes 20 y 21 (médicos que compran): en la Visita Médica también sale Colocación, con las subcategorías y el pedido
 // de la Visita Médica Comercial. Los 22 (que no compran) no la tienen.
 const esMedicoComprador = c => !!c && ['20', '21'].includes(String(c.cl));
+// Persona natural: el contacto con título "Doctor" en la Maestra o, sin título, un nombre de persona (2 a 5 palabras, sin razón social ni
+// palabras de empresa). En el cierre de visita su nombre sale de una vez en "¿Quién atendió?".
+const PALABRAS_EMPRESA = /\b(s\.?a\.?s?|sas|ltda|s\.?c\.?a|e\.?u|e\.?s\.?e|ips|eps|clinica|centro|drogueria\w*|dermat\w*|derma\w*|spa|grupo|laborator\w*|estetic\w*|bella|piel|hospital|farma\w*|medical|medic\w*|health|pharma|group|cia|hermanos|sociedad|fundacion|corporacion|asociacion|inversiones|comercializadora|distribuidor\w*|salud|store|line|linea|skin|cosmet\w*|belleza|beauty|natural|vida|internacional|colombia|bogota|express|productos|servicios|importadora|y|de|del|la|el|los|las|e)\b/;
+const esPersonaNatural = c => {
+    if (!c || !c.n) return false;
+    if (c.t === 'Doctor') return true;
+    if (c.t) return false;
+    const n = normalizar(c.n), palabras = n.match(/[a-zñ]+/g) || [];
+    return !/[,\d&]/.test(n) && palabras.length >= 2 && palabras.length <= 5 && !PALABRAS_EMPRESA.test(n);
+};
 const conColocacionMedica = (ts, cliente) => esMedicoComprador(cliente) && ts.includes('Visita Médica') && !ts.includes(VMC);
 const objetivosDeTipos = (tipos, nuevo, cliente) => {
     const ts = listaTipos(tipos), todos = [...new Set(ts.flatMap(t => objetivosDeTipo(t, nuevo)))];
@@ -3898,7 +3908,7 @@ function abrirRegistro(id, tipo) {
         abrirModal(`<form class="form-rc" novalidate onsubmit="guardarVisitado(event, '${id}')">
             <h2>Cierre de Visita</h2>${cab}
             ${esVisAteneo(v) ? '<input type="hidden" id="rAtendio" value="">' : `<label for="rAtendio">¿Quién atendió? ${REQ}</label>
-            <input id="rAtendio" list="dlAtendio" required value="${esc(ya ? v.atendio : '')}" placeholder="Nombre y cargo" onblur="this.value = nombrePropio(this.value)">
+            <input id="rAtendio" list="dlAtendio" required value="${esc(ya && v.atendio ? v.atendio : esPersonaNatural(mc) ? mc.n : '')}" placeholder="Nombre y cargo" onblur="this.value = nombrePropio(this.value)">
             ${htmlAtendioAntes(v)}`}
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
