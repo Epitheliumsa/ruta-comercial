@@ -2388,11 +2388,10 @@ function marcarPlan(celda) {
 
 // Confirmar en el día una visita planeada: abre la programación con el cliente ya puesto
 let confirmandoPlan = null;
-// Lo del Visiplan se confirma desde el día hábil anterior hasta el mismo día de la visita
-function habilAnterior(f) { let d = sumarDias(f, -1); while (!esHabil(d)) d = sumarDias(d, -1); return d; }
-const puedeConfirmarPlan = fecha => hoy() <= fecha && hoy() >= habilAnterior(fecha);
+// Lo del Visiplan se confirma en cualquier momento del mes, mientras no esté vencido (hasta el mismo día de la visita)
+const puedeConfirmarPlan = fecha => hoy() <= fecha;
 function confirmarPlaneada(contacto, fecha, vendedor) {
-    if (!puedeConfirmarPlan(fecha)) return toast(`Esta visita del plan se confirma desde el ${fechaCorta(habilAnterior(fecha))} hasta el mismo día`);
+    if (!puedeConfirmarPlan(fecha)) return toast(`Esta visita del plan ya venció (era del ${fechaCorta(fecha)})`);
     agenda.fecha = fecha;
     if (vendedor) agenda.vendedor = vendedor;
     confirmandoPlan = { contacto, fecha };
@@ -2624,8 +2623,8 @@ function pintarAgenda() {
         <div class="producto-card plan-card ${p.estado === 'cerrada' ? 'cerrada' : ''}">
             <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(p.vendedor))}</span>` : ''}<h3>${esc(nombreFilaPlan(p.contacto))}</h3>${esFilaAteneo(p.contacto) ? '<span class="chip ateneo">Ateneo</span>' : ''}</div><span class="chip ${p.estado === 'cerrada' ? 'gris' : 'azul'}">${p.estado === 'cerrada' ? 'No confirmada · cerrada' : 'Planeada'}</span></div>
             ${p.estado === 'por confirmar' && puedeConfirmarPlan(f)
-                ? `<div class="acciones"><button class="bv ok" data-c="${esc(p.contacto)}" onclick="confirmarPlaneada(this.dataset.c, '${f}', '${p.vendedor}')">✓ Confirmar visita</button><span class="nota-cierre">${f === t ? 'Si no la confirmas hoy, queda cerrada y no se programa.' : `Confírmala antes de las ${HORA_LIMITE} a. m. del ${fechaCorta(f)} para que quede programada.`}</span></div>`
-                : p.estado === 'por confirmar' ? `<p class="nota-cierre">Se confirma desde el ${esc(fechaCorta(habilAnterior(f)))} (día hábil anterior).</p>` : ''}
+                ? `<div class="acciones"><button class="bv ok" data-c="${esc(p.contacto)}" onclick="confirmarPlaneada(this.dataset.c, '${f}', '${p.vendedor}')">✓ Confirmar visita</button><span class="nota-cierre">${f === t ? 'Si no la confirmas hoy, queda cerrada y no se programa.' : `Puedes confirmarla cuando quieras hasta el ${fechaCorta(f)}; si es antes de las ${HORA_LIMITE} a. m. de ese día, queda programada.`}</span></div>`
+                : ''}
             <div class="acciones plan-acc"><button class="bv" data-c="${esc(p.contacto)}" onclick="reprogramarPlaneada(this.dataset.c, '${f}', '${p.vendedor}')">📅 Reprogramar</button><button class="bv" data-c="${esc(p.contacto)}" onclick="ignorarPlaneada(this.dataset.c, '${f}', '${p.vendedor}')">🚫 Ignorar</button></div>
         </div>`;
     // Después de las 8:00 a. m. los que no se confirmaron también bajan al final (se pueden confirmar mientras sea el día)

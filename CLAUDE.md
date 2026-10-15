@@ -27,8 +27,8 @@
   cierra lo abierto o vuelve al inicio; en el inicio hay que tocarlo dos veces para salir.
 - Nombres (contacto nuevo, nombre de contacto, quién atendió) van siempre en NomProp (`nombrePropio`).
 - Hasta las 8:00 a. m. el vendedor cambia el orden de su día con los botones ▲ Subir / ▼ Bajar de cada tarjeta.
-- Lo del Visiplan se confirma desde el día hábil anterior hasta el mismo día; si se confirma después de las 8:00 a. m. del día,
-  queda como NO programado. El Visiplan se edita hasta el 2.º día hábil del mes a las 11:59 p. m.; después queda cerrado para todos (también jefes y administrador).
+- Lo del Visiplan se confirma en cualquier momento del mes mientras no esté vencido (hasta el mismo día de la visita); si se confirma después de las 8:00 a. m. del día,
+  queda como NO programado (confirmada antes de esa hora, programada). El Visiplan se edita hasta el 2.º día hábil del mes a las 11:59 p. m.; después queda cerrado para todos (también jefes y administrador).
 - Toda visita programada lleva consecutivo (las NO programadas quedan de últimas) y todo reporte lleva su consecutivo real.
 - La app se sincroniza sola cada 30 segundos (solicitudes de eliminación, acompañamientos, aprobaciones).
   Al rechazar una eliminación se pide la razón (50 caracteres) y le sale al vendedor.
