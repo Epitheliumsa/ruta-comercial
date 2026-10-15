@@ -252,3 +252,7 @@
   programado que no se hizo sale tachado y en gris. Aplica en toda tarjeta/historial (`textoSubs`).
 - Reprogramar/Ignorar dejan huella visible: la tarjeta pasa al final del día en gris y tachada ("Ignorada por X · fecha" / "Reprogramada para el D"),
   y la visita nueva lleva el chip "Viene del Visiplan del D" (`vieneDePlan`).
+- Visitas eliminadas que reaparecían como "no visitadas" (caso Yunelis): un dispositivo que no había traído la eliminación cerraba la visita
+  automáticamente ("Sin reporte a tiempo") y ese cierre, más reciente, la devolvía. Ahora `sincronizar()` primero consulta al servidor y, si la visita ya
+  está eliminada, descarta el cierre automático local; y `backend/Codigo.gs` (`guardar_`) rechaza un cierre `actualizadoPor:'sistema'` sobre una visita eliminada.
+  Hay que pegar `Codigo.gs` en Apps Script y crear una Nueva versión.

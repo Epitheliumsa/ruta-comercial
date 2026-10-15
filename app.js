@@ -572,6 +572,14 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
     sincronizando = true;
     pintarEstadoSync();
     try {
+        // 0. Un cierre automático ("Sin reporte a tiempo") hecho en este dispositivo NO pisa una visita que ya se eliminó en el servidor
+        // (si el dispositivo no había alcanzado a traer la eliminación, el cierre la devolvía como visita no reportada)
+        const cierres = [...pendientes].map(id => registros[id]).filter(r => r && r.clase === 'visita' && r.actualizadoPor === 'sistema' && r.cierreAutomatico);
+        if (cierres.length) {
+            const previo = await llamarApi({ accion: 'listar', desde: sumarMes(mesCentro, -1) + '-01', hasta: finDeMes(sumarMes(mesCentro, 1)) });
+            const delServidor = new Map((previo.registros || []).map(r => [r.id, r]));
+            cierres.forEach(c => { const sv = delServidor.get(c.id); if (sv && (sv.borrado || sv.eliminada)) { registros[c.id] = nombreNuevoTipo(sv); pendientes.delete(c.id); } });
+        }
         // 1. Subir lo que se guardó en este dispositivo
         const porSubir = [...pendientes].map(id => registros[id]).filter(Boolean);
         if (porSubir.length) {
