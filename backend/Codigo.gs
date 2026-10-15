@@ -122,6 +122,8 @@ function guardar_(usuario, registros) {
       if (r.clase === 'visita') {
         // Solo el administrador elimina visitas
         if (r.borrado && !(actual && actual.borrado) && !usuario.admin) return;
+        // Una visita eliminada no se devuelve (p. ej. un cierre automático hecho desde un dispositivo que no había traído la eliminación)
+        if (actual && (actual.borrado || actual.eliminada) && !r.borrado && !r.eliminada && r.actualizadoPor === 'sistema') return;
         // Un reporte hecho dentro del plazo reemplaza el cierre automático
         const reporteATiempo = actual && actual.cierreAutomatico && r.estado !== 'pendiente' && !r.cierreAutomatico
           && r.registrada && r.limiteReporte && r.registrada <= r.limiteReporte;

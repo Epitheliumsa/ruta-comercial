@@ -256,3 +256,7 @@
   y la visita nueva lleva el chip "Viene del Visiplan del D" (`vieneDePlan`).
 - Visor de PDF de circulares: aviso fijo "¿Drive te pide acceso? Entra con tu correo corporativo (@epithelium.co)". El acceso en Drive se da a la carpeta
   de circulares para todo el equipo comercial (no por circular).
+- Visitas eliminadas que reaparecían como "no visitadas" (caso Yunelis): un dispositivo que no había traído la eliminación cerraba la visita
+  automáticamente ("Sin reporte a tiempo") y ese cierre, más reciente, la devolvía. Ahora `sincronizar()` primero consulta al servidor y, si la visita ya
+  está eliminada, descarta el cierre automático local; y `backend/Codigo.gs` (`guardar_`) rechaza un cierre `actualizadoPor:'sistema'` sobre una visita eliminada.
+  Hay que pegar `Codigo.gs` en Apps Script y crear una Nueva versión.
