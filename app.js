@@ -1461,7 +1461,7 @@ function eleccionChip(lista, id, todos, e) {
 // ---------- MAESTRA CLIENTES ----------
 // El comercial ve los clientes de su zona; los jefes los ven por zona y vendedor (una, varias o todas)
 const FILTROS_MAESTRA = ['g', 'e', 'cat', 'd', 'c', 'pz', 'f', 'vis'];
-const maestra = { zonas: null, busca: '', sel: Object.fromEntries(FILTROS_MAESTRA.map(k => [k, []])), dim: 'e', abierto: null, buscaOp: '',
+const maestra = { zonas: null, busca: '', sel: Object.fromEntries(FILTROS_MAESTRA.map(k => [k, []])), dim: 'g', abierto: null, buscaOp: '',
     periodo: { t: 'mes', v: mesDe(hoy()) }, visitados: new Set() };
 // Periodo de "Visitas" en la Maestra (ícono de calendario arriba a la derecha): día, mes, trimestre, semestre o año
 const PERIODOS_MAESTRA = { dia: 'Día', mes: 'Mes', trim: 'Trimestre', sem: 'Semestre', ano: 'Año' };
@@ -1503,9 +1503,11 @@ function elegirPeriodoMaestra(t) {
 const textoPlazo = pz => /^\d+$/.test(pz) ? (pz === '0' ? 'Contado' : pz + ' días') : pz;
 const departamento = p => (p || '').replace(/\s*\(CO\)$/, '');
 const DIMS_MAESTRA = {
-    // Tipo: clientes, médicos, clientes y médicos, puntos de venta y leads (todos viven en el mismo maestro)
-    g: { t: 'Tipo', todos: 'Clientes y médicos', valor: c => GRUPOS_ETIQUETA[grupoEtiqueta(c.e)].t,
-        orden: (a, b) => { const o = Object.values(GRUPOS_ETIQUETA).map(x => x.t); return o.indexOf(a) - o.indexOf(b); } },
+    // Tipo, por clasificación: Médico = 20-21-22 · Cliente = todas menos 12, 22 y 80 (incluye 20 y 21) · Punto de venta = 12.
+    // Los 20 y 21 son médico y cliente a la vez: entran en "Todos los médicos" y en "Todos los clientes".
+    g: { t: 'Tipo', todos: 'Médicos, clientes y puntos de venta', valor: c => GRUPOS_ETIQUETA[claseContacto(c)].t,
+        vals: c => { const k = claseContacto(c); return [GRUPOS_ETIQUETA[k].t, ...(k === 'medico' || k === 'ambos' ? [TODOS_MEDICOS] : []), ...(k === 'cliente' || k === 'ambos' ? [TODOS_CLIENTES] : [])]; },
+        orden: (a, b) => { const o = [TODOS_MEDICOS, TODOS_CLIENTES, ...Object.values(GRUPOS_ETIQUETA).map(x => x.t)]; return o.indexOf(a) - o.indexOf(b); } },
     e: { t: 'Etiqueta', todos: 'Todas las etiquetas', valor: c => c.e || '', orden: ordenLeadAlFinal },   // Leads al final
     // Clasificación y categoría son lo mismo: el número es la clasificación y el nombre la categoría
     cat: { t: 'Clasificación', todos: 'Todas las clasificaciones', valor: c => c.cl || c.ca || '', nombre: (v, c) => c && c.ca && c.cl ? `${c.cl} · ${c.ca}` : v,
@@ -1521,9 +1523,9 @@ const DIMS_MAESTRA = {
 const MAX_BARRAS = 8;
 // Color por tipo de etiqueta (se unifican en Cliente, Médico y Punto de Venta) y por si es cliente para facturar
 const GRUPOS_ETIQUETA = {
-    cliente: { t: 'Cliente', c: '#2563eb', tinte: '#e3ecfd' },
-    medico: { t: 'Médico', c: '#db2777', tinte: '#fce6f0' },
-    ambos: { t: 'Cliente y Médico', c: '#2563eb', c2: '#db2777', tinte: '#f1e6f6' },
+    cliente: { t: 'Solo cliente', c: '#2563eb', tinte: '#e3ecfd' },
+    medico: { t: 'Solo médico', c: '#db2777', tinte: '#fce6f0' },
+    ambos: { t: 'Médico y cliente', c: '#2563eb', c2: '#db2777', tinte: '#f1e6f6' },
     pv: { t: 'Punto de Venta', c: '#ca8a04', tinte: '#faf0d4' },
     lead: { t: 'Lead', c: '#0891b2', tinte: '#e0f4f8' }
 };
@@ -1531,6 +1533,18 @@ const GRUPOS_ETIQUETA = {
 const leadComoContacto = (p, z) => { const [c, d] = String(p.ciudad || '').split(' - ');
     return { n: p.nombre, e: etiquetaLead(p.tipo), c: c || '', p: d || (c === 'Bogotá D.C.' ? 'Bogotá D.C.' : ''), ca: LEAD, f: false, z, lead: true, clLead: p.clasificacion || '' }; };
 const COLOR_FACTURA = { si: '#16a34a', no: '#dc2626' };
+const TODOS_MEDICOS = 'Todos los médicos (20-21-22)', TODOS_CLIENTES = 'Todos los clientes';
+// Clase del contacto según su clasificación (Médico 20-21-22, Cliente el resto menos 12 y 80, Punto de venta 12; 80 = empleados, no se muestran)
+function claseContacto(c) {
+    if (c.lead) return 'lead';
+    const cl = String(c.cl || '');
+    if (cl === '22') return 'medico';
+    if (cl === '20' || cl === '21') return 'ambos';
+    if (cl === '12') return 'pv';
+    if (cl) return 'cliente';
+    return grupoEtiqueta(c.e);
+}
+const esEmpleado = c => String(c.cl || '') === '80';
 const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('lead') ? 'lead' : n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
 const zonasMaestra = () => [...new Set([...Object.keys(contactos), ...proyectos().filter(p => p.estado !== 'vinculado').map(p => p.zona)])].filter(z => z && ((contactos[z] || []).length || proyectosDeZona(z).length));
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
@@ -1550,10 +1564,11 @@ function elegirZonaMaestra(z, e) {
 // Meses para el filtro de visitas: el actual y los que tienen visitas, del más reciente al más antiguo
 
 // Clientes que pasan los filtros, dejando por fuera uno (para contar las opciones de ese filtro)
+const valsMaestra = (k, c) => DIMS_MAESTRA[k].vals ? DIMS_MAESTRA[k].vals(c) : [DIMS_MAESTRA[k].valor(c)];
 function filtrarMaestra(base, sin) {
     const q = normalizar(maestra.busca);
     return base.filter(c => (!q || normalizar(c.n).includes(q))
-        && FILTROS_MAESTRA.every(k => k === sin || !maestra.sel[k].length || maestra.sel[k].includes(DIMS_MAESTRA[k].valor(c))));
+        && FILTROS_MAESTRA.every(k => k === sin || !maestra.sel[k].length || valsMaestra(k, c).some(v => maestra.sel[k].includes(v))));
 }
 
 // Filtros de selección múltiple (Maestra Clientes y Visiplan): botón con lo elegido y lista de casillas con cuántos
@@ -1671,8 +1686,8 @@ document.addEventListener('click', e => {
 function pintarFiltrosMaestra(base) {
     pintarMultis($('mcFiltrosMulti'), 'maestra', FILTROS_MAESTRA.map(k => {
         const d = DIMS_MAESTRA[k], ejemplo = {}, cuenta = {};
-        base.forEach(c => { const v = d.valor(c); if (v && !ejemplo[v]) ejemplo[v] = c; });
-        filtrarMaestra(base, k).forEach(c => { const v = d.valor(c); cuenta[v] = (cuenta[v] || 0) + 1; });
+        base.forEach(c => valsMaestra(k, c).forEach(v => { if (v && !ejemplo[v]) ejemplo[v] = c; }));
+        filtrarMaestra(base, k).forEach(c => valsMaestra(k, c).forEach(v => { cuenta[v] = (cuenta[v] || 0) + 1; }));
         return { k, t: d.t, todos: d.todos, cuenta, nombre: v => d.nombre ? d.nombre(v, ejemplo[v]) : v,
             valores: Object.keys(ejemplo).sort(d.orden || ((a, b) => a.localeCompare(b, 'es'))),
             extra: k === 'vis' ? `<button type="button" class="mc-multi-mes" onclick="abrirPeriodoMaestra()">📅 ${esc(mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, '')))}</button>` : '' };
@@ -1689,12 +1704,12 @@ function pintarMaestra() {
                 return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${(contactos[z] || []).length + proyectosDeZona(z).length}</small></button>`;
             }).join('') + AYUDA_CHIPS;
     }
-    const base = sel.flatMap(z => [...(contactos[z] || []).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
+    const base = sel.flatMap(z => [...(contactos[z] || []).filter(c => !esEmpleado(c)).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
     // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
     maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && !tiposDe(x).includes(ATENEO) && enPeriodoMaestra(x.fecha))
         .map(x => normalizar(x.contacto)));
     // Las opciones elegidas que ya no existen en las zonas elegidas se quitan
-    FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => v === NINGUNA || base.some(c => DIMS_MAESTRA[k].valor(c) === v)); });
+    FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => v === NINGUNA || base.some(c => valsMaestra(k, c).includes(v))); });
     pintarFiltrosMaestra(base);
     const lista = filtrarMaestra(base);
     // La gráfica no se filtra por su propia columna: así se pueden tocar varias barras
@@ -1705,10 +1720,12 @@ function pintarMaestra() {
         .forEach(x => { const k = normalizar(x.contacto); if (!ultima[k] || x.fecha > ultima[k]) ultima[k] = x.fecha; });
     // Logística: en vez de la última visita, la última entrega al cliente
     if (esLogistica()) logVisibles().filter(r => r.estado === 'entregado' && r.contacto).forEach(r => { const k = normalizar(r.contacto); if (!ultima[k] || r.fecha > ultima[k]) ultima[k] = r.fecha; });
-    $('mcResumen').textContent = `${lista.length} ${lista.length === 1 ? 'cliente' : 'clientes'}${lista.length !== base.length ? ` de ${base.length}` : ''} · toca un cliente para ver su historial`;
+    const nMed = lista.filter(c => ['medico', 'ambos'].includes(claseContacto(c))).length, nCli = lista.filter(c => ['cliente', 'ambos'].includes(claseContacto(c))).length;
+    const nPv = lista.filter(c => claseContacto(c) === 'pv').length, nAmb = lista.filter(c => claseContacto(c) === 'ambos').length;
+    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (clasificación 20 y 21): cuentan en ambos</small>` : ''}<br><small>Toca un contacto para ver su historial</small>`;
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
-        const g = GRUPOS_ETIQUETA[grupoEtiqueta(c.e)];
+        const g = GRUPOS_ETIQUETA[claseContacto(c)];
         return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
                 <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
@@ -1771,7 +1788,7 @@ function pintarComposicion(lista) {
     // Cliente y Médico: rayas de los dos colores
     const colorEtiqueta = g => g.c2 ? `repeating-linear-gradient(135deg, ${g.c} 0 6px, ${g.c2} 6px 12px)` : g.c;
     const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[grupoEtiqueta(v)])}`
-        : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
+        : maestra.dim === 'g' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[Object.keys(GRUPOS_ETIQUETA).find(k => GRUPOS_ETIQUETA[k].t === v) || 'cliente'])}` : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
     const elegidos = maestra.dim === 'z' ? ((maestra.zonas || []).length < zonasMaestra().length ? maestra.zonas : []) : maestra.sel[maestra.dim];
     $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; maestra.verOtros=false; pintarMaestra()">${x.t}</button>`).join('');
     $('mcBarras').classList.toggle('con-sel', elegidos.length > 0);
@@ -1961,7 +1978,7 @@ function pintarVisiplan() {
     let clientes = [];
     vista.forEach(ven => {
         seg[ven.id] = seguimientoPlan(ven.id, mes);
-        clientes = clientes.concat((contactos[ven.zona] || []).filter(c => !esCliente61Ateneo(c) || esFdll(c)).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
+        clientes = clientes.concat((contactos[ven.zona] || []).filter(c => !esEmpleado(c)).filter(c => !esCliente61Ateneo(c) || esFdll(c)).map(c => ({ n: c.n, e: c.e || '', t: tipoSugerido(c.e || '') || 'Visita Cliente', v: ven.id }))
             .concat(contactosAteneo().map(a => ({ n: PREF_ATENEO + a.n, e: a.e, t: ATENEO, v: ven.id })))
             .concat(leadsDelPlan(ven.zona).filter(p => leadEnPlan(p, mes)).map(p => ({ n: p.nombre, e: etiquetaLead(p.tipo), t: LEAD, v: ven.id }))));
     });
