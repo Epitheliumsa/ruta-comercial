@@ -1725,6 +1725,12 @@ function pintarMaestra() {
     // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
     maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && !tiposDe(x).includes(ATENEO) && enPeriodoMaestra(x.fecha))
         .map(x => normalizar(x.contacto)));
+    // Lo que se hizo en el periodo elegido (ícono de calendario): visitas efectivas y no efectivas de cada cliente
+    maestra.enPeriodo = {};
+    visibles().filter(x => x.clase === 'visita' && !x.interno && ['visitado', 'no_visitado'].includes(x.estado) && !tiposDe(x).includes(ATENEO) && enPeriodoMaestra(x.fecha)).forEach(x => {
+        const k = normalizar(x.contacto), a = maestra.enPeriodo[k] = maestra.enPeriodo[k] || { ok: 0, no: 0, ultima: '' };
+        if (x.estado === 'visitado') { a.ok++; if (x.fecha > a.ultima) a.ultima = x.fecha; } else a.no++;
+    });
     // Las opciones elegidas que ya no existen en las zonas elegidas se quitan
     FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => v === NINGUNA || base.some(c => valsMaestra(k, c).includes(v))); });
     pintarFiltrosMaestra(base);
@@ -1739,13 +1745,16 @@ function pintarMaestra() {
     if (esLogistica()) logVisibles().filter(r => r.estado === 'entregado' && r.contacto).forEach(r => { const k = normalizar(r.contacto); if (!ultima[k] || r.fecha > ultima[k]) ultima[k] = r.fecha; });
     const nMed = lista.filter(c => rolesContacto(c).medico).length, nCli = lista.filter(c => rolesContacto(c).cliente).length;
     const nPv = lista.filter(c => claseContacto(c) === 'pv').length, nAmb = lista.filter(c => claseContacto(c) === 'ambos').length;
-    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (20 y 21 que facturan): cuentan en ambos</small>` : ''}<br><small>Toca un contacto para ver su historial</small>`;
+    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (20 y 21 que facturan): cuentan en ambos</small>` : ''}${esLogistica() ? '' : `<br>📅 ${esc(mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, '')))}: <b>${lista.filter(c => maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> con visita efectiva · <b>${lista.filter(c => !maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> sin visita efectiva`}<br><small>Toca un contacto para ver su historial</small>`;
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[claseContacto(c)];
         return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
                 <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
+                ${esLogistica() ? '' : (() => { const a = maestra.enPeriodo[normalizar(c.n)];
+                    return a ? `<span class="mc-periodo-dato">📅 En el periodo: ${a.ok ? `<b class="ok">${a.ok} ${a.ok === 1 ? 'visita efectiva' : 'visitas efectivas'}</b>${a.ultima ? ' · última ' + esc(fechaCorta(a.ultima)) : ''}` : '<b>sin visita efectiva</b>'}${a.no ? ` · <b class="no">${a.no} no efectiva${a.no === 1 ? '' : 's'}</b>` : ''}</span>`
+                        : '<span class="mc-periodo-dato vacio">📅 En el periodo: sin visitas</span>'; })()}
                 ${!c.lead && portafolioDe(c.n).length ? `<span class="mc-portafolio" role="button" tabindex="0" data-c="${esc(c.n)}" onclick="verPortafolio(event, this.dataset.c)">📋 Portafolio del cliente <b>${portafolioDe(c.n).length}</b></span>` : ''}</span>
             <span class="mc-ultima">${u ? (esLogistica() ? 'Última entrega' : 'Última visita') + '<br><b>' + esc(fechaCorta(u)) + '</b>' : `<i>${esLogistica() ? 'Sin entregas' : 'Sin visitas'}</i>`}</span>
         </button>`;

@@ -1869,3 +1869,7 @@ body.es-logistica #btnLogistica { order: -1; }
 .lg-mas { justify-self: start; }
 
 .mc-tipos { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.mc-periodo-dato { display: block; margin-top: 3px; font-size: 12px; color: #475569; }
+.mc-periodo-dato b.ok { color: #0a6647; }
+.mc-periodo-dato b.no { color: #be185d; }
+.mc-periodo-dato.vacio { color: #9aa5a2; }
