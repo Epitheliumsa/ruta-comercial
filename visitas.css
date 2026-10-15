@@ -1883,3 +1883,9 @@ body.es-logistica #btnLogistica { order: -1; }
 .banner-corr { grid-column: 1 / -1; background: #fff1d6; border: 1px solid #f4c57a; color: #7c2d12; border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .banner-corr b { color: #7c2d12; }
 .banner-corr button { margin-left: auto; background: #92400e; color: #fff; border: 0; border-radius: 999px; padding: 6px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+
+.reporte-acomp .acomp-quienes { margin: 0 0 6px; font-size: 13.5px; }
+.reporte-acomp .acomp-m { border-left: 3px solid #cbd5d1; padding: 3px 0 3px 10px; margin: 6px 0; font-size: 13.5px; }
+.reporte-acomp .acomp-m.ok { border-left-color: #16a34a; }
+.reporte-acomp .acomp-m.no { border-left-color: #f472b6; }
+.reporte-acomp .acomp-m i { color: #475569; }

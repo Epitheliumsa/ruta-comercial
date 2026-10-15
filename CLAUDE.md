@@ -267,3 +267,5 @@
   Mientras dura, la tarjeta dice "Corrección visita Sin Reporte a tiempo", un aviso arriba de la agenda cuenta cuántas hay y su botón las filtra (anillo del mes, "Sin reporte a tiempo").
   Al corregirse queda la huella `correccionProvisional` (chip "Corregida · antes: Sin reporte a tiempo"), `cierreAutomatico` pasa a false y la visita cuenta como Efectiva o No Efectiva.
   Pasada la hora, lo no corregido vuelve a mostrarse como "Sin reporte a tiempo". Hay que pegar `Codigo.gs` y crear Nueva versión (sin eso el servidor rechaza el cambio a Efectiva).
+- Histórico del cliente (verCliente y ateneo): una visita acompañada sale UNA sola vez (`agruparAcomp`, `htmlReporteHist`): "Visitaron: A y B" y debajo el reporte de cada uno
+  (titular y acompañantes), también para quien solo ve su propia visita (usa la copia del reporte del acompañamiento). Los contadores cuentan la visita una vez.

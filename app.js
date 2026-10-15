@@ -3011,6 +3011,46 @@ function copiarReporteAcomp(v) {
     if (a) guardarRegistro({ ...a, reporteAcomp: rep });
     acompanamientos().filter(x => x.visitaId === v.id && x.estado === 'aceptada').forEach(x => guardarRegistro({ ...x, reporteDueno: rep }));
 }
+// Histórico: una visita acompañada sale UNA sola vez, con el resumen de lo que reportó cada uno de los que visitaron.
+// Une la visita del titular y la de cada acompañante en una sola entrada (la del titular, o la primera que se vea).
+function agruparAcomp(lista) {
+    const vistos = new Set(), salida = [];
+    lista.forEach(x => {
+        if (vistos.has(x.id)) return;
+        const dueno = x.acompanamiento?.visitaId || x.id;
+        const acs = acompanamientos().filter(a => a.visitaId === dueno && a.estado === 'aceptada');
+        if (!acs.length) { salida.push(x); vistos.add(x.id); return; }
+        const ids = [dueno, ...acs.map(a => a.visitaAcomp)].filter(Boolean);
+        ids.forEach(i => vistos.add(i));
+        const rep = lista.find(y => y.id === dueno) || x;
+        const miembros = [{ vendedor: acs[0].solicitante, titular: true, v: registros[dueno], copia: null },
+            ...acs.map(a => ({ vendedor: a.vendedor, titular: false, v: registros[a.visitaAcomp], copia: a.reporteAcomp }))];
+        // La copia del reporte (la que viaja en el registro del acompañamiento) la usa quien no ve la visita del otro
+        miembros[0].copia = acs.map(a => a.reporteDueno).find(Boolean) || null;
+        const est = m => m.v && !m.v.borrado && m.v.estado !== 'pendiente' ? m.v.estado : m.copia?.estado || 'pendiente';
+        const estados = miembros.map(est);
+        salida.push({ ...rep, estado: estados.includes('visitado') ? 'visitado' : estados.includes('no_visitado') ? 'no_visitado' : 'pendiente',
+            _acomp: miembros.map(m => ({ ...m, estado: est(m) })) });
+    });
+    return salida;
+}
+// Cuerpo de la entrada de un histórico: el reporte normal, o el resumen de los que visitaron si fue acompañada
+function htmlReporteHist(x) {
+    if (!x._acomp) {
+        const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
+        return (partes.filter(Boolean).length ? `<div class="reporte">${partes.filter(Boolean).join('<br>')}</div>` : '') + htmlAcompHist(x);
+    }
+    const visitaron = x._acomp.filter(m => m.estado === 'visitado').map(m => nombreVendedor(m.vendedor));
+    const cuerpo = m => {
+        if (m.v && !m.v.borrado && m.v.estado === 'visitado') return partesReporte(m.v, true).join('<br>');
+        if (m.v && !m.v.borrado && m.v.estado === 'no_visitado') return [`<b>${esc(m.v.motivo || '')}</b>`, m.v.observaciones ? esc(m.v.observaciones) : ''].filter(Boolean).join('<br>');
+        return m.copia?.texto ? esc(m.copia.texto) : '';
+    };
+    const etiqueta = m => m.estado === 'visitado' ? 'Visita Efectiva' : m.estado === 'no_visitado' ? (m.v && sinReporte(m.v) ? 'Sin reporte a tiempo' : 'Visita No Efectiva') : 'Sin reportar todavía';
+    return `<div class="reporte reporte-acomp"><p class="acomp-quienes">🤝 <b>Visita acompañada</b> · ${visitaron.length ? `Visitaron: <b>${esc(visitaron.join(' y '))}</b>` : `Participaron: ${esc(x._acomp.map(m => nombreVendedor(m.vendedor)).join(' y '))}`}</p>
+        ${x._acomp.map(m => `<div class="acomp-m ${m.estado === 'visitado' ? 'ok' : m.estado === 'no_visitado' ? 'no' : 'p'}"><b>${esc(nombreVendedor(m.vendedor))}</b>${m.titular ? ' <small>(titular)</small>' : ''} · <i>${etiqueta(m)}</i>${cuerpo(m) ? '<br>' + cuerpo(m) : ''}</div>`).join('')}</div>`;
+}
+const nombresHist = x => x._acomp ? x._acomp.map(m => nombreVendedor(m.vendedor)).join(' + ') : nombreVendedor(x.vendedor);
 // En el histórico: con quién fue la visita acompañada y el reporte del otro
 function htmlAcompHist(x) {
     return acompDeVisita(x.id).filter(a => a.estado === 'aceptada').map(a => {
@@ -4246,8 +4286,8 @@ const PERIODOS_HIST = {
 };
 // Tarjeta especial del ateneo (desde el Visiplan): histórico de las Visitas Ateneo Médico de todo el equipo
 function verAteneo(nombre) {
-    const vs = visibles().filter(x => x.clase === 'visita' && tiposDe(x).includes(ATENEO) && normalizar(x.contacto) === normalizar(nombre))
-        .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    const vs = agruparAcomp(visibles().filter(x => x.clase === 'visita' && tiposDe(x).includes(ATENEO) && normalizar(x.contacto) === normalizar(nombre))
+        .sort((a, b) => b.fecha.localeCompare(a.fecha)));
     const ok = vs.filter(x => x.estado === 'visitado'), equipo = [...new Set(vs.map(x => x.vendedor))];
     const prox = vs.filter(x => x.estado === 'pendiente' && x.fecha >= hoy()).sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
     const at = buscarAteneo(nombre);
@@ -4264,10 +4304,9 @@ function verAteneo(nombre) {
             ${equipo.length ? `<span class="chip ateneo">Apoyan: ${esc(equipo.map(primerNombre).join(', '))}</span>` : ''}
         </div>
         ${vs.map(x => { const [cls, txt] = sinReporte(x) ? ['no', 'Sin reporte a tiempo'] : est[x.estado] || ['p', x.estado];
-            const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
             return `<div class="hist-item ${cls}"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
-                <p class="meta">${esc([nombreVendedor(x.vendedor), comercial(x.vendedor)?.zona, modalidadDe(x)].filter(Boolean).join(' · '))}</p>
-                ${partes.filter(Boolean).length ? `<div class="reporte">${partes.filter(Boolean).join('<br>')}</div>` : ''}${htmlAcompHist(x)}</div>`; }).join('')
+                <p class="meta">${esc([nombresHist(x), comercial(x.vendedor)?.zona, modalidadDe(x)].filter(Boolean).join(' · '))}</p>
+                ${htmlReporteHist(x)}</div>`; }).join('')
             || '<div class="no-results">Todavía no hay visitas a este ateneo.</div>'}
         <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
     </div>`);
@@ -4285,7 +4324,7 @@ function diaHistorial(d) { historial.dia = historial.dia === d ? '' : (d || '');
 // Días con movimiento del cliente: visitas (no para logística) y entregas, los más recientes primero
 function diasCliente(nombre) {
     const dias = {};
-    (esLogistica() ? [] : visitasCliente(nombre)).forEach(x => { (dias[x.fecha] = dias[x.fecha] || { v: 0, l: 0 }).v++; });
+    (esLogistica() ? [] : agruparAcomp(visitasCliente(nombre))).forEach(x => { (dias[x.fecha] = dias[x.fecha] || { v: 0, l: 0 }).v++; });
     entregasCliente(nombre).forEach(x => { (dias[x.fecha] = dias[x.fecha] || { v: 0, l: 0 }).l++; });
     return Object.entries(dias).sort((a, b) => b[0].localeCompare(a[0]));
 }
@@ -4305,7 +4344,7 @@ function pintarHistorial() {
     const { nombre, vendedor } = historial;
     const conFiltroPeriodo = Object.values(historial.sel).some(l => l.length);
     const dia = historial.dia;
-    const lista = visitasCliente(nombre).filter(x => dia ? x.fecha === dia : Object.keys(PERIODOS_HIST).every(k => pasaPeriodo(k, x)));
+    const lista = agruparAcomp(visitasCliente(nombre).filter(x => dia ? x.fecha === dia : Object.keys(PERIODOS_HIST).every(k => pasaPeriodo(k, x))));
     const zona = comercial(vendedor)?.zona;
     const m = buscarMaestra(zona, nombre) || buscarEnTodas(nombre), p = buscarProyecto(zona, nombre);
     const efectivas = lista.filter(x => x.estado === 'visitado');
@@ -4317,12 +4356,10 @@ function pintarHistorial() {
     const chipsMes = visitasCliente(nombre).length > 1 ? '<div class="hist-periodos" id="histMeses"></div>' : '';
     const filas = vistas.map(x => {
         const [cls, txt] = sinReporte(x) ? ['no', 'Sin reporte a tiempo'] : estadoTxt[x.estado] || ['p', x.estado];
-        const partes = x.estado === 'visitado' ? partesReporte(x, true) : x.estado === 'no_visitado' ? [`<b>${esc(x.motivo || '')}</b>`, x.observaciones ? esc(x.observaciones) : ''] : [x.objetivo ? esc(x.objetivo) : ''];
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
-            <p class="meta"><span class="hist-tag v">Visita</span>${esc([nombreTipo(x), modalidadDe(x), nombreVendedor(x.vendedor)].filter(Boolean).join(' · '))}</p>
-            ${partes.filter(Boolean).length ? `<div class="reporte">${partes.filter(Boolean).join('<br>')}</div>` : ''}
-            ${htmlAcompHist(x)}
+            <p class="meta"><span class="hist-tag v">Visita</span>${esc([nombreTipo(x), modalidadDe(x), nombresHist(x)].filter(Boolean).join(' · '))}</p>
+            ${htmlReporteHist(x)}
         </div>`;
     }).join('');
     abrirModal(`<div class="form-rc ficha historial">
