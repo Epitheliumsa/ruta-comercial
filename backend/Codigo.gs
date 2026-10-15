@@ -129,7 +129,10 @@ function guardar_(usuario, registros) {
         // Un reporte hecho dentro del plazo reemplaza el cierre automático
         const reporteATiempo = actual && actual.cierreAutomatico && r.estado !== 'pendiente' && !r.cierreAutomatico
           && r.registrada && r.limiteReporte && r.registrada <= r.limiteReporte;
-        if (reporteATiempo) {
+        // Corrección PROVISIONAL de las visitas "Sin reporte a tiempo": se acepta hasta el viernes 16 de octubre de 2026, 6:00 p. m. (Colombia)
+        const correccionProv = actual && actual.cierreAutomatico && r.correccionProvisional && !r.cierreAutomatico && r.estado !== 'pendiente'
+          && new Date().toISOString() <= '2026-10-16T23:00:00.000Z';
+        if (reporteATiempo || correccionProv) {
           r.actualizado = new Date().toISOString();
           fila[4] = r.actualizado;
           fila[6] = JSON.stringify(r);

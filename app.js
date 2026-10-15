@@ -185,7 +185,7 @@ function verPdf(e, url) {
     let v = document.getElementById('visorPdf');
     if (!v) {
         v = document.createElement('div'); v.id = 'visorPdf'; v.className = 'visor-pdf';
-        v.innerHTML = '<div class="visor-pdf-barra"><strong>PDF</strong><a id="visorPdfAfuera" target="_blank" rel="noopener">Abrir afuera</a><button type="button" onclick="cerrarPdf()" aria-label="Cerrar">&times;</button></div><p class="visor-pdf-aviso">¿Drive te pide acceso? Entra con tu <b>correo corporativo</b> (@epithelium.co), no con el personal.</p><iframe id="visorPdfMarco" title="PDF" allow="autoplay"></iframe>';
+        v.innerHTML = '<div class="visor-pdf-barra"><strong>PDF</strong><a id="visorPdfAfuera" target="_blank" rel="noopener">Abrir afuera</a><button type="button" onclick="cerrarPdf()" aria-label="Cerrar">&times;</button></div><iframe id="visorPdfMarco" title="PDF" allow="autoplay"></iframe>';
         document.body.appendChild(v);
     }
     document.getElementById('visorPdfMarco').src = `https://drive.google.com/file/d/${id}/preview`;
@@ -368,7 +368,12 @@ const puedeCorregir = v => v.clase === 'visita' && v.estado !== 'pendiente' && (
 // Fuera de plazo el dueño de la visita (también el Coordinador Comercial) pide la corrección
 const puedePedirCorreccion = v => v.clase === 'visita' && v.estado !== 'pendiente' && sesion?.id === v.vendedor && !puedeCorregir(v)
     && v.solicitudCorreccion?.estado !== 'pendiente';
-const puedeGuardarReporte = v => puedeReportar(v) || puedeCorregir(v);
+// Corrección PROVISIONAL de las visitas "Sin reporte a tiempo": hasta el viernes 16 de octubre de 2026, 6:00 p. m. (hora Colombia).
+// La dueña reporta lo que sucedió tal cual; no se puede mover la fecha. Pasada la hora, lo que no se corrigió vuelve a su estado original.
+const CORRECCION_PROV = { hasta: Date.parse('2026-10-16T18:00:00-05:00'), texto: 'el viernes 16 de oct, 6:00 p. m.' };
+const enCorreccionProvisional = v => v.clase === 'visita' && !v.interno && !v.eliminada && !v.borrado && Date.now() <= CORRECCION_PROV.hasta && sinReporte(v);
+const puedeCorregirProvisional = v => enCorreccionProvisional(v) && sesion?.id === v.vendedor;
+const puedeGuardarReporte = v => puedeReportar(v) || puedeCorregir(v) || puedeCorregirProvisional(v);
 const textoCierre = v => `${fechaCorta(diaCierre(v))}, ${horaBonita(HORA_CIERRE)}`;
 
 // Pasa a NO visitado lo que no se reportó a tiempo (el jefe cierra las de todo el equipo)
@@ -2630,6 +2635,10 @@ function pintarAgenda() {
     const bloquePlan = abiertas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${abiertas.length} ${abiertas.length === 1 ? 'cliente planeado' : 'clientes planeados'}</p>${abiertas.map(tarjetaPlan).join('')}</div>` : '';
     const bloqueCerradas = cerradas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${cerradas.length} ${cerradas.length === 1 ? 'planeado no confirmado' : 'planeados no confirmados'}</p>${cerradas.map(tarjetaPlan).join('')}</div>` : '';
     const bloqueHuellas = huellas.length ? `<div class="plan-dia"><p class="grupo-titulo">Visiplan · ${huellas.length} ${huellas.length === 1 ? 'ignorado o reprogramado' : 'ignorados o reprogramados'}</p>${huellas.map(tarjetaHuella).join('')}</div>` : '';
+    // Corrección provisional: aviso con el número de visitas "Sin reporte a tiempo" por corregir y botón que las filtra
+    const porCorregir = Date.now() <= CORRECCION_PROV.hasta ? visibles().filter(x => vs.includes(x.vendedor) && enCorreccionProvisional(x)) : [];
+    const bannerCorr = porCorregir.length ? `<div class="banner-corr">✏️ <span><b>Corrección provisional:</b> ${vs.length === 1 && vs[0] === sesion.id ? `tienes <b>${porCorregir.length}</b>` : `hay <b>${porCorregir.length}</b>`} ${porCorregir.length === 1 ? 'visita' : 'visitas'} en "Sin reporte a tiempo" para reportar tal cual sucedieron, hasta ${esc(CORRECCION_PROV.texto)}</span>
+        <button type="button" onclick="agenda.fecha = hoy(); agenda.filtro = 'an-mes:sin'; agenda.anillo = 'mes'; pintarAgenda()">Ver las ${porCorregir.length}</button></div>` : '';
     const cont = $('agLista');
     const porPeriodo = /^an-(semana|mes):(.+)$/.exec(agenda.filtro || '');
     if (porPeriodo) {
@@ -2638,13 +2647,13 @@ function pintarAgenda() {
             .sort((a, b) => a.fecha.localeCompare(b.fecha) || vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || ordenCita(a, b));
         const porDia = {};
         vp.forEach(x => (porDia[x.fecha] = porDia[x.fecha] || []).push(x));
-        cont.innerHTML = `<p class="grupo-titulo filtro-activo">${esc(parte?.t || '')} · ${per === 'semana' ? 'acumulado de la semana' : 'acumulado del mes'} · ${vp.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>`
+        cont.innerHTML = bannerCorr + `<p class="grupo-titulo filtro-activo">${esc(parte?.t || '')} · ${per === 'semana' ? 'acumulado de la semana' : 'acumulado del mes'} · ${vp.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>`
             + (Object.entries(porDia).map(([d, xs]) => `<p class="grupo-titulo">${esc(mayuscula(fechaLarga(d)))} · ${xs.length}</p>` + xs.map(x => tarjetaVisita(x, null, null, varios)).join('')).join('')
                 || '<div class="no-results">No hay visitas con este filtro.</div>');
         return;
     }
     if (!lista.length && !novs.length && !plan.length) {
-        cont.innerHTML = tarjetasInvitaciones() + tarjetasCumple + `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>` + eliminadasDe(vs, f).map(tarjetaEliminada).join('');
+        cont.innerHTML = bannerCorr + tarjetasInvitaciones() + tarjetasCumple + `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>` + eliminadasDe(vs, f).map(tarjetaEliminada).join('');
         return;
     }
     // Filtro por indicador y orden (por hora de cita o por el orden en que se reportaron las visitas)
@@ -2668,7 +2677,7 @@ function pintarAgenda() {
     if (avisoOrden) $('agResumen').querySelector('.ag-orden')?.insertAdjacentHTML('beforebegin', avisoOrden);
     const filtrando = agenda.filtro;
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
-    cont.innerHTML = (filtrando ? '' : tarjetasInvitaciones() + tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
+    cont.innerHTML = bannerCorr + (filtrando ? '' : tarjetasInvitaciones() + tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
         + (filtrando ? '' : bloqueCerradas + bloqueHuellas + eliminadasDe(vs, f).map(tarjetaEliminada).join(''));
 }
@@ -2720,7 +2729,8 @@ function filtrarAgenda(f) {
 function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     const clase = v.estado === 'visitado' ? 'ok' : v.estado === 'no_visitado' ? 'no' : '';
     const [txtOk, txtNo] = v.interno ? ['Realizado', 'No realizado'] : ['Visita Efectiva', v.cierreAutomatico ? 'Sin reporte a tiempo' : 'Visita No Efectiva'];
-    const chip = v.estado === 'visitado' ? `<span class="chip ok">${txtOk}</span>`
+    const chip = enCorreccionProvisional(v) ? '<span class="chip prov">✏️ Corrección visita Sin Reporte a tiempo</span>'
+        : v.estado === 'visitado' ? `<span class="chip ok">${txtOk}</span>`
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
         : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Visita de seguimiento' : 'Reprogramada'}</span>`
         : '<span class="chip p">Pendiente</span>';
@@ -2733,7 +2743,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
     const noProgTxt = esProgramada(v) ? '' : `<span class="chip np">${v.interno ? 'No programado' : 'No programada'}</span>`;
     const horario = v.diaCompleto === false && v.horaInicio ? `${horaBonita(v.horaInicio)} a ${horaBonita(v.horaFin)}` : 'Todo el día';
     const marcas = v.interno ? `<span class="chip gris">Trabajo Administrativo</span><span class="chip azul">🕗 ${esc(horario)}</span>${noProgTxt}`
-        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esVisAteneo(v) ? '<span class="chip ateneo">Ateneo · no suma en la Maestra</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.vieneDePlan ? `<span class="chip prox">Viene del Visiplan del ${esc(fechaCorta(v.vieneDePlan))}</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
+        : `<span class="chip ${v.modalidad === 'virtual' ? 'azul' : v.modalidad === 'remota' ? 'morado' : 'gris'}">${modalidadDe(v)}</span>${v.esProyecto ? `<span class="chip proy">${LEAD}</span>` : ''}${esVisAteneo(v) ? '<span class="chip ateneo">Ateneo · no suma en la Maestra</span>' : ''}${esReprogramada(v) && v.vieneDe ? `<span class="chip prox">Viene del ${esc(fechaCorta(v.vieneDe))}</span>` : ''}${v.vieneDePlan ? `<span class="chip prox">Viene del Visiplan del ${esc(fechaCorta(v.vieneDePlan))}</span>` : ''}${v.correccionProvisional ? `<span class="chip corr" title="Corregida por ${esc(nombreVendedor(v.correccionProvisional.por))} el ${esc(fechaHora(v.correccionProvisional.cuando))}">✏️ Corregida · antes: Sin reporte a tiempo</span>` : ''}${v.adelantada ? `<span class="chip azul">Adelantada · planeada el ${esc(fechaCorta(v.fechaPlaneada))}</span>` : ''}${noProgTxt}`;
     let reporte = '';
     if (v.estado === 'visitado' && v.interno) {
         reporte = v.observaciones && v.contacto !== MERCADEO ? `<div class="reporte">${esc(v.observaciones)}</div>` : '';
@@ -2835,6 +2845,14 @@ function accionesVisita(v, txtOk, txtNo) {
     const sol = v.solicitudEliminar;
     const eliminar = accionEliminar(v, 'link-mini')
         + (sol?.estado === 'rechazada' ? `<span class="chip gris" title="Rechazada por ${esc(nombreVendedor(sol.resueltaPor))}">Eliminación rechazada${sol.razonRechazo ? ': ' + esc(sol.razonRechazo) : ''}</span>` : '');
+    // Corrección provisional: la dueña reporta lo que sucedió (sin mover la fecha) hasta el viernes 16 de oct, 6:00 p. m.
+    if (enCorreccionProvisional(v)) {
+        return puedeCorregirProvisional(v) ? `<div class="acciones prov-acc">
+            <button class="bv ok" onclick="abrirRegistro('${v.id}','ok')">✓ Reportar como ${txtOk}</button>
+            <button class="bv no" onclick="abrirRegistro('${v.id}','no')">✕ Reportar como Visita No Efectiva</button>
+            <span class="nota-cierre alerta">Corrección provisional hasta ${esc(CORRECCION_PROV.texto)} Si no se corrige, vuelve a "Sin reporte a tiempo".</span></div>`
+            : `<div class="acciones cerrada"><span class="nota-cierre">✏️ Corrección provisional abierta para ${esc(primerNombre(v.vendedor))} hasta ${esc(CORRECCION_PROV.texto)}</span></div>`;
+    }
     if (v.estado !== 'pendiente') {
         const nota = v.cierreAutomatico
             ? 'Cerrada automáticamente: no se reportó a tiempo'
@@ -4018,7 +4036,8 @@ function abrirRegistro(id, tipo) {
     const cab = (v.interno ? `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`
         : `<p class="cierre-cliente">${esc(v.contacto)}</p>${mc && (mc.cl || mc.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(mc.cl || '')}</b>${mc.ca ? ' · ' + esc(mc.ca) : ''}</p>` : ''}
         <p class="sub">${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`) + `
-        <p class="aviso-hora">${v.estado !== 'pendiente' ? 'Estás corrigiendo el reporte. ' : ''}Plazo: ${esc(textoCierre(v))}. Hasta esa hora puedes corregir el reporte.</p>`;
+        ${puedeCorregirProvisional(v) ? `<p class="aviso-hora prov">✏️ Corrección visita Sin Reporte a tiempo (provisional). Reporta lo que sucedió tal cual. Plazo: hasta ${esc(CORRECCION_PROV.texto)} La fecha de la visita no se puede mover.</p>`
+            : `<p class="aviso-hora">${v.estado !== 'pendiente' ? 'Estás corrigiendo el reporte. ' : ''}Plazo: ${esc(textoCierre(v))}. Hasta esa hora puedes corregir el reporte.</p>`}`;
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
             <h2>Trabajo realizado</h2>${cab}
@@ -4092,8 +4111,8 @@ function abrirRegistro(id, tipo) {
                 <input id="nRepro" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div>
                 <div><label for="nReproHora">Hora <small>(opcional)</small></label><input id="nReproHora" type="time" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div></div>`
             : `<div class="fila-fecha compacta"><div><label for="nRepro">Reprogramar para <small>(opcional)</small></label>
-                <input id="nRepro" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}" value="${esc(ya ? v.reprogramadaPara : '')}" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div>
-                <div><label for="nReproHora">Hora <small>(opcional)</small></label><input id="nReproHora" type="time" ${ya && v.reprogramadaPara ? 'disabled' : ''}></div></div>`}
+                <input id="nRepro" type="date" min="${maxFecha(sumarDias(v.fecha, 1), hoy())}" value="${esc(ya ? v.reprogramadaPara : '')}" ${(ya && v.reprogramadaPara) || puedeCorregirProvisional(v) ? 'disabled' : ''}></div>
+                <div><label for="nReproHora">Hora <small>(opcional)</small></label><input id="nReproHora" type="time" ${(ya && v.reprogramadaPara) || puedeCorregirProvisional(v) ? 'disabled' : ''}></div></div>${puedeCorregirProvisional(v) ? '<p class="ayuda">En una corrección no se puede reprogramar ni mover la fecha.</p>' : ''}`}
             <label for="nObs">Observaciones ${REQ} <small>(máximo 100 caracteres)</small></label>
             <textarea id="nObs" required maxlength="100" oninput="$('nObsCuenta').textContent = this.value.length + ' / 100'" placeholder="${v.interno ? 'Ej: se movió por reunión con gerencia' : 'Ej: la doctora estaba en cirugía'}">${esc(ya ? v.observaciones : '')}</textarea>
             <p class="ayuda cuenta-nota" id="nObsCuenta">${(ya ? v.observaciones || '' : '').length} / 100</p>
@@ -4109,7 +4128,11 @@ const LIMPIAR_VISITADO = { gestion: '', atendio: '', productos: '', muestras: ''
     pedidos: [], productosPresentados: {}, productosPedidos: {}, muestrasDetalle: {} };
 const LIMPIAR_NO_VISITADO = { motivo: '' };
 // Primer reporte: queda la hora en que se cerró (da el orden real). Corrección: se conserva esa hora y queda la de la corrección
-const marcaReporte = antes => ({
+const marcaReporte = antes => puedeCorregirProvisional(antes)
+    // Corrección provisional de una visita "Sin reporte a tiempo": deja la huella de que se corrigió
+    ? { registrada: new Date().toISOString(), corregida: new Date().toISOString(), cierreAutomatico: false,
+        correccionProvisional: { cuando: new Date().toISOString(), por: sesion.id, era: 'Sin reporte a tiempo' } }
+    : ({
     ...(antes.estado !== 'pendiente' && antes.registrada && !antes.cierreAutomatico
         ? { registrada: antes.registrada, corregida: new Date().toISOString() } : { registrada: new Date().toISOString() }),
     // La corrección autorizada se usa una sola vez

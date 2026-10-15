@@ -254,8 +254,6 @@
   programado que no se hizo sale tachado y en gris. Aplica en toda tarjeta/historial (`textoSubs`).
 - Reprogramar/Ignorar dejan huella visible: la tarjeta pasa al final del día en gris y tachada ("Ignorada por X · fecha" / "Reprogramada para el D"),
   y la visita nueva lleva el chip "Viene del Visiplan del D" (`vieneDePlan`).
-- Visor de PDF de circulares: aviso fijo "¿Drive te pide acceso? Entra con tu correo corporativo (@epithelium.co)". El acceso en Drive se da a la carpeta
-  de circulares para todo el equipo comercial (no por circular).
 - Visitas eliminadas que reaparecían como "no visitadas" (caso Yunelis): un dispositivo que no había traído la eliminación cerraba la visita
   automáticamente ("Sin reporte a tiempo") y ese cierre, más reciente, la devolvía. Ahora `sincronizar()` primero consulta al servidor y, si la visita ya
   está eliminada, descarta el cierre automático local; y `backend/Codigo.gs` (`guardar_`) rechaza un cierre `actualizadoPor:'sistema'` sobre una visita eliminada.
@@ -264,3 +262,8 @@
   el equipo, abierto después de horas cerrado) veía la visita como pendiente, la cerraba automáticamente y ese cierre, más reciente, tapaba el reporte.
   Ahora (1) `cerrarVencidas()` no cierra nada hasta haber traído lo del servidor en esa sesión, (2) `sincronizar()` descarta el cierre local si en el servidor la visita ya
   está reportada o eliminada y (3) `backend/Codigo.gs` rechaza un cierre `actualizadoPor:'sistema'` sobre una visita ya reportada. Pegar `Codigo.gs` y crear Nueva versión.
+- Corrección PROVISIONAL de visitas "Sin reporte a tiempo" (`CORRECCION_PROV` en app.js; y `correccionProv` en `backend/Codigo.gs`): desde el 15 de oct de 2026 hasta el
+  viernes 16 de oct, 6:00 p. m. (Colombia) la dueña de la visita puede reportarla tal cual sucedió (Visita Efectiva o No Efectiva), sin mover la fecha (no se reprograma).
+  Mientras dura, la tarjeta dice "Corrección visita Sin Reporte a tiempo", un aviso arriba de la agenda cuenta cuántas hay y su botón las filtra (anillo del mes, "Sin reporte a tiempo").
+  Al corregirse queda la huella `correccionProvisional` (chip "Corregida · antes: Sin reporte a tiempo"), `cierreAutomatico` pasa a false y la visita cuenta como Efectiva o No Efectiva.
+  Pasada la hora, lo no corregido vuelve a mostrarse como "Sin reporte a tiempo". Hay que pegar `Codigo.gs` y crear Nueva versión (sin eso el servidor rechaza el cambio a Efectiva).

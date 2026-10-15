@@ -1876,4 +1876,10 @@ body.es-logistica #btnLogistica { order: -1; }
 .sub-chip .sub-no { color: #9aa5a2; text-decoration: line-through; font-weight: 500; }
 .plan-huella { opacity: .75; }
 .plan-huella h3 s { color: #7a8a84; }
-.visor-pdf-aviso { margin: 0; padding: 6px 14px; background: #fef3c7; color: #78350f; font-size: 12.5px; }
+
+.chip.prov { background: #fff1d6; color: #92400e; border-color: #f4c57a; }
+.chip.corr { background: #e6f4ee; color: #0a6647; border-color: #a7e0c0; }
+.aviso-hora.prov { background: #fff1d6; color: #92400e; border-radius: 8px; padding: 8px 10px; }
+.banner-corr { grid-column: 1 / -1; background: #fff1d6; border: 1px solid #f4c57a; color: #7c2d12; border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.banner-corr b { color: #7c2d12; }
+.banner-corr button { margin-left: auto; background: #92400e; color: #fff; border: 0; border-radius: 999px; padding: 6px 14px; font: inherit; font-weight: 700; cursor: pointer; }
