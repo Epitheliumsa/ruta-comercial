@@ -536,6 +536,10 @@ const ordenCita = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || ''
 const visitasDe = (vendedor, fecha) => visibles()
     .filter(r => r.clase === 'visita' && r.vendedor === vendedor && r.fecha === fecha)
     .sort(ordenCita);
+// Un cliente no se programa dos veces el mismo día con el mismo vendedor (la visita ya existente se edita)
+const visitaMismoDia = (v, fecha, idExcluir) => v.interno ? null
+    : visitasDe(v.vendedor, fecha).find(x => x.id !== idExcluir && !x.interno && normalizar(x.contacto) === normalizar(v.contacto)) || null;
+const avisoYaProgramado = (v, fecha, elegirOtra = false) => toast(`"${v.contacto}" ya está programado el ${fechaCorta(fecha)}.${elegirOtra ? ' Elige otra fecha.' : ' Abre esa visita para editarla.'}`);
 const visitasMes = (mes, vendedor) => visibles()
     .filter(r => r.clase === 'visita' && mesDe(r.fecha) === mes && (!vendedor || r.vendedor === vendedor));
 const actividadesMes = (mes, vendedor) => visibles()
@@ -2648,6 +2652,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
 async function adelantarVisita(id) {
     const v = registros[id];
     if (!v || v.estado !== 'pendiente' || v.fecha <= hoy()) return;
+    if (visitaMismoDia(v, hoy(), v.id)) return avisoYaProgramado(v, hoy());
     if (!await dialogo({ titulo: `¿Adelantar la visita a hoy?`, texto: `${v.contacto} estaba planeada para el ${fechaLarga(v.fecha)}. Queda para hoy y se guarda la fecha planeada.`, aceptar: 'Adelantar' })) return;
     guardarRegistro({ ...v, fechaPlaneada: v.fechaPlaneada || v.fecha, fecha: hoy(), adelantada: true, hora: '' });
     toast(`${v.contacto}: adelantada a hoy`);
@@ -2674,6 +2679,7 @@ function guardarReprogramar(e, id) {
     const v = registros[id], fecha = $('aReproFecha').value;
     if (!fecha) { toast('Elige la nueva fecha'); return; }
     if (fecha === v.fecha) { toast('Elige un día distinto al que ya tiene'); return; }
+    if (visitaMismoDia(v, fecha, v.id)) { avisoYaProgramado(v, fecha, true); return; }
     guardarRegistro({ ...v, fecha, hora: $('aReproHora').value, origen: 'reprogramada', vieneDe: v.vieneDe || v.fecha,
         fechaPlaneada: v.fechaPlaneada || v.fecha, adelantada: false, programada: Date.now() < limiteProgramacion(fecha) });
     cerrarModal();
@@ -3594,6 +3600,8 @@ async function guardarProgramada(e, id) {
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
         programada: antes && antes.fecha === fecha ? esProgramada(antes) : Date.now() < limiteProgramacion(fecha)
     });
+    // Cliente: no se programa dos veces el mismo día
+    if (!interno && visitaMismoDia(v, fecha, v.id)) { avisoYaProgramado(v, fecha); return; }
     // Trabajo administrativo: no se repite el mismo trabajo en el mismo día
     if (interno) {
         const repetido = visitasDe(v.vendedor, fecha).find(x => x.id !== v.id && x.interno && x.contacto === v.contacto);
@@ -4051,6 +4059,7 @@ function guardarVisitado(e, id) {
     };
     if (dAt) registrarAvance(proyAt, dAt.det, v);
     const proximaAntes = registros[id].proximaVisita;
+    if (v.proximaVisita && v.proximaVisita !== proximaAntes && visitaMismoDia(v, v.proximaVisita, id)) { $('rProxima').focus(); return avisoYaProgramado(v, v.proximaVisita, true); }
     guardarRegistro(v);
     copiarReporteAcomp(v);
     if (v.proximaVisita && v.proximaVisita !== proximaAntes) agendarProxima(v);
@@ -4245,6 +4254,7 @@ function guardarNoVisitado(e, id) {
     const horaRepro = $('nReproHora') && !$('nReproHora').disabled ? $('nReproHora').value : '';
     const obs = $('nObs').value.trim();
     if (!obs) { toast('Escribe las observaciones (máximo 100 caracteres)'); $('nObs').focus(); return; }
+    if (repro && !antes.reprogramadaPara && visitaMismoDia(antes, repro, id)) { $('nRepro').focus(); return avisoYaProgramado(antes, repro, true); }
     const v = {
         ...antes, ...LIMPIAR_VISITADO,
         estado: 'no_visitado',

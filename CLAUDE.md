@@ -150,6 +150,11 @@
 - Ver: los jefes (Jennifer y Hernán) ven todo, con Empleados incluido en el total; cada comercial solo su zona
   (el servidor solo le manda su registro). Las cifras nunca van en el repositorio (es público).
 
+## Un cliente no se programa dos veces el mismo día
+- Si el vendedor ya tiene una visita a ese cliente ese día (`visitaMismoDia`), no se deja programar otra: sale el aviso "ya está programado" (también al
+  reprogramar, adelantar a hoy y al agendar la próxima visita o la reprogramación desde un cierre). Lo del **Visiplan no cuenta como visita**: al programar un
+  cliente que está planeado ese día se une a la planeación en una sola visita (confirmación del plan); eso se conserva tal cual.
+
 ## ¿Quién atendió? por defecto
 - Si el cliente es persona natural (título "Doctor" en la Maestra, o un nombre de persona sin razón social: `esPersonaNatural`), su nombre sale ya puesto en
   "¿Quién atendió?" del cierre de visita; se puede editar. Empresas y clínicas quedan vacías. Al corregir un reporte ya hecho se respeta lo que se escribió.
