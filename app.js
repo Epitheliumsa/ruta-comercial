@@ -386,6 +386,9 @@ function cerrarVencidas() {
         if (cerradas.length) guardarLocal();
         return 0;
     }
+    // Con servidor: no se cierra nada hasta haber traído lo del equipo. Un dispositivo que estuvo cerrado (o sin señal) tiene copias viejas
+    // y cerraría como "Sin reporte a tiempo" visitas que ya se reportaron en otro dispositivo, tapando el reporte.
+    if (API_URL && !ultimaSync) return 0;
     const vencidas = visibles().filter(v => v.clase === 'visita' && v.estado === 'pendiente'
         && (esJefe() || v.vendedor === sesion.id) && ahora > limiteCierre(v));
     vencidas.forEach(v => {
@@ -572,13 +575,13 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
     sincronizando = true;
     pintarEstadoSync();
     try {
-        // 0. Un cierre automático ("Sin reporte a tiempo") hecho en este dispositivo NO pisa una visita que ya se eliminó en el servidor
-        // (si el dispositivo no había alcanzado a traer la eliminación, el cierre la devolvía como visita no reportada)
+        // 0. Un cierre automático ("Sin reporte a tiempo") hecho en este dispositivo NO pisa una visita que en el servidor ya se reportó o se eliminó
+        // (si el dispositivo no había alcanzado a traer esos cambios, el cierre tapaba el reporte o devolvía la visita eliminada)
         const cierres = [...pendientes].map(id => registros[id]).filter(r => r && r.clase === 'visita' && r.actualizadoPor === 'sistema' && r.cierreAutomatico);
         if (cierres.length) {
             const previo = await llamarApi({ accion: 'listar', desde: sumarMes(mesCentro, -1) + '-01', hasta: finDeMes(sumarMes(mesCentro, 1)) });
             const delServidor = new Map((previo.registros || []).map(r => [r.id, r]));
-            cierres.forEach(c => { const sv = delServidor.get(c.id); if (sv && (sv.borrado || sv.eliminada)) { registros[c.id] = nombreNuevoTipo(sv); pendientes.delete(c.id); } });
+            cierres.forEach(c => { const sv = delServidor.get(c.id); if (sv && (sv.borrado || sv.eliminada || sv.estado !== 'pendiente')) { registros[c.id] = nombreNuevoTipo(sv); pendientes.delete(c.id); } });
         }
         // 1. Subir lo que se guardó en este dispositivo
         const porSubir = [...pendientes].map(id => registros[id]).filter(Boolean);
@@ -597,6 +600,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
             const local = registros[r.id];
             if (!pendientes.has(r.id) && (!local || (r.actualizado || '') >= (local.actualizado || ''))) registros[r.id] = nombreNuevoTipo(r);
         });
+        ultimaSync = new Date();   // ya se trajo lo del equipo: desde aquí sí puede cerrar lo vencido
         cargaInicialVivo();
         cerrarVencidas();
         guardarLocal();

@@ -260,3 +260,7 @@
   automáticamente ("Sin reporte a tiempo") y ese cierre, más reciente, la devolvía. Ahora `sincronizar()` primero consulta al servidor y, si la visita ya
   está eliminada, descarta el cierre automático local; y `backend/Codigo.gs` (`guardar_`) rechaza un cierre `actualizadoPor:'sistema'` sobre una visita eliminada.
   Hay que pegar `Codigo.gs` en Apps Script y crear una Nueva versión.
+- Visitas reportadas que reaparecían como "Sin reporte a tiempo" (caso Lizeth/Maryi): un dispositivo con copia vieja (p. ej. el del jefe, que cierra lo vencido de todo
+  el equipo, abierto después de horas cerrado) veía la visita como pendiente, la cerraba automáticamente y ese cierre, más reciente, tapaba el reporte.
+  Ahora (1) `cerrarVencidas()` no cierra nada hasta haber traído lo del servidor en esa sesión, (2) `sincronizar()` descarta el cierre local si en el servidor la visita ya
+  está reportada o eliminada y (3) `backend/Codigo.gs` rechaza un cierre `actualizadoPor:'sistema'` sobre una visita ya reportada. Pegar `Codigo.gs` y crear Nueva versión.
