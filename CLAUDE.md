@@ -252,3 +252,5 @@
   programado que no se hizo sale tachado y en gris. Aplica en toda tarjeta/historial (`textoSubs`).
 - Reprogramar/Ignorar dejan huella visible: la tarjeta pasa al final del día en gris y tachada ("Ignorada por X · fecha" / "Reprogramada para el D"),
   y la visita nueva lleva el chip "Viene del Visiplan del D" (`vieneDePlan`).
+- Visor de PDF de circulares: aviso fijo "¿Drive te pide acceso? Entra con tu correo corporativo (@epithelium.co)". El acceso en Drive se da a la carpeta
+  de circulares para todo el equipo comercial (no por circular).

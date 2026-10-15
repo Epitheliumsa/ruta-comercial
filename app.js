@@ -185,7 +185,7 @@ function verPdf(e, url) {
     let v = document.getElementById('visorPdf');
     if (!v) {
         v = document.createElement('div'); v.id = 'visorPdf'; v.className = 'visor-pdf';
-        v.innerHTML = '<div class="visor-pdf-barra"><strong>PDF</strong><a id="visorPdfAfuera" target="_blank" rel="noopener">Abrir afuera</a><button type="button" onclick="cerrarPdf()" aria-label="Cerrar">&times;</button></div><iframe id="visorPdfMarco" title="PDF" allow="autoplay"></iframe>';
+        v.innerHTML = '<div class="visor-pdf-barra"><strong>PDF</strong><a id="visorPdfAfuera" target="_blank" rel="noopener">Abrir afuera</a><button type="button" onclick="cerrarPdf()" aria-label="Cerrar">&times;</button></div><p class="visor-pdf-aviso">¿Drive te pide acceso? Entra con tu <b>correo corporativo</b> (@epithelium.co), no con el personal.</p><iframe id="visorPdfMarco" title="PDF" allow="autoplay"></iframe>';
         document.body.appendChild(v);
     }
     document.getElementById('visorPdfMarco').src = `https://drive.google.com/file/d/${id}/preview`;

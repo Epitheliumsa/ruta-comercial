@@ -1872,3 +1872,4 @@ body.es-logistica #btnLogistica { order: -1; }
 .sub-chip .sub-no { color: #9aa5a2; text-decoration: line-through; font-weight: 500; }
 .plan-huella { opacity: .75; }
 .plan-huella h3 s { color: #7a8a84; }
+.visor-pdf-aviso { margin: 0; padding: 6px 14px; background: #fef3c7; color: #78350f; font-size: 12.5px; }
