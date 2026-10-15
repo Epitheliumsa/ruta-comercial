@@ -270,7 +270,11 @@ function abrirLogForm(id) {
             <label>Factura <span id="lgReqDoc">${REQ}</span> <small>(marca qué llevas)</small></label>
             <div class="lg-pedidos">${CLASES_PEDIDO.map(c => `<div class="lg-pedido" data-k="${c.k}">
                 <label class="lg-pchk"><input type="checkbox"${docs(c.k).length ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
-                <div class="lg-pcampos">${(docs(c.k).length ? docs(c.k) : [{}]).map(d => `<div class="lg-pset">${c.campos.map(([f, t]) => `<label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" ${NUM6} value="${esc(d[f] || '')}"></label>`).join('')}<button type="button" class="lg-quitar" title="Quitar esta factura" aria-label="Quitar esta factura" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra factura</button></div>
+                <div class="lg-pcampos">${c.campos.map(([f, t]) => {
+                    // A y B son facturas independientes: cada una tiene sus casillas y su "+ Otra factura"
+                    const valores = docs(c.k).map(d => d[f]).filter(Boolean);
+                    return `<div class="lg-pgrupo">${(valores.length ? valores : ['']).map(v => `<div class="lg-pset"><label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" ${NUM6} value="${esc(v)}"></label><button type="button" class="lg-quitar" title="Quitar esta factura" aria-label="Quitar esta factura" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra factura ${t}</button></div>`;
+                }).join('')}</div>
             </div>`).join('')}</div>
         </div>
         <div id="lgBRad">
@@ -279,9 +283,9 @@ function abrirLogForm(id) {
                 <label class="lg-pchk"><input type="checkbox"${rad(c.k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
                 <div class="lg-pcampos">${c.k === 'otros'
                     ? `<label class="lg-pc"><input data-f="texto" placeholder="Qué documento se radica" autocomplete="off" maxlength="80" value="${esc(rad('otros')?.texto || '')}"></label>`
-                    : `${(rads(c.k).length ? rads(c.k) : [{}]).map(d => `<div class="lg-pset">${c.k === 'factura'
+                    : `<div class="lg-pgrupo">${(rads(c.k).length ? rads(c.k) : [{}]).map(d => `<div class="lg-pset">${c.k === 'factura'
                         ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${d.serie === s ? ' selected' : ''}>${s}</option>`).join('')}</select><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`
-                        : `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`}<button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra ${c.k === 'factura' ? 'factura' : 'nota crédito'}</button>`}</div>
+                        : `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`}<button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra ${c.k === 'factura' ? 'factura' : 'nota crédito'}</button></div>`}</div>
             </div>`).join('')}</div>
         </div>
         <div id="lgBRecol">
@@ -336,10 +340,11 @@ function logCampos() {
         const visible = !fila.closest('[hidden]'), on = fila.querySelector('.lg-pchk input').checked && visible;
         fila.classList.toggle('on', on);
         fila.querySelector('.lg-pcampos').hidden = !on;
-        // Solo la primera factura es obligatoria (Magistral Individual: basta A o B); las demás, si se dejan vacías, se ignoran
-        const primera = fila.querySelector('.lg-pset')?.querySelectorAll('input') || fila.querySelectorAll('.lg-pcampos input');
-        fila.querySelectorAll('.lg-pcampos input').forEach(i => { i.required = on && primera.length === 1 && [...primera].includes(i); });
-        fila.querySelectorAll('.lg-pcampos').forEach(pc => refrescarSetsLog(pc));
+        // Solo la primera factura es obligatoria (Magistral Individual: basta A o B, se revisa al guardar); las demás, si se dejan vacías, se ignoran
+        const grupos = fila.querySelectorAll('.lg-pgrupo');
+        fila.querySelectorAll('.lg-pcampos input').forEach(i => { i.required = on && !grupos.length; });
+        if (on && grupos.length === 1) { const i = grupos[0].querySelector('input'); if (i) i.required = true; }
+        grupos.forEach(refrescarSetsLog);
     });
 }
 // A quién le llega la entrega (el vendedor de la zona del cliente) y los datos del cliente en la Maestra
@@ -374,7 +379,7 @@ function guardarLog(e, id) {
     const incluye = tipo === 'entrega' ? incluyeMarcado() : [];
     // Cada línea marcada puede tener varias facturas (una por bloque); los bloques vacíos de más se ignoran
     const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).flatMap(f => {
-        const sets = [...f.querySelectorAll('.lg-pset')], bloques = sets.length ? sets : [f.querySelector('.lg-pcampos')];
+        const sets = [...f.querySelectorAll('.lg-pset')], bloques = sets.length ? sets : [f.querySelector('.lg-pcampos')];   // un bloque por factura
         const lista = bloques.map(b => { const d = {}; b.querySelectorAll('[data-f]').forEach(i => { d[i.dataset.f] = ['ov', 'ovi', 'numero'].includes(i.dataset.f) ? seisCifras(i.value) : i.value.trim(); }); return { k: f.dataset.k, d }; });
         const llenos = lista.filter(x => Object.entries(x.d).some(([c, v]) => c !== 'serie' && v));
         return llenos.length ? llenos : lista.slice(0, 1);
@@ -502,14 +507,14 @@ function accionNoEntrega(el) {
 const textoAccionLog = rp => rp?.accion === 'oficina' ? 'Se devuelve a la oficina'
     : rp?.reprogramadaPara ? `Reprogramada para el ${fechaCorta(rp.reprogramadaPara)}${rp.horaRepro ? ' a las ' + horaBonita(rp.horaRepro) : ''}` : '';
 // Varias facturas de la misma línea: "+ Otra factura" agrega un bloque nuevo (copia el anterior sin números)
-function refrescarSetsLog(pc) { const sets = pc.querySelectorAll('.lg-pset'); sets.forEach(s => { const q = s.querySelector('.lg-quitar'); if (q) q.hidden = sets.length < 2; }); }
+function refrescarSetsLog(pc) { if (!pc) return; const sets = pc.querySelectorAll('.lg-pset'); sets.forEach(s => { const q = s.querySelector('.lg-quitar'); if (q) q.hidden = sets.length < 2; }); }
 function masSetLog(btn) {
     const pc = btn.parentElement, sets = pc.querySelectorAll('.lg-pset'), ultimo = sets[sets.length - 1], nuevo = ultimo.cloneNode(true);
     nuevo.querySelectorAll('input').forEach(i => { i.value = ''; i.required = false; });
     const sel = ultimo.querySelector('select'); if (sel) nuevo.querySelector('select').value = sel.value;
     pc.insertBefore(nuevo, btn); refrescarSetsLog(pc); nuevo.querySelector('input').focus();
 }
-function quitarSetLog(btn) { const pc = btn.closest('.lg-pcampos'); btn.closest('.lg-pset').remove(); refrescarSetsLog(pc); }
+function quitarSetLog(btn) { const pc = btn.closest('.lg-pgrupo'); btn.closest('.lg-pset').remove(); refrescarSetsLog(pc); }
 // La dirección de entrega es la de la parada; solo si se marca "Cambiar" se piden ciudad, dirección y teléfono
 function cambiarDirLog() {
     const on = $('lgCambiarDir').checked;

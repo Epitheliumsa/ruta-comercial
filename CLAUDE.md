@@ -160,6 +160,7 @@
   un mismo número no se repite en la categoría.
 - Logística: cada línea de factura (Producto Terminado, Magistral Individual, Magistral de Pedido) y, en radicación, Factura y Nota crédito RNC pueden
   llevar varios bloques ("+ Otra factura"; `masSetLog`, `quitarSetLog`): `documentos` y `radicacion` repiten la línea una vez por factura.
+  En Magistral Individual la A y la B son independientes: cada una con sus casillas y su "+ Otra factura A / B" (una entrada por factura, con `ovi` o `ov`).
   Los bloques de más que se dejan vacíos se ignoran; la primera sigue siendo obligatoria y una factura repetida en la parada no se deja guardar.
 
 ## Colocación en la Visita Médica de clientes 20 y 21
