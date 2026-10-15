@@ -269,3 +269,5 @@
   Pasada la hora, lo no corregido vuelve a mostrarse como "Sin reporte a tiempo". Hay que pegar `Codigo.gs` y crear Nueva versión (sin eso el servidor rechaza el cambio a Efectiva).
 - Histórico del cliente (verCliente y ateneo): una visita acompañada sale UNA sola vez (`agruparAcomp`, `htmlReporteHist`): "Visitaron: A y B" y debajo el reporte de cada uno
   (titular y acompañantes), también para quien solo ve su propia visita (usa la copia del reporte del acompañamiento). Los contadores cuentan la visita una vez.
+- Agenda, solo jefes: filtro de **Novedades** (Cita médica, Incapacidad, Permiso, Vacaciones) del equipo en el mes que se está viendo. Los botones llevan cuántas hay de cada tipo;
+  al tocar uno la lista muestra todas las de ese tipo (quién, fechas, nota) y "Quitar filtro" vuelve al día. No sale para los comerciales (`agenda.novTipo`, `filtrarNovedades`).

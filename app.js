@@ -255,7 +255,7 @@ let sesion = null;              // { usuario, clave, ...datos del USUARIO }
 let contactos = {};             // { zona: [{ n, c, e }] }
 let registros = {};             // { id: visita | actividad }
 let pendientes = new Set();     // ids por subir al servidor
-let agenda = { fecha: hoy(), vendedor: null, filtro: '', orden: 'prog' };
+let agenda = { fecha: hoy(), vendedor: null, filtro: '', orden: 'prog', novTipo: '' };
 let mesAct = mesDe(hoy());
 let mesPanel = mesDe(hoy());
 
@@ -2639,7 +2639,21 @@ function pintarAgenda() {
     const porCorregir = Date.now() <= CORRECCION_PROV.hasta ? visibles().filter(x => vs.includes(x.vendedor) && enCorreccionProvisional(x)) : [];
     const bannerCorr = porCorregir.length ? `<div class="banner-corr">✏️ <span><b>Corrección provisional:</b> ${vs.length === 1 && vs[0] === sesion.id ? `tienes <b>${porCorregir.length}</b>` : `hay <b>${porCorregir.length}</b>`} ${porCorregir.length === 1 ? 'visita' : 'visitas'} en "Sin reporte a tiempo" para reportar tal cual sucedieron, hasta ${esc(CORRECCION_PROV.texto)}</span>
         <button type="button" onclick="agenda.fecha = hoy(); agenda.filtro = 'an-mes:sin'; agenda.anillo = 'mes'; pintarAgenda()">Ver las ${porCorregir.length}</button></div>` : '';
+    // Jefes: filtro de novedades (Cita médica, Incapacidad, Permiso, Vacaciones) del equipo en el mes que se está viendo
+    const mesNov = mesDe(f);
+    const novsMes = esJefe() ? visibles().filter(r => r.clase === 'novedad' && NOVEDADES_FORM.includes(r.tipo) && vs.includes(r.vendedor)
+        && r.fecha <= finDeMes(mesNov) && (r.hasta || r.fecha) >= mesNov + '-01').sort((a, b) => a.fecha.localeCompare(b.fecha) || a.vendedor.localeCompare(b.vendedor)) : [];
+    $('agNovedades').hidden = !esJefe() || !novsMes.length && !agenda.novTipo;
+    $('agNovedades').innerHTML = esJefe() ? `<span class="nov-et">Novedades · ${esc(mayuscula(nombreMes(mesNov).split(' ')[0]))}</span>`
+        + NOVEDADES_FORM.map(t => { const n = novsMes.filter(r => r.tipo === t).length;
+            return `<button type="button" class="chip chip-filtro nov${agenda.novTipo === t ? ' activo' : ''}" ${n || agenda.novTipo === t ? '' : 'disabled'} data-t="${esc(t)}" onclick="filtrarNovedades(this.dataset.t)" aria-pressed="${agenda.novTipo === t}">${esc(t)} <b>${n}</b></button>`; }).join('') : '';
     const cont = $('agLista');
+    if (esJefe() && agenda.novTipo) {
+        const lis = novsMes.filter(r => r.tipo === agenda.novTipo && pasaBusca({ contacto: nombreVendedor(r.vendedor) }));
+        cont.innerHTML = `<p class="grupo-titulo filtro-activo">${esc(agenda.novTipo)} · ${esc(nombreMes(mesNov))} · ${lis.length} · <button class="link-mini" onclick="filtrarNovedades('')">Quitar filtro</button></p>`
+            + (lis.map(n => tarjetaNovedad(n, true)).join('') || '<div class="no-results">No hay novedades de este tipo en el mes.</div>');
+        return;
+    }
     const porPeriodo = /^an-(semana|mes):(.+)$/.exec(agenda.filtro || '');
     if (porPeriodo) {
         const [, per, parteF] = porPeriodo, parte = PARTES_ANILLO.find(x => x.f === parteF);
@@ -2677,7 +2691,7 @@ function pintarAgenda() {
     if (avisoOrden) $('agResumen').querySelector('.ag-orden')?.insertAdjacentHTML('beforebegin', avisoOrden);
     const filtrando = agenda.filtro;
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
-    cont.innerHTML = bannerCorr + (filtrando ? '' : tarjetasInvitaciones() + tarjetasCumple + novs.map(tarjetaNovedad).join('') + bloquePlan) + aviso
+    cont.innerHTML = bannerCorr + (filtrando ? '' : tarjetasInvitaciones() + tarjetasCumple + novs.map(n => tarjetaNovedad(n)).join('') + bloquePlan) + aviso
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
         + (filtrando ? '' : bloqueCerradas + bloqueHuellas + eliminadasDe(vs, f).map(tarjetaEliminada).join(''));
 }
@@ -2721,6 +2735,10 @@ function moverOrden(id, paso) {
     pintarAgenda();
 }
 
+function filtrarNovedades(t) {
+    agenda.novTipo = agenda.novTipo === t ? '' : t;
+    pintarAgenda();
+}
 function filtrarAgenda(f) {
     agenda.filtro = agenda.filtro === f ? '' : f;
     pintarAgenda();
@@ -3883,8 +3901,8 @@ function saludoCumpleHoy() {
     dialogo({ tono: 'fiesta', icono: '🎂', titulo: `¡Feliz cumpleaños, ${sesion.nombre.split(' ')[0]}!`, texto: 'Todo el equipo de Epithelium te desea un día maravilloso.', aceptar: 'Gracias', cancelar: '' });
 }
 
-function tarjetaNovedad(n) {
-    const varios = vendedoresAgenda().length > 1;
+function tarjetaNovedad(n, conVendedor = false) {
+    const varios = conVendedor || vendedoresAgenda().length > 1;
     return `<div class="producto-card novedad-card">
         <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(n.vendedor))}</span>` : ''}<h3>${esc(n.tipo)}</h3></div><span class="chip gris">Novedad</span></div>
         <p class="meta">${esc(rangoNovedad(n))}</p>

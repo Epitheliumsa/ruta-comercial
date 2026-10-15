@@ -1889,3 +1889,10 @@ body.es-logistica #btnLogistica { order: -1; }
 .reporte-acomp .acomp-m.ok { border-left-color: #16a34a; }
 .reporte-acomp .acomp-m.no { border-left-color: #f472b6; }
 .reporte-acomp .acomp-m i { color: #475569; }
+
+.ag-novedades { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; padding: 0 16px; }
+.ag-novedades[hidden] { display: none; }
+.ag-novedades .nov-et { font-size: 12px; font-weight: 800; color: #6b7a76; text-transform: uppercase; letter-spacing: .4px; margin-right: 2px; }
+.ag-novedades .chip.nov { background: #f3efff; color: #5b21b6; border-color: #d9ccf7; }
+.ag-novedades .chip.nov.activo { background: #6d28d9; color: #fff; border-color: #6d28d9; }
+.ag-novedades .chip.nov[disabled] { opacity: .45; cursor: default; }
