@@ -1685,8 +1685,21 @@ document.addEventListener('click', e => {
     Object.values(MULTI).forEach(g => { if (g.abierto) { g.abierto = null; g.repintar(); } });
 });
 
+// Tipo en botones: Todos · Médicos (20-21-22) · Clientes (facturables) · Puntos de venta · Leads. Otro toque al activo lo quita.
+const BOTONES_TIPO = [['', 'Todos'], [TODOS_MEDICOS, 'Médicos'], [TODOS_CLIENTES, 'Clientes'], [GRUPOS_ETIQUETA.pv.t, 'Puntos de venta'], [GRUPOS_ETIQUETA.lead.t, 'Leads']];
+function elegirTipoMaestra(v) { maestra.sel.g = v && !(maestra.sel.g.length === 1 && maestra.sel.g[0] === v) ? [v] : []; pintarMaestra(); }
+function pintarTiposMaestra(base) {
+    const cont = filtrarMaestra(base, 'g'), sel = maestra.sel.g;
+    $('mcTipos').innerHTML = BOTONES_TIPO.map(([v, t]) => {
+        const n = v ? cont.filter(c => valsMaestra('g', c).includes(v)).length : cont.length;
+        if (v && !n) return '';
+        const act = v ? sel.length === 1 && sel[0] === v : !sel.length;
+        return `<button type="button" class="vp-vend-btn${v ? '' : ' todos'}${act ? ' activo' : ''}" aria-pressed="${act}" data-v="${esc(v)}" onclick="elegirTipoMaestra(this.dataset.v)">${t} <small>${n}</small></button>`;
+    }).join('');
+}
 function pintarFiltrosMaestra(base) {
-    pintarMultis($('mcFiltrosMulti'), 'maestra', FILTROS_MAESTRA.map(k => {
+    pintarTiposMaestra(base);
+    pintarMultis($('mcFiltrosMulti'), 'maestra', FILTROS_MAESTRA.filter(k => k !== 'g').map(k => {
         const d = DIMS_MAESTRA[k], ejemplo = {}, cuenta = {};
         base.forEach(c => valsMaestra(k, c).forEach(v => { if (v && !ejemplo[v]) ejemplo[v] = c; }));
         filtrarMaestra(base, k).forEach(c => valsMaestra(k, c).forEach(v => { cuenta[v] = (cuenta[v] || 0) + 1; }));

@@ -1867,3 +1867,5 @@ body.es-logistica #btnLogistica { order: -1; }
 .lg-pgrupo { display: grid; gap: 6px; }
 .lg-pgrupo + .lg-pgrupo { border-top: 1px dashed #c9dcd6; padding-top: 6px; }
 .lg-mas { justify-self: start; }
+
+.mc-tipos { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
