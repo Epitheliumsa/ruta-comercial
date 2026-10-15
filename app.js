@@ -1506,7 +1506,7 @@ const DIMS_MAESTRA = {
     // Tipo, por clasificación: Médico = 20-21-22 · Cliente = todas menos 12, 22 y 80 (incluye 20 y 21) · Punto de venta = 12.
     // Los 20 y 21 son médico y cliente a la vez: entran en "Todos los médicos" y en "Todos los clientes".
     g: { t: 'Tipo', todos: 'Médicos, clientes y puntos de venta', valor: c => GRUPOS_ETIQUETA[claseContacto(c)].t,
-        vals: c => { const k = claseContacto(c); return [GRUPOS_ETIQUETA[k].t, ...(k === 'medico' || k === 'ambos' ? [TODOS_MEDICOS] : []), ...(k === 'cliente' || k === 'ambos' ? [TODOS_CLIENTES] : [])]; },
+        vals: c => { const k = claseContacto(c); return [GRUPOS_ETIQUETA[k].t, ...(rolesContacto(c).medico ? [TODOS_MEDICOS] : []), ...(rolesContacto(c).cliente ? [TODOS_CLIENTES] : [])]; },
         orden: (a, b) => { const o = [TODOS_MEDICOS, TODOS_CLIENTES, ...Object.values(GRUPOS_ETIQUETA).map(x => x.t)]; return o.indexOf(a) - o.indexOf(b); } },
     e: { t: 'Etiqueta', todos: 'Todas las etiquetas', valor: c => c.e || '', orden: ordenLeadAlFinal },   // Leads al final
     // Clasificación y categoría son lo mismo: el número es la clasificación y el nombre la categoría
@@ -1534,15 +1534,17 @@ const leadComoContacto = (p, z) => { const [c, d] = String(p.ciudad || '').split
     return { n: p.nombre, e: etiquetaLead(p.tipo), c: c || '', p: d || (c === 'Bogotá D.C.' ? 'Bogotá D.C.' : ''), ca: LEAD, f: false, z, lead: true, clLead: p.clasificacion || '' }; };
 const COLOR_FACTURA = { si: '#16a34a', no: '#dc2626' };
 const TODOS_MEDICOS = 'Todos los médicos (20-21-22)', TODOS_CLIENTES = 'Todos los clientes';
-// Clase del contacto según su clasificación (Médico 20-21-22, Cliente el resto menos 12 y 80, Punto de venta 12; 80 = empleados, no se muestran)
-function claseContacto(c) {
-    if (c.lead) return 'lead';
+// Roles del contacto: Médico = clasificación 20-21-22 · Cliente = facturable (Facturar = Sí) y clasificación distinta de 12, 22 y 80 ·
+// Punto de venta = 12 · 80 = empleados (no se muestran). Un 20 o 21 que factura es médico y cliente a la vez.
+function rolesContacto(c) {
+    if (c.lead) return { lead: true };
     const cl = String(c.cl || '');
-    if (cl === '22') return 'medico';
-    if (cl === '20' || cl === '21') return 'ambos';
-    if (cl === '12') return 'pv';
-    if (cl) return 'cliente';
-    return grupoEtiqueta(c.e);
+    if (!cl) { const g = grupoEtiqueta(c.e); return { medico: g === 'medico' || g === 'ambos', cliente: g === 'cliente' || g === 'ambos', pv: g === 'pv' }; }
+    return { medico: ['20', '21', '22'].includes(cl), cliente: !!c.f && !['12', '22', '80'].includes(cl), pv: cl === '12' };
+}
+function claseContacto(c) {
+    const r = rolesContacto(c);
+    return r.lead ? 'lead' : r.medico && r.cliente ? 'ambos' : r.medico ? 'medico' : r.pv ? 'pv' : 'cliente';
 }
 const esEmpleado = c => String(c.cl || '') === '80';
 const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('lead') ? 'lead' : n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
@@ -1720,9 +1722,9 @@ function pintarMaestra() {
         .forEach(x => { const k = normalizar(x.contacto); if (!ultima[k] || x.fecha > ultima[k]) ultima[k] = x.fecha; });
     // Logística: en vez de la última visita, la última entrega al cliente
     if (esLogistica()) logVisibles().filter(r => r.estado === 'entregado' && r.contacto).forEach(r => { const k = normalizar(r.contacto); if (!ultima[k] || r.fecha > ultima[k]) ultima[k] = r.fecha; });
-    const nMed = lista.filter(c => ['medico', 'ambos'].includes(claseContacto(c))).length, nCli = lista.filter(c => ['cliente', 'ambos'].includes(claseContacto(c))).length;
+    const nMed = lista.filter(c => rolesContacto(c).medico).length, nCli = lista.filter(c => rolesContacto(c).cliente).length;
     const nPv = lista.filter(c => claseContacto(c) === 'pv').length, nAmb = lista.filter(c => claseContacto(c) === 'ambos').length;
-    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (clasificación 20 y 21): cuentan en ambos</small>` : ''}<br><small>Toca un contacto para ver su historial</small>`;
+    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (20 y 21 que facturan): cuentan en ambos</small>` : ''}<br><small>Toca un contacto para ver su historial</small>`;
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[claseContacto(c)];
