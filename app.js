@@ -1790,10 +1790,12 @@ function pintarComposicion(lista) {
     if (!dims.some(([k]) => k === maestra.dim)) maestra.dim = 'e';
     const d = DIMS_MAESTRA[maestra.dim];
     const cuenta = {}, ejemplo = {};
-    lista.forEach(c => { const v = d.valor(c) || ''; cuenta[v] = (cuenta[v] || 0) + 1; ejemplo[v] = ejemplo[v] || c; });
-    let grupos = Object.entries(cuenta).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'));
+    // Tipo: las mismas opciones que los botones (Médicos, Clientes, Puntos de venta, Leads); un contacto puede contar en dos
+    if (maestra.dim === 'g') BOTONES_TIPO.filter(([v]) => v).forEach(([v]) => { const n = lista.filter(c => valsMaestra('g', c).includes(v)).length; if (n) { cuenta[v] = n; ejemplo[v] = lista[0]; } });
+    else lista.forEach(c => { const v = d.valor(c) || ''; cuenta[v] = (cuenta[v] || 0) + 1; ejemplo[v] = ejemplo[v] || c; });
+    let grupos = Object.entries(cuenta).sort(maestra.dim === 'g' ? (() => 0) : ((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')));
     // Más de 8 valores: el resto se junta en "Otros" (al pasar el mouse muestra el detalle; al tocarlo se despliega)
-    const nombreDe = v => v ? (d.nombre ? d.nombre(v, ejemplo[v]) : v) : 'Sin dato';
+    const nombreDe = v => maestra.dim === 'g' ? (BOTONES_TIPO.find(x => x[0] === v) || [, v])[1] : v ? (d.nombre ? d.nombre(v, ejemplo[v]) : v) : 'Sin dato';
     let resto = [];
     if (grupos.length > MAX_BARRAS && !maestra.verOtros) {
         resto = grupos.slice(MAX_BARRAS - 1);
@@ -1803,7 +1805,7 @@ function pintarComposicion(lista) {
     // Cliente y Médico: rayas de los dos colores
     const colorEtiqueta = g => g.c2 ? `repeating-linear-gradient(135deg, ${g.c} 0 6px, ${g.c2} 6px 12px)` : g.c;
     const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[grupoEtiqueta(v)])}`
-        : maestra.dim === 'g' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[Object.keys(GRUPOS_ETIQUETA).find(k => GRUPOS_ETIQUETA[k].t === v) || 'cliente'])}` : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
+        : maestra.dim === 'g' ? `; background:${{ [TODOS_MEDICOS]: GRUPOS_ETIQUETA.medico.c, [TODOS_CLIENTES]: GRUPOS_ETIQUETA.cliente.c, [GRUPOS_ETIQUETA.pv.t]: GRUPOS_ETIQUETA.pv.c, [GRUPOS_ETIQUETA.lead.t]: GRUPOS_ETIQUETA.lead.c }[v] || '#999'}` : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
     const elegidos = maestra.dim === 'z' ? ((maestra.zonas || []).length < zonasMaestra().length ? maestra.zonas : []) : maestra.sel[maestra.dim];
     $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; maestra.verOtros=false; pintarMaestra()">${x.t}</button>`).join('');
     $('mcBarras').classList.toggle('con-sel', elegidos.length > 0);
@@ -1831,7 +1833,8 @@ function filtrarComposicion(v) {
         const todas = zonasMaestra(), z = maestra.zonas || [];
         maestra.zonas = z.length === todas.length ? [v] : z.includes(v) ? (z.length > 1 ? z.filter(x => x !== v) : todas) : todas.filter(x => x === v || z.includes(x));
         pintarMaestra();
-    } else marcarMulti('maestra', maestra.dim, v);
+    } else if (maestra.dim === 'g') { elegirTipoMaestra(v); }
+    else marcarMulti('maestra', maestra.dim, v);
 }
 
 // ---------- VISIPLAN (plan de visitas del mes) ----------
