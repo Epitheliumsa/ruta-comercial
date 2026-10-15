@@ -684,7 +684,7 @@ function entrarApp() {
     // Logística: solo ve el módulo de Logística, la Maestra Clientes y el Vademécum
     document.body.classList.toggle('es-logistica', esLogistica());
     $('btnPanel').style.display = esJefe() ? '' : 'none';
-    $('maestraTxt').textContent = veTodasZonas() ? 'Clientes por zona y vendedor' : 'Clientes de tu zona';
+    $('maestraTxt').textContent = veTodasZonas() ? 'Clientes y médicos por zona y vendedor' : 'Clientes y médicos de tu zona';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
     // Comerciales: en el título de cada pantalla, debajo, su nombre
     document.querySelectorAll('.header-logo h1').forEach(h => {
@@ -1460,7 +1460,7 @@ function eleccionChip(lista, id, todos, e) {
 
 // ---------- MAESTRA CLIENTES ----------
 // El comercial ve los clientes de su zona; los jefes los ven por zona y vendedor (una, varias o todas)
-const FILTROS_MAESTRA = ['e', 'cat', 'd', 'c', 'pz', 'f', 'vis'];
+const FILTROS_MAESTRA = ['g', 'e', 'cat', 'd', 'c', 'pz', 'f', 'vis'];
 const maestra = { zonas: null, busca: '', sel: Object.fromEntries(FILTROS_MAESTRA.map(k => [k, []])), dim: 'e', abierto: null, buscaOp: '',
     periodo: { t: 'mes', v: mesDe(hoy()) }, visitados: new Set() };
 // Periodo de "Visitas" en la Maestra (ícono de calendario arriba a la derecha): día, mes, trimestre, semestre o año
@@ -1503,6 +1503,9 @@ function elegirPeriodoMaestra(t) {
 const textoPlazo = pz => /^\d+$/.test(pz) ? (pz === '0' ? 'Contado' : pz + ' días') : pz;
 const departamento = p => (p || '').replace(/\s*\(CO\)$/, '');
 const DIMS_MAESTRA = {
+    // Tipo: clientes, médicos, clientes y médicos, puntos de venta y leads (todos viven en el mismo maestro)
+    g: { t: 'Tipo', todos: 'Clientes y médicos', valor: c => GRUPOS_ETIQUETA[grupoEtiqueta(c.e)].t,
+        orden: (a, b) => { const o = Object.values(GRUPOS_ETIQUETA).map(x => x.t); return o.indexOf(a) - o.indexOf(b); } },
     e: { t: 'Etiqueta', todos: 'Todas las etiquetas', valor: c => c.e || '', orden: ordenLeadAlFinal },   // Leads al final
     // Clasificación y categoría son lo mismo: el número es la clasificación y el nombre la categoría
     cat: { t: 'Clasificación', todos: 'Todas las clasificaciones', valor: c => c.cl || c.ca || '', nombre: (v, c) => c && c.ca && c.cl ? `${c.cl} · ${c.ca}` : v,
@@ -1863,7 +1866,8 @@ function planeadasDe(vendedor, fecha) {
     const sigueEnZona = c => fecha < hoy() || esTrabajoInterno(c) || esFilaAteneo(c) || buscarMaestra(zona, c) || buscarProyecto(zona, c) || !Object.keys(contactos).length;
     return Object.entries(plan.marcas || {}).filter(([c, dias]) => dias.includes(fecha) && sigueEnZona(c)).map(([contacto]) => {
         const visitaId = (plan.confirmadas || {})[clavePlan(contacto, fecha)];
-        const estado = visitaId && registros[visitaId] && !registros[visitaId].borrado && !registros[visitaId].eliminada ? 'confirmada' : fecha < hoy() ? 'cerrada' : 'por confirmar';
+        const estado = visitaId && registros[visitaId] && !registros[visitaId].borrado && !registros[visitaId].eliminada ? 'confirmada'
+            : (plan.ignoradas || {})[clavePlan(contacto, fecha)] ? 'ignorada' : fecha < hoy() ? 'cerrada' : 'por confirmar';
         return { contacto, fecha, estado, visitaId };
     }).sort((a, b) => a.contacto.localeCompare(b.contacto));
 }
@@ -2326,7 +2330,45 @@ function confirmarPlaneada(contacto, fecha, vendedor) {
     agenda.fecha = fecha;
     if (vendedor) agenda.vendedor = vendedor;
     confirmandoPlan = { contacto, fecha };
+    reprogramandoPlan = null;
     abrirProgramar(null, contacto);
+}
+
+// Lo del Visiplan que no se va a visitar ese día: se reprograma (pasa a una visita normal en otro día) o se ignora (sale de la agenda).
+// En ambos casos la X planeada del Visiplan no se mueve y no cuenta como visita no efectiva ni sin reporte.
+let reprogramandoPlan = null;
+function marcarPlanIgnorada(vendedor, contacto, fecha, extra) {
+    const plan = planDe(vendedor, mesDe(fecha));
+    if (!plan) return;
+    guardarRegistro({ ...plan, ignoradas: { ...(plan.ignoradas || {}), [clavePlan(contacto, fecha)]: { por: sesion.id, cuando: new Date().toISOString(), ...extra } } });
+}
+async function ignorarPlaneada(contacto, fecha, vendedor) {
+    if (!await dialogo({ titulo: '¿Ignorar esta visita del plan?', texto: `${contacto} estaba planeada para el ${fechaLarga(fecha)}. Sale de la agenda y no cuenta como visita no efectiva ni sin reporte.`, aceptar: 'Ignorar' })) return;
+    marcarPlanIgnorada(vendedor, contacto, fecha, {});
+    toast(`${contacto}: ignorada`);
+    pintarAgenda();
+}
+function reprogramarPlaneada(contacto, fecha, vendedor) {
+    abrirModal(`<form class="form-rc" onsubmit="siguienteReprogramarPlan(event)">
+        <h2>Reprogramar</h2><p class="sub">${esc(contacto)} · planeada el ${esc(fechaCorta(fecha))}</p>
+        <input type="hidden" id="rpContacto" value="${esc(contacto)}"><input type="hidden" id="rpFecha" value="${fecha}"><input type="hidden" id="rpVend" value="${esc(vendedor)}">
+        <div class="fila-fecha compacta"><div><label for="rpNueva">Nueva fecha</label><input id="rpNueva" type="date" required min="${hoy()}"></div></div>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario">Continuar</button>
+        </div>
+    </form>`);
+}
+function siguienteReprogramarPlan(e) {
+    e.preventDefault();
+    const contacto = $('rpContacto').value, fecha = $('rpFecha').value, vendedor = $('rpVend').value, nueva = $('rpNueva').value;
+    if (!nueva) return toast('Elige la nueva fecha');
+    if (nueva === fecha) return toast('Elige un día distinto al planeado');
+    agenda.fecha = nueva;
+    if (vendedor) agenda.vendedor = vendedor;
+    confirmandoPlan = null;
+    abrirProgramar(null, contacto);
+    reprogramandoPlan = { contacto, fecha, vendedor, nueva };
 }
 
 // ---------- AGENDA ----------
@@ -2505,7 +2547,7 @@ function pintarAgenda() {
     // Búsqueda de cliente por nombre (visitas y lo planeado del Visiplan)
     const qb = normalizar(agenda.busca || '');
     const pasaBusca = x => !qb || normalizar(x.contacto || '').includes(qb);
-    const plan = deTodos(x => planeadasDe(x, f).map(p => ({ ...p, vendedor: x }))).filter(p => p.estado !== 'confirmada' && pasaBusca(p));
+    const plan = deTodos(x => planeadasDe(x, f).map(p => ({ ...p, vendedor: x }))).filter(p => p.estado !== 'confirmada' && p.estado !== 'ignorada' && pasaBusca(p));
     // Arriba los planeados por confirmar; los que no se confirmaron a tiempo quedan al final del día
     const tarjetaPlan = p => `
         <div class="producto-card plan-card ${p.estado === 'cerrada' ? 'cerrada' : ''}">
@@ -2513,6 +2555,7 @@ function pintarAgenda() {
             ${p.estado === 'por confirmar' && puedeConfirmarPlan(f)
                 ? `<div class="acciones"><button class="bv ok" data-c="${esc(p.contacto)}" onclick="confirmarPlaneada(this.dataset.c, '${f}', '${p.vendedor}')">✓ Confirmar visita</button><span class="nota-cierre">${f === t ? 'Si no la confirmas hoy, queda cerrada y no se programa.' : `Confírmala antes de las ${HORA_LIMITE} a. m. del ${fechaCorta(f)} para que quede programada.`}</span></div>`
                 : p.estado === 'por confirmar' ? `<p class="nota-cierre">Se confirma desde el ${esc(fechaCorta(habilAnterior(f)))} (día hábil anterior).</p>` : ''}
+            <div class="acciones plan-acc"><button class="bv" data-c="${esc(p.contacto)}" onclick="reprogramarPlaneada(this.dataset.c, '${f}', '${p.vendedor}')">📅 Reprogramar</button><button class="bv" data-c="${esc(p.contacto)}" onclick="ignorarPlaneada(this.dataset.c, '${f}', '${p.vendedor}')">🚫 Ignorar</button></div>
         </div>`;
     // Después de las 8:00 a. m. los que no se confirmaron también bajan al final (se pueden confirmar mientras sea el día)
     const tarde = p => p.estado === 'cerrada' || Date.now() >= limiteProgramacion(f);
@@ -3014,7 +3057,7 @@ const registrosForm = { id: '' };   // visita que se está editando en el formul
 async function abrirProgramar(id, contactoPlan) {
     registrosForm.id = id || '';
     advertenciaAceptada = '';
-    if (!contactoPlan) confirmandoPlan = null;
+    if (!contactoPlan) { confirmandoPlan = null; reprogramandoPlan = null; }
     const v = id ? registros[id] : null;
     if (v && v.clase === 'visita' && v.estado !== 'pendiente') return toast('Esta visita ya se cerró y no se puede modificar');
     if (v?.vendedor) agenda.vendedor = v.vendedor;
@@ -3621,6 +3664,11 @@ async function guardarProgramada(e, id) {
         if (registros[pid]) guardarRegistro({ ...registros[pid], confirmadas: { ...(registros[pid].confirmadas || {}), [clavePlan(confirmandoPlan.contacto, fecha)]: v.id } });
     }
     confirmandoPlan = null;
+    // Viene de "Reprogramar" en el Visiplan: la visita planeada del día original sale de la agenda
+    if (!id && reprogramandoPlan && reprogramandoPlan.nueva === fecha && normalizar(reprogramandoPlan.contacto) === normalizar(filaPlanDe(v))) {
+        marcarPlanIgnorada(reprogramandoPlan.vendedor || v.vendedor, reprogramandoPlan.contacto, reprogramandoPlan.fecha, { reprogramadaPara: fecha, visitaId: v.id });
+    }
+    reprogramandoPlan = null;
     if (merc) Object.assign(v, { detalleObjetivos: detMerc.det, proyectoMercadeo: asegurarProyecto(detMerc.proyecto, v.vendedor) });
     guardarRegistro(v);
     cerrarModal();
