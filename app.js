@@ -1789,6 +1789,9 @@ function pintarComposicion(lista) {
     const dims = Object.entries(DIMS_MAESTRA).filter(([, d]) => !d.jefe || esJefe());
     if (!dims.some(([k]) => k === maestra.dim)) maestra.dim = 'e';
     const d = DIMS_MAESTRA[maestra.dim];
+    // El título lleva el nombre del botón de Tipo activo (Composición de Médicos, de Clientes...)
+    const tipoAct = maestra.sel.g.length === 1 ? BOTONES_TIPO.find(x => x[0] === maestra.sel.g[0]) : null;
+    $('mcTituloComp').textContent = 'Composición de ' + (tipoAct ? tipoAct[1] : maestra.sel.g.length > 1 ? 'varios tipos' : 'todos los contactos');
     const cuenta = {}, ejemplo = {};
     // Tipo: las mismas opciones que los botones (Médicos, Clientes, Puntos de venta, Leads); un contacto puede contar en dos
     if (maestra.dim === 'g') BOTONES_TIPO.filter(([v]) => v).forEach(([v]) => { const n = lista.filter(c => valsMaestra('g', c).includes(v)).length; if (n) { cuenta[v] = n; ejemplo[v] = lista[0]; } });
