@@ -250,3 +250,9 @@
   y cuentan en ambos; el resumen lo dice ("N médicos · N clientes · N puntos de venta"). Facturar Sí/No sigue siendo un filtro aparte (dato de Odoo).
 - Maestro Medico-Cliente: el ícono de calendario (periodo: día, mes, trimestre, semestre, año) también muestra, en cada contacto, lo que se hizo en ese periodo
   (visitas efectivas con la última fecha y no efectivas) y, en el resumen, cuántos tuvieron visita efectiva y cuántos no.
+- Visita ya reportada (efectiva): en las subcategorías de cada objetivo (p. ej. Parrilla Promocional) lo programado que sí se hizo lleva ✓ y lo
+  programado que no se hizo sale tachado y en gris. Aplica en toda tarjeta/historial (`textoSubs`).
+- Reprogramar/Ignorar dejan huella visible: la tarjeta pasa al final del día en gris y tachada ("Ignorada por X · fecha" / "Reprogramada para el D"),
+  y la visita nueva lleva el chip "Viene del Visiplan del D" (`vieneDePlan`).
+- Visor de PDF de circulares: aviso fijo "¿Drive te pide acceso? Entra con tu correo corporativo (@epithelium.co)". El acceso en Drive se da a la carpeta
+  de circulares para todo el equipo comercial (no por circular).
