@@ -238,12 +238,12 @@
   (estado, hora del reporte en hora de Colombia, quién recibió, guía, novedades, enlaces de las fotos, correcciones) y hoja "Resumen"
   por mensajero y por tipo. Sin líneas de cuadrícula.
 
-## Visiplan: Reprogramar / Ignorar y Maestro de Clientes Médicos
+## Visiplan: Reprogramar / Ignorar y Maestro Medico-Cliente
 - En la agenda, cada tarjeta "Planeada" del Visiplan (por confirmar o cerrada) tiene dos botones además de Confirmar: **Reprogramar**
   (elige nueva fecha, abre el formulario de programar y la visita pasa a ser una visita normal de ese día) e **Ignorar** (sale de la agenda).
   Ambos guardan en el plan `ignoradas: { "cliente|fecha": {por, cuando, reprogramadaPara?, visitaId?} }`; la X planeada del Visiplan no se mueve
   y no cuenta como visita no efectiva ni sin reporte. Las visitas programadas en firme que no se hacen siguen quedando como no visitadas.
-- La Maestra Clientes ahora se llama **Maestro de Clientes Médicos** (clientes, médicos, clientes y médicos, puntos de venta y leads en una sola lista)
+- La Maestra Clientes ahora se llama **Maestro Medico-Cliente** (clientes, médicos, clientes y médicos, puntos de venta y leads en una sola lista)
   y tiene el filtro **Tipo** al comienzo.
 - El tipo se calcula por **clasificación**, no por la etiqueta de texto (`claseContacto` en app.js): Médico = 20-21-22 · Cliente = solo los **facturables** (Facturar = Sí) de las
   clasificaciones distintas de 12, 22 y 80 (un 20 o 21 que factura es médico y cliente; si no factura, solo médico) · Punto de venta = 12 · **80 = empleados: no aparece** (Maestro ni Visiplan). Los 20 y 21 son médico y cliente a la vez
