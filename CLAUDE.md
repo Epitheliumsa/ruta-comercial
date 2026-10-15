@@ -154,6 +154,9 @@
 - Si el vendedor ya tiene una visita a ese cliente ese día (`visitaMismoDia`), no se deja programar otra: sale el aviso "ya está programado" (también al
   reprogramar, adelantar a hoy y al agendar la próxima visita o la reprogramación desde un cierre). Lo del **Visiplan no cuenta como visita**: al programar un
   cliente que está planeado ese día se une a la planeación en una sola visita (confirmación del plan); eso se conserva tal cual.
+- Logística: igual lógica, pero con confirmación. Si el cliente (o proveedor) ya tiene una parada ese día (de cualquier mensajero), sale "Ya está programado ese día"
+  con las paradas existentes y la pregunta "¿Vas a visitar dos veces al contacto?": **Sí, programar otra** o **No, cancelar** (`confirmarDobleParada`).
+  También al reprogramar desde un "No entregado" (el reporte no se guarda hasta confirmar).
 
 ## ¿Quién atendió? por defecto
 - Si el cliente es persona natural (título "Doctor" en la Maestra, o un nombre de persona sin razón social: `esPersonaNatural`), su nombre sale ya puesto en

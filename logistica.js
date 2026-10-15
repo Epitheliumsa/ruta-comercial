@@ -368,7 +368,7 @@ function logInfoCliente(rellenar = true) {
     poner($('lgTel'), d.tel || ultima?.telefono);
 }
 
-function guardarLog(e, id) {
+async function guardarLog(e, id) {
     e.preventDefault();
     const antes = id ? registros[id] : null, tipo = tipoMarcado(), tp = TIPOS_LOG[tipo], fecha = $('lgFecha').value;
     if (!tp) return toast('Escoge el tipo de parada');
@@ -400,6 +400,8 @@ function guardarLog(e, id) {
     const contacto = zonaC ? buscarMaestra(zonaC, escrito).n : escrito ? nombrePropio(escrito) : '';
     const cl = datosClienteLog(contacto);
     const base = antes || { id: nuevoId(), clase: 'logistica', estado: 'pendiente', creado: new Date().toISOString(), creadoPor: sesion.id };
+    // El mismo cliente (o proveedor) ya tiene parada ese día: se pregunta si de verdad se va dos veces
+    if (!await confirmarDobleParada(contacto || $('lgProv')?.value, fecha, base.id)) return;
     const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === vendedor && x.id !== base.id);
     const orden = antes && antes.fecha === fecha && antes.vendedor === vendedor ? antes.orden : Math.max(0, ...mismo.map(x => x.orden || 0)) + 1;
     guardarRegistro({
@@ -506,6 +508,17 @@ function accionNoEntrega(el) {
 // Qué se hizo con lo no entregado (para la tarjeta, el historial y el Excel)
 const textoAccionLog = rp => rp?.accion === 'oficina' ? 'Se devuelve a la oficina'
     : rp?.reprogramadaPara ? `Reprogramada para el ${fechaCorta(rp.reprogramadaPara)}${rp.horaRepro ? ' a las ' + horaBonita(rp.horaRepro) : ''}` : '';
+// Paradas del mismo cliente (o proveedor) en un día; si ya hay, se confirma antes de programar otra
+const nombreParada = r => r.contacto || r.proveedor || '';
+const paradasMismoDia = (nombre, fecha, idExcluir) => nombre ? logRegs().filter(x => x.fecha === fecha && x.id !== idExcluir && normalizar(nombreParada(x)) === normalizar(nombre)) : [];
+async function confirmarDobleParada(nombre, fecha, idExcluir) {
+    const ya = paradasMismoDia(String(nombre || '').trim(), fecha, idExcluir);
+    if (!ya.length) return true;
+    return dialogo({ titulo: 'Ya está programado ese día', icono: '⚠️', tono: 'aviso', aceptar: 'Sí, programar otra', cancelar: 'No, cancelar',
+        texto: `${nombre} ya tiene ${ya.length === 1 ? 'una parada' : ya.length + ' paradas'} el ${fechaCorta(fecha)}:\n`
+            + ya.map(x => `• ${nombreTipos(x)} · ${nombreVendedor(x.vendedor)} · ${x.estado === 'pendiente' ? 'pendiente' : (x.estado === 'entregado' ? okTxt(x) : noTxt(x)).toLowerCase()}`).join('\n')
+            + '\n\n¿Vas a visitar dos veces al contacto?' });
+}
 // Varias facturas de la misma línea: "+ Otra factura" agrega un bloque nuevo (copia el anterior sin números)
 function refrescarSetsLog(pc) { if (!pc) return; const sets = pc.querySelectorAll('.lg-pset'); sets.forEach(s => { const q = s.querySelector('.lg-quitar'); if (q) q.hidden = sets.length < 2; }); }
 function masSetLog(btn) {
@@ -568,6 +581,8 @@ async function guardarLogReporte(e, id, ok) {
         // Dirección cambiada al entregar y, en el envío, destino (la ciudad del cliente si no se cambió), transportadora y guía
         const envio = { ...(cambio ? { destino: val('lgDestino'), dirDestino: val('lgDirDest'), telDestino: val('lgTelDest') } : {}),
             ...(ok && r.tipo === 'envio' ? { transportadora: val('lgTransp'), ...(cambio ? {} : { destino: ciudadCliente(r.contacto), dirDestino: '', telDestino: '' }) } : {}) };
+        // Si se reprograma para un día en que el cliente ya tiene parada, primero se confirma (el reporte aún no se guardó)
+        if (reporte.reprogramadaPara && !await confirmarDobleParada(nombreParada(r), reporte.reprogramadaPara, r.id)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
         guardarRegistro({ ...r, ...envio, estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
             fotos: [...(r.fotos || []), ...(API_URL ? [] : fotos.map(d => ({ data: d })))] });
