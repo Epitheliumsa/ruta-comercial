@@ -237,3 +237,11 @@
 - Informe en Excel (botón "⬇ Excel" en Logística: coordinador, administrador y jefe comercial): una fila por factura/pedido de cada parada
   (estado, hora del reporte en hora de Colombia, quién recibió, guía, novedades, enlaces de las fotos, correcciones) y hoja "Resumen"
   por mensajero y por tipo. Sin líneas de cuadrícula.
+
+## Visiplan: Reprogramar / Ignorar y Maestro de Clientes Médicos
+- En la agenda, cada tarjeta "Planeada" del Visiplan (por confirmar o cerrada) tiene dos botones además de Confirmar: **Reprogramar**
+  (elige nueva fecha, abre el formulario de programar y la visita pasa a ser una visita normal de ese día) e **Ignorar** (sale de la agenda).
+  Ambos guardan en el plan `ignoradas: { "cliente|fecha": {por, cuando, reprogramadaPara?, visitaId?} }`; la X planeada del Visiplan no se mueve
+  y no cuenta como visita no efectiva ni sin reporte. Las visitas programadas en firme que no se hacen siguen quedando como no visitadas.
+- La Maestra Clientes ahora se llama **Maestro de Clientes Médicos** (clientes, médicos, clientes y médicos, puntos de venta y leads en una sola lista)
+  y tiene el filtro **Tipo** al comienzo.

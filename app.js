@@ -2367,8 +2367,8 @@ function siguienteReprogramarPlan(e) {
     agenda.fecha = nueva;
     if (vendedor) agenda.vendedor = vendedor;
     confirmandoPlan = null;
-    abrirProgramar(null, contacto);
     reprogramandoPlan = { contacto, fecha, vendedor, nueva };
+    abrirProgramar(null, contacto);
 }
 
 // ---------- AGENDA ----------
@@ -3171,9 +3171,10 @@ async function abrirProgramar(id, contactoPlan) {
         if (p) $('fTipoNuevo').value = tipoSugerido(p.tipo || '');
         tiposForm = null;
         cambiarTipoProgramacion();
-        document.querySelector('#modalContenido h2').textContent = 'Confirmar visita del plan';
+        document.querySelector('#modalContenido h2').textContent = reprogramandoPlan ? 'Reprogramar visita del plan' : 'Confirmar visita del plan';
         $('fAviso').hidden = false;
-        $('fAviso').textContent = 'Visita del Visiplan: cuenta como programada. Escoge qué vas a hacer y confirma.';
+        $('fAviso').textContent = reprogramandoPlan ? `Pasa del plan del ${fechaCorta(reprogramandoPlan.fecha)} a una visita normal del ${fechaCorta(reprogramandoPlan.nueva)}. Escoge qué vas a hacer.`
+            : 'Visita del Visiplan: cuenta como programada. Escoge qué vas a hacer y confirma.';
         $('fFecha').disabled = true;
     }
     if (bloqueado) {
