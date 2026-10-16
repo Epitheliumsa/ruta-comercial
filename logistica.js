@@ -403,14 +403,14 @@ function logCampos() {
     // En la entrega, los pedidos son obligatorios salvo que solo se vaya a recoger una devolución o una PQR
     const docsObl = (k === 'envio' || k === 'entrega') && !incluyeMarcado().length;
     $('lgReqDoc').innerHTML = docsObl ? REQ : '<small>(opcional)</small>';
-    $('lgBRad').hidden = !conRad;
+    $('lgBRad').hidden = !conRad || aProv;
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = conProv;
     $('lgBVuelta').hidden = !tp.vuelta;
     $('lgBDirTel').hidden = !!tp.banco;
     $('lgQuienDir').textContent = $('lgQuienTel').textContent = conProv ? 'proveedor' : k === 'vuelta' ? 'contacto' : 'cliente';
     $('lgBBanco').hidden = !tp.banco; $('lgBanco').required = !!tp.banco;
-    $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : 'Indicaciones <small>(opcional)</small>';
-    $('lgDetalle').required = !!(tp.vuelta || tp.banco);
+    $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : aProv ? `Qué se radica ${REQ}` : 'Indicaciones <small>(opcional)</small>';
+    $('lgDetalle').required = !!(tp.vuelta || tp.banco || aProv);
     // Cada casilla marcada (clase de pedido o documento a radicar) muestra sus campos, que pasan a ser obligatorios
     document.querySelectorAll('.lg-pedido').forEach(fila => {
         const visible = !fila.closest('[hidden]'), on = fila.querySelector('.lg-pchk input').checked && visible;
@@ -461,7 +461,7 @@ async function guardarLog(e, id) {
         return llenos.length ? llenos : lista.slice(0, 1);
     });
     const documentos = tp.docs ? leer('#lgBDocs .lg-pedido').map(({ k, d }) => ({ clase: k, ...d })) : [];
-    const radicacion = conRad ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
+    const radicacion = conRad && !radAProv() ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
     // Entrega o envío: número(s) de cada documento que también va (PQR/OUT, REA/OUT, Devolución)
     const incluyeDocs = incluye.length ? leer('#lgBIncluyeEnvio .lg-pedido').map(({ k, d }) => ({ k, numero: d.numero })).filter(d => d.numero) : [];
     const sinNumeroInc = incluye.find(k => !incluyeDocs.some(d => d.k === k));
@@ -473,7 +473,7 @@ async function guardarLog(e, id) {
     const sinNumero = documentos.find(d => !d.ov && !d.ovi);
     if (sinNumero) return toast(`${claseDoc(sinNumero.clase)?.t}: escribe al menos la factura A o la B`);
     if ((tipo === 'envio' || tipo === 'entrega') && !incluye.length && !documentos.length) return toast('Marca qué pedido llevas y escribe sus números');
-    if (conRad && !radicacion.length) return toast('Marca qué se radica: factura, nota crédito u otros');
+    if (conRad && !radAProv() && !radicacion.length) return toast('Marca qué se radica: factura, nota crédito u otros');
     if (radicacion.some(d => d.doc !== 'otros' ? !d.numero : !d.texto)) return toast('Escribe el número (o el documento) de lo que se radica');
     // El cliente de la Maestra se guarda con su nombre exacto; uno que no esté en la Maestra, con nombre propio
     const escrito = $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
