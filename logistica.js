@@ -308,10 +308,10 @@ function abrirLogForm(id) {
             <input id="lgProv" list="dlLogProv" autocomplete="off" placeholder="Busca proveedor" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
             ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}<datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
         </div>
-        <label for="lgDir">Dirección <small>(sale sola con el cliente; puedes cambiarla)</small></label>
+        <div id="lgBDirTel"><label for="lgDir">Dirección <small>(sale sola con el cliente; puedes cambiarla)</small></label>
         <input id="lgDir" autocomplete="off" maxlength="120" value="${esc(r?.direccion || '')}" oninput="this.dataset.auto = ''">
         <label for="lgTel">Teléfono <small>(sale solo con el cliente; puedes cambiarlo)</small></label>
-        <input id="lgTel" type="tel" autocomplete="off" maxlength="40" value="${esc(r?.telefono || '')}" oninput="this.dataset.auto = ''">
+        <input id="lgTel" type="tel" autocomplete="off" maxlength="40" value="${esc(r?.telefono || '')}" oninput="this.dataset.auto = ''"></div>
         <div id="lgBDocs">
             <label>Factura <span id="lgReqDoc">${REQ}</span> <small>(marca qué llevas)</small></label>
             <div class="lg-pedidos">${CLASES_PEDIDO.map(c => `<div class="lg-pedido" data-k="${c.k}">
@@ -397,6 +397,7 @@ function logCampos() {
     $('lgBRad').hidden = !conRad;
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = !!tp.recoleccion;
     $('lgBVuelta').hidden = !tp.vuelta;
+    $('lgBDirTel').hidden = !!tp.banco;
     $('lgBBanco').hidden = !tp.banco; $('lgBanco').required = !!tp.banco;
     $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : 'Indicaciones <small>(opcional)</small>';
     $('lgDetalle').required = !!(tp.vuelta || tp.banco);
@@ -477,7 +478,7 @@ async function guardarLog(e, id) {
         ...base, tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
         proveedor: tp.recoleccion ? $('lgProv').value.trim() : '', materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
-        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: $('lgDir').value.trim(), telefono: $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
+        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco ? '' : $('lgDir').value.trim(), telefono: tp.banco ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
     if (antes) {
