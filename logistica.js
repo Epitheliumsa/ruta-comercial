@@ -312,9 +312,9 @@ function abrirLogForm(id) {
             <input id="lgProv" list="dlLogProv" autocomplete="off" placeholder="Busca proveedor" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
             ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}<datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
         </div>
-        <div id="lgBDirTel"><label for="lgDir">Dirección <small>(sale sola con el cliente; puedes cambiarla)</small></label>
+        <div id="lgBDirTel"><label for="lgDir">Dirección <small>(sale sola con el <span id="lgQuienDir">cliente</span>; puedes cambiarla)</small></label>
         <input id="lgDir" autocomplete="off" maxlength="120" value="${esc(r?.direccion || '')}" oninput="this.dataset.auto = ''">
-        <label for="lgTel">Teléfono <small>(sale solo con el cliente; puedes cambiarlo)</small></label>
+        <label for="lgTel">Teléfono <small>(sale solo con el <span id="lgQuienTel">cliente</span>; puedes cambiarlo)</small></label>
         <input id="lgTel" type="tel" autocomplete="off" maxlength="40" value="${esc(r?.telefono || '')}" oninput="this.dataset.auto = ''"></div>
         <div id="lgBDocs">
             <label>Factura <span id="lgReqDoc">${REQ}</span> <small>(marca qué llevas)</small></label>
@@ -398,6 +398,7 @@ function logCampos() {
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = !!tp.recoleccion;
     $('lgBVuelta').hidden = !tp.vuelta;
     $('lgBDirTel').hidden = !!tp.banco;
+    $('lgQuienDir').textContent = $('lgQuienTel').textContent = tp.recoleccion ? 'proveedor' : k === 'vuelta' ? 'contacto' : 'cliente';
     $('lgBBanco').hidden = !tp.banco; $('lgBanco').required = !!tp.banco;
     $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : 'Indicaciones <small>(opcional)</small>';
     $('lgDetalle').required = !!(tp.vuelta || tp.banco);
