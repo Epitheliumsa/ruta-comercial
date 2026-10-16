@@ -296,11 +296,6 @@ function abrirLogForm(id) {
         <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).filter(([k]) => k !== 'radicacion').map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onclick="tipoClick(this)"><span>${esc(v.t)}</span></label>`).join('')}
             <label class="lg-chip lg-chip-rad"><input type="checkbox" id="lgRadChk"${r && conRadicacion(r) ? ' checked' : ''} onchange="logCampos()"><span>${esc(TIPOS_LOG.radicacion.t)}</span></label></div>
         <p class="ayuda">Escoge uno. La radicación de documentos puede ir sola o sumarse a cualquier otro.</p>
-        <div id="lgBRadA">
-            <label>La radicación es a</label>
-            <div class="lg-chips"><label class="lg-chip"><input type="radio" name="lgRadA" value="cliente"${r && conRadicacion(r) && r.proveedor && !r.contacto ? '' : ' checked'} onchange="logCampos()"><span>Cliente</span></label>
-                <label class="lg-chip"><input type="radio" name="lgRadA" value="proveedor"${r && conRadicacion(r) && r.proveedor && !r.contacto ? ' checked' : ''} onchange="logCampos()"><span>Proveedor</span></label></div>
-        </div>
         <div id="lgBVuelta">
             <label for="lgArea">Área ${REQ}</label>
             <select id="lgArea">${AREAS_LOG.map(a => `<option${r?.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>
@@ -341,6 +336,20 @@ function abrirLogForm(id) {
                 <div class="lg-pcampos"><div class="lg-pgrupo">${(nums.length ? nums : ['']).map(v => `<div class="lg-pset"><label class="lg-pc"><span class="lg-pref">Nº</span><input data-f="numero" ${NUM6} value="${esc(v)}"></label><button type="button" class="lg-quitar" title="Quitar este documento" aria-label="Quitar este documento" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otro ${esc(t)}</button></div></div>
             </div>`; }).join('')}</div>
         </div>
+        <div id="lgBRecol">
+            <label>Qué se recoge</label>
+            <div class="lg-chips" id="lgMateriales">${MATERIALES_LOG.map(m => `<label class="lg-chip"><input type="checkbox" value="${esc(m)}"${r?.materiales?.includes(m) ? ' checked' : ''}><span>${esc(m)}</span></label>`).join('')}</div>
+        </div>
+        <div id="lgBBanco">
+            <label for="lgBanco">Banco ${REQ}</label>
+            <input id="lgBanco" list="lgBancos" maxlength="60" autocomplete="off" placeholder="Escoge o escribe el banco" value="${esc(r?.entidad || '')}">
+            <datalist id="lgBancos">${BANCOS_LOG.map(b => `<option value="${esc(b)}">`).join('')}</datalist>
+        </div>
+        <div id="lgBRadA">
+            <label>La radicación es a</label>
+            <div class="lg-chips"><label class="lg-chip"><input type="radio" name="lgRadA" value="cliente"${r && conRadicacion(r) && r.proveedor && !r.contacto ? '' : ' checked'} onchange="logCampos()"><span>Cliente</span></label>
+                <label class="lg-chip"><input type="radio" name="lgRadA" value="proveedor"${r && conRadicacion(r) && r.proveedor && !r.contacto ? ' checked' : ''} onchange="logCampos()"><span>Proveedor</span></label></div>
+        </div>
         <div id="lgBRad">
             <label>Qué se radica ${REQ}</label>
             <div class="lg-pedidos">${DOCS_RADICACION.map(c => `<div class="lg-pedido lg-rad" data-k="${c.k}">
@@ -351,15 +360,6 @@ function abrirLogForm(id) {
                         ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${d.serie === s ? ' selected' : ''}>${s}</option>`).join('')}</select><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`
                         : `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`}<button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra ${c.k === 'factura' ? 'factura' : 'nota crédito'}</button></div>`}</div>
             </div>`).join('')}</div>
-        </div>
-        <div id="lgBRecol">
-            <label>Qué se recoge</label>
-            <div class="lg-chips" id="lgMateriales">${MATERIALES_LOG.map(m => `<label class="lg-chip"><input type="checkbox" value="${esc(m)}"${r?.materiales?.includes(m) ? ' checked' : ''}><span>${esc(m)}</span></label>`).join('')}</div>
-        </div>
-        <div id="lgBBanco">
-            <label for="lgBanco">Banco ${REQ}</label>
-            <input id="lgBanco" list="lgBancos" maxlength="60" autocomplete="off" placeholder="Escoge o escribe el banco" value="${esc(r?.entidad || '')}">
-            <datalist id="lgBancos">${BANCOS_LOG.map(b => `<option value="${esc(b)}">`).join('')}</datalist>
         </div>
         <label for="lgDetalle" id="lgLblDet">Indicaciones <small>(opcional)</small></label>
         <textarea id="lgDetalle" rows="2" maxlength="200" placeholder="Ej: preguntar por la jefe de compras, recoger uniformes de las 3 sedes…">${esc(r?.detalle || '')}</textarea>
