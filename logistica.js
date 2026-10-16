@@ -177,14 +177,15 @@ const claseLog = r => r.estado === 'pendiente' && r.fecha < hoy() ? 'sin' : r.es
 // Gráfico de entregas del mes: barras apiladas por estado, agrupadas por día, tipo de parada o mensajero
 function graficoLog(lista, mes) {
     if (!lista.length) return '';
-    const dim = logi.dimGraf || 'dia';
+    // "Por mensajero" es solo para el coordinador de logística (y el administrador)
+    const verMens = esCoordLog() || esAdmin(), dim = logi.dimGraf === 'mens' && !verMens ? 'dia' : logi.dimGraf || 'dia';
     const clave = { dia: r => r.fecha, tipo: r => r.tipo, mens: r => r.vendedor }[dim];
     const nombre = { dia: k => mayuscula(fechaLarga(k)), tipo: k => TIPOS_LOG[k]?.t || k, mens: k => nombreVendedor(k) }[dim];
     const grupos = {};
     lista.forEach(r => { const k = clave(r); (grupos[k] = grupos[k] || []).push(r); });
     const filas = Object.entries(grupos).sort(dim === 'dia' ? (a, b) => a[0].localeCompare(b[0]) : (a, b) => b[1].length - a[1].length);
     const max = Math.max(...filas.map(([, l]) => l.length));
-    const tabs = [['dia', 'Por día'], ['tipo', 'Por tipo de parada'], ['mens', 'Por mensajero']].map(([k, t]) => `<button type="button" class="${k === dim ? 'activo' : ''}" onclick="logi.dimGraf='${k}'; pintarLog()">${t}</button>`).join('');
+    const tabs = [['dia', 'Por día'], ['tipo', 'Por tipo de parada'], ...(verMens ? [['mens', 'Por mensajero']] : [])].map(([k, t]) => `<button type="button" class="${k === dim ? 'activo' : ''}" onclick="logi.dimGraf='${k}'; pintarLog()">${t}</button>`).join('');
     const total = lista.length, atendidas = lista.filter(r => r.estado === 'entregado').length;
     return `<details class="lg-grafico"${logi.grafAbierto === false ? '' : ' open'} ontoggle="logi.grafAbierto = this.open">
         <summary>📊 Gráfico de entregas · ${esc(mayuscula(nombreMes(mes).split(' ')[0]))} <small>${total} ${total === 1 ? 'parada' : 'paradas'} · ${atendidas} atendidas (${Math.round(atendidas / total * 100)}%)</small></summary>

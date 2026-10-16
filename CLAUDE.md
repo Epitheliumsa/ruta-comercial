@@ -287,3 +287,4 @@
 - Logística, "📊 Gráfico de entregas" del mes (`graficoLog`): barras apiladas por estado, agrupadas por día, tipo de parada o mensajero; respeta el filtro de mensajero.
 - Logística, nuevo tipo de parada **Bancos** (`TIPOS_LOG.banco`): pide banco (lista de bancos o texto libre, se guarda en `entidad`) y "Qué hay que hacer"; no pide cliente. El reporte es como el de Trámite área (Realizado / No realizado, resultado).
 - Logística, la **radicación de documentos** puede ser a un cliente o a un proveedor (selector "La radicación es a", salvo en entrega y envío): si es a proveedor se pide el proveedor en vez del cliente (`radAProv`).
+- Logística, gráfico de entregas: la vista "Por mensajero" es solo para el coordinador de logística (y el administrador); el auxiliar ve "Por día" y "Por tipo de parada".
