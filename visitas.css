@@ -1911,3 +1911,11 @@ body.es-logistica #btnLogistica { order: -1; }
 }
 /* Deja espacio para que el aviso no tape el final de las pantallas */
 body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px); }
+
+.lg-tipo.pqr_out { background: #fae8ff; color: #86198f; }
+.lg-tipo.rea_out { background: #ccfbf1; color: #115e59; }
+.lg-bloq { background: #f1f5f4; color: #64748b; cursor: not-allowed; }
+.lg-bloq-nota { margin: 2px 0 8px; }
+.lg-buscar-tipo { margin: 0 0 6px; }
+.lg-huella { font-size: 12.5px; color: #475569; margin: 2px 0 6px; }
+.lg-chip[hidden] { display: none; }
