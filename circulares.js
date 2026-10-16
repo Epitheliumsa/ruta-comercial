@@ -1844,5 +1844,65 @@ window.CIRCULARES = [
   "excluidos": [],
   "todos": false,
   "interna": false
+ },
+ {
+  "c": "2026-035",
+  "tipo": "Alcance",
+  "nombre": "Alcance circular 2026-033",
+  "grupo": "Producto Terminado",
+  "dirigida": "Canales 70, 90",
+  "producto": "[PT0005] Sunskin Oil Free x 80 g, [PT0011] Capilplus Shampoo x 220 ml, [PT0001] Hydrafort Face x 50 g, [PT0014] Capilplus Acondicionador x 220 ml, [PT0003] Revival Crema x 50 g, [PT0012] Sensibath x 240 ml, [PT0002] Capilplus DS Shampoo Anticaspa x 220 ml, [PT0004] Hydrafort pH5 Ultrahumectante Crema x 250 g, [PT0010] Sunskin SPF 50+ Emulsión x 80 g",
+  "ini": "2026-10-01",
+  "fin": "2026-11-30",
+  "objetivo": "Aclarar la circular 2026-033 Bonificado Cruzado para los canales 70 y 90: participan en la actividad, pero acceden a la bonificación adicional con la compra de los productos de baja rotación bajo su bonificado (70: 10 + 2; 90: 6 + 2)",
+  "resumen": "Alcance a la circular 2026-033: el canal 70 compra los productos de baja rotación con su bonificado 10 + 2 y, por cada 10 unidades compradas (y sus múltiplos), se bonifica 1 unidad de alta rotación del cuadro de cruces. El canal 90 compra con su bonificado 6 + 2 y, por cada 6 unidades (y sus múltiplos), se bonifica 1 unidad de alta rotación. Aplica en cada pedido que cumpla la condición. Para los canales 10, 11, 50, 51 y 61 la condición sigue igual: 6 + 1.",
+  "obs": "Aclara 2026-033 para los canales 70 (10+2) y 90 (6+2). Los demás canales no cambian",
+  "pdf": "",
+  "productos": [
+   {
+    "c": "PT0005",
+    "n": "Sunskin Oil Free x 80 g"
+   },
+   {
+    "c": "PT0011",
+    "n": "Capilplus Shampoo x 220 ml"
+   },
+   {
+    "c": "PT0001",
+    "n": "Hydrafort Face x 50 g"
+   },
+   {
+    "c": "PT0014",
+    "n": "Capilplus Acondicionador x 220 ml"
+   },
+   {
+    "c": "PT0003",
+    "n": "Revival Crema x 50 g"
+   },
+   {
+    "c": "PT0012",
+    "n": "Sensibath x 240 ml"
+   },
+   {
+    "c": "PT0002",
+    "n": "Capilplus DS Shampoo Anticaspa x 220 ml"
+   },
+   {
+    "c": "PT0004",
+    "n": "Hydrafort pH5 Ultrahumectante Crema x 250 g"
+   },
+   {
+    "c": "PT0010",
+    "n": "Sunskin SPF 50+ Emulsión x 80 g"
+   }
+  ],
+  "canales": [
+   "70",
+   "90"
+  ],
+  "clientes": [],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
  }
 ];
