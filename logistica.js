@@ -73,7 +73,7 @@ const textoRad = d => d.doc === 'factura' ? `Radicar factura ${d.serie} ${d.nume
     : d.doc === 'nc' ? `Radicar nota crédito RNC ${d.numero || ''}`.trim() : `Radicar: ${d.texto || ''}`;
 const horaLog = iso => new Date(iso).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: 'numeric', minute: '2-digit' });
 const chipEstadoLog = r => r.estado === 'entregado' ? `<span class="chip ok">${esc(okTxt(r))}</span>`
-    : r.estado === 'no_entregado' ? `<span class="chip no">${esc(noTxt(r))}</span>` : '<span class="chip p">Pendiente</span>';
+    : r.estado === 'no_entregado' ? `<span class="chip no">${esc(noTxt(r))}</span>` : r.fecha < hoy() ? '<span class="chip sin-rep">Sin reporte a tiempo</span>' : '<span class="chip p">Pendiente</span>';
 // Uno o varios teléfonos ("300… / 601…"), cada uno con su enlace para llamar
 const enlacesTel = t => String(t || '').split(/\s*[\/,;]\s*/).filter(Boolean).map(x => `<a href="tel:${esc(x.replace(/[^0-9+]/g, ''))}">${esc(x)}</a>`).join(' · ');
 const urlFoto = f => f.url || f.data || '';
@@ -146,10 +146,11 @@ function pintarLog() {
     const verAn = logi.anillo || 'dia';
     const tabsAn = ['dia', 'semana', 'mes'].map(x => `<button type="button" class="${x === verAn ? 'activo' : ''}" onclick="logi.anillo='${x}'; pintarLog()">${{ dia: 'Día', semana: 'Semana', mes: 'Mes' }[x]}</button>`).join('');
     $('logAnillo').innerHTML = mes.length ? `<div class="anillo-tabs">${tabsAn}</div><div class="anillos ver-${verAn}">${anillos}</div>` : '';
+    $('logGrafico').innerHTML = graficoLog(todos.filter(r => mesDe(r.fecha) === mesDe(f) && delMens(r)), mesDe(f));
     const parte = PARTES_LOG.find(x => x.f === fe);
     $('logResumen').innerHTML = fp && parte ? `<span class="chip chip-filtro activo lg-filtro-act"><i style="background:${parte.c}"></i>${esc(parte.t)} · ${esc({ dia: 'día ' + fechaCorta(f), semana: tSem.toLowerCase(), mes: tMes.toLowerCase() }[fp])}</span><button type="button" class="link-mini" onclick="filtrarLog('')">✕ Quitar filtro</button>` : '';
     const base = fp && fp !== 'dia' ? deP[fp] : dia;
-    const lista = base.filter(r => (!parte || r.estado === parte.f)
+    const lista = base.filter(r => (!parte || claseLog(r) === parte.f)
         && (!q || normalizar([tituloLog(r), r.proveedor, r.direccion, r.telefono, r.destino, ...(r.documentos || []).flatMap(d => [d.ov, d.ovi]), ...(r.incluyeDocs || []).map(d => d.numero), ...(r.radicacion || []).map(textoRad)].join(' ')).includes(q)));
     // Cada mensajero tiene su ruta numerada por día (el número no cambia aunque se filtre la lista)
     const rutas = {}, clave = r => r.fecha + '|' + r.vendedor;
@@ -165,16 +166,40 @@ function pintarLog() {
             + ps.map(r => { const ru = rutas[clave(r)] || [r]; return tarjetaLog(r, ru.indexOf(r) + 1, ru.length); }).join('')).join(''));
 }
 // Partes de los anillos de Logística (mismo estilo de los de comercial)
+// Como en comercial: Atendidas (se hizo) · No efectivas (no se pudo) · Sin reporte a tiempo (el día pasó y no se reportó) · Por recibir (aún dentro del día)
 const PARTES_LOG = [
-    { f: 'entregado', t: 'Entregadas', c: '#16a34a' }, { f: 'pendiente', t: 'Pendientes', c: '#d97706' }, { f: 'no_entregado', t: 'No entregadas', c: '#dc2626' }
+    { f: 'entregado', t: 'Atendidas', c: '#16a34a' }, { f: 'no_entregado', t: 'No efectivas', c: '#ec4899' },
+    { f: 'sin', t: 'Sin reporte a tiempo', c: '#b91c1c' }, { f: 'pendiente', t: 'Por recibir', c: '#d97706' }
 ];
+const claseLog = r => r.estado === 'pendiente' && r.fecha < hoy() ? 'sin' : r.estado;
+// Gráfico de entregas del mes: barras apiladas por estado, agrupadas por día, tipo de parada o mensajero
+function graficoLog(lista, mes) {
+    if (!lista.length) return '';
+    const dim = logi.dimGraf || 'dia';
+    const clave = { dia: r => r.fecha, tipo: r => r.tipo, mens: r => r.vendedor }[dim];
+    const nombre = { dia: k => mayuscula(fechaLarga(k)), tipo: k => TIPOS_LOG[k]?.t || k, mens: k => nombreVendedor(k) }[dim];
+    const grupos = {};
+    lista.forEach(r => { const k = clave(r); (grupos[k] = grupos[k] || []).push(r); });
+    const filas = Object.entries(grupos).sort(dim === 'dia' ? (a, b) => a[0].localeCompare(b[0]) : (a, b) => b[1].length - a[1].length);
+    const max = Math.max(...filas.map(([, l]) => l.length));
+    const tabs = [['dia', 'Por día'], ['tipo', 'Por tipo de parada'], ['mens', 'Por mensajero']].map(([k, t]) => `<button type="button" class="${k === dim ? 'activo' : ''}" onclick="logi.dimGraf='${k}'; pintarLog()">${t}</button>`).join('');
+    const total = lista.length, atendidas = lista.filter(r => r.estado === 'entregado').length;
+    return `<details class="lg-grafico"${logi.grafAbierto === false ? '' : ' open'} ontoggle="logi.grafAbierto = this.open">
+        <summary>📊 Gráfico de entregas · ${esc(mayuscula(nombreMes(mes).split(' ')[0]))} <small>${total} ${total === 1 ? 'parada' : 'paradas'} · ${atendidas} atendidas (${Math.round(atendidas / total * 100)}%)</small></summary>
+        <div class="anillo-tabs">${tabs}</div>
+        <div class="lg-g-filas">${filas.map(([k, l]) => `<div class="lg-g-fila"><span class="lg-g-nom">${esc(nombre(k))}</span>
+            <span class="lg-g-barra" style="width:${Math.max(l.length / max * 100, 4)}%">${PARTES_LOG.map(x => { const n = l.filter(r => claseLog(r) === x.f).length; return n ? `<i style="flex:${n}; background:${x.c}" title="${esc(x.t)}: ${n}">${n}</i>` : ''; }).join('')}</span>
+            <b class="lg-g-n">${l.length}</b></div>`).join('')}</div>
+        <p class="lg-g-ley">${PARTES_LOG.map(x => `<span><i style="background:${x.c}"></i>${esc(x.t)}</span>`).join('')}</p>
+    </details>`;
+}
 // Tocar una parte (del día, la semana o el mes) muestra esas paradas; tocarla otra vez quita el filtro
 function filtrarLog(k) { logi.filtro = logi.filtro === k ? '' : k; pintarLog(); }
 function anilloLog(lista, etiqueta, titulo, periodo) {
     const total = lista.length;
     const cab = `<p class="anillo-titulo"><span>${esc(etiqueta)}</span><b>${esc(titulo)}</b></p>`;
     if (!total) return `<div class="anillo-dia${periodo === 'dia' ? '' : ' fijo'} vacio" data-p="${periodo}">${cab}<p class="ayuda">Sin paradas</p></div>`;
-    const partes = PARTES_LOG.map(x => ({ ...x, n: lista.filter(r => r.estado === x.f).length }));
+    const partes = PARTES_LOG.map(x => ({ ...x, n: lista.filter(r => claseLog(r) === x.f).length }));
     const R = 42, C = 2 * Math.PI * R, hueco = partes.filter(x => x.n).length > 1 ? 2 : 0;
     const porc = n => Math.round(n / total * 100) + '%';
     const clic = x => ` onclick="filtrarLog('${periodo}:${x.f}')"`;

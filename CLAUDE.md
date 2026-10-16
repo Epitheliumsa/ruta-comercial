@@ -283,3 +283,5 @@
 - Circular 2026-035 (Alcance a la 2026-033, canales 70 y 90: bonificado 10+2 y 6+2 con 1 unidad de alta rotación): se agregó a `datos/Circulares.xlsx` para canales 70 y 90 (Bella Piel es clasificación 10, por eso no necesita la exclusión). PDF pendiente de cargar desde la app (jefes).
 - Logística, reporte "Entregado/Enviado/Radicado/Recogido": trae **lo programado** (cada factura A/B, PQR/OUT, REA/OUT, Devolución, lo que se radica o se recoge) con casillas ya marcadas; se desmarca lo que no se hizo
   y queda en `reporte.programado` / `reporte.faltantes` ("⚠ Sin hacer: …" en la tarjeta, el informe y el Excel). Igual que en comercial, donde el cierre trae los objetivos programados.
+- Logística, anillos con los mismos estados que comercial: **Atendidas / No efectivas / Sin reporte a tiempo / Por recibir**. Una parada pendiente de un día ya pasado cuenta como "Sin reporte a tiempo" (`claseLog` en `logistica.js`). Cada tarjeta conserva el verbo de su tipo (Entregado/Enviado/Radicado/Recogido).
+- Logística, "📊 Gráfico de entregas" del mes (`graficoLog`): barras apiladas por estado, agrupadas por día, tipo de parada o mensajero; respeta el filtro de mensajero.
