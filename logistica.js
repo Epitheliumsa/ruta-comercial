@@ -259,10 +259,8 @@ function abrirLogForm(id) {
             ${mens ? `<div><label for="lgMens">Mensajero ${REQ}</label><select id="lgMens" required>${MENSAJEROS.map(m => `<option value="${m.id}"${(r?.vendedor || logi.mensajero) === m.id ? ' selected' : ''}>${esc(m.nombre)}${m.id === sesion.id ? ' (yo)' : ''}</option>`).join('')}</select></div>` : ''}
         </div>
         <label>Tipo de parada ${REQ}</label>
-        <input id="lgTipoBusca" class="lg-buscar-tipo" type="search" autocomplete="off" placeholder="🔎 Busca el tipo de parada (entrega, envío, proveedor…)" oninput="logBuscarTipo(this.value)" onkeydown="if (event.key === 'Enter') { event.preventDefault(); logBuscarTipo(this.value, true); }">
         <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).filter(([k]) => k !== 'radicacion').map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onclick="tipoClick(this)"><span>${esc(v.t)}</span></label>`).join('')}
             <label class="lg-chip lg-chip-rad"><input type="checkbox" id="lgRadChk"${r && conRadicacion(r) ? ' checked' : ''} onchange="logCampos()"><span>${esc(TIPOS_LOG.radicacion.t)}</span></label></div>
-        <p class="ayuda" id="lgTipoVacio" hidden>Ningún tipo coincide con la búsqueda.</p>
         <p class="ayuda">Escoge uno. La radicación de documentos puede ir sola o sumarse a cualquier otro.</p>
         <div id="lgBIncluye">
             <label>En esta entrega también se recoge <small>(opcional)</small></label>
@@ -330,15 +328,6 @@ function abrirLogForm(id) {
     logInfoCliente(false);
 }
 
-// Buscador del tipo de parada: deja a la vista solo los tipos que coinciden (Enter marca el único que quede)
-function logBuscarTipo(q, escoger = false) {
-    const t = normalizar(q || '');
-    const chips = [...document.querySelectorAll('#lgTipos .lg-chip')];
-    chips.forEach(c => { c.hidden = !!t && !normalizar(c.textContent).includes(t); });
-    const visibles = chips.filter(c => !c.hidden);
-    if (escoger && visibles.length === 1) { const i = visibles[0].querySelector('input'); if (i.type === 'radio') { i.checked = true; i.dataset.on = ''; tipoClick(i); i.dataset.on = '1'; } else { i.checked = true; logCampos(); } $('lgTipoBusca').value = ''; logBuscarTipo(''); }
-    $('lgTipoVacio').hidden = !!visibles.length;
-}
 // El tipo principal (radio) o, si solo se marcó la radicación, 'radicacion'
 const radMarcada = () => !!$('lgRadChk')?.checked;
 const tipoMarcado = () => document.querySelector('#lgTipos input[name=lgTipo]:checked')?.value || (radMarcada() ? 'radicacion' : '');
