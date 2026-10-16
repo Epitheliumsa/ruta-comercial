@@ -17,11 +17,13 @@ const TIPOS_LOG = {
     envio:       { t: 'Envío fuera de Bogotá', corto: 'Envío', cliente: true, docs: true, envio: true, ok: 'Enviado', no: 'No enviado', quien: '¿Quién lo recibió en la transportadora?', rec: 'Recibió' },
     radicacion:  { t: 'Radicación de documentos', corto: 'Radicación', cliente: true, radicacion: true, ok: 'Radicado', no: 'No radicado', quien: '¿Quién recibió?', rec: 'Recibió' },
     recoleccion: { t: 'Proveedor', corto: 'Proveedor', recoleccion: true, ok: 'Recogido', no: 'No recogido', quien: '¿Quién entregó?', rec: 'Entregó' },
-    vuelta:      { t: 'Trámite área', corto: 'Trámite', vuelta: true, ok: 'Realizado', no: 'No realizado', quien: '¿Con quién se hizo?', rec: 'Con' }
+    vuelta:      { t: 'Trámite área', corto: 'Trámite', vuelta: true, ok: 'Realizado', no: 'No realizado', quien: '¿Con quién se hizo?', rec: 'Con' },
+    banco:       { t: 'Bancos', corto: 'Banco', banco: true, ok: 'Realizado', no: 'No realizado', quien: '¿Quién atendió en el banco?', rec: 'Atendió' }
 };
+const BANCOS_LOG = ['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Banco de Occidente', 'Banco Popular', 'AV Villas', 'Scotiabank Colpatria', 'Itaú', 'Banco Caja Social'];
 // Campos de una parada que dejan huella cuando se editan (nombre con el que se muestra el cambio)
 const CAMPOS_HUELLA_LOG = { fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
-    proveedor: 'proveedor', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
+    proveedor: 'proveedor', entidad: 'banco', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
 const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
 const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT' };
@@ -47,7 +49,7 @@ const okTxt = r => TIPOS_LOG[r.tipo]?.ok || 'Realizada';
 const noTxt = r => TIPOS_LOG[r.tipo]?.no || 'No realizada';
 const incluyeTxt = r => (r.incluye || []).map(k => k === 'devolucion' ? 'devolución' : NOMBRE_INCLUYE[k] || k).join(' y ');
 const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (r.incluye?.length ? ` + incluye ${incluyeTxt(r)}` : '') + (r.tipo !== 'radicacion' && conRadicacion(r) ? ' + radicación' : '');
-const tituloLog = r => r.contacto || r.proveedor || (r.area ? `Trámite · ${r.area}` : 'Parada');
+const tituloLog = r => r.contacto || r.proveedor || (r.entidad ? `Banco · ${r.entidad}` : r.area ? `Trámite · ${r.area}` : 'Parada');
 // Paradas con hora fija primero (por hora) y después el resto en el orden de la ruta
 const ordenLog = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '').localeCompare(b.hora || '') || (a.orden ?? 1e9) - (b.orden ?? 1e9) || (a.creado || '').localeCompare(b.creado || '');
 // Facturas que se llevan (en pantalla A = OVI y B = OV, siempre de 6 cifras): A en terminados; A y/o B en magistral individual; B en magistral de pedido
@@ -349,6 +351,11 @@ function abrirLogForm(id) {
             <label for="lgArea">Área ${REQ}</label>
             <select id="lgArea">${AREAS_LOG.map(a => `<option${r?.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>
         </div>
+        <div id="lgBBanco">
+            <label for="lgBanco">Banco ${REQ}</label>
+            <input id="lgBanco" list="lgBancos" maxlength="60" autocomplete="off" placeholder="Escoge o escribe el banco" value="${esc(r?.entidad || '')}">
+            <datalist id="lgBancos">${BANCOS_LOG.map(b => `<option value="${esc(b)}">`).join('')}</datalist>
+        </div>
         <label for="lgDetalle" id="lgLblDet">Indicaciones <small>(opcional)</small></label>
         <textarea id="lgDetalle" rows="2" maxlength="200" placeholder="Ej: preguntar por la jefe de compras, recoger uniformes de las 3 sedes…">${esc(r?.detalle || '')}</textarea>
         <div class="form-botones">
@@ -379,7 +386,7 @@ function logCampos() {
     $('lgBIncluyeEnvio').hidden = k !== 'entrega' && k !== 'envio';
     $('lgTitInc').textContent = k === 'entrega' ? 'Esta entrega también incluye' : 'Este envío también incluye';
     // Proveedor: en vez del cliente va el proveedor; Trámite área: el cliente se llama contacto
-    $('lgBCli').hidden = !!tp.recoleccion && !conRad;
+    $('lgBCli').hidden = (!!tp.recoleccion || !!tp.banco) && !conRad;
     $('lgBProv').hidden = !tp.recoleccion;
     $('lgTxtCli').textContent = k === 'vuelta' ? 'Contacto' : 'Cliente';
     $('lgCliente').placeholder = k === 'vuelta' ? 'Busca el contacto' : 'Busca el cliente';
@@ -390,8 +397,9 @@ function logCampos() {
     $('lgBRad').hidden = !conRad;
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = !!tp.recoleccion;
     $('lgBVuelta').hidden = !tp.vuelta;
-    $('lgLblDet').innerHTML = tp.vuelta ? `Qué hay que hacer ${REQ}` : 'Indicaciones <small>(opcional)</small>';
-    $('lgDetalle').required = !!tp.vuelta;
+    $('lgBBanco').hidden = !tp.banco; $('lgBanco').required = !!tp.banco;
+    $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : 'Indicaciones <small>(opcional)</small>';
+    $('lgDetalle').required = !!(tp.vuelta || tp.banco);
     // Cada casilla marcada (clase de pedido o documento a radicar) muestra sus campos, que pasan a ser obligatorios
     document.querySelectorAll('.lg-pedido').forEach(fila => {
         const visible = !fila.closest('[hidden]'), on = fila.querySelector('.lg-pchk input').checked && visible;
@@ -469,7 +477,7 @@ async function guardarLog(e, id) {
         ...base, tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
         proveedor: tp.recoleccion ? $('lgProv').value.trim() : '', materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
-        area: tp.vuelta ? $('lgArea').value : '', direccion: $('lgDir').value.trim(), telefono: $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
+        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: $('lgDir').value.trim(), telefono: $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
     if (antes) {
@@ -508,7 +516,7 @@ function abrirLogReporte(id, ok) {
     const tp = TIPOS_LOG[r.tipo], tieneEnvio = r.tipo === 'envio';
     const req = !!tp.cliente;   // entregas y radicaciones piden quién recibió (en el envío no: van transportadora y guía)
     const ciudadCli = ciudadCliente(r.contacto), ant = antesCliente(r.contacto);
-    const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' ? 'Resultado' : r.tipo === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
+    const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' || r.tipo === 'banco' ? 'Resultado' : r.tipo === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
     fotosLogSel = [];
     abrirModal(`<form class="form-rc" onsubmit="guardarLogReporte(event, '${id}', ${ok})">
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
@@ -534,7 +542,7 @@ function abrirLogReporte(id, ok) {
                 <datalist id="dlTransp">${transportadoras().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
                 <div><label for="lgGuia">Número de guía ${REQ}</label><input id="lgGuia" autocomplete="off" maxlength="40" required></div>
             </div>` : ''}
-            ${(items => items.length && r.tipo !== 'vuelta' ? `<label>Lo programado <small>(marca lo que sí ${VERBO_LOG[r.tipo] || 'hiciste'}; desmarca lo que no)</small></label>
+            ${(items => items.length && r.tipo !== 'vuelta' && r.tipo !== 'banco' ? `<label>Lo programado <small>(marca lo que sí ${VERBO_LOG[r.tipo] || 'hiciste'}; desmarca lo que no)</small></label>
             <div class="lg-chips" id="lgProg">${items.map(t => `<label class="lg-chip"><input type="checkbox" checked data-t="${esc(t)}"><span>${esc(t)}</span></label>`).join('')}</div>` : '')(itemsProgramados(r))}
             ${detalle ? `<label for="lgRDetalle">${esc(detalle)} <small>(opcional)</small></label><textarea id="lgRDetalle" rows="2" maxlength="200"></textarea>` : ''}
             <label for="lgNovedad">Novedades <small>(opcional)</small></label>
@@ -881,7 +889,7 @@ function armarLibroLog(regs, mes, mens) {
         if (!docs.length) docs.push({ doc: '' });
         const fotos = (r.fotos || []).map(f => f.url).filter(Boolean);
         docs.forEach((d, i) => filas.push([
-            diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), r.contacto || r.proveedor || r.area || '',
+            diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), r.contacto || r.proveedor || r.entidad || r.area || '',
             r.zona || '', r.comercial ? nombreVendedor(r.comercial) : '', [r.destino, r.dirDestino, r.telDestino].filter(Boolean).join(' · '), r.transportadora || '',
             d.doc || '', d.ov || '', d.ovi || '', d.otro || '', r.estado === 'entregado' ? okTxt(r) : r.estado === 'no_entregado' ? noTxt(r) : 'Pendiente',
             r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · '),

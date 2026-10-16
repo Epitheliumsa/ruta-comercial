@@ -285,3 +285,4 @@
   y queda en `reporte.programado` / `reporte.faltantes` ("⚠ Sin hacer: …" en la tarjeta, el informe y el Excel). Igual que en comercial, donde el cierre trae los objetivos programados.
 - Logística, anillos con los mismos estados que comercial: **Atendidas / No efectivas / Sin reporte a tiempo / Por recibir**. Una parada pendiente de un día ya pasado cuenta como "Sin reporte a tiempo" (`claseLog` en `logistica.js`). Cada tarjeta conserva el verbo de su tipo (Entregado/Enviado/Radicado/Recogido).
 - Logística, "📊 Gráfico de entregas" del mes (`graficoLog`): barras apiladas por estado, agrupadas por día, tipo de parada o mensajero; respeta el filtro de mensajero.
+- Logística, nuevo tipo de parada **Bancos** (`TIPOS_LOG.banco`): pide banco (lista de bancos o texto libre, se guarda en `entidad`) y "Qué hay que hacer"; no pide cliente. El reporte es como el de Trámite área (Realizado / No realizado, resultado).
