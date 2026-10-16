@@ -20,7 +20,7 @@ const TIPOS_LOG = {
     vuelta:      { t: 'Trámite área', corto: 'Trámite', vuelta: true, ok: 'Realizado', no: 'No realizado', quien: '¿Con quién se hizo?', rec: 'Con' }
 };
 // Campos de una parada que dejan huella cuando se editan (nombre con el que se muestra el cambio)
-const CAMPOS_HUELLA_LOG = { fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', radicacion: 'documentos a radicar',
+const CAMPOS_HUELLA_LOG = { fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
     proveedor: 'proveedor', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
 const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
@@ -57,6 +57,7 @@ const CLASES_PEDIDO = [
     { k: 'mp', t: 'Magistral de Pedido', campos: [['ov', 'B']] }
 ];
 const claseDoc = k => CLASES_PEDIDO.find(c => c.k === k);
+const textoInc = d => `${NOMBRE_INCLUYE[d.k] || d.k} ${d.numero}`;
 const textoDoc = d => [claseDoc(d.clase)?.t, d.ovi && `A ${d.ovi}`, d.ov && `B ${d.ov}`].filter(Boolean).join(' · ');
 // Números de factura y nota crédito: 6 cifras, se completan con ceros a la izquierda (58 → 000058)
 const seisCifras = v => { v = String(v || '').replace(/\D/g, ''); return v ? v.slice(-6).padStart(6, '0') : ''; };
@@ -142,7 +143,7 @@ function pintarLog() {
     $('logResumen').innerHTML = fp && parte ? `<span class="chip chip-filtro activo lg-filtro-act"><i style="background:${parte.c}"></i>${esc(parte.t)} · ${esc({ dia: 'día ' + fechaCorta(f), semana: tSem.toLowerCase(), mes: tMes.toLowerCase() }[fp])}</span><button type="button" class="link-mini" onclick="filtrarLog('')">✕ Quitar filtro</button>` : '';
     const base = fp && fp !== 'dia' ? deP[fp] : dia;
     const lista = base.filter(r => (!parte || r.estado === parte.f)
-        && (!q || normalizar([tituloLog(r), r.proveedor, r.direccion, r.telefono, r.destino, ...(r.documentos || []).flatMap(d => [d.ov, d.ovi]), ...(r.radicacion || []).map(textoRad)].join(' ')).includes(q)));
+        && (!q || normalizar([tituloLog(r), r.proveedor, r.direccion, r.telefono, r.destino, ...(r.documentos || []).flatMap(d => [d.ov, d.ovi]), ...(r.incluyeDocs || []).map(d => d.numero), ...(r.radicacion || []).map(textoRad)].join(' ')).includes(q)));
     // Cada mensajero tiene su ruta numerada por día (el número no cambia aunque se filtre la lista)
     const rutas = {}, clave = r => r.fecha + '|' + r.vendedor;
     todos.filter(r => base.includes(r) || r.fecha === f).filter(delMens).slice().sort(ordenLog).forEach(r => (rutas[clave(r)] = rutas[clave(r)] || []).push(r));
@@ -188,6 +189,7 @@ function tarjetaLog(r, n, total) {
     const clase = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : '';
     const titulo = r.contacto ? `<h3 class="cliente-link" data-c="${esc(r.contacto)}" onclick="verCliente(this.dataset.c, '${esc(r.comercial || '')}')" title="Ver historial del cliente">${esc(r.contacto)}</h3>` : `<h3>${esc(tituloLog(r))}</h3>`;
     const docs = (r.documentos || []).map(d => `<span class="lg-doc-chip">${esc(claseDoc(d.clase)?.t || 'Pedido')}${d.ovi ? ` · A <b>${esc(d.ovi)}</b>` : ''}${d.ov ? ` · B <b>${esc(d.ov)}</b>` : ''}</span>`).join('')
+        + (r.incluyeDocs || []).map(d => `<span class="lg-doc-chip">${esc(NOMBRE_INCLUYE[d.k] || d.k)} · <b>${esc(d.numero)}</b></span>`).join('')
         + (r.radicacion || []).map(d => `<span class="lg-doc-chip rad">${esc(textoRad(d))}</span>`).join('');
     const lineas = [
         r.destino ? `<b>${r.tipo === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${esc(r.dirDestino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
@@ -267,8 +269,13 @@ function abrirLogForm(id) {
             <div class="lg-chips" id="lgIncluye">${Object.entries(INCLUYE_ENTREGA).map(([k, t]) => `<label class="lg-chip"><input type="checkbox" value="${k}"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>`).join('')}</div>
         </div>
         <div id="lgBIncluyeEnvio">
-            <label>Este envío también incluye <small>(opcional)</small></label>
-            <div class="lg-chips" id="lgIncluyeEnvio">${Object.entries(INCLUYE_ENVIO).map(([k, t]) => `<label class="lg-chip"><input type="checkbox" value="${k}"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>`).join('')}</div>
+            <label>Este envío también incluye <small>(opcional: marca y escribe el número del documento; puedes agregar varios)</small></label>
+            <div class="lg-pedidos">${Object.entries(INCLUYE_ENVIO).map(([k, t]) => {
+                const nums = (r?.incluyeDocs || []).filter(d => d.k === k).map(d => d.numero);
+                return `<div class="lg-pedido" data-k="${k}">
+                <label class="lg-pchk"><input type="checkbox"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>
+                <div class="lg-pcampos"><div class="lg-pgrupo">${(nums.length ? nums : ['']).map(v => `<div class="lg-pset"><label class="lg-pc"><span class="lg-pref">Nº</span><input data-f="numero" ${NUM6} value="${esc(v)}"></label><button type="button" class="lg-quitar" title="Quitar este documento" aria-label="Quitar este documento" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otro ${esc(t)}</button></div></div>
+            </div>`; }).join('')}</div>
         </div>
         <label for="lgCliente">Cliente <small>(Maestra de clientes)</small> <span id="lgReqCli"></span></label>
         <input id="lgCliente" list="dlLogClientes" autocomplete="off" placeholder="Busca el cliente" value="${esc(r?.contacto || '')}" oninput="logInfoCliente()" onchange="logInfoCliente()"${r?.contacto ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
@@ -341,7 +348,9 @@ function tipoClick(el) {
     document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
     logCampos();
 }
-const incluyeMarcado = () => [...document.querySelectorAll(tipoMarcado() === 'envio' ? '#lgIncluyeEnvio input:checked' : '#lgIncluye input:checked')].map(i => i.value);
+const incluyeMarcado = () => tipoMarcado() === 'envio'
+    ? [...document.querySelectorAll('#lgBIncluyeEnvio .lg-pedido')].filter(f => f.querySelector('.lg-pchk input').checked).map(f => f.dataset.k)
+    : [...document.querySelectorAll('#lgIncluye input:checked')].map(i => i.value);
 // Muestra solo los campos del tipo de parada escogido
 function logCampos() {
     document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
@@ -410,8 +419,12 @@ async function guardarLog(e, id) {
     });
     const documentos = tp.docs ? leer('#lgBDocs .lg-pedido').map(({ k, d }) => ({ clase: k, ...d })) : [];
     const radicacion = conRad ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
+    // Envío fuera de Bogotá: número(s) de cada documento que también va (PQR/OUT, REA/OUT, Devolución)
+    const incluyeDocs = tipo === 'envio' ? leer('#lgBIncluyeEnvio .lg-pedido').map(({ k, d }) => ({ k, numero: d.numero })).filter(d => d.numero) : [];
+    const sinNumeroInc = tipo === 'envio' ? incluye.find(k => !incluyeDocs.some(d => d.k === k)) : '';
+    if (sinNumeroInc) return toast(`${INCLUYE_ENVIO[sinNumeroInc]}: escribe el número del documento`);
     // Una misma factura no se repite dentro de la parada
-    const claves = [...documentos.flatMap(d => [d.ov && `B ${d.clase} ${d.ov}`, d.ovi && `A ${d.clase} ${d.ovi}`]), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
+    const claves = [...documentos.flatMap(d => [d.ov && `B ${d.clase} ${d.ov}`, d.ovi && `A ${d.clase} ${d.ovi}`]), ...incluyeDocs.map(d => `${d.k} ${d.numero}`), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
     const repetida = claves.find((x, i) => claves.indexOf(x) !== i);
     if (repetida) return toast('Hay una factura repetida en la parada: revisa los números');
     const sinNumero = documentos.find(d => !d.ov && !d.ovi);
@@ -429,7 +442,7 @@ async function guardarLog(e, id) {
     const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === vendedor && x.id !== base.id);
     const orden = antes && antes.fecha === fecha && antes.vendedor === vendedor ? antes.orden : Math.max(0, ...mismo.map(x => x.orden || 0)) + 1;
     const nuevo = {
-        ...base, tipo, tipos, incluye, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
+        ...base, tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
         proveedor: tp.recoleccion ? $('lgProv').value.trim() : '', materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
         area: tp.vuelta ? $('lgArea').value : '', direccion: $('lgDir').value.trim(), telefono: $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
@@ -475,7 +488,7 @@ function abrirLogReporte(id, ok) {
     fotosLogSel = [];
     abrirModal(`<form class="form-rc" onsubmit="guardarLogReporte(event, '${id}', ${ok})">
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
-        <p class="sub">${esc(tituloLog(r))}${(r.documentos || []).length ? ' · ' + esc(r.documentos.map(textoDoc).join(' · ')) : ''}${(r.radicacion || []).length ? ' · ' + esc(r.radicacion.map(textoRad).join(' · ')) : ''}</p>
+        <p class="sub">${esc(tituloLog(r))}${(r.documentos || []).length ? ' · ' + esc(r.documentos.map(textoDoc).join(' · ')) : ''}${(r.incluyeDocs || []).length ? ' · ' + esc(r.incluyeDocs.map(textoInc).join(' · ')) : ''}${(r.radicacion || []).length ? ' · ' + esc(r.radicacion.map(textoRad).join(' · ')) : ''}</p>
         ${ok ? `
             ${tp.cliente ? `<div class="lg-dir-entrega">📍 <b>Dirección de entrega</b><br>${esc([ciudadCli, r.direccion].filter(Boolean).join(' · ') || 'Sin dirección registrada')}${r.telefono ? `<br>📞 ${enlacesTel(r.telefono)}` : ''}</div>
             <label class="lg-chip lg-cambiar"><input type="checkbox" id="lgCambiarDir" onchange="cambiarDirLog()"><span>Cambiar la dirección de entrega</span></label>
@@ -774,7 +787,7 @@ function htmlEntregasCliente(nombre, dia = '') {
     if (!lista.length) return esLogistica() && !dia ? '<div class="no-results">Todavía no hay entregas registradas para este cliente.</div>' : '';
     return `<p class="grupo-titulo hist-sec l">🚚 Entregas y recolecciones · ${lista.length}</p>` + lista.map(r => {
         const tp = TIPOS_LOG[r.tipo], rp = r.reporte || {}, cls = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p';
-        const docs = [...(r.documentos || []).map(textoDoc), ...(r.radicacion || []).map(textoRad)].filter(Boolean).map(esc).join('<br>');
+        const docs = [...(r.documentos || []).map(textoDoc), ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad)].filter(Boolean).map(esc).join('<br>');
         const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         return `<div class="hist-item ${cls}">

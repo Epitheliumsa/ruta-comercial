@@ -277,6 +277,6 @@
 - Agenda, solo jefes: filtro de **Novedades** (Cita médica, Incapacidad, Permiso, Vacaciones) del equipo en el mes que se está viendo. Los botones llevan cuántas hay de cada tipo;
   al tocar uno la lista muestra todas las de ese tipo (quién, fechas, nota) y "Quitar filtro" vuelve al día. No sale para los comerciales (`agenda.novTipo`, `filtrarNovedades`).
 - Logística, formulario de parada: el **tipo de parada va primero** (con buscador) y después Cliente/Proveedor; al **editar**, el cliente o proveedor queda **bloqueado** (para otro se elimina y se programa de nuevo).
-  El tipo *Envío fuera de Bogotá* tiene casillas de lo que incluye (PQR/OUT, REA/OUT, Devolución; si se marca una, las facturas pasan a ser opcionales, como en la entrega con devolución o PQR).
+  El tipo *Envío fuera de Bogotá* tiene casillas de lo que incluye (PQR/OUT, REA/OUT, Devolución); cada una pide el **número del documento** (6 cifras) y admite varios (`+ Otro`), guardados en `incluyeDocs`. Si se marca una, las facturas pasan a ser opcionales, como en la entrega con devolución o PQR.
   Cada edición de una parada deja huella (`ediciones`: quién, cuándo y qué campos cambiaron) y la tarjeta muestra "✏️ Editada por X · fecha · cambió …".
 - Circular 2026-035 (Alcance a la 2026-033, canales 70 y 90: bonificado 10+2 y 6+2 con 1 unidad de alta rotación): se agregó a `datos/Circulares.xlsx` para canales 70 y 90 (Bella Piel es clasificación 10, por eso no necesita la exclusión). PDF pendiente de cargar desde la app (jefes).
