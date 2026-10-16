@@ -46,7 +46,7 @@ const conRadicacion = r => hayTipo(r, 'radicacion');
 const okTxt = r => TIPOS_LOG[r.tipo]?.ok || 'Realizada';
 const noTxt = r => TIPOS_LOG[r.tipo]?.no || 'No realizada';
 const incluyeTxt = r => (r.incluye || []).map(k => k === 'devolucion' ? 'devolución' : NOMBRE_INCLUYE[k] || k).join(' y ');
-const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (r.incluye?.length ? (r.tipo === 'envio' ? ` + incluye ${incluyeTxt(r)}` : ` + recoge ${incluyeTxt(r)}`) : '') + (r.tipo !== 'radicacion' && conRadicacion(r) ? ' + radicación' : '');
+const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (r.incluye?.length ? ` + incluye ${incluyeTxt(r)}` : '') + (r.tipo !== 'radicacion' && conRadicacion(r) ? ' + radicación' : '');
 const tituloLog = r => r.contacto || r.proveedor || (r.area ? `Trámite · ${r.area}` : 'Parada');
 // Paradas con hora fija primero (por hora) y después el resto en el orden de la ruta
 const ordenLog = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '').localeCompare(b.hora || '') || (a.orden ?? 1e9) - (b.orden ?? 1e9) || (a.creado || '').localeCompare(b.creado || '');
@@ -262,11 +262,18 @@ function abrirLogForm(id) {
         <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).filter(([k]) => k !== 'radicacion').map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onclick="tipoClick(this)"><span>${esc(v.t)}</span></label>`).join('')}
             <label class="lg-chip lg-chip-rad"><input type="checkbox" id="lgRadChk"${r && conRadicacion(r) ? ' checked' : ''} onchange="logCampos()"><span>${esc(TIPOS_LOG.radicacion.t)}</span></label></div>
         <p class="ayuda">Escoge uno. La radicación de documentos puede ir sola o sumarse a cualquier otro.</p>
-        <label for="lgCliente">Cliente <small>(Maestra de clientes)</small> <span id="lgReqCli"></span></label>
+        <div id="lgBCli">
+        <label for="lgCliente"><span id="lgTxtCli">Cliente</span> <small>(Maestra de clientes)</small> <span id="lgReqCli"></span></label>
         <input id="lgCliente" list="dlLogClientes" autocomplete="off" placeholder="Busca el cliente" value="${esc(r?.contacto || '')}" oninput="logInfoCliente()" onchange="logInfoCliente()"${r?.contacto ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
         ${r?.contacto ? '<p class="ayuda lg-bloq-nota">🔒 El cliente no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}
         <datalist id="dlLogClientes">${clientes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
         <p class="ayuda" id="lgInfoCli"></p>
+        </div>
+        <div id="lgBProv">
+            <label for="lgProv">Proveedor ${REQ}</label>
+            <input id="lgProv" list="dlLogProv" autocomplete="off" placeholder="Busca proveedor" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
+            ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}<datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+        </div>
         <label for="lgDir">Dirección <small>(sale sola con el cliente; puedes cambiarla)</small></label>
         <input id="lgDir" autocomplete="off" maxlength="120" value="${esc(r?.direccion || '')}" oninput="this.dataset.auto = ''">
         <label for="lgTel">Teléfono <small>(sale solo con el cliente; puedes cambiarlo)</small></label>
@@ -282,12 +289,8 @@ function abrirLogForm(id) {
                 }).join('')}</div>
             </div>`).join('')}</div>
         </div>
-        <div id="lgBIncluye">
-            <label>En esta entrega también se recoge <small>(opcional)</small></label>
-            <div class="lg-chips" id="lgIncluye">${Object.entries(INCLUYE_ENTREGA).map(([k, t]) => `<label class="lg-chip"><input type="checkbox" value="${k}"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>`).join('')}</div>
-        </div>
         <div id="lgBIncluyeEnvio">
-            <label>Este envío también incluye <small>(opcional: marca y escribe el número del documento; puedes agregar varios)</small></label>
+            <label><span id="lgTitInc">Este envío también incluye</span> <small>(opcional: marca y escribe el número del documento; puedes agregar varios)</small></label>
             <div class="lg-pedidos">${Object.entries(INCLUYE_ENVIO).map(([k, t]) => {
                 const nums = (r?.incluyeDocs || []).filter(d => d.k === k).map(d => d.numero);
                 return `<div class="lg-pedido" data-k="${k}">
@@ -307,9 +310,6 @@ function abrirLogForm(id) {
             </div>`).join('')}</div>
         </div>
         <div id="lgBRecol">
-            <label for="lgProv">Proveedor ${REQ}</label>
-            <input id="lgProv" list="dlLogProv" autocomplete="off" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
-            ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}<datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
             <label>Qué se recoge</label>
             <div class="lg-chips" id="lgMateriales">${MATERIALES_LOG.map(m => `<label class="lg-chip"><input type="checkbox" value="${esc(m)}"${r?.materiales?.includes(m) ? ' checked' : ''}><span>${esc(m)}</span></label>`).join('')}</div>
         </div>
@@ -337,17 +337,20 @@ function tipoClick(el) {
     document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
     logCampos();
 }
-const incluyeMarcado = () => tipoMarcado() === 'envio'
-    ? [...document.querySelectorAll('#lgBIncluyeEnvio .lg-pedido')].filter(f => f.querySelector('.lg-pchk input').checked).map(f => f.dataset.k)
-    : [...document.querySelectorAll('#lgIncluye input:checked')].map(i => i.value);
+const incluyeMarcado = () => [...document.querySelectorAll('#lgBIncluyeEnvio .lg-pedido')].filter(f => f.querySelector('.lg-pchk input').checked).map(f => f.dataset.k);
 // Muestra solo los campos del tipo de parada escogido
 function logCampos() {
     document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
     const k = tipoMarcado(), tp = TIPOS_LOG[k] || {}, conRad = radMarcada();
     $('lgReqCli').innerHTML = tp.cliente || conRad ? REQ : '<small>(si aplica)</small>';
     $('lgCliente').required = !!(tp.cliente || conRad);
-    $('lgBIncluye').hidden = k !== 'entrega';
-    $('lgBIncluyeEnvio').hidden = k !== 'envio';
+    $('lgBIncluyeEnvio').hidden = k !== 'entrega' && k !== 'envio';
+    $('lgTitInc').textContent = k === 'entrega' ? 'Esta entrega también incluye' : 'Este envío también incluye';
+    // Proveedor: en vez del cliente va el proveedor; Trámite área: el cliente se llama contacto
+    $('lgBCli').hidden = !!tp.recoleccion && !conRad;
+    $('lgBProv').hidden = !tp.recoleccion;
+    $('lgTxtCli').textContent = k === 'vuelta' ? 'Contacto' : 'Cliente';
+    $('lgCliente').placeholder = k === 'vuelta' ? 'Busca el contacto' : 'Busca el cliente';
     $('lgBDocs').hidden = !tp.docs;
     // En la entrega, los pedidos son obligatorios salvo que solo se vaya a recoger una devolución o una PQR
     const docsObl = (k === 'envio' || k === 'entrega') && !incluyeMarcado().length;
@@ -398,7 +401,7 @@ async function guardarLog(e, id) {
     if (!fecha) return toast('Elige la fecha');
     if (!antes && fecha < hoy()) return toast('Ese día ya pasó: programa desde hoy');
     const vendedor = $('lgMens') ? $('lgMens').value : (antes?.vendedor || sesion.id);
-    const incluye = tipo === 'entrega' || tipo === 'envio' ? incluyeMarcado() : [];
+    const incluye = tipo === 'entrega' || tipo === 'envio' ? incluyeMarcado() : [];   // lo que también va: PQR/OUT, REA/OUT, Devolución
     // Cada línea marcada puede tener varias facturas (una por bloque); los bloques vacíos de más se ignoran
     const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).flatMap(f => {
         const sets = [...f.querySelectorAll('.lg-pset')], bloques = sets.length ? sets : [f.querySelector('.lg-pcampos')];   // un bloque por factura
@@ -408,9 +411,9 @@ async function guardarLog(e, id) {
     });
     const documentos = tp.docs ? leer('#lgBDocs .lg-pedido').map(({ k, d }) => ({ clase: k, ...d })) : [];
     const radicacion = conRad ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
-    // Envío fuera de Bogotá: número(s) de cada documento que también va (PQR/OUT, REA/OUT, Devolución)
-    const incluyeDocs = tipo === 'envio' ? leer('#lgBIncluyeEnvio .lg-pedido').map(({ k, d }) => ({ k, numero: d.numero })).filter(d => d.numero) : [];
-    const sinNumeroInc = tipo === 'envio' ? incluye.find(k => !incluyeDocs.some(d => d.k === k)) : '';
+    // Entrega o envío: número(s) de cada documento que también va (PQR/OUT, REA/OUT, Devolución)
+    const incluyeDocs = incluye.length ? leer('#lgBIncluyeEnvio .lg-pedido').map(({ k, d }) => ({ k, numero: d.numero })).filter(d => d.numero) : [];
+    const sinNumeroInc = incluye.find(k => !incluyeDocs.some(d => d.k === k));
     if (sinNumeroInc) return toast(`${INCLUYE_ENVIO[sinNumeroInc]}: escribe el número del documento`);
     // Una misma factura no se repite dentro de la parada
     const claves = [...documentos.flatMap(d => [d.ov && `B ${d.clase} ${d.ov}`, d.ovi && `A ${d.clase} ${d.ovi}`]), ...incluyeDocs.map(d => `${d.k} ${d.numero}`), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
@@ -473,7 +476,7 @@ function abrirLogReporte(id, ok) {
     const tp = TIPOS_LOG[r.tipo], tieneEnvio = r.tipo === 'envio';
     const req = !!tp.cliente;   // entregas y radicaciones piden quién recibió (en el envío no: van transportadora y guía)
     const ciudadCli = ciudadCliente(r.contacto), ant = antesCliente(r.contacto);
-    const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' ? 'Resultado' : r.tipo === 'entrega' && r.incluye?.length ? `Qué se recogió (${incluyeTxt(r)})` : '';
+    const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' ? 'Resultado' : r.tipo === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
     fotosLogSel = [];
     abrirModal(`<form class="form-rc" onsubmit="guardarLogReporte(event, '${id}', ${ok})">
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
