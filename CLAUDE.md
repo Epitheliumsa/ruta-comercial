@@ -281,3 +281,5 @@
   Con tipo *Proveedor* el campo de arriba es "Proveedor / Busca proveedor" (sin Cliente salvo que también se radique); con *Trámite área* se llama "Contacto". Orden: tipo, cliente/proveedor, dirección, teléfono, factura, lo que incluye, radicación, qué se recoge/área, indicaciones.
   Cada edición de una parada deja huella (`ediciones`: quién, cuándo y qué campos cambiaron) y la tarjeta muestra "✏️ Editada por X · fecha · cambió …".
 - Circular 2026-035 (Alcance a la 2026-033, canales 70 y 90: bonificado 10+2 y 6+2 con 1 unidad de alta rotación): se agregó a `datos/Circulares.xlsx` para canales 70 y 90 (Bella Piel es clasificación 10, por eso no necesita la exclusión). PDF pendiente de cargar desde la app (jefes).
+- Logística, reporte "Entregado/Enviado/Radicado/Recogido": trae **lo programado** (cada factura A/B, PQR/OUT, REA/OUT, Devolución, lo que se radica o se recoge) con casillas ya marcadas; se desmarca lo que no se hizo
+  y queda en `reporte.programado` / `reporte.faltantes` ("⚠ Sin hacer: …" en la tarjeta, el informe y el Excel). Igual que en comercial, donde el cierre trae los objetivos programados.

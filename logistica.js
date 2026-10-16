@@ -57,6 +57,13 @@ const CLASES_PEDIDO = [
     { k: 'mp', t: 'Magistral de Pedido', campos: [['ov', 'B']] }
 ];
 const claseDoc = k => CLASES_PEDIDO.find(c => c.k === k);
+// Lo que se programó en la parada, uno por uno (cada factura A o B, cada documento que incluye, lo que se radica o se recoge): se marca en el reporte
+const VERBO_LOG = { entrega: 'entregaste', envio: 'enviaste', radicacion: 'radicaste', recoleccion: 'recogiste' };
+function itemsProgramados(r) {
+    const nom = d => claseDoc(d.clase)?.t || 'Pedido';
+    return [...(r.documentos || []).flatMap(d => [d.ovi && `${nom(d)} · A ${d.ovi}`, d.ov && `${nom(d)} · B ${d.ov}`]),
+        ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'recoleccion' ? (r.materiales || []) : [])].filter(Boolean);
+}
 const textoInc = d => `${NOMBRE_INCLUYE[d.k] || d.k} ${d.numero}`;
 const textoDoc = d => [claseDoc(d.clase)?.t, d.ovi && `A ${d.ovi}`, d.ov && `B ${d.ov}`].filter(Boolean).join(' · ');
 // Números de factura y nota crédito: 6 cifras, se completan con ceros a la izquierda (58 → 000058)
@@ -203,7 +210,7 @@ function tarjetaLog(r, n, total) {
     if (cerrada) {
         const hora = r.registrada ? horaLog(r.registrada) : '';
         const partes = r.estado === 'entregado'
-            ? [`<b>${esc(ok)}</b>${hora ? ' a las ' + esc(hora) : ''}`, rp.recibio ? `<b>${esc(tp.rec)}:</b> ${esc(rp.recibio)}` : '', rp.guia ? `<b>Guía:</b> ${esc(rp.guia)}` : '', rp.radicado ? `<b>Radicado:</b> ${esc(rp.radicado)}` : '', rp.detalle ? `<b>Detalle:</b> ${esc(rp.detalle)}` : '', rp.novedad ? `<b>Novedad:</b> ${esc(rp.novedad)}` : '']
+            ? [`<b>${esc(ok)}</b>${hora ? ' a las ' + esc(hora) : ''}`, rp.recibio ? `<b>${esc(tp.rec)}:</b> ${esc(rp.recibio)}` : '', rp.guia ? `<b>Guía:</b> ${esc(rp.guia)}` : '', rp.radicado ? `<b>Radicado:</b> ${esc(rp.radicado)}` : '', rp.detalle ? `<b>Detalle:</b> ${esc(rp.detalle)}` : '', rp.faltantes?.length ? `<b>⚠ Sin hacer:</b> ${esc(rp.faltantes.join(' · '))}` : '', rp.novedad ? `<b>Novedad:</b> ${esc(rp.novedad)}` : '']
             : [`<b>${esc(no)}</b>${hora ? ' · ' + esc(hora) : ''}`, `<b>Motivo:</b> ${esc(rp.motivo || '')}`, rp.novedad ? esc(rp.novedad) : '', textoAccionLog(rp) ? `<b>${rp.accion === 'oficina' ? '🏢' : '📅'} ${esc(textoAccionLog(rp))}</b>` : ''];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener" title="Foto ${i + 1}"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         const pend = (leerFotosPend()[r.id] || []).length;
@@ -502,6 +509,8 @@ function abrirLogReporte(id, ok) {
                 <datalist id="dlTransp">${transportadoras().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
                 <div><label for="lgGuia">Número de guía ${REQ}</label><input id="lgGuia" autocomplete="off" maxlength="40" required></div>
             </div>` : ''}
+            ${(items => items.length && r.tipo !== 'vuelta' ? `<label>Lo programado <small>(marca lo que sí ${VERBO_LOG[r.tipo] || 'hiciste'}; desmarca lo que no)</small></label>
+            <div class="lg-chips" id="lgProg">${items.map(t => `<label class="lg-chip"><input type="checkbox" checked data-t="${esc(t)}"><span>${esc(t)}</span></label>`).join('')}</div>` : '')(itemsProgramados(r))}
             ${detalle ? `<label for="lgRDetalle">${esc(detalle)} <small>(opcional)</small></label><textarea id="lgRDetalle" rows="2" maxlength="200"></textarea>` : ''}
             <label for="lgNovedad">Novedades <small>(opcional)</small></label>
             <textarea id="lgNovedad" rows="2" maxlength="200" placeholder="Ej: faltó una unidad, el cliente pidió cambiar la factura…"></textarea>
@@ -610,7 +619,10 @@ async function guardarLogReporte(e, id, ok) {
         if (cambio && !validarCiudad($('lgDestino'))) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Escoge la ciudad de destino de la lista'); }
         const accion = ok ? '' : document.querySelector('#lgAccion input:checked')?.value || '';
         if (accion === 'reprogramar' && !val('lgReproFecha')) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Escoge la fecha para reprogramar'); }
-        const reporte = ok ? { recibio: nombrePropio(val('lgRecibio')), guia: val('lgGuia'), detalle: val('lgRDetalle'), novedad: val('lgNovedad') }
+        // Lo programado que se marcó y lo que quedó sin hacer
+        const prog = [...document.querySelectorAll('#lgProg input')].map(i => ({ t: i.dataset.t, ok: i.checked }));
+        const faltantes = prog.filter(x => !x.ok).map(x => x.t);
+        const reporte = ok ? { recibio: nombrePropio(val('lgRecibio')), guia: val('lgGuia'), detalle: val('lgRDetalle'), novedad: val('lgNovedad'), ...(prog.length ? { programado: prog, faltantes } : {}) }
             : { motivo: val('lgMotivo'), novedad: val('lgNovedad'), accion,
                 ...(accion === 'reprogramar' ? { reprogramadaPara: val('lgReproFecha'), horaRepro: val('lgReproHora') } : {}) };
         // Dirección cambiada al entregar y, en el envío, destino (la ciudad del cliente si no se cambió), transportadora y guía
@@ -780,7 +792,7 @@ function htmlEntregasCliente(nombre, dia = '') {
     return `<p class="grupo-titulo hist-sec l">🚚 Entregas y recolecciones · ${lista.length}</p>` + lista.map(r => {
         const tp = TIPOS_LOG[r.tipo], rp = r.reporte || {}, cls = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p';
         const docs = [...(r.documentos || []).map(textoDoc), ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad)].filter(Boolean).map(esc).join('<br>');
-        const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
+        const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : r.hora ? ' · hora fija ' + esc(horaBonita(r.hora)) : ''}</b>${chipEstadoLog(r)}</div>
@@ -847,7 +859,7 @@ function armarLibroLog(regs, mes, mens) {
             diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), r.contacto || r.proveedor || r.area || '',
             r.zona || '', r.comercial ? nombreVendedor(r.comercial) : '', [r.destino, r.dirDestino, r.telDestino].filter(Boolean).join(' · '), r.transportadora || '',
             d.doc || '', d.ov || '', d.ovi || '', d.otro || '', r.estado === 'entregado' ? okTxt(r) : r.estado === 'no_entregado' ? noTxt(r) : 'Pendiente',
-            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · '),
+            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · '),
             [r.direccion, r.telefono && `Tel. ${r.telefono}`, r.proveedor && r.contacto ? `Proveedor: ${r.proveedor}` : '', r.detalle].filter(Boolean).join(' · '), i === 0 && fotos.length ? fotos.length : '', i === 0 ? fotos.join('\n') : '',
             r.reportadoPor ? nombreVendedor(r.reportadoPor) : '', (r.correcciones || []).length || ''
         ]));
