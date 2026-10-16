@@ -296,6 +296,11 @@ function abrirLogForm(id) {
         <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).filter(([k]) => k !== 'radicacion').map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onclick="tipoClick(this)"><span>${esc(v.t)}</span></label>`).join('')}
             <label class="lg-chip lg-chip-rad"><input type="checkbox" id="lgRadChk"${r && conRadicacion(r) ? ' checked' : ''} onchange="logCampos()"><span>${esc(TIPOS_LOG.radicacion.t)}</span></label></div>
         <p class="ayuda">Escoge uno. La radicación de documentos puede ir sola o sumarse a cualquier otro.</p>
+        <div id="lgBRadA">
+            <label>La radicación es a</label>
+            <div class="lg-chips"><label class="lg-chip"><input type="radio" name="lgRadA" value="cliente"${r && conRadicacion(r) && r.proveedor && !r.contacto ? '' : ' checked'} onchange="logCampos()"><span>Cliente</span></label>
+                <label class="lg-chip"><input type="radio" name="lgRadA" value="proveedor"${r && conRadicacion(r) && r.proveedor && !r.contacto ? ' checked' : ''} onchange="logCampos()"><span>Proveedor</span></label></div>
+        </div>
         <div id="lgBVuelta">
             <label for="lgArea">Área ${REQ}</label>
             <select id="lgArea">${AREAS_LOG.map(a => `<option${r?.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>
@@ -369,6 +374,8 @@ function abrirLogForm(id) {
 
 // El tipo principal (radio) o, si solo se marcó la radicación, 'radicacion'
 const radMarcada = () => !!$('lgRadChk')?.checked;
+// La radicación puede ser a un proveedor (salvo en entrega y envío, que siempre llevan cliente)
+const radAProv = () => radMarcada() && !['entrega', 'envio'].includes(tipoMarcado()) && document.querySelector('input[name=lgRadA]:checked')?.value === 'proveedor';
 const tipoMarcado = () => document.querySelector('#lgTipos input[name=lgTipo]:checked')?.value || (radMarcada() ? 'radicacion' : '');
 // Tocar otra vez el tipo marcado lo desmarca (para dejar solo la radicación)
 function tipoClick(el) {
@@ -382,12 +389,14 @@ function logCampos() {
     document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
     const k = tipoMarcado(), tp = TIPOS_LOG[k] || {}, conRad = radMarcada();
     $('lgReqCli').innerHTML = tp.cliente || conRad ? REQ : '<small>(si aplica)</small>';
-    $('lgCliente').required = !!(tp.cliente || conRad);
+    const aProv = radAProv(), conProv = !!tp.recoleccion || aProv;
+    $('lgBRadA').hidden = !conRad || k === 'entrega' || k === 'envio';
+    $('lgCliente').required = !!(tp.cliente || conRad) && !aProv;
     $('lgBIncluyeEnvio').hidden = k !== 'entrega' && k !== 'envio';
     $('lgTitInc').textContent = k === 'entrega' ? 'Esta entrega también incluye' : 'Este envío también incluye';
     // Proveedor: en vez del cliente va el proveedor; Trámite área: el cliente se llama contacto
-    $('lgBCli').hidden = (!!tp.recoleccion || !!tp.banco) && !conRad;
-    $('lgBProv').hidden = !tp.recoleccion;
+    $('lgBCli').hidden = aProv || ((!!tp.recoleccion || !!tp.banco) && !conRad);
+    $('lgBProv').hidden = !conProv;
     $('lgTxtCli').textContent = k === 'vuelta' ? 'Contacto' : 'Cliente';
     $('lgCliente').placeholder = k === 'vuelta' ? 'Busca el contacto' : 'Busca el cliente';
     $('lgBDocs').hidden = !tp.docs;
@@ -395,10 +404,10 @@ function logCampos() {
     const docsObl = (k === 'envio' || k === 'entrega') && !incluyeMarcado().length;
     $('lgReqDoc').innerHTML = docsObl ? REQ : '<small>(opcional)</small>';
     $('lgBRad').hidden = !conRad;
-    $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = !!tp.recoleccion;
+    $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = conProv;
     $('lgBVuelta').hidden = !tp.vuelta;
     $('lgBDirTel').hidden = !!tp.banco;
-    $('lgQuienDir').textContent = $('lgQuienTel').textContent = tp.recoleccion ? 'proveedor' : k === 'vuelta' ? 'contacto' : 'cliente';
+    $('lgQuienDir').textContent = $('lgQuienTel').textContent = conProv ? 'proveedor' : k === 'vuelta' ? 'contacto' : 'cliente';
     $('lgBBanco').hidden = !tp.banco; $('lgBanco').required = !!tp.banco;
     $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : 'Indicaciones <small>(opcional)</small>';
     $('lgDetalle').required = !!(tp.vuelta || tp.banco);
@@ -468,7 +477,7 @@ async function guardarLog(e, id) {
     if (radicacion.some(d => d.doc !== 'otros' ? !d.numero : !d.texto)) return toast('Escribe el número (o el documento) de lo que se radica');
     // El cliente de la Maestra se guarda con su nombre exacto; uno que no esté en la Maestra, con nombre propio
     const escrito = $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
-    const contacto = zonaC ? buscarMaestra(zonaC, escrito).n : escrito ? nombrePropio(escrito) : '';
+    const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : escrito ? nombrePropio(escrito) : '';
     const cl = datosClienteLog(contacto);
     const base = antes || { id: nuevoId(), clase: 'logistica', estado: 'pendiente', creado: new Date().toISOString(), creadoPor: sesion.id };
     // El mismo cliente (o proveedor) ya tiene parada ese día: se pregunta si de verdad se va dos veces
@@ -478,7 +487,7 @@ async function guardarLog(e, id) {
     const nuevo = {
         ...base, tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
-        proveedor: tp.recoleccion ? $('lgProv').value.trim() : '', materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
+        proveedor: tp.recoleccion || aProv ? $('lgProv').value.trim() : '', materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
         area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco ? '' : $('lgDir').value.trim(), telefono: tp.banco ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
