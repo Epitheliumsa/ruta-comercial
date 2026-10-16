@@ -262,19 +262,6 @@ function abrirLogForm(id) {
         <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).filter(([k]) => k !== 'radicacion').map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onclick="tipoClick(this)"><span>${esc(v.t)}</span></label>`).join('')}
             <label class="lg-chip lg-chip-rad"><input type="checkbox" id="lgRadChk"${r && conRadicacion(r) ? ' checked' : ''} onchange="logCampos()"><span>${esc(TIPOS_LOG.radicacion.t)}</span></label></div>
         <p class="ayuda">Escoge uno. La radicación de documentos puede ir sola o sumarse a cualquier otro.</p>
-        <div id="lgBIncluye">
-            <label>En esta entrega también se recoge <small>(opcional)</small></label>
-            <div class="lg-chips" id="lgIncluye">${Object.entries(INCLUYE_ENTREGA).map(([k, t]) => `<label class="lg-chip"><input type="checkbox" value="${k}"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>`).join('')}</div>
-        </div>
-        <div id="lgBIncluyeEnvio">
-            <label>Este envío también incluye <small>(opcional: marca y escribe el número del documento; puedes agregar varios)</small></label>
-            <div class="lg-pedidos">${Object.entries(INCLUYE_ENVIO).map(([k, t]) => {
-                const nums = (r?.incluyeDocs || []).filter(d => d.k === k).map(d => d.numero);
-                return `<div class="lg-pedido" data-k="${k}">
-                <label class="lg-pchk"><input type="checkbox"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>
-                <div class="lg-pcampos"><div class="lg-pgrupo">${(nums.length ? nums : ['']).map(v => `<div class="lg-pset"><label class="lg-pc"><span class="lg-pref">Nº</span><input data-f="numero" ${NUM6} value="${esc(v)}"></label><button type="button" class="lg-quitar" title="Quitar este documento" aria-label="Quitar este documento" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otro ${esc(t)}</button></div></div>
-            </div>`; }).join('')}</div>
-        </div>
         <label for="lgCliente">Cliente <small>(Maestra de clientes)</small> <span id="lgReqCli"></span></label>
         <input id="lgCliente" list="dlLogClientes" autocomplete="off" placeholder="Busca el cliente" value="${esc(r?.contacto || '')}" oninput="logInfoCliente()" onchange="logInfoCliente()"${r?.contacto ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
         ${r?.contacto ? '<p class="ayuda lg-bloq-nota">🔒 El cliente no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}
@@ -294,6 +281,19 @@ function abrirLogForm(id) {
                     return `<div class="lg-pgrupo">${(valores.length ? valores : ['']).map(v => `<div class="lg-pset"><label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" ${NUM6} value="${esc(v)}"></label><button type="button" class="lg-quitar" title="Quitar esta factura" aria-label="Quitar esta factura" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra factura ${t}</button></div>`;
                 }).join('')}</div>
             </div>`).join('')}</div>
+        </div>
+        <div id="lgBIncluye">
+            <label>En esta entrega también se recoge <small>(opcional)</small></label>
+            <div class="lg-chips" id="lgIncluye">${Object.entries(INCLUYE_ENTREGA).map(([k, t]) => `<label class="lg-chip"><input type="checkbox" value="${k}"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>`).join('')}</div>
+        </div>
+        <div id="lgBIncluyeEnvio">
+            <label>Este envío también incluye <small>(opcional: marca y escribe el número del documento; puedes agregar varios)</small></label>
+            <div class="lg-pedidos">${Object.entries(INCLUYE_ENVIO).map(([k, t]) => {
+                const nums = (r?.incluyeDocs || []).filter(d => d.k === k).map(d => d.numero);
+                return `<div class="lg-pedido" data-k="${k}">
+                <label class="lg-pchk"><input type="checkbox"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>
+                <div class="lg-pcampos"><div class="lg-pgrupo">${(nums.length ? nums : ['']).map(v => `<div class="lg-pset"><label class="lg-pc"><span class="lg-pref">Nº</span><input data-f="numero" ${NUM6} value="${esc(v)}"></label><button type="button" class="lg-quitar" title="Quitar este documento" aria-label="Quitar este documento" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otro ${esc(t)}</button></div></div>
+            </div>`; }).join('')}</div>
         </div>
         <div id="lgBRad">
             <label>Qué se radica ${REQ}</label>
