@@ -276,3 +276,4 @@
   (titular y acompañantes), también para quien solo ve su propia visita (usa la copia del reporte del acompañamiento). Los contadores cuentan la visita una vez.
 - Agenda, solo jefes: filtro de **Novedades** (Cita médica, Incapacidad, Permiso, Vacaciones) del equipo en el mes que se está viendo. Los botones llevan cuántas hay de cada tipo;
   al tocar uno la lista muestra todas las de ese tipo (quién, fechas, nota) y "Quitar filtro" vuelve al día. No sale para los comerciales (`agenda.novTipo`, `filtrarNovedades`).
+- Circular 2026-035 (Alcance a la 2026-033, canales 70 y 90: bonificado 10+2 y 6+2 con 1 unidad de alta rotación): se agregó a `datos/Circulares.xlsx` con la exclusión de Bella Piel de la 2026-033. PDF pendiente de cargar desde la app (jefes).
