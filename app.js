@@ -1552,7 +1552,7 @@ const DIMS_MAESTRA = {
     vis: { t: 'Visitas', todos: 'Visitados y no visitados', valor: c => c.prov ? '' : maestra.visitados.has(normalizar(c.n)) ? 'si' : 'no',
         nombre: v => (v === 'si' ? 'Visitado en ' : 'No visitado en ') + nombrePeriodo(maestra.periodo).replace(/^el /, ''), orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
     f: { t: 'Facturar', todos: 'Facturar: todos', valor: c => c.prov ? '' : c.f ? 'si' : 'no', nombre: v => v === 'si' ? 'Cliente para facturar' : 'No factura', orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
-    z: { t: 'Zona', todos: 'Todas las zonas', jefe: true, valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
+    z: { t: 'Zona', todos: 'Todas las zonas', jefe: true, manual: true, orden: (a, b) => (a === ZONA_PROV) - (b === ZONA_PROV) || a.localeCompare(b, 'es'), valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
 };
 const MAX_BARRAS = 8;
 // Color por tipo de etiqueta (se unifican en Cliente, Médico y Punto de Venta) y por si es cliente para facturar
@@ -1633,9 +1633,9 @@ function pintarMultis(caja, grupo, defs) {
     const tecleando = document.activeElement?.classList?.contains('mc-multi-busca');
     const antes = caja.querySelector('.mc-multi-ops');
     const scroll = antes ? antes.scrollTop : 0;
-    g.valores = {}; g.visibles = {};
+    g.valores = {}; g.visibles = {}; g.manual = {};
     caja.innerHTML = defs.map(d => {
-        g.valores[d.k] = d.valores;
+        g.valores[d.k] = d.valores; g.manual[d.k] = !!d.manual;
         const k = d.k, nombre = v => d.nombre ? d.nombre(v) : v;
         const ninguna = g.sel[k].includes(NINGUNA), elegidos = ninguna ? [] : g.sel[k], todas = !ninguna && !elegidos.length;
         const texto = ninguna ? 'Ninguna elegida' : todas ? d.todos : elegidos.length === 1 ? nombre(elegidos[0]) : `${d.t}: ${elegidos.length} elegidas`;
@@ -1652,7 +1652,7 @@ function pintarMultis(caja, grupo, defs) {
                 <div class="mc-multi-acc"><b>${esc(d.t)}</b><span>Elige una o varias</span></div>
                 <label class="mc-multi-todas"><input type="checkbox" ${(qo ? todosVis : todas) ? 'checked' : ''} onchange="todasMulti('${grupo}', '${k}')"><span>${qo ? `Todos los resultados (${vis.length})` : esc(d.todos)}</span></label>
                 <div class="mc-multi-ops">${vis.map(v => `<label class="${!d.cuenta || d.cuenta[v] ? '' : 'vacio'}">
-                    <input type="checkbox" data-v="${esc(v)}" ${(qo ? elegidos.includes(v) : todas || elegidos.includes(v)) ? 'checked' : ''} onchange="marcarMulti('${grupo}', '${k}', this.dataset.v)">
+                    <input type="checkbox" data-v="${esc(v)}" ${(qo || d.manual ? elegidos.includes(v) : todas || elegidos.includes(v)) ? 'checked' : ''} onchange="marcarMulti('${grupo}', '${k}', this.dataset.v)">
                     <span>${esc(nombre(v))}</span><small>${d.cuenta ? d.cuenta[v] || 0 : ''}</small></label>`).join('') || '<p>Sin opciones</p>'}</div>
             </div>`}
         </div>`;
@@ -1673,15 +1673,18 @@ function marcarMulti(grupo, k, v) {
     const g = MULTI[grupo], todos = g.valores?.[k] || [], buscando = !!normalizar(g.busca || '');
     const ninguna = g.sel[k].includes(NINGUNA), explicitos = ninguna ? [] : g.sel[k];
     // Buscando, o con todo desmarcado, se parte de lo elegido a mano: tocar una opción la deja como filtro
-    const s = buscando || ninguna ? explicitos : explicitos.length ? explicitos : todos;   // vacío = todas marcadas
+    // Filtro "manual" (zona): arranca sin casillas marcadas y solo filtra cuando se marca una, dos o tres
+    const manual = !!g.manual?.[k];
+    const s = buscando || ninguna || manual ? explicitos : explicitos.length ? explicitos : todos;   // vacío = todas marcadas
     let nuevo = s.includes(v) ? s.filter(x => x !== v) : [...s, v];
-    if (todos.length && todos.every(x => nuevo.includes(x))) nuevo = [];   // quedaron todas: sin filtro
-    else if (!nuevo.length) nuevo = buscando ? [] : [NINGUNA];
+    if (!manual && todos.length && todos.every(x => nuevo.includes(x))) nuevo = [];   // quedaron todas: sin filtro
+    else if (!nuevo.length) nuevo = buscando || manual ? [] : [NINGUNA];
     g.sel[k] = nuevo;
     g.repintar();
 }
 function todasMulti(grupo, k) {
     const g = MULTI[grupo], todos = g.valores?.[k] || [];
+    if (g.manual?.[k] && !normalizar(g.busca || '')) { g.sel[k] = []; return g.repintar(); }   // zona: "Todas" quita el filtro
     if (normalizar(g.busca || '')) {
         // Buscando: elige (o quita) todos los resultados de la búsqueda
         const vis = g.visibles?.[k] || [], explicitos = g.sel[k].includes(NINGUNA) ? [] : g.sel[k];
@@ -1748,7 +1751,7 @@ function pintarFiltrosMaestra(base) {
         const d = DIMS_MAESTRA[k], ejemplo = {}, cuenta = {};
         base.forEach(c => valsMaestra(k, c).forEach(v => { if (v && !ejemplo[v]) ejemplo[v] = c; }));
         filtrarMaestra(base, k).forEach(c => valsMaestra(k, c).forEach(v => { cuenta[v] = (cuenta[v] || 0) + 1; }));
-        return { k, t: d.t, todos: d.todos, cuenta, nombre: v => d.nombre ? d.nombre(v, ejemplo[v]) : v,
+        return { k, t: d.t, todos: d.todos, manual: !!d.manual, cuenta, nombre: v => d.nombre ? d.nombre(v, ejemplo[v]) : v,
             valores: Object.keys(ejemplo).sort(d.orden || ((a, b) => a.localeCompare(b, 'es'))),
             extra: k === 'vis' ? `<button type="button" class="mc-multi-mes" onclick="abrirPeriodoMaestra()">📅 ${esc(mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, '')))}</button>` : '' };
     }));

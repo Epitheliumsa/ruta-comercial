@@ -1932,7 +1932,8 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-g-ley i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 4px; }
 .lg-tipo.banco { background: #fef9c3; color: #854d0e; }
 #logScreen .fila-botones { flex-wrap: wrap; }
-.dir-mapa { color: inherit; font-weight: 700; text-decoration: underline; text-decoration-color: #3fa83a; text-underline-offset: 3px; }
+/* Dirección y teléfonos: subrayado fino y suave */
+.dir-mapa, .dir-cliente a { color: inherit; font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-decoration-color: rgba(47, 79, 71, .3); text-underline-offset: 4px; }
 .mapa-opciones { display: flex; flex-direction: column; gap: 8px; text-align: center; }
 .mapa-opciones h3 { margin: 0; }
 .mapa-opciones p { margin: 0 0 4px; font-size: 14px; color: #3f524d; }
