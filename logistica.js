@@ -77,6 +77,19 @@ const horaLog = iso => new Date(iso).toLocaleTimeString('es-CO', { timeZone: 'Am
 const chipEstadoLog = r => r.estado === 'entregado' ? `<span class="chip ok">${esc(okTxt(r))}</span>`
     : r.estado === 'no_entregado' ? `<span class="chip no">${esc(noTxt(r))}</span>` : r.fecha < hoy() ? '<span class="chip sin-rep">Sin reporte a tiempo</span>' : '<span class="chip p">Pendiente</span>';
 // Uno o varios teléfonos ("300… / 601…"), cada uno con su enlace para llamar
+// Dirección que se toca para abrirla en Google Maps o Waze (la ciudad ayuda a que caiga en el lugar correcto)
+const enlaceDir = (dir, ciudad = '') => dir ? `<a class="dir-mapa" href="#" data-d="${esc([dir, ciudad && !normalizar(dir).includes(normalizar(String(ciudad).split(/[ ,-]/)[0])) ? ciudad : ''].filter(Boolean).join(', '))}" onclick="abrirMapa(event, this.dataset.d)">${esc(dir)}</a>` : '';
+function abrirMapa(e, dir) {
+    e.preventDefault(); e.stopPropagation();
+    const q = encodeURIComponent(dir + ', Colombia'), d = $('dialogo');
+    d.className = 'dialogo visible';
+    d.innerHTML = `<div class="dialogo-caja mapa-opciones" role="dialog" aria-modal="true" aria-label="Abrir en el mapa">
+        <h3>📍 Abrir en…</h3><p>${esc(dir)}</p>
+        <a class="btn-primario" href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener" data-cerrar>Google Maps</a>
+        <a class="btn-primario" href="https://waze.com/ul?q=${q}&navigate=yes" target="_blank" rel="noopener" data-cerrar>Waze</a>
+        <button type="button" class="btn-secundario" data-cerrar>Cancelar</button></div>`;
+    d.onclick = ev => { if (ev.target.closest('[data-cerrar]') || ev.target === d) { d.className = 'dialogo'; d.innerHTML = ''; d.onclick = null; } };
+}
 const enlacesTel = t => String(t || '').split(/\s*[\/,;]\s*/).filter(Boolean).map(x => `<a href="tel:${esc(x.replace(/[^0-9+]/g, ''))}">${esc(x)}</a>`).join(' · ');
 const urlFoto = f => f.url || f.data || '';
 const miniFoto = f => f.id ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(f.id)}&sz=w400` : (f.data || '');
@@ -228,10 +241,10 @@ function tarjetaLog(r, n, total) {
         + (r.incluyeDocs || []).map(d => `<span class="lg-doc-chip">${esc(NOMBRE_INCLUYE[d.k] || d.k)} · <b>${esc(d.numero)}</b></span>`).join('')
         + (r.radicacion || []).map(d => `<span class="lg-doc-chip rad">${esc(textoRad(d))}</span>`).join('');
     const lineas = [
-        r.destino ? `<b>${r.tipo === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${esc(r.dirDestino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
+        r.destino ? `<b>${r.tipo === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${enlaceDir(r.dirDestino, r.destino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
         r.proveedor && (r.contacto || r.materiales?.length) ? `<b>Proveedor:</b> ${esc(r.proveedor)}` : '',
         r.materiales?.length ? `<b>Recoger:</b> ${esc(r.materiales.join(', '))}` : '',
-        r.direccion ? `<b>Dirección:</b> ${esc(r.direccion)}` : '',
+        r.direccion ? `<b>Dirección:</b> ${enlaceDir(r.direccion, r.ciudad)}` : '',
         r.telefono ? `<b>Teléfono:</b> ${enlacesTel(r.telefono)}` : '',
         r.detalle ? `<b>Indicaciones:</b> ${esc(r.detalle)}` : ''
     ].filter(Boolean).map(x => `<p class="nota-plan">${x}</p>`).join('');
@@ -541,7 +554,7 @@ function abrirLogReporte(id, ok) {
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
         <p class="sub">${esc(tituloLog(r))}${(r.documentos || []).length ? ' · ' + esc(r.documentos.map(textoDoc).join(' · ')) : ''}${(r.incluyeDocs || []).length ? ' · ' + esc(r.incluyeDocs.map(textoInc).join(' · ')) : ''}${(r.radicacion || []).length ? ' · ' + esc(r.radicacion.map(textoRad).join(' · ')) : ''}</p>
         ${ok ? `
-            ${tp.cliente ? `<div class="lg-dir-entrega">📍 <b>Dirección de entrega</b><br>${esc([ciudadCli, r.direccion].filter(Boolean).join(' · ') || 'Sin dirección registrada')}${r.telefono ? `<br>📞 ${enlacesTel(r.telefono)}` : ''}</div>
+            ${tp.cliente ? `<div class="lg-dir-entrega">📍 <b>Dirección de entrega</b><br>${esc(ciudadCli || '')}${ciudadCli && r.direccion ? ' · ' : ''}${r.direccion ? enlaceDir(r.direccion, ciudadCli) : ciudadCli ? '' : 'Sin dirección registrada'}${r.telefono ? `<br>📞 ${enlacesTel(r.telefono)}` : ''}</div>
             <label class="lg-chip lg-cambiar"><input type="checkbox" id="lgCambiarDir" onchange="cambiarDirLog()"><span>Cambiar la dirección de entrega</span></label>
             <div id="lgDestOtro" hidden>
                 <label for="lgDestino">Ciudad ${REQ}</label>
@@ -912,7 +925,7 @@ function verProveedor(nombre) {
     abrirModal(`<div class="form-rc ficha historial">
         <h2>${esc(p.n)}</h2>
         <p class="sub">${esc([p.e, [p.c, p.p && !normalizar(p.p).startsWith(normalizar(p.c)) ? p.p : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</p>
-        ${p.dir || tels ? `<p class="dir-cliente">${p.dir ? `📍 ${esc(p.dir)}` : ''}${p.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>` : ''}
+        ${p.dir || tels ? `<p class="dir-cliente">${p.dir ? `📍 ${enlaceDir(p.dir, p.c)}` : ''}${p.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>` : ''}
         <p class="clasif-cliente">Clasificación <b>Proveedor</b>${p.e ? ' · ' + esc(p.e) : ''}</p>
         <p class="grupo-titulo hist-sec l">🚚 Paradas · ${paradas.length}</p>
         ${paradas.map(r => `<div class="hist-item ${r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p'}">
@@ -928,7 +941,7 @@ function htmlDirectorioCliente(nombre) {
     const d = dirDe(nombre);
     if (!d || !(d.dir || d.tel)) return '';
     const tels = enlacesTel(d.tel);
-    return `<p class="dir-cliente">${d.dir ? `📍 ${esc(d.dir)}` : ''}${d.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>`;
+    return `<p class="dir-cliente">${d.dir ? `📍 ${enlaceDir(d.dir, d.c)}` : ''}${d.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>`;
 }
 
 // ---------- HISTORIAL DEL CLIENTE (Maestra) ----------
