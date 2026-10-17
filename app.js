@@ -4964,6 +4964,8 @@ const sinReporte = x => !x.interno && ((x.estado === 'no_visitado' && !!x.cierre
 const estadoVisitaTxt = x => x.interno ? ({ visitado: 'Realizado', no_visitado: 'No realizado' }[x.estado] || 'Pendiente')
     : x.estado === 'visitado' ? 'Visita Efectiva' : sinReporte(x) ? 'Sin reporte a tiempo' : x.estado === 'no_visitado' ? 'Visita No Efectiva' : 'Pendiente';
 function claseAnillo(x) {
+    // Todo lo que se programó y no se reportó a tiempo (también leads y ateneos) es "Sin reporte a tiempo"
+    if (sinReporte(x) && x.estado !== 'visitado') return 'sin';
     if (x.esProyecto && !x.interno) return x.estado === 'visitado' ? 'lead' : 'leadNo';   // los leads van por aparte
     if (esVisAteneo(x)) return x.estado === 'visitado' ? 'ateneo' : 'ateneoNo';   // los ateneos también
     if (x.estado === 'visitado') return 'ok';
@@ -5002,19 +5004,21 @@ function cuentaVisitas(todas) {
     const leads = todas.filter(v => !v.interno && v.esProyecto);
     const ateneos = todas.filter(esVisAteneo);
     const ok = lista.filter(v => v.estado === 'visitado').length;
-    const sin = lista.filter(sinReporte).length;                                       // programadas sin reporte a tiempo
+    const sinL = lista.filter(sinReporte).length;                                       // programadas sin reporte a tiempo (clientes)
+    const leadsSin = leads.filter(sinReporte).length, ateneosSin = ateneos.filter(sinReporte).length;   // leads y ateneos sin reporte: también van a "Sin reporte a tiempo"
+    const sin = sinL + leadsSin + ateneosSin;
     const no = lista.filter(v => v.estado === 'no_visitado').length - lista.filter(v => v.estado === 'no_visitado' && sinReporte(v)).length;   // reportadas como no efectivas
     const prog = lista.filter(esProgramada);
     const okProg = prog.filter(v => v.estado === 'visitado').length;
     return {
-        t: lista.length, ok, no, sin, p: lista.length - ok - no - sin,
+        t: lista.length, ok, no, sin, p: lista.length - ok - no - sinL,
         prog: prog.length, noProg: lista.length - prog.length, okProg,
         cumpl: prog.length ? okProg / prog.length : 0,
         virtual: lista.filter(v => v.modalidad === 'virtual').length,
         pedidos: lista.filter(v => v.pedido === 'si').length,
         // Leads (contactos nuevos): por aparte, como Lead visitado y Lead no visitado
-        leads: leads.length, leadsOk: leads.filter(v => v.estado === 'visitado').length, leadsNo: leads.filter(v => v.estado !== 'visitado').length,
-        ateneos: ateneos.length, ateneosOk: ateneos.filter(v => v.estado === 'visitado').length, ateneosNo: ateneos.filter(v => v.estado !== 'visitado').length,
+        leads: leads.length, leadsOk: leads.filter(v => v.estado === 'visitado').length, leadsNo: leads.filter(v => v.estado !== 'visitado' && !sinReporte(v)).length,
+        ateneos: ateneos.length, ateneosOk: ateneos.filter(v => v.estado === 'visitado').length, ateneosNo: ateneos.filter(v => v.estado !== 'visitado' && !sinReporte(v)).length,
         internos: todas.filter(v => v.interno).length
     };
 }
