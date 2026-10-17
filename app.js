@@ -5395,6 +5395,7 @@ function pintarPanel() {
     $('panTabs').innerHTML = Object.entries(PERIODOS_MAESTRA).map(([k, n]) => `<button type="button" class="${k === periodoPanel.t ? 'activo' : ''}" onclick="elegirTipoPeriodoPanel('${k}')">${n}</button>`).join('');
     $('panMesTxt').textContent = mayuscula(nombrePeriodo(periodoPanel).replace(/^el /, ''));
     $('panMesSub').textContent = API_URL ? 'Datos de todo el equipo · toca para elegir' : 'Solo los datos guardados en este dispositivo · toca para elegir';
+    $('panPorVendP').textContent = PERIODOS_MAESTRA[periodoPanel.t].toLowerCase();
     $('panGrafTit').textContent = periodoPanel.t === 'dia' ? 'Visitas del día' : ['mes'].includes(periodoPanel.t) ? 'Visitas por día' : 'Visitas por mes';
     const vis = visibles().filter(r => r.clase === 'visita' && enPeriodoPanel(r.fecha)).filter(pasaFiltro);
     const acts = mesesDePeriodo(periodoPanel).flatMap(m => actividadesMes(m, filtroPanel.vendedor));
@@ -5423,7 +5424,7 @@ function pintarPanel() {
     const vendedores = COMERCIALES.filter(v => !filtroPanel.vendedor || v.id === filtroPanel.vendedor);
 
     // Indicador del día: lo programado antes de las 8:00 a. m. frente a lo que se agregó después
-    const t = hoy();
+    const t = periodoPanel.t === 'dia' ? periodoPanel.v : hoy();   // con el filtro de día, el indicador es de ese día
     const deHoy = visibles().filter(x => x.clase === 'visita' && x.fecha === t).filter(pasaFiltro);
     $('panHoyTxt').textContent = mayuscula(fechaLarga(t)) + (nombreFestivo(t) ? ` · Festivo: ${nombreFestivo(t)}` : '');
     $('panHoy').innerHTML = `<thead><tr><th>Vendedor</th><th class="n">Prog.</th><th class="n">No prog.</th><th class="n">V. efect.</th><th class="n">V. no efect.</th><th class="n">Sin rep.</th><th class="n">Pend.</th><th class="n">Lead visit.</th><th class="n">Lead no visit.</th><th class="n">Trab. interno</th></tr></thead><tbody>`
@@ -5448,7 +5449,7 @@ function pintarPanel() {
     const orden = Object.entries(motivos).sort((a, b) => b[1] - a[1]);
     $('panMotivos').innerHTML = orden.length
         ? orden.map(([m, n]) => `<div class="motivo"><span>${esc(m)}</span><b>${n}</b></div>`).join('')
-        : '<p class="no-results" style="padding:10px">Sin visitas fallidas este mes.</p>';
+        : '<p class="no-results" style="padding:10px">Sin visitas fallidas en este ' + PERIODOS_MAESTRA[periodoPanel.t].toLowerCase() + '.</p>';
 
     // Detalle de cada visita (más recientes primero)
     const det = vis
