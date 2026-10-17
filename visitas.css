@@ -1943,3 +1943,6 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .aviso-rep.ok { color: #166534; }
 .visita-card.resaltada { animation: resaltarVisita 1.2s ease-in-out 3; }
 @keyframes resaltarVisita { 0%, 100% { box-shadow: 0 0 0 0 rgba(217, 130, 43, 0); } 50% { box-shadow: 0 0 0 5px rgba(217, 130, 43, .55); } }
+.aviso-aprob { top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); background: #9a3412; }
+.aviso-aprob span { white-space: pre-line; display: block; margin-top: 2px; }
+.aviso-aprob button { color: #9a3412; }
