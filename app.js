@@ -4840,8 +4840,21 @@ function ventasSuma(vs, mes, hasta) {
 // Sigue el filtro de vendedor. Los comerciales ven solo lo suyo (el panel es de jefes: ven todo el equipo).
 function ventasPanel() {
     const vs = filtroPanel.vendedor ? [filtroPanel.vendedor] : COMERCIALES.map(c => c.id);
-    const meses = mesesDePeriodo(periodoPanel), hasta = periodoPanel.t === 'dia' ? periodoPanel.v : undefined;
-    const porVend = {}; let dia = '';
+    const meses = mesesDePeriodo(periodoPanel), porDia = periodoPanel.t === 'dia', hasta = porDia ? periodoPanel.v : undefined;
+    const porVend = {}; let dia = '', previo = '';
+    // Día: los cortes son acumulados del mes, así que lo vendido en el día es el corte de ese día menos el corte anterior.
+    // La cuota del día es la cuota del mes entre los días hábiles (solo los días hábiles tienen cuota).
+    if (porDia) {
+        const m = meses[0], dias = diasHabilesMes(m).length, cuotaDia = esHabil(periodoPanel.v) && dias ? 1 / dias : 0;
+        vs.forEach(v => {
+            const hoyR = ventasDe(v, m, periodoPanel.v); if (!hoyR || diaCorte(hoyR) !== periodoPanel.v) return;   // sin corte de ese día
+            const antes = ventasDe(v, m, sumarDias(periodoPanel.v, -1));
+            const o = porVend[v] = { cuota: 0, venta: 0 };
+            Object.entries(hoyR.lineas).forEach(([l, x]) => { o.cuota += (x.cuota || 0) * cuotaDia; o.venta += (x.venta || 0) - (antes?.lineas?.[l]?.venta || 0); });
+            if (esJefe()) o.venta += (hoyR.extra?.venta || 0) - (antes?.extra?.venta || 0);
+            dia = periodoPanel.v; if (antes && (!previo || diaCorte(antes) < previo)) previo = diaCorte(antes);
+        });
+    } else
     meses.forEach(m => vs.forEach(v => {
         const r = ventasDe(v, m, hasta); if (!r) return;
         const o = porVend[v] = porVend[v] || { cuota: 0, venta: 0 };
@@ -4851,7 +4864,7 @@ function ventasPanel() {
     }));
     const filas = vs.filter(v => porVend[v]).map(v => ({ v, ...porVend[v] }));
     if (!filas.length) return null;
-    return { filas, cuota: filas.reduce((a, f) => a + f.cuota, 0), venta: filas.reduce((a, f) => a + f.venta, 0), dia, unMes: meses.length === 1 ? meses[0] : '' };
+    return { filas, cuota: filas.reduce((a, f) => a + f.cuota, 0), venta: filas.reduce((a, f) => a + f.venta, 0), dia, previo, porDia, unMes: meses.length === 1 && !porDia ? meses[0] : '' };
 }
 function pintarVentasPanel() {
     const s = ventasPanel(), cont = $('panVentas');
@@ -4859,13 +4872,13 @@ function pintarVentasPanel() {
     const cumple = s.cuota ? s.venta / s.cuota : 0, falta = Math.max(0, s.cuota - s.venta);
     // El semáforo y el ritmo solo tienen sentido dentro de un mes; en varios meses se muestra el cumplimiento a secas
     const { esperado, quedan } = s.unMes ? ritmoVentas(s.unMes, s.dia) : { esperado: 0, quedan: 0 };
-    const tono = s.unMes ? tonoVentas(cumple, esperado, s.cuota) : '';
-    const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${cifra(c)}</td><td>${cifra(v)}</td><td>${c ? `<span class="vm-sem ${s.unMes ? tonoVentas(v / c, esperado, c) : ''}">${pctTxt(v / c)}</span>` : '—'}</td></tr>`;
+    const tono = s.unMes ? tonoVentas(cumple, esperado, s.cuota) : s.porDia ? tonoVentas(cumple, 1, s.cuota) : '';
+    const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${cifra(c)}</td><td>${cifra(v)}</td><td>${c ? `<span class="vm-sem ${s.unMes ? tonoVentas(v / c, esperado, c) : s.porDia ? tonoVentas(v / c, 1, c) : ''}">${pctTxt(v / c)}</span>` : '—'}</td></tr>`;
     cont.innerHTML = `<div class="panel-bloque panel-ventas">
         <h2>Cuota y ventas</h2>
-        <p class="g-sub">${esc(mayuscula(nombrePeriodo(periodoPanel).replace(/^el /, '')))} · corte del ${esc(fechaCorta(s.dia))}</p>
+        <p class="g-sub">${esc(mayuscula(nombrePeriodo(periodoPanel).replace(/^el /, '')))} · ${s.porDia ? `vendido el ${esc(fechaCorta(s.dia))}${s.previo ? ` (corte del ${esc(fechaCorta(s.dia))} menos el del ${esc(fechaCorta(s.previo))})` : ''}` : `corte del ${esc(fechaCorta(s.dia))}`}</p>
         <div class="ventas-mes viva ${tono}">
-            <div class="vm-izq"><small>Cumplimiento de la cuota</small><strong class="vm-pct">${pctTxt(cumple)}</strong></div>
+            <div class="vm-izq"><small>${s.porDia ? 'Cumplimiento de la cuota del día' : 'Cumplimiento de la cuota'}</small><strong class="vm-pct">${pctTxt(cumple)}</strong></div>
             <div class="vm-der">
                 <div class="vm-cifras"><b>${cifra(s.venta)}</b><span>de ${cifra(s.cuota)}</span></div>
                 <div class="vm-barra"><i style="width:${Math.min(100, cumple * 100).toFixed(1)}%"></i>${s.unMes ? `<em style="left:${Math.min(100, esperado * 100).toFixed(1)}%"><u>Ritmo ${pctTxt(esperado)}</u></em>` : ''}</div>
