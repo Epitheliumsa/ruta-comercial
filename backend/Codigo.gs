@@ -274,9 +274,9 @@ function guardarDirectorio_(usuario, filas) {
 }
 
 // ---------- MAESTRA DE PROVEEDORES: solo para Logística ----------
-// Hoja "Proveedores" (Nombre, Ciudad, Provincia, Etiquetas). La ven Logística y el administrador; solo el administrador la reemplaza.
+// Hoja "Proveedores" (Nombre, Ciudad, Provincia, Etiquetas, Dirección, Teléfono). La ven Logística y el administrador; solo el administrador la reemplaza.
 const HOJA_PROV = 'Proveedores';
-const COLUMNAS_PROV = ['Nombre', 'Ciudad', 'Provincia', 'Etiquetas'];
+const COLUMNAS_PROV = ['Nombre', 'Ciudad', 'Provincia', 'Etiquetas', 'Dirección', 'Teléfono'];
 function proveedores_(usuario) {
   if (usuario.area !== 'logistica' && !usuario.admin) throw new Error('Sin permiso para ver los proveedores');
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_PROV);

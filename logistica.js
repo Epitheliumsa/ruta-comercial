@@ -311,7 +311,7 @@ function abrirLogForm(id) {
         </div>
         <div id="lgBProv">
             <label for="lgProv">Proveedor ${REQ}</label>
-            <input id="lgProv" list="dlLogProv" autocomplete="off" placeholder="Busca proveedor" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
+            <input id="lgProv" list="dlLogProv" autocomplete="off" placeholder="Busca proveedor" oninput="logInfoProv()" onchange="logInfoProv()" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
             ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}<datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
         </div>
         <div id="lgBDirTel"><label for="lgDir">Dirección <small>(sale sola con el <span id="lgQuienDir">cliente</span>; puedes cambiarla)</small></label>
@@ -424,6 +424,12 @@ function logCampos() {
         if (on && grupos.length === 1) { const i = grupos[0].querySelector('input'); if (i) i.required = true; }
         grupos.forEach(refrescarSetsLog);
     });
+}
+// Dirección y teléfono del proveedor, de la maestra (si los trae); no pisa lo que escribe logística
+function logInfoProv() {
+    const p = proveedoresMaestra.filas[normalizar($('lgProv')?.value || '')];
+    if (!p) return;
+    [['lgDir', p.dir], ['lgTel', p.tel]].forEach(([id, v]) => { const c = $(id); if (v && c && (!c.value || c.dataset.auto === '1')) { c.value = v; c.dataset.auto = '1'; } });
 }
 // A quién le llega la entrega (el vendedor de la zona del cliente) y los datos del cliente en la Maestra
 function datosClienteLog(nombre) {
@@ -829,7 +835,7 @@ const veProveedores = () => !!sesion && (esLogistica() || esAdmin());
 let proveedoresMaestra = (() => { try { return JSON.parse(localStorage.getItem(PROV_LOCAL)) || { filas: {} }; } catch (e) { return { filas: {} }; } })();
 function ponerProveedores(filas, actualizado) {
     const m = {};
-    filas.forEach(([n, c, p, e]) => { if (n) m[normalizar(n)] = { n, c, p, e }; });
+    filas.forEach(([n, c, p, e, dir, tel]) => { if (n) m[normalizar(n)] = { n, c, p, e, dir: dir || '', tel: tel || '' }; });
     proveedoresMaestra = { filas: m, actualizado: actualizado || '', traido: Date.now() };
     try { localStorage.setItem(PROV_LOCAL, JSON.stringify(proveedoresMaestra)); } catch (e) { /* sin espacio: queda en memoria */ }
 }
@@ -845,7 +851,7 @@ async function cargarProveedores(forzar = false) {
     catch (e) { console.warn('No se pudo traer la maestra de proveedores:', e); }
     finally { trayendoProv = false; }
 }
-// El administrador sube la Maestra de proveedores (Nombre, Nombre Público, Provincia, Ciudad, Comercial, Etiquetas)
+// El administrador sube la Maestra de proveedores (Nombre, Nombre Público, Provincia, Ciudad, Comercial, Etiquetas; con Calle, Teléfono y Móvil si los tiene)
 function subirProveedores() {
     if (!esAdmin()) return;
     const inp = document.createElement('input');
@@ -867,11 +873,12 @@ function subirProveedores() {
                 const n = val(fila, colN);
                 if (i === 1 || !n || vistos.has(normalizar(n))) return;
                 vistos.add(normalizar(n));
-                filas.push([n, val(fila, 'Ciudad'), val(fila, 'Provincia').replace(/\s*\(CO\)$/, ''), val(fila, 'Etiquetas')]);
+                filas.push([n, val(fila, 'Ciudad'), val(fila, 'Provincia').replace(/\s*\(CO\)$/, ''), val(fila, 'Etiquetas'),
+                    val(fila, 'Calle'), [...new Set([val(fila, 'Móvil'), val(fila, 'Teléfono')].filter(Boolean))].join(' / ')]);
             });
             if (!filas.length) return toast('La maestra de proveedores está vacía');
             if (!await dialogo({ titulo: 'Maestra de proveedores', aceptar: 'Subir',
-                texto: `${filas.length} proveedores. Reemplaza la maestra anterior. Solo la ven Logística y tú; no queda en la app publicada.` })) return;
+                texto: `${filas.length} proveedores: ${filas.filter(f => f[4]).length} con dirección y ${filas.filter(f => f[5]).length} con teléfono. Reemplaza la maestra anterior. Solo la ven Logística y tú; no queda en la app publicada.` })) return;
             let cuando = new Date().toISOString();
             if (API_URL) cuando = (await llamarApi({ accion: 'guardarProveedores', filas }, 90000)).actualizado || cuando;
             ponerProveedores(filas, cuando);
@@ -881,6 +888,26 @@ function subirProveedores() {
         }
     };
     inp.click();
+}
+
+// Ficha del proveedor (desde el Maestro): datos básicos, dirección y teléfono si la maestra los trae, y sus paradas de Logística
+function verProveedor(nombre) {
+    const p = proveedoresMaestra.filas[normalizar(nombre)];
+    if (!p) return;
+    const paradas = logVisibles().filter(r => r.proveedor && normalizar(r.proveedor) === normalizar(nombre)).sort((a, b) => b.fecha.localeCompare(a.fecha));
+    const tels = enlacesTel(p.tel);
+    abrirModal(`<div class="form-rc ficha historial">
+        <h2>${esc(p.n)}</h2>
+        <p class="sub">${esc([p.e, [p.c, p.p && !normalizar(p.p).startsWith(normalizar(p.c)) ? p.p : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</p>
+        ${p.dir || tels ? `<p class="dir-cliente">${p.dir ? `📍 ${esc(p.dir)}` : ''}${p.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>` : ''}
+        <p class="clasif-cliente">Clasificación <b>Proveedor</b>${p.e ? ' · ' + esc(p.e) : ''}</p>
+        <p class="grupo-titulo hist-sec l">🚚 Paradas · ${paradas.length}</p>
+        ${paradas.map(r => `<div class="hist-item ${r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p'}">
+            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b>${chipEstadoLog(r)}</div>
+            <p class="meta"><span class="hist-tag l">${esc(TIPOS_LOG[r.tipo]?.corto || '')}</span>${esc([nombreVendedor(r.vendedor), (r.materiales || []).join(', ')].filter(Boolean).join(' · '))}</p>
+        </div>`).join('') || '<div class="no-results">Todavía no hay paradas con este proveedor.</div>'}
+        <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
+    </div>`);
 }
 
 // Dirección y teléfono en la tarjeta del cliente (Maestra)

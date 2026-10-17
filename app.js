@@ -1797,7 +1797,7 @@ function pintarMaestra() {
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[claseContacto(c)];
-        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead || c.prov ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)}${c.prov ? '' : ' · ' + (c.f ? 'Cliente para facturar' : 'No factura')}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}"${c.prov ? '' : ' onclick="verCliente(this.dataset.c, this.dataset.v)"'}>
+        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead || c.prov ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)}${c.prov ? '' : ' · ' + (c.f ? 'Cliente para facturar' : 'No factura')}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="${c.prov ? 'verProveedor(this.dataset.c)' : 'verCliente(this.dataset.c, this.dataset.v)'}">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, esLogistica() && !c.prov && c.z ? c.z + (v ? ' · ' + v.nombre : '') : '', [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
                 <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead || c.prov ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
                 ${esLogistica() || c.prov ? '' : (() => { const a = maestra.enPeriodo[normalizar(c.n)];

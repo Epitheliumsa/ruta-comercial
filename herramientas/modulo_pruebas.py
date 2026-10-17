@@ -111,7 +111,7 @@ if len(sys.argv) > 2:
         for f in fx[1:]:
             n = g(f, 'Nombre Público') or g(f, 'Nombre')
             if n:
-                provs.setdefault(norm(n), {'n': n, 'c': g(f, 'Ciudad'), 'p': re.sub(r'\s*\(CO\)$', '', g(f, 'Provincia')), 'e': g(f, 'Etiquetas')})
+                provs.setdefault(norm(n), {'n': n, 'c': g(f, 'Ciudad'), 'p': re.sub(r'\s*\(CO\)$', '', g(f, 'Provincia')), 'e': g(f, 'Etiquetas'), 'dir': g(f, 'Calle'), 'tel': ' / '.join(dict.fromkeys(t for t in (g(f, 'Móvil'), g(f, 'Teléfono')) if t))})
         with open(SALIDA / 'semilla.js', 'a', encoding='utf-8') as js:
             js.write("try { localStorage.setItem('rc_proveedores', JSON.stringify(" + json.dumps(
                 {'filas': provs, 'actualizado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'traido': 0}, ensure_ascii=False) + ")); } catch (e) {}\n")
