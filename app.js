@@ -615,6 +615,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         subirFotosPend();
         cargarDirectorio();
         cargarProveedores();
+        cargarBases();
     } catch (e) {
         console.warn('No se pudo sincronizar:', e);
         errorSync = navigator.onLine ? (e.message || 'Error de conexión') : 'Sin internet';
@@ -646,7 +647,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarLocal();
     try {
         const resp = await fetch('contactos.json', { cache: 'no-cache' });
-        contactos = await resp.json();
+        contactos = baseLocal('contactos', await resp.json());   // lo que subió el administrador reemplaza lo publicado
         localStorage.setItem('rc_contactos', JSON.stringify(contactos));
     } catch (e) {
         contactos = JSON.parse(localStorage.getItem('rc_contactos') || '{}');
@@ -704,6 +705,7 @@ function entrarApp() {
     document.body.classList.toggle('es-logistica', esLogistica());
     $('btnPanel').style.display = esJefe() ? '' : 'none';
     $('maestraTxt').textContent = veTodasZonas() ? (veProveedores() ? 'Clientes, médicos y proveedores' : 'Clientes y médicos por zona y vendedor') : 'Clientes y médicos de tu zona';
+    $('btnBases').style.display = esAdmin() ? '' : 'none';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
     // Comerciales: en el título de cada pantalla, debajo, su nombre
     document.querySelectorAll('.header-logo h1').forEach(h => {
@@ -753,6 +755,7 @@ function repintarPantallaActiva() {
     if (p === 'visiplanScreen') pintarVisiplan();
     if (p === 'maestraScreen') pintarMaestra();
     if (p === 'logScreen') pintarLog();
+    if (p === 'basesScreen') pintarBases();
 }
 
 // Al salir de una pantalla se borran sus filtros: al volver se ve todo

@@ -92,6 +92,10 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 6h17l9 9v27H12z"/><path d="M29 6v9h9"/><path d="M25 21v13M19.5 28.5L25 34l5.5-5.5"/></svg>
                     <span class="home-btn-text"><strong>Descargar informe <span class="en-pruebas">- en pruebas</span></strong><small>Excel con visitas y actividades del mes</small></span>
                 </button>
+                <button class="home-btn home-btn-bases" id="btnBases" onclick="abrirBases()" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="12" rx="14" ry="6"/><path d="M10 12v12c0 3.3 6.3 6 14 6s14-2.7 14-6V12"/><path d="M10 24v12c0 3.3 6.3 6 14 6s14-2.7 14-6V24"/></svg>
+                    <span class="home-btn-text"><strong>Bases de datos</strong><small>Sube las maestras: contactos, productos, direcciones y proveedores</small></span>
+                </button>
                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
                 <p class="version-app">Versión 16/10/2026 20:35</p>
@@ -156,8 +160,6 @@
                     <input type="date" id="logFechaPick" onchange="logElegir(this.value)" aria-label="Elegir fecha">
                     <input type="search" id="logBuscar" class="ag-buscar-in" placeholder="Buscar cliente o número de factura..." aria-label="Buscar" oninput="logi.busca=this.value; pintarLog()">
                     <button class="btn-nuevo" id="logDescargar" onclick="abrirLogInforme()" hidden>⬇ Excel</button>
-                    <button class="btn-nuevo" id="logDirectorio" onclick="subirDirectorio()" hidden title="Direcciones y teléfonos de los clientes (Maestra de Odoo)">📇 Direcciones</button>
-                    <button class="btn-nuevo" id="logProveedores" onclick="subirProveedores()" hidden title="Maestra de proveedores (solo para Logística)">🏭 Proveedores</button>
                     <button class="btn-nuevo active btn-programar" id="logProgramar" onclick="abrirLogForm()">+ Programar</button>
                 </div>
             </div>
@@ -261,6 +263,21 @@
         </div>
 
         <!-- MAESTRA CLIENTES -->
+        <div id="basesScreen" class="screen app-screen tema-teal">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Bases de datos</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+            <div class="bases-cuerpo">
+                <p class="ayuda">Aquí subes las maestras. Al subirlas reemplazan a las anteriores y todos los usuarios las ven al actualizar la app. Esta pantalla es solo tuya.</p>
+                <div id="basesLista"></div>
+                <p class="ayuda">Portafolios por cliente, circulares y matrices de objetivos siguen actualizándose desde el repositorio: necesitan el Vademécum.</p>
+            </div>
+        </div>
+
         <div id="maestraScreen" class="screen app-screen tema-teal">
             <div class="header">
                 <div class="header-logo">
@@ -386,5 +403,6 @@
     <script src="portafolios.js?v=202610162035"></script>
     <script src="app.js?v=202610162035"></script>
     <script src="logistica.js?v=202610162035"></script>
+    <script src="bases.js?v=202610162035"></script>
 </body>
 </html>

@@ -126,8 +126,6 @@ function pintarLog() {
     $('logProgramar').hidden = lectura;
     $('logProgramar').disabled = false; $('logProgramar').title = '';   // Logística programa desde hoy, a cualquier hora
     $('logDescargar').hidden = !(esCoordLog() || esAdmin() || esJefe());
-    $('logDirectorio').hidden = !esAdmin();
-    $('logProveedores').hidden = !esAdmin();
     const todos = logVisibles();
     // Chips de mensajero (coordinador, administrador y jefes)
     const verMens = esCoordLog() || esJefe();

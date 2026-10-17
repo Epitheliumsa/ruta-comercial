@@ -40,6 +40,10 @@ function doPost(e) {
     if (pedido.accion === 'guardarDirectorio') return responder_(Object.assign({ ok: true }, guardarDirectorio_(usuario, pedido.filas)));
     if (pedido.accion === 'proveedores') return responder_(Object.assign({ ok: true }, proveedores_(usuario)));
     if (pedido.accion === 'guardarProveedores') return responder_(Object.assign({ ok: true }, guardarProveedores_(usuario, pedido.filas)));
+    if (pedido.accion === 'estadoBases') return responder_(Object.assign({ ok: true }, estadoBases_(usuario)));
+    if (pedido.accion === 'versionesBases') return responder_({ ok: true, versiones: versionesBases_(usuario) });
+    if (pedido.accion === 'leerBase') return responder_(Object.assign({ ok: true }, leerBase_(usuario, pedido.nombre)));
+    if (pedido.accion === 'guardarBase') return responder_(Object.assign({ ok: true }, guardarBase_(usuario, pedido.nombre, pedido.contenido, pedido.resumen)));
     if (pedido.accion === 'firmarFormato') return responder_(Object.assign({ ok: true }, firmarFormato_(usuario, pedido)));
     return responder_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
@@ -298,6 +302,62 @@ function guardarProveedores_(usuario, filas) {
   const cuando = new Date().toISOString();
   h.getRange(1, COLUMNAS_PROV.length + 1).setNumberFormat('@').setValue(cuando);
   return { guardados: datos.length, actualizado: cuando };
+}
+
+// ---------- BASES DE DATOS: lo que sube el administrador desde la pantalla "Bases de datos" ----------
+// "contactos" (la Maestra de Contactos por zona) y "catalogo" (productos): los ven todos los usuarios y reemplazan lo que
+// viene en la app publicada. Se guardan como texto JSON en la hoja "Bases", en partes (una celda aguanta unos 50.000 caracteres).
+// Direcciones (hoja "Directorio") y Proveedores (hoja "Proveedores") siguen con sus propias hojas y permisos.
+const HOJA_BASES = 'Bases';
+const COLUMNAS_BASES = ['Nombre', 'Parte', 'Contenido', 'Actualizado', 'Resumen'];
+const BASES_VALIDAS = ['contactos', 'catalogo'];
+const PARTE_BASES = 40000;
+function filasBases_() {
+  const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_BASES);
+  return h ? h.getDataRange().getValues().slice(1).filter(f => f[0]) : [];
+}
+function versionesBases_(usuario) {
+  const v = {};
+  filasBases_().forEach(f => { if (Number(f[1]) === 0) v[f[0]] = String(f[3]); });
+  return v;
+}
+function leerBase_(usuario, nombre) {
+  if (BASES_VALIDAS.indexOf(nombre) < 0) throw new Error('Base desconocida');
+  const partes = filasBases_().filter(f => f[0] === nombre).sort((a, b) => Number(a[1]) - Number(b[1]));
+  if (!partes.length) return { contenido: '', actualizado: '' };
+  return { contenido: partes.map(f => String(f[2])).join(''), actualizado: String(partes[0][3]) };
+}
+function guardarBase_(usuario, nombre, contenido, resumen) {
+  if (!usuario.admin) throw new Error('Solo el administrador sube las bases de datos');
+  if (BASES_VALIDAS.indexOf(nombre) < 0) throw new Error('Base desconocida');
+  if (typeof contenido !== 'string' || contenido.length < 10) throw new Error('La base llegó vacía');
+  JSON.parse(contenido);   // que sea un JSON válido
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const h = libro.getSheetByName(HOJA_BASES) || libro.insertSheet(HOJA_BASES);
+  if (h.getLastRow() < 1) { h.getRange(1, 1, 1, COLUMNAS_BASES.length).setValues([COLUMNAS_BASES]).setFontWeight('bold'); h.setFrozenRows(1); }
+  const cuando = new Date().toISOString();
+  const otras = h.getDataRange().getValues().slice(1).filter(f => f[0] && f[0] !== nombre);
+  const nuevas = [];
+  for (let i = 0, p = 0; i < contenido.length; i += PARTE_BASES, p++) nuevas.push([nombre, p, contenido.substr(i, PARTE_BASES), cuando, p === 0 ? String(resumen || '').slice(0, 300) : '']);
+  const todo = otras.concat(nuevas);
+  if (h.getMaxRows() < todo.length + 1) h.insertRowsAfter(h.getMaxRows(), todo.length + 1 - h.getMaxRows());
+  h.getRange(2, 1, h.getMaxRows() - 1, COLUMNAS_BASES.length).clearContent();
+  h.getRange(2, 1, todo.length, COLUMNAS_BASES.length).setNumberFormat('@').setValues(todo);
+  return { actualizado: cuando, partes: nuevas.length };
+}
+// Lo que muestra la pantalla "Bases de datos": cuándo se subió cada cosa y cuántos registros trae
+function estadoBases_(usuario) {
+  if (!usuario.admin) throw new Error('Solo el administrador ve las bases de datos');
+  const libro = SpreadsheetApp.getActiveSpreadsheet(), estado = {};
+  const hoja = (nombre, col) => {
+    const h = libro.getSheetByName(nombre);
+    if (!h || h.getLastRow() < 2) return { n: 0, actualizado: '' };
+    return { n: h.getLastRow() - 1, actualizado: String(h.getRange(1, col).getValue() || '') };
+  };
+  estado.directorio = hoja(HOJA_DIR, COLUMNAS_DIR.length + 1);
+  estado.proveedores = hoja(HOJA_PROV, COLUMNAS_PROV.length + 1);
+  filasBases_().forEach(f => { if (Number(f[1]) === 0) estado[f[0]] = { actualizado: String(f[3]), resumen: String(f[4]) }; });
+  return { estado: estado };
 }
 
 function probarDrive() {
