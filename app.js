@@ -1583,7 +1583,7 @@ function claseContacto(c) {
     return r.lead ? 'lead' : r.prov ? 'prov' : r.medico && r.cliente ? 'ambos' : r.medico ? 'medico' : r.pv ? 'pv' : 'cliente';
 }
 const esEmpleado = c => String(c.cl || '') === '80';
-// Contactos sin ningún rol (ni médico, ni cliente facturable, ni punto de venta; p. ej. un accionista liquidado que no factura) no salen en el Maestro Medico-Cliente
+// Contactos sin ningún rol (ni médico, ni cliente facturable, ni punto de venta; p. ej. un accionista liquidado que no factura) no salen en el Maestro Contactos
 const sinRolContacto = c => { const r = rolesContacto(c); return !c.lead && !c.prov && !r.medico && !r.cliente && !r.pv; };
 const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('lead') ? 'lead' : n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
 // Proveedores (maestra privada de Logística): una "zona" más, que solo ven Logística y el administrador
