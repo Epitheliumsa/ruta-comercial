@@ -880,6 +880,13 @@ function subirProveedores() {
             // Odoo trae un proveedor dos veces: "Empresa" y "Empresa, Persona" (mismo NIT). Se deja el que tiene el nombre y la razón social
             const dobles = new Set(filas.filter(f => f[0].includes(', ')).map(f => normalizar(f[0].split(', ')[0]))
                 .filter(base => vistos.has(base) && filas.some(f => normalizar(f[0]).startsWith(base + ', ') && (!nits[base] || nits[normalizar(f[0])] === nits[base]))));
+            // Del que se quita se rescata la dirección si es más completa (y el teléfono si al otro le falta)
+            filas.filter(f => f[0].includes(', ')).forEach(f => {
+                const o = filas.find(x => dobles.has(normalizar(x[0])) && normalizar(f[0]).startsWith(normalizar(x[0]) + ', '));
+                if (!o) return;
+                if (o[4].length > f[4].length) f[4] = o[4];
+                if (!f[5]) f[5] = o[5];
+            });
             const sinDobles = filas.filter(f => !dobles.has(normalizar(f[0])));
             filas.length = 0; filas.push(...sinDobles);
             if (!filas.length) return toast('La maestra de proveedores está vacía');

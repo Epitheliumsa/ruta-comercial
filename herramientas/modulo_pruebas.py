@@ -115,6 +115,10 @@ if len(sys.argv) > 2:
         # Odoo trae un proveedor dos veces ("Empresa" y "Empresa, Persona", mismo NIT): se deja el que tiene nombre y razón social
         nit = {norm(g(f, 'Nombre Público') or g(f, 'Nombre')): g(f, 'Número de Identificación') for f in fx[1:]}
         for k in [k for k in provs if any(o.startswith(k + ', ') and (not nit.get(k) or nit.get(o) == nit.get(k)) for o in provs)]:
+            for o, v in provs.items():   # se rescata la dirección más completa (y el teléfono si falta)
+                if o.startswith(k + ', ') and (not nit.get(k) or nit.get(o) == nit.get(k)):
+                    if len(provs[k]['dir']) > len(v['dir']): v['dir'] = provs[k]['dir']
+                    if not v['tel']: v['tel'] = provs[k]['tel']
             del provs[k]
         with open(SALIDA / 'semilla.js', 'a', encoding='utf-8') as js:
             js.write("try { localStorage.setItem('rc_proveedores', JSON.stringify(" + json.dumps(
