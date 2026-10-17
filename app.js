@@ -373,7 +373,9 @@ const puedePedirCorreccion = v => v.clase === 'visita' && v.estado !== 'pendient
 const CORRECCION_PROV = { hasta: Date.parse('2026-10-16T18:00:00-05:00'), texto: 'el viernes 16 de oct, 6:00 p. m.' };
 const enCorreccionProvisional = v => v.clase === 'visita' && !v.interno && !v.eliminada && !v.borrado && Date.now() <= CORRECCION_PROV.hasta && sinReporte(v);
 const puedeCorregirProvisional = v => enCorreccionProvisional(v) && sesion?.id === v.vendedor;
-const puedeGuardarReporte = v => puedeReportar(v) || puedeCorregir(v) || puedeCorregirProvisional(v);
+// El Gerente General edita directo cualquier visita ya reportada (deja su nombre como huella); los demás proponen y él aprueba
+const puedeEditarAdmin = v => !!v && esAdmin() && v.clase === 'visita' && v.estado !== 'pendiente' && !v.eliminada && !v.borrado && !puedeCorregir(v) && !enCorreccionProvisional(v);
+const puedeGuardarReporte = v => puedeReportar(v) || puedeCorregir(v) || puedeCorregirProvisional(v) || puedeEditarAdmin(v);
 const textoCierre = v => `${fechaCorta(diaCierre(v))}, ${horaBonita(HORA_CIERRE)}`;
 
 // Pasa a NO visitado lo que no se reportó a tiempo (el jefe cierra las de todo el equipo)
@@ -3102,7 +3104,7 @@ function accionesVisita(v, txtOk, txtNo) {
     if (v.estado !== 'pendiente') {
         const nota = v.cierreAutomatico
             ? 'Cerrada automáticamente: no se reportó a tiempo'
-            : `Reportada el ${fechaHora(v.registrada)}${v.corregida ? ` · corregida el ${fechaHora(v.corregida)}` : ''}`;
+            : `Reportada el ${fechaHora(v.registrada)}${v.corregida ? ` · corregida el ${fechaHora(v.corregida)}` : ''}${v.editadaPorAdmin ? ` por ${primerNombre(v.editadaPorAdmin.por)}` : ''}`;
         const sc = v.solicitudCorreccion;
         const hastaCorr = correccionAutorizada(v) ? `${fechaHora(sc.hasta)} (autorizada)` : textoCierre(v);
         const estadoCorr = sc?.estado === 'pendiente' ? '<span class="chip np">Corrección por autorizar</span>'
@@ -3111,13 +3113,16 @@ function accionesVisita(v, txtOk, txtNo) {
         const ed = v.edicionPendiente;
         const estadoEd = ed?.estado === 'pendiente' ? '<span class="chip np">Edición por autorizar</span>'
             : ed?.estado === 'rechazada' ? `<span class="chip gris">Edición rechazada${ed.razonRechazo ? ': ' + esc(ed.razonRechazo) : ''}</span>` : '';
+        const editarAdm = puedeEditarAdmin(v) ? `<span class="corregir">✏️ Editar:
+            <button class="link-mini" onclick="abrirRegistro('${v.id}','ok')">${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
+            <button class="link-mini" onclick="abrirRegistro('${v.id}','no')">${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
         const proponer = puedeProponerEdicion(v) ? `<span class="corregir">✏️ Editar (lo aprueba ${esc(primerNombre(ADMIN.id))}):
             <button class="link-mini" onclick="abrirRegistro('${v.id}','ok',true)">${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
             <button class="link-mini" onclick="abrirRegistro('${v.id}','no',true)">${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
         const corregir = puedeCorregir(v) ? `<span class="corregir">Corregir hasta el ${esc(hastaCorr)}:
             <button class="link-mini" onclick="abrirRegistro('${v.id}','ok')">✏️ ${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
             <button class="link-mini" onclick="abrirRegistro('${v.id}','no')">✏️ ${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
-        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${proponer}${estadoCorr}${estadoEd}${pedir}${eliminar}</div>`;
+        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${editarAdm}${proponer}${estadoCorr}${estadoEd}${pedir}${eliminar}</div>`;
     }
     const editar = `<button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>`;
     if (v.fecha > hoy()) {
@@ -4397,7 +4402,7 @@ function abrirRegistro(id, tipo, propuesta = false) {
     const cab = (v.interno ? `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`
         : `<p class="cierre-cliente">${esc(v.contacto)}</p>${mc && (mc.cl || mc.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(mc.cl || '')}</b>${mc.ca ? ' · ' + esc(mc.ca) : ''}</p>` : ''}
         <p class="sub">${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`) + `
-        ${modoPropuesta ? `<p class="aviso-hora prov">✏️ Estás proponiendo cambios a un reporte cerrado. Nada cambia hasta que ${esc(ADMIN.nombre)} los apruebe.</p>` : puedeCorregirProvisional(v) ? `<p class="aviso-hora prov">✏️ Corrección visita Sin Reporte a tiempo (provisional). Reporta lo que sucedió tal cual. Plazo: hasta ${esc(CORRECCION_PROV.texto)} La fecha de la visita no se puede mover.</p>`
+        ${esAdmin() && !modoPropuesta && puedeEditarAdmin(v) ? `<p class="aviso-hora prov">✏️ Edición del Gerente General: el cambio se aplica directo y queda tu nombre como huella.</p>` : modoPropuesta ? `<p class="aviso-hora prov">✏️ Estás proponiendo cambios a un reporte cerrado. Nada cambia hasta que ${esc(ADMIN.nombre)} los apruebe.</p>` : puedeCorregirProvisional(v) ? `<p class="aviso-hora prov">✏️ Corrección visita Sin Reporte a tiempo (provisional). Reporta lo que sucedió tal cual. Plazo: hasta ${esc(CORRECCION_PROV.texto)} La fecha de la visita no se puede mover.</p>`
             : `<p class="aviso-hora">${v.estado !== 'pendiente' ? 'Estás corrigiendo el reporte. ' : ''}Plazo: ${esc(textoCierre(v))}. Hasta esa hora puedes corregir el reporte.</p>`}`;
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
@@ -4496,6 +4501,8 @@ const marcaReporte = antes => puedeCorregirProvisional(antes)
     : ({
     ...(antes.estado !== 'pendiente' && antes.registrada && !antes.cierreAutomatico
         ? { registrada: antes.registrada, corregida: new Date().toISOString() } : { registrada: new Date().toISOString() }),
+    // Edición directa del Gerente General sobre el reporte de otro: queda su nombre
+    ...(esAdmin() && sesion.id !== antes.vendedor && antes.estado !== 'pendiente' && !correccionAutorizada(antes) ? { editadaPorAdmin: { por: sesion.id, fecha: new Date().toISOString() } } : {}),
     // La corrección autorizada se usa una sola vez
     ...(correccionAutorizada(antes) ? { solicitudCorreccion: { ...antes.solicitudCorreccion, estado: 'usada', usada: new Date().toISOString(), usadaPor: sesion.id } } : {}),
     ...(antes.cierreAutomatico && correccionAutorizada(antes) ? { cierreAutomatico: false } : {})

@@ -315,3 +315,4 @@
 - Portafolios por cliente, circulares y matrices siguen saliendo del repositorio (necesitan el Vademécum); no se suben desde aquí.
 - Probado con los mismos Excel de `datos/`: el catálogo y los contactos salen idénticos a los publicados.
 - Los filtros de vendedor, zona y mensajero se borran al salir de una pantalla: jefes y administrador vuelven a abrir en **todo el equipo** (agenda, Visiplan, panel, actividades, Maestro y Logística) (`todoElEquipo`, `limpiarFiltros`). Antes la agenda abría con la primera comercial (Lizeth).
+- Visitas cerradas, **administrador**: ve **✏️ Editar** en toda visita ya reportada y la edita directo (sin pasar por aprobación); queda su nombre como huella ("corregida … por Hernán", `editadaPorAdmin`). Los demás siguen con "Editar (lo aprueba Hernán)".
