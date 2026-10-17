@@ -2005,7 +2005,7 @@ function pintarMaestra() {
                     return a ? `<span class="mc-periodo-dato">📅 En el periodo: ${a.ok ? `<b class="ok">${a.ok} ${a.ok === 1 ? 'visita efectiva' : 'visitas efectivas'}</b>${a.ultima ? ' · última ' + esc(fechaCorta(a.ultima)) : ''}` : ''}${a.no ? `${a.ok ? ' · ' : ''}<b class="no">${a.no} no efectiva${a.no === 1 ? '' : 's'}</b>` : ''}</span>`
                         : '<span class="mc-periodo-dato vacio">📅 En el periodo: sin visitas</span>'; })()}
                 ${!c.lead && portafolioDe(c.n).length ? `<span class="mc-portafolio" role="button" tabindex="0" data-c="${esc(c.n)}" onclick="verPortafolio(event, this.dataset.c)">📋 Portafolio del cliente <b>${portafolioDe(c.n).length}</b></span>` : ''}</span>
-            <span class="mc-ultima">${u ? (c.prov ? 'Última parada' : esLogistica() ? 'Última entrega' : 'Última visita') + '<br><b>' + esc(fechaCorta(u)) + '</b>' : `<i${!c.prov && !esLogistica() && contactados.has(normalizar(c.n)) ? ' class="contactado"' : ''}>${c.prov ? 'Sin paradas' : esLogistica() ? 'Sin entregas' : contactados.has(normalizar(c.n)) ? 'Contactado sin visita efectiva' : 'Sin visitas'}</i>`}</span>
+            <span class="mc-ultima">${u ? (c.prov ? 'Última parada' : esLogistica() ? 'Última entrega' : 'Última visita') + '<br><b>' + esc(fechaCorta(u)) + '</b>' : `<i${!c.prov && !esLogistica() && contactados.has(normalizar(c.n)) ? ' class="contactado"' : ''}>${c.prov ? 'Sin paradas' : esLogistica() ? 'Sin entregas' : contactados.has(normalizar(c.n)) ? 'Contactado<br>sin visita efectiva' : 'Sin visitas'}</i>`}</span>
         </button>`;
     };
     // Jefes: agrupado por zona con el nombre del vendedor
