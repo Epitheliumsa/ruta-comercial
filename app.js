@@ -715,6 +715,8 @@ function entrarApp() {
     // Logística: solo ve el módulo de Logística, la Maestra Clientes y el Vademécum
     document.body.classList.toggle('es-logistica', esLogistica());
     $('btnPanel').style.display = esJefe() ? '' : 'none';
+    $('btnPanelZona').style.display = esComercial() && !esJefe() ? '' : 'none';   // cada zona ve solo lo suyo
+    $('panelScreen').querySelector('h1').dataset.titulo = esComercial() && !esJefe() ? 'Panel Zona' : 'Panel del equipo';
     $('maestraTxt').textContent = veTodasZonas() ? (veProveedores() ? 'Clientes, médicos y proveedores' : 'Clientes y médicos por zona y vendedor') : 'Clientes y médicos de tu zona';
     $('btnBases').style.display = esAdmin() ? '' : 'none';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
@@ -5369,9 +5371,15 @@ const pct = (k) => k.prog ? Math.round(k.cumpl * 100) + '%' : '—';
 const filtroPanel = { vendedor: '', tipo: '', estado: '' };
 
 function iniciarFiltrosPanel() {
-    const sel = $('panVend');
-    if (sel.options.length) return;
-    sel.innerHTML = '<option value="">Todos los vendedores</option>' + COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+    const sel = $('panVend'), solo = esComercial() && !esJefe();
+    // Panel Zona (comerciales): solo su zona; el filtro de vendedor no se muestra
+    sel.closest('.fp-campo').hidden = solo;
+    if (solo) filtroPanel.vendedor = sesion.id;
+    const clave = solo ? sesion.id : 'equipo';
+    if (sel.options.length && sel.dataset.para === clave) return;
+    sel.dataset.para = clave;
+    sel.innerHTML = solo ? `<option value="${sesion.id}">${esc(sesion.nombre)}</option>` : '<option value="">Todos los vendedores</option>' + COMERCIALES.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+    sel.value = solo ? sesion.id : '';
     $('panTipo').innerHTML = '<option value="">Todos los tipos</option>'
         + TIPOS_REPORTE().map(t => `<option>${esc(t)}</option>`).join('')
         + '<option value="__interno">Trabajo Administrativo</option>';
