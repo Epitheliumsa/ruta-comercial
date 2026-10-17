@@ -1494,7 +1494,7 @@ function eleccionChip(lista, id, todos, e) {
 
 // ---------- MAESTRA CLIENTES ----------
 // El comercial ve los clientes de su zona; los jefes los ven por zona y vendedor (una, varias o todas)
-const FILTROS_MAESTRA = ['g', 'e', 'cat', 'd', 'c', 'pz', 'f', 'vis'];
+const FILTROS_MAESTRA = ['g', 'e', 'cat', 'd', 'c', 'pz', 'f', 'vis', 'z'];   // 'z' (zona y vendedor) es el filtro de Logística; los jefes usan los botones de zona
 const maestra = { zonas: null, busca: '', sel: Object.fromEntries(FILTROS_MAESTRA.map(k => [k, []])), dim: 'g', abierto: null, buscaOp: '',
     periodo: { t: 'mes', v: mesDe(hoy()) }, visitados: new Set() };
 // Periodo de "Visitas" en la Maestra (ícono de calendario arriba a la derecha): día, mes, trimestre, semestre o año
@@ -1552,7 +1552,7 @@ const DIMS_MAESTRA = {
     vis: { t: 'Visitas', todos: 'Visitados y no visitados', valor: c => c.prov ? '' : maestra.visitados.has(normalizar(c.n)) ? 'si' : 'no',
         nombre: v => (v === 'si' ? 'Visitado en ' : 'No visitado en ') + nombrePeriodo(maestra.periodo).replace(/^el /, ''), orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
     f: { t: 'Facturar', todos: 'Facturar: todos', valor: c => c.prov ? '' : c.f ? 'si' : 'no', nombre: v => v === 'si' ? 'Cliente para facturar' : 'No factura', orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
-    z: { t: 'Zona', jefe: true, valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
+    z: { t: 'Zona', todos: 'Todas las zonas', jefe: true, valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
 };
 const MAX_BARRAS = 8;
 // Color por tipo de etiqueta (se unifican en Cliente, Médico y Punto de Venta) y por si es cliente para facturar
@@ -1598,7 +1598,7 @@ function abrirMaestra() {
     if (!maestra.zonas) maestra.zonas = veTodasZonas() ? zonasMaestra() : [comercial(sesion.id)?.zona].filter(Boolean);
     // Los proveedores llegan después de abrir la sesión: la primera vez que aparecen, se suman a lo elegido
     if (veProveedores() && !maestra.provVisto && zonasMaestra().includes(ZONA_PROV)) { maestra.provVisto = true; if (!maestra.zonas.includes(ZONA_PROV)) maestra.zonas.push(ZONA_PROV); }
-    $('mcZonas').hidden = !veTodasZonas();
+    $('mcZonas').hidden = !veTodasZonas() || esLogistica();
     pintarMaestra();
     mostrarPantalla('maestraScreen');
 }
@@ -1744,7 +1744,7 @@ function pintarTiposMaestra(base) {
 }
 function pintarFiltrosMaestra(base) {
     pintarTiposMaestra(base);
-    pintarMultis($('mcFiltrosMulti'), 'maestra', FILTROS_MAESTRA.filter(k => k !== 'g').map(k => {
+    pintarMultis($('mcFiltrosMulti'), 'maestra', FILTROS_MAESTRA.filter(k => esLogistica() ? k === 'z' : k !== 'g' && k !== 'z').map(k => {
         const d = DIMS_MAESTRA[k], ejemplo = {}, cuenta = {};
         base.forEach(c => valsMaestra(k, c).forEach(v => { if (v && !ejemplo[v]) ejemplo[v] = c; }));
         filtrarMaestra(base, k).forEach(c => valsMaestra(k, c).forEach(v => { cuenta[v] = (cuenta[v] || 0) + 1; }));
@@ -1757,7 +1757,7 @@ function pintarFiltrosMaestra(base) {
 function pintarMaestra() {
     const todas = zonasMaestra(), sel = maestra.zonas || [];
     $('mcPeriodoTxt').textContent = mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, ''));
-    if (veTodasZonas()) {
+    if (veTodasZonas() && !esLogistica()) {
         $('mcZonas').innerHTML = `<button type="button" class="vp-vend-btn todos${sel.length === todas.length ? ' activo' : ''}" onclick="elegirZonaMaestra('todas', event)">Todas las zonas</button>`
             + todas.map(z => {
                 const v = vendedorDeZona(z);
@@ -1777,8 +1777,8 @@ function pintarMaestra() {
     // Las opciones elegidas que ya no existen en las zonas elegidas se quitan
     FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => v === NINGUNA || base.some(c => valsMaestra(k, c).includes(v))); });
     pintarFiltrosMaestra(base);
-    // Logística solo busca y elige el tipo: sin filtros de columnas ni gráfica de composición
-    $('mcFiltrosMulti').style.display = document.querySelector('.mc-grafica').style.display = esLogistica() ? 'none' : '';
+    // Logística: búsqueda, tipo y un solo filtro (zona y vendedor); sin filtros de columnas ni gráfica de composición
+    document.querySelector('.mc-grafica').style.display = esLogistica() ? 'none' : '';
     const lista = filtrarMaestra(base);
     // La gráfica no se filtra por su propia columna: así se pueden tocar varias barras
     pintarComposicion(FILTROS_MAESTRA.includes(maestra.dim) ? filtrarMaestra(base, maestra.dim) : lista);
@@ -1798,7 +1798,7 @@ function pintarMaestra() {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[claseContacto(c)];
         return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead || c.prov ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)}${c.prov ? '' : ' · ' + (c.f ? 'Cliente para facturar' : 'No factura')}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}"${c.prov ? '' : ' onclick="verCliente(this.dataset.c, this.dataset.v)"'}>
-            <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
+            <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, esLogistica() && !c.prov && c.z ? c.z + (v ? ' · ' + v.nombre : '') : '', [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
                 <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead || c.prov ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
                 ${esLogistica() || c.prov ? '' : (() => { const a = maestra.enPeriodo[normalizar(c.n)];
                     return a ? `<span class="mc-periodo-dato">📅 En el periodo: ${a.ok ? `<b class="ok">${a.ok} ${a.ok === 1 ? 'visita efectiva' : 'visitas efectivas'}</b>${a.ultima ? ' · última ' + esc(fechaCorta(a.ultima)) : ''}` : '<b>sin visita efectiva</b>'}${a.no ? ` · <b class="no">${a.no} no efectiva${a.no === 1 ? '' : 's'}</b>` : ''}</span>`
