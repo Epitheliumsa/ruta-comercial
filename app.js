@@ -4836,6 +4836,46 @@ function ventasSuma(vs, mes, hasta) {
     const conExtra = esJefe() ? extra : 0;
     return { regs, lineas, cuota, venta: venta + conExtra, extra, conExtra, corte, dia };
 }
+// Panel del equipo: cuota y venta del periodo elegido (suma de los meses que cubre, con el último corte de cada uno; un día = el corte hasta ese día).
+// Sigue el filtro de vendedor. Los comerciales ven solo lo suyo (el panel es de jefes: ven todo el equipo).
+function ventasPanel() {
+    const vs = filtroPanel.vendedor ? [filtroPanel.vendedor] : COMERCIALES.map(c => c.id);
+    const meses = mesesDePeriodo(periodoPanel), hasta = periodoPanel.t === 'dia' ? periodoPanel.v : undefined;
+    const porVend = {}; let dia = '';
+    meses.forEach(m => vs.forEach(v => {
+        const r = ventasDe(v, m, hasta); if (!r) return;
+        const o = porVend[v] = porVend[v] || { cuota: 0, venta: 0 };
+        Object.values(r.lineas).forEach(x => { o.cuota += x.cuota || 0; o.venta += x.venta || 0; });
+        if (esJefe()) o.venta += r.extra?.venta || 0;
+        if (diaCorte(r) > dia) dia = diaCorte(r);
+    }));
+    const filas = vs.filter(v => porVend[v]).map(v => ({ v, ...porVend[v] }));
+    if (!filas.length) return null;
+    return { filas, cuota: filas.reduce((a, f) => a + f.cuota, 0), venta: filas.reduce((a, f) => a + f.venta, 0), dia, unMes: meses.length === 1 ? meses[0] : '' };
+}
+function pintarVentasPanel() {
+    const s = ventasPanel(), cont = $('panVentas');
+    if (!s) { cont.innerHTML = ''; return; }
+    const cumple = s.cuota ? s.venta / s.cuota : 0, falta = Math.max(0, s.cuota - s.venta);
+    // El semáforo y el ritmo solo tienen sentido dentro de un mes; en varios meses se muestra el cumplimiento a secas
+    const { esperado, quedan } = s.unMes ? ritmoVentas(s.unMes, s.dia) : { esperado: 0, quedan: 0 };
+    const tono = s.unMes ? tonoVentas(cumple, esperado, s.cuota) : '';
+    const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${cifra(c)}</td><td>${cifra(v)}</td><td>${c ? `<span class="vm-sem ${s.unMes ? tonoVentas(v / c, esperado, c) : ''}">${pctTxt(v / c)}</span>` : '—'}</td></tr>`;
+    cont.innerHTML = `<div class="panel-bloque panel-ventas">
+        <h2>Cuota y ventas</h2>
+        <p class="g-sub">${esc(mayuscula(nombrePeriodo(periodoPanel).replace(/^el /, '')))} · corte del ${esc(fechaCorta(s.dia))}</p>
+        <div class="ventas-mes viva ${tono}">
+            <div class="vm-izq"><small>Cumplimiento de la cuota</small><strong class="vm-pct">${pctTxt(cumple)}</strong></div>
+            <div class="vm-der">
+                <div class="vm-cifras"><b>${cifra(s.venta)}</b><span>de ${cifra(s.cuota)}</span></div>
+                <div class="vm-barra"><i style="width:${Math.min(100, cumple * 100).toFixed(1)}%"></i>${s.unMes ? `<em style="left:${Math.min(100, esperado * 100).toFixed(1)}%"><u>Ritmo ${pctTxt(esperado)}</u></em>` : ''}</div>
+                <div class="vm-pie">${falta ? `<span>Faltan <b>${cifra(falta)}</b>${s.unMes && quedan ? ` · <b>${cifra(falta / quedan)}</b> por día hábil` : ''}</span>` : '<span>🏆 Cuota cumplida</span>'}</div>
+            </div>
+        </div>
+        <table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
+        <tbody>${s.filas.map(f => fila(nombreVendedor(f.v), f.cuota, f.venta)).join('')}${s.filas.length > 1 ? fila('Total', s.cuota, s.venta, 'total') : ''}</tbody></table>
+    </div>`;
+}
 // Ritmo esperado: días hábiles corridos hasta el corte sobre los del mes
 function ritmoVentas(mes, corte) {
     const dias = diasHabilesMes(mes), dc = corte < mes + '-01' ? mes + '-01' : corte;
@@ -5347,6 +5387,7 @@ function pintarPanel() {
     const acts = mesesDePeriodo(periodoPanel).flatMap(m => actividadesMes(m, filtroPanel.vendedor));
     const c = cuentaVisitas(vis);
     const actHechas = acts.filter(a => a.hecha).length;
+    pintarVentasPanel();
     $('panKpis').innerHTML = `
         <div class="kpi"><small>Programadas</small><b>${c.prog}</b></div>
         <div class="kpi np"><small>No programadas</small><b>${c.noProg}</b></div>
