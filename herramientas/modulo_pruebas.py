@@ -100,6 +100,22 @@ if len(sys.argv) > 2:
             js.write("try { localStorage.setItem('rc_directorio', JSON.stringify(" + json.dumps(
                 {'filas': m, 'actualizado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'traido': 0}, ensure_ascii=False) + ")); } catch (e) {}\n")
         print('Directorio de pruebas:', len(dirs), 'clientes')
+    if len(sys.argv) > 4:
+        # Maestra de proveedores (opcional): misma forma que ponerProveedores() en logistica.js
+        import json, time, unicodedata, openpyxl
+        norm = lambda t: re.sub('[\u0300-\u036f]', '', unicodedata.normalize('NFD', str(t))).lower().strip()
+        fx = list(openpyxl.load_workbook(sys.argv[4], read_only=True, data_only=True).active.iter_rows(values_only=True))
+        col = {str(n or '').strip(): i for i, n in enumerate(fx[0])}
+        g = lambda f, n: str(f[col[n]]).strip() if n in col and f[col[n]] not in (None, False) else ''
+        provs = {}
+        for f in fx[1:]:
+            n = g(f, 'Nombre Público') or g(f, 'Nombre')
+            if n:
+                provs.setdefault(norm(n), {'n': n, 'c': g(f, 'Ciudad'), 'p': re.sub(r'\s*\(CO\)$', '', g(f, 'Provincia')), 'e': g(f, 'Etiquetas')})
+        with open(SALIDA / 'semilla.js', 'a', encoding='utf-8') as js:
+            js.write("try { localStorage.setItem('rc_proveedores', JSON.stringify(" + json.dumps(
+                {'filas': provs, 'actualizado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'traido': 0}, ensure_ascii=False) + ")); } catch (e) {}\n")
+        print('Maestra de proveedores de pruebas:', len(provs))
     h = re.sub(r'(<script src="app\.js)', '<script src="semilla.js"></script>\n    \\1', h, count=1)
 (SALIDA / 'index.html').write_text(h, encoding='utf-8')
 print('Módulo de pruebas en', SALIDA)

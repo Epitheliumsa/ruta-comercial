@@ -614,6 +614,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         errorSync = '';
         subirFotosPend();
         cargarDirectorio();
+        cargarProveedores();
     } catch (e) {
         console.warn('No se pudo sincronizar:', e);
         errorSync = navigator.onLine ? (e.message || 'Error de conexión') : 'Sin internet';
@@ -679,6 +680,7 @@ async function cerrarSesion() {
     if (pendientes.size && API_URL && !await dialogo({ titulo: 'Hay cambios sin subir', texto: `Hay ${pendientes.size} cambios sin subir al servidor. Si sales ahora se quedan en este dispositivo.`, aceptar: 'Salir de todas formas' })) return;
     localStorage.removeItem('rc_sesion');
     borrarDirectorio();
+    borrarProveedores();
     sesion = null;
     document.body.classList.remove('es-logistica');
     $('accessUser').value = '';

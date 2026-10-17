@@ -38,6 +38,8 @@ function doPost(e) {
     if (pedido.accion === 'subirArchivo') return responder_(Object.assign({ ok: true }, subirArchivo_(usuario, pedido)));
     if (pedido.accion === 'directorio') return responder_(Object.assign({ ok: true }, directorio_(usuario)));
     if (pedido.accion === 'guardarDirectorio') return responder_(Object.assign({ ok: true }, guardarDirectorio_(usuario, pedido.filas)));
+    if (pedido.accion === 'proveedores') return responder_(Object.assign({ ok: true }, proveedores_(usuario)));
+    if (pedido.accion === 'guardarProveedores') return responder_(Object.assign({ ok: true }, guardarProveedores_(usuario, pedido.filas)));
     if (pedido.accion === 'firmarFormato') return responder_(Object.assign({ ok: true }, firmarFormato_(usuario, pedido)));
     return responder_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
@@ -268,6 +270,33 @@ function guardarDirectorio_(usuario, filas) {
   h.setFrozenRows(1);
   const cuando = new Date().toISOString();
   h.getRange(1, COLUMNAS_DIR.length + 1).setNumberFormat('@').setValue(cuando);   // fecha de la subida, al lado de los títulos
+  return { guardados: datos.length, actualizado: cuando };
+}
+
+// ---------- MAESTRA DE PROVEEDORES: solo para Logística ----------
+// Hoja "Proveedores" (Nombre, Ciudad, Provincia, Etiquetas). La ven Logística y el administrador; solo el administrador la reemplaza.
+const HOJA_PROV = 'Proveedores';
+const COLUMNAS_PROV = ['Nombre', 'Ciudad', 'Provincia', 'Etiquetas'];
+function proveedores_(usuario) {
+  if (usuario.area !== 'logistica' && !usuario.admin) throw new Error('Sin permiso para ver los proveedores');
+  const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_PROV);
+  if (!h) return { filas: [], actualizado: '' };
+  const valores = h.getDataRange().getValues();
+  return { filas: valores.slice(1).filter(f => f[0]).map(f => f.slice(0, COLUMNAS_PROV.length).map(String)),
+           actualizado: String(valores[0][COLUMNAS_PROV.length] || '') };
+}
+function guardarProveedores_(usuario, filas) {
+  if (!usuario.admin) throw new Error('Solo el administrador sube los proveedores');
+  if (!Array.isArray(filas) || !filas.length) throw new Error('La maestra de proveedores llegó vacía');
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const h = libro.getSheetByName(HOJA_PROV) || libro.insertSheet(HOJA_PROV);
+  const datos = filas.map(f => COLUMNAS_PROV.map((_, i) => String((f || [])[i] || '').slice(0, 200)));
+  h.clear();
+  h.getRange(1, 1, datos.length + 1, COLUMNAS_PROV.length).setNumberFormat('@').setValues([COLUMNAS_PROV].concat(datos));
+  h.getRange(1, 1, 1, COLUMNAS_PROV.length).setFontWeight('bold');
+  h.setFrozenRows(1);
+  const cuando = new Date().toISOString();
+  h.getRange(1, COLUMNAS_PROV.length + 1).setNumberFormat('@').setValue(cuando);
   return { guardados: datos.length, actualizado: cuando };
 }
 

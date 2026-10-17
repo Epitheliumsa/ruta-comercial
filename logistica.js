@@ -114,6 +114,7 @@ function pintarLog() {
     $('logProgramar').disabled = false; $('logProgramar').title = '';   // Logística programa desde hoy, a cualquier hora
     $('logDescargar').hidden = !(esCoordLog() || esAdmin() || esJefe());
     $('logDirectorio').hidden = !esAdmin();
+    $('logProveedores').hidden = !esAdmin();
     const todos = logVisibles();
     // Chips de mensajero (coordinador, administrador y jefes)
     const verMens = esCoordLog() || esJefe();
@@ -282,7 +283,7 @@ function abrirLogForm(id) {
     if (r && r.estado !== 'pendiente') return toast('Esta parada ya se reportó');
     const mens = esCoordLog() || esAdmin();
     const clientes = [...new Set(Object.values(contactos).flat().map(c => c.n))].sort((a, b) => a.localeCompare(b, 'es'));
-    const provs = [...new Set(logRegs().map(x => x.proveedor).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    const provs = [...new Set([...Object.values(proveedoresMaestra.filas).map(p => p.n), ...logRegs().map(x => x.proveedor)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
     const docs = k => (r?.documentos || []).filter(d => d.clase === k);
     const rads = k => (r?.radicacion || []).filter(d => d.doc === k);
     const rad = k => rads(k)[0];
@@ -815,6 +816,68 @@ function subirDirectorio() {
             toast(`Directorio actualizado: ${filas.length} clientes`);
         } catch (e) {
             toast('No se pudo subir el directorio: ' + e.message);
+        }
+    };
+    inp.click();
+}
+
+// ---------- MAESTRA DE PROVEEDORES: solo para Logística ----------
+// Nombre, ciudad, provincia y etiquetas de cada proveedor (hoja "Proveedores" del servidor, no el repositorio público).
+// La ven Logística y el administrador; solo el administrador la sube. Alimenta la lista "Busca proveedor" del formulario.
+const PROV_LOCAL = 'rc_proveedores';
+const veProveedores = () => !!sesion && (esLogistica() || esAdmin());
+let proveedoresMaestra = (() => { try { return JSON.parse(localStorage.getItem(PROV_LOCAL)) || { filas: {} }; } catch (e) { return { filas: {} }; } })();
+function ponerProveedores(filas, actualizado) {
+    const m = {};
+    filas.forEach(([n, c, p, e]) => { if (n) m[normalizar(n)] = { n, c, p, e }; });
+    proveedoresMaestra = { filas: m, actualizado: actualizado || '', traido: Date.now() };
+    try { localStorage.setItem(PROV_LOCAL, JSON.stringify(proveedoresMaestra)); } catch (e) { /* sin espacio: queda en memoria */ }
+}
+function borrarProveedores() {
+    if (!API_URL) return;   // módulo de pruebas: la maestra viene con la página
+    proveedoresMaestra = { filas: {} }; try { localStorage.removeItem(PROV_LOCAL); } catch (e) { /* nada */ } }
+let trayendoProv = false;
+async function cargarProveedores(forzar = false) {
+    if (!API_URL || !veProveedores() || trayendoProv) return;
+    if (!forzar && proveedoresMaestra.traido && Date.now() - proveedoresMaestra.traido < 6 * 3600e3) return;
+    trayendoProv = true;
+    try { const r = await llamarApi({ accion: 'proveedores' }); ponerProveedores(r.filas || [], r.actualizado); }
+    catch (e) { console.warn('No se pudo traer la maestra de proveedores:', e); }
+    finally { trayendoProv = false; }
+}
+// El administrador sube la Maestra de proveedores (Nombre, Nombre Público, Provincia, Ciudad, Comercial, Etiquetas)
+function subirProveedores() {
+    if (!esAdmin()) return;
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.xlsx';
+    inp.onchange = async () => {
+        const archivo = inp.files[0];
+        if (!archivo) return;
+        try {
+            await cargarExcelJS();
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(await archivo.arrayBuffer());
+            const ws = wb.worksheets[0], cab = {};
+            ws.getRow(1).eachCell((c, i) => { cab[String(c.text).trim()] = i; });
+            const colN = cab['Nombre Público'] ? 'Nombre Público' : 'Nombre';
+            if (!cab[colN] || !cab['Ciudad']) return toast('No encontré las columnas "Nombre" y "Ciudad": sube la Maestra de proveedores.');
+            const val = (fila, n) => cab[n] ? String(fila.getCell(cab[n]).text || '').trim() : '';
+            const filas = [], vistos = new Set();
+            ws.eachRow((fila, i) => {
+                const n = val(fila, colN);
+                if (i === 1 || !n || vistos.has(normalizar(n))) return;
+                vistos.add(normalizar(n));
+                filas.push([n, val(fila, 'Ciudad'), val(fila, 'Provincia').replace(/\s*\(CO\)$/, ''), val(fila, 'Etiquetas')]);
+            });
+            if (!filas.length) return toast('La maestra de proveedores está vacía');
+            if (!await dialogo({ titulo: 'Maestra de proveedores', aceptar: 'Subir',
+                texto: `${filas.length} proveedores. Reemplaza la maestra anterior. Solo la ven Logística y tú; no queda en la app publicada.` })) return;
+            let cuando = new Date().toISOString();
+            if (API_URL) cuando = (await llamarApi({ accion: 'guardarProveedores', filas }, 90000)).actualizado || cuando;
+            ponerProveedores(filas, cuando);
+            toast(`Maestra de proveedores actualizada: ${filas.length}`);
+        } catch (e) {
+            toast('No se pudo subir la maestra de proveedores: ' + e.message);
         }
     };
     inp.click();
