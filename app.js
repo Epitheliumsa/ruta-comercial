@@ -2065,6 +2065,10 @@ function pintarComposicion(lista) {
         grupos = [...grupos.slice(0, MAX_BARRAS - 1), ['__otros', resto.reduce((s, g) => s + g[1], 0), resto.length]];
     }
     const total = lista.length, max = Math.max(1, ...grupos.map(g => g[1]));
+    // Un contacto puede contar en dos barras (médico y cliente a la vez): además del % sobre los contactos, el % sobre el total de las barras
+    const sumaBarras = grupos.reduce((s, g) => s + g[1], 0), conDosPct = sumaBarras !== total;
+    const pctBarras = n => n / sumaBarras < .005 ? '<1' : Math.round(n / sumaBarras * 100);
+    $('mcNotaPct').hidden = !conDosPct;
     // Cliente y Médico: rayas de los dos colores
     const colorEtiqueta = g => g.c2 ? `repeating-linear-gradient(135deg, ${g.c} 0 6px, ${g.c2} 6px 12px)` : g.c;
     const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[grupoEtiqueta(v)])}`
@@ -2079,14 +2083,14 @@ function pintarComposicion(lista) {
                 title="${esc(resto.map(([x, m]) => `${nombreDe(x)}: ${m}`).join('\n'))}\n\nToca para ver el detalle">
             <span class="mc-barra-nombre">${esc(nombre)} <u>ver detalle</u></span>
             <span class="mc-barra-pista"><span style="width:${Math.max(n / max * 100, 1.5)}%"></span></span>
-            <span class="mc-barra-num"><b>${n}</b> ${n / total < .005 ? '<1' : Math.round(n / total * 100)}%</span>
+            <span class="mc-barra-num"><b>${n}</b> ${n / total < .005 ? '<1' : Math.round(n / total * 100)}%${conDosPct ? ` <em>${pctBarras(n)}%</em>` : ''}</span>
         </button>`;
         const pct = n / total < .005 ? '<1' : Math.round(n / total * 100), clic = !!v;
         return `<button type="button" class="mc-barra${activo ? ' activo' : ''}" ${clic ? `data-v="${esc(v)}" onclick="filtrarComposicion(this.dataset.v)"` : 'disabled'}
-                title="${esc(nombre)}: ${n} ${n === 1 ? 'cliente' : 'clientes'} (${pct}%)${clic ? (activo ? ' · toca para quitar el filtro' : ' · toca para filtrar') : ''}">
+                title="${esc(nombre)}: ${n} ${n === 1 ? 'cliente' : 'clientes'} (${pct}% de los contactos${conDosPct ? ` · ${pctBarras(n)}% del total de las barras` : ''})${clic ? (activo ? ' · toca para quitar el filtro' : ' · toca para filtrar') : ''}">
             <span class="mc-barra-nombre">${esc(nombre)}</span>
             <span class="mc-barra-pista"><span style="width:${Math.max(n / max * 100, 1.5)}%${colorBarra(v)}"></span></span>
-            <span class="mc-barra-num"><b>${n}</b> ${pct}%</span>
+            <span class="mc-barra-num"><b>${n}</b> ${pct}%${conDosPct ? ` <em>${pctBarras(n)}%</em>` : ''}</span>
         </button>`;
     }).join('') + (maestra.verOtros && grupos.length > MAX_BARRAS ? `<button type="button" class="mc-ver-menos" onclick="maestra.verOtros=false; pintarMaestra()">Ver menos</button>` : '');
 }

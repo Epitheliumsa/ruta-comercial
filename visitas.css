@@ -1093,7 +1093,7 @@ a.home-btn { text-decoration: none; }
 .mc-dims button { border: 1px solid #cfe0dc; background: white; color: #334155; border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .mc-dims button.activo { background: #0f766e; border-color: #0f766e; color: white; }
 .mc-barras { display: grid; gap: 2px; padding: 4px 8px; }
-.mc-barra { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 78px; align-items: center; gap: 10px; width: 100%; min-height: 30px; padding: 3px 6px;
+.mc-barra { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 126px; align-items: center; gap: 10px; width: 100%; min-height: 30px; padding: 3px 6px;
     border: 0; border-radius: 6px; background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .mc-barra:hover:not(:disabled) { background: #f1f8f7; }
 .mc-barra:disabled { cursor: default; }
@@ -1117,7 +1117,7 @@ a.home-btn { text-decoration: none; }
 .mc-leyenda span { display: inline-flex; align-items: center; gap: 5px; }
 .mc-leyenda i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .mc-leyenda .sep { color: #7a8a84; margin-left: 6px; }
-@media (max-width: 700px) { .mc-barra { grid-template-columns: 1fr 64px; gap: 2px 8px; } .mc-barra-nombre { grid-column: 1 / -1; } .mc-barra-pista { height: 12px; } }
+@media (max-width: 700px) { .mc-barra { grid-template-columns: 1fr 118px; gap: 2px 8px; } .mc-barra-nombre { grid-column: 1 / -1; } .mc-barra-pista { height: 12px; } }
 .mc-lista { padding: 6px 15px 30px; display: grid; gap: 6px; max-width: 1240px; margin: 0 auto; }
 .mc-lista .grupo-titulo { margin-top: 12px; }
 .mc-fila { position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; text-align: left;
@@ -1994,3 +1994,5 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .dash-leyenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 4px 0 8px; vertical-align: -1px; }
 @media (max-width: 420px) { .dash-kpis { grid-template-columns: repeat(2, 1fr); } }
 .mc-ultima i.contactado { color: #be185d; font-style: normal; font-weight: 700; }
+.mc-barra-num em { font-style: normal; color: #94a3b8; margin-left: 2px; }
+.mc-barra-num em::before { content: '· '; }
