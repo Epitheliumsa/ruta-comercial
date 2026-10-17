@@ -30,7 +30,7 @@ const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OU
 // Radicación: factura (serie A = OVI o B = OV) con su número, nota crédito (RNC) con su número, u otros (texto)
 const DOCS_RADICACION = [{ k: 'factura', t: 'Factura' }, { k: 'nc', t: 'Nota crédito RNC' }, { k: 'otros', t: 'Otros' }];
 const SERIES_FACTURA = { A: 'OVI', B: 'OV' };   // en pantalla solo se ve la letra
-const MATERIALES_LOG = ['Materias primas', 'Envases', 'Plegadizas', 'Etiquetas', 'Otros'];
+const MATERIALES_LOG = ['Materias primas', 'Envases', 'Plegadizas', 'Etiquetas', 'Desarrollo', 'Muestras', 'Otros'];
 const AREAS_LOG = ['Recursos Humanos', 'Producción', 'Contabilidad', 'Calidad', 'Gerencia', 'Mercadeo', 'Comercial', 'Compras', 'Otra'];
 const MOTIVOS_LOG = ['No estaba quien recibe', 'Lugar cerrado', 'Dirección incorrecta o no se encontró', 'Rechazó la entrega', 'El material no estaba listo', 'Pidió reprogramar', 'Otro'];
 const logi = { fecha: '', mensajero: '', filtro: '', busca: '', soloLectura: false };
