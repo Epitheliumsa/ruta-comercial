@@ -779,7 +779,7 @@ const veDirectorio = () => !!sesion;
 let directorio = (() => { try { return JSON.parse(localStorage.getItem(DIR_LOCAL)) || { filas: {} }; } catch (e) { return { filas: {} }; } })();
 function ponerDirectorio(filas, actualizado) {
     const m = {};
-    filas.forEach(([n, c, dir, tel, z]) => { if (n) m[normalizar(n)] = { c, dir, tel, z }; });
+    filas.forEach(([n, c, dir, tel, z]) => { if (n) m[normalizar(n)] = { n, c, dir, tel, z }; });
     directorio = { filas: m, actualizado: actualizado || '', traido: Date.now() };
     try { localStorage.setItem(DIR_LOCAL, JSON.stringify(directorio)); } catch (e) { /* sin espacio: queda en memoria */ }
 }

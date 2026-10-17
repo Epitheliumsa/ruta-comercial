@@ -95,7 +95,7 @@ if len(sys.argv) > 2:
             tel = ' / '.join(dict.fromkeys(t for t in (val(f, 'Móvil'), val(f, 'Teléfono')) if t))
             dirs.append([n, val(f, 'Ciudad'), val(f, 'Calle'), tel, zona_de.get(norm(n), '')])
         # Misma forma que ponerDirectorio() en logistica.js (llave = nombre normalizado)
-        m = {norm(d[0]): {'c': d[1], 'dir': d[2], 'tel': d[3], 'z': d[4]} for d in dirs}
+        m = {norm(d[0]): {'n': d[0], 'c': d[1], 'dir': d[2], 'tel': d[3], 'z': d[4]} for d in dirs}
         with open(SALIDA / 'semilla.js', 'a', encoding='utf-8') as js:
             js.write("try { localStorage.setItem('rc_directorio', JSON.stringify(" + json.dumps(
                 {'filas': m, 'actualizado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'traido': 0}, ensure_ascii=False) + ")); } catch (e) {}\n")

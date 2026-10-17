@@ -305,6 +305,7 @@
 - Historial de solicitudes (administrador): primero el nombre del cliente; filtros de zona, tipo, resultado, fecha (hoy, semana, mes, mes anterior) y causal (texto); y un **resumen** que sigue a los filtros: resueltas, autorizadas y rechazadas con porcentaje, respuesta media, y barras por tipo, zona, vendedor, mes y causales más frecuentes (`pintarHistSol`).
 
 ## Bases de datos (solo el administrador) — `bases.js`
+- Cada tarjeta tiene **⬇ Descargar** (`descargarBase(k)`): respaldo en Excel sin cuadrícula de lo que está cargado (Maestra_Contactos, Productos con hoja "Guía de Etiquetas", Direcciones —se trae fresco del servidor—, Proveedores). Los archivos se pueden volver a subir tal cual. `ponerDirectorio` guarda también el nombre original (`n`).
 - Botón **Bases de datos** en el inicio (solo `esAdmin()`). Ahí se suben las maestras: **Maestra de contactos** (misma lógica que `herramientas/maestra_contactos.py`),
   **Productos** (Base_Productos + Productos_Terminados, misma lógica que `herramientas/productos.py`), **Direcciones y teléfonos** y **Proveedores**. Se quitaron los
   botones 📇 Direcciones y 🏭 Proveedores de Logística.

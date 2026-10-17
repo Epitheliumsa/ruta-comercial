@@ -64,7 +64,8 @@ function textoEstadoBase(k) {
 function pintarBases() {
     $('basesLista').innerHTML = TARJETAS_BASES.map(x => `<div class="base-tarjeta">
         <div class="base-info"><h3>${esc(x.t)}</h3><p>${esc(x.d)}</p><p class="base-estado">${textoEstadoBase(x.k)}</p></div>
-        <button type="button" class="btn-nuevo" onclick="${x.a}">⬆ Subir</button></div>`).join('');
+        <div class="base-botones"><button type="button" class="btn-nuevo" onclick="${x.a}">⬆ Subir</button>
+        <button type="button" class="btn-sec" onclick="descargarBase('${x.k}')">⬇ Descargar</button></div></div>`).join('');
 }
 async function abrirBases() {
     if (!esAdmin()) return;
@@ -203,4 +204,59 @@ async function subirCatalogo() {
         await guardarBaseServidor('catalogo', d, resumen);
         toast(`Productos actualizados: ${d.productos.length}`);
     } catch (e) { toast('No se pudo subir el catálogo de productos: ' + e.message); }
+}
+
+// ---------- Descargar copia (respaldo en Excel, sin líneas de cuadrícula; se puede volver a subir tal cual) ----------
+const hoyArchivo = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }).replace(/-/g, '');
+function hojaTabla(wb, nombre, titulos, filas, anchos) {
+    const ws = wb.addWorksheet(nombre, { views: [{ showGridLines: false, state: 'frozen', ySplit: 1 }] });
+    ws.addRow(titulos);
+    filas.forEach(f => ws.addRow(f));
+    ws.columns.forEach((c, i) => { c.width = (anchos && anchos[i]) || 22; });
+    ws.getRow(1).font = { bold: true };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF4' } };
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: titulos.length } };
+    return ws;
+}
+async function bajarLibro(wb, nombre) {
+    const buf = await wb.xlsx.writeBuffer();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = `${nombre}_${hoyArchivo()}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function descargarBase(k) {
+    if (!esAdmin()) return;
+    try {
+        await cargarExcelJS();
+        const wb = new ExcelJS.Workbook();
+        let nombre, cuenta;
+        if (k === 'contactos') {
+            const filas = [];
+            Object.entries(contactos).forEach(([z, l]) => l.forEach(x => filas.push([x.n, x.c || '', x.e || '', z, '', x.t || '', x.p || '', x.f ? 'Sí' : 'No', x.cl || '', x.ca || '', x.pz || ''])));
+            hojaTabla(wb, 'Contactos', ['Nombre Público', 'Ciudad', 'Etiquetas', 'Equipo de ventas', 'Comercial', 'Título', 'Provincia', 'Cliente para Facturar',
+                'Categoría de cliente/Clasificación', 'Categoría de cliente', 'Plazos de Pago'], filas, [40, 18, 30, 20, 18, 12, 18, 14, 28, 22, 18]);
+            nombre = 'Maestra_Contactos'; cuenta = filas.length;
+        } else if (k === 'catalogo') {
+            const ps = CATALOGO.productos;
+            hojaTabla(wb, 'Productos', ['Referencia Interna', 'Nombre', 'Etiquetas de producto', 'Grupo de Producto'], ps.map(p => [p.c, p.n, (p.e || []).join(', '), p.g || '']), [20, 60, 30, 24]);
+            const g = Object.entries(CATALOGO.guia || {});
+            if (g.length) hojaTabla(wb, 'Guía de Etiquetas', ['Etiqueta', 'Concepto Estratégico', 'Mensaje Comercial'], g.map(([e, v]) => [e, v.concepto || '', v.mensaje || '']), [22, 50, 70]);
+            nombre = 'Productos'; cuenta = ps.length;
+        } else if (k === 'proveedores') {
+            const filas = Object.values(proveedoresMaestra.filas).map(x => [x.n, x.n, x.p || '', x.c || '', x.dir || '', x.tel || '', x.e || '']);
+            hojaTabla(wb, 'Proveedores', ['Nombre Público', 'Nombre', 'Provincia', 'Ciudad', 'Calle', 'Teléfono', 'Etiquetas'], filas, [40, 40, 18, 18, 40, 20, 30]);
+            nombre = 'Proveedores'; cuenta = filas.length;
+        } else if (k === 'directorio') {
+            if (API_URL) { try { const r = await llamarApi({ accion: 'directorio' }); ponerDirectorio(r.filas || [], r.actualizado); } catch (e) { /* queda lo que hay en el teléfono */ } }
+            const filas = Object.values(directorio.filas).map(x => [x.n || '', x.c || '', x.dir || '', x.tel || '', x.z || '']);
+            if (filas.some(f => !f[0])) return toast('Falta el nombre en el directorio guardado: vuelve a sincronizar e inténtalo de nuevo');
+            hojaTabla(wb, 'Direcciones', ['Nombre Público', 'Ciudad', 'Calle', 'Teléfono', 'Equipo de ventas'], filas, [40, 18, 45, 24, 20]);
+            nombre = 'Direcciones'; cuenta = filas.length;
+        } else return;
+        if (!cuenta) return toast('Esta base aún no tiene registros para descargar');
+        await bajarLibro(wb, nombre);
+        toast(`Copia descargada: ${cuenta} registros`);
+    } catch (e) { toast('No se pudo descargar la copia: ' + e.message); }
 }
