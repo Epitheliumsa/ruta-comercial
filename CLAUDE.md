@@ -316,3 +316,4 @@
 - Probado con los mismos Excel de `datos/`: el catálogo y los contactos salen idénticos a los publicados.
 - Los filtros de vendedor, zona y mensajero se borran al salir de una pantalla: jefes y administrador vuelven a abrir en **todo el equipo** (agenda, Visiplan, panel, actividades, Maestro y Logística) (`todoElEquipo`, `limpiarFiltros`). Antes la agenda abría con la primera comercial (Lizeth).
 - Visitas cerradas, **administrador**: ve **✏️ Editar** en toda visita ya reportada y la edita directo (sin pasar por aprobación); queda su nombre como huella ("corregida … por Hernán", `editadaPorAdmin`). Los demás siguen con "Editar (lo aprueba Hernán)".
+- Maestro Contactos: "Contactado sin visita efectiva" ya no va en la línea "En el periodo"; reemplaza a "Sin visitas" en la columna de la derecha, para quien tiene visitas no efectivas reportadas y ninguna efectiva. La línea del periodo solo dice "N no efectivas".

@@ -1993,3 +1993,4 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .dash-leyenda { font-size: 11.5px; color: #64748b; margin: 6px 0 0; }
 .dash-leyenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 4px 0 8px; vertical-align: -1px; }
 @media (max-width: 420px) { .dash-kpis { grid-template-columns: repeat(2, 1fr); } }
+.mc-ultima i.contactado { color: #be185d; font-style: normal; font-weight: 700; }
