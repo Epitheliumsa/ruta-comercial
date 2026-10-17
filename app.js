@@ -617,6 +617,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         subirFotosPend();
         cargarDirectorio();
         cargarProveedores();
+        revisarAprobaciones();
     } catch (e) {
         console.warn('No se pudo sincronizar:', e);
         errorSync = navigator.onLine ? (e.message || 'Error de conexión') : 'Sin internet';
@@ -897,14 +898,67 @@ function cerrarAvisoCita() {
 function pintarBotonAvisos() {
     const b = $('btnAvisos');
     if (!b) return;
-    b.hidden = !esComercial() || !('Notification' in window) || Notification.permission !== 'default';
+    b.hidden = !(esComercial() || esJefe()) || !('Notification' in window) || Notification.permission !== 'default';
 }
 
 async function activarAvisos() {
     if (!('Notification' in window)) return;
     const permiso = await Notification.requestPermission();
-    toast(permiso === 'granted' ? 'Listo: te avisaremos 15 minutos antes de cada cita' : 'Sin permiso de notificaciones: el aviso saldrá solo dentro de la app');
+    toast(permiso === 'granted' ? (esComercial() ? 'Listo: te avisaremos 15 minutos antes de cada cita y cuando te llegue algo por aprobar' : 'Listo: te avisaremos cuando llegue una aprobación') : 'Sin permiso de notificaciones: el aviso saldrá solo dentro de la app');
     pintarBotonAvisos();
+}
+
+// ---------- AVISOS DE APROBACIONES ----------
+// Lo que le llega a cada uno para aprobar o responder: el administrador, las solicitudes de eliminación y de corrección de
+// visitas; los jefes, las solicitudes de creación en su turno de firma; y cada vendedor o jefe, las solicitudes de acompañamiento.
+// Cada solicitud avisa una sola vez (banner + notificación del celular si se dio el permiso). Funciona con la app abierta
+// o en segundo plano; con la app cerrada, avisa al abrirla.
+const AVISADAS_APROB = 'rc_aprob_avisadas';
+const avisadasAprob = () => { try { return JSON.parse(localStorage.getItem(AVISADAS_APROB)) || {}; } catch (e) { return {}; } };
+function aprobacionesPendientes() {
+    if (!sesion) return [];
+    const l = [];
+    if (esAdmin()) {
+        solicitudesPendientes().forEach(v => l.push({ k: 'el:' + v.id, tipo: 'eliminacion', txt: `${nombreVendedor(v.vendedor)} pide eliminar la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
+        correccionesPendientes().forEach(v => l.push({ k: 'co:' + v.id + ':' + v.solicitudCorreccion.fecha, tipo: 'correccion', txt: `${nombreVendedor(v.vendedor)} pide corregir la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
+    }
+    if (esJefe()) porAprobarMias().forEach(p => l.push({ k: 'cr:' + p.id, tipo: 'creacion', txt: `Solicitud de creación: ${p.nombre}${p.vendedor ? ' · ' + nombreVendedor(p.vendedor) : ''}` }));
+    invitacionesMias().forEach(a => l.push({ k: 'ac:' + a.id, tipo: 'acompanamiento', txt: `${nombreVendedor(a.solicitante)} te pide acompañamiento: ${a.contacto} (${fechaCorta(a.fecha)})` }));
+    return l;
+}
+const TITULO_APROB = { eliminacion: 'Solicitud de eliminación', correccion: 'Solicitud de corrección', creacion: 'Solicitud de creación', acompanamiento: 'Solicitud de acompañamiento' };
+let ultimaAprobNueva = null;
+function revisarAprobaciones() {
+    if (!sesion) return;
+    const l = aprobacionesPendientes(), ya = avisadasAprob();
+    const nuevas = l.filter(a => !ya[a.k]);
+    // Se olvidan las que ya se resolvieron
+    const vivas = Object.fromEntries(Object.entries(ya).filter(([k]) => l.some(a => a.k === k)));
+    nuevas.forEach(a => { vivas[a.k] = Date.now(); });
+    try { localStorage.setItem(AVISADAS_APROB, JSON.stringify(vivas)); } catch (e) { /* nada */ }
+    if (!nuevas.length) return;
+    ultimaAprobNueva = nuevas[0].tipo;
+    const titulo = nuevas.length === 1 ? TITULO_APROB[nuevas[0].tipo] : `${nuevas.length} aprobaciones nuevas`;
+    const texto = nuevas.length === 1 ? nuevas[0].txt : nuevas.slice(0, 3).map(a => a.txt).join('\n') + (nuevas.length > 3 ? `\n… y ${nuevas.length - 3} más` : '');
+    $('avisoAprobTit').textContent = titulo;
+    $('avisoAprobTxt').textContent = texto;
+    $('avisoAprob').classList.add('visible');
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    if ('Notification' in window && Notification.permission === 'granted') {
+        const opciones = { body: texto, icon: 'icons/icon-192.png', tag: 'aprob-' + nuevas[0].k };
+        if (registroSW) registroSW.showNotification(titulo, opciones);
+        else try { new Notification(titulo, opciones); } catch (e) {}
+    }
+    if (pantallaActiva() === 'homeScreen') pintarInicio();
+}
+function cerrarAvisoAprob() { $('avisoAprob').classList.remove('visible'); }
+function verAprobaciones() {
+    cerrarAvisoAprob();
+    const tipo = ultimaAprobNueva;
+    if (tipo === 'eliminacion' || tipo === 'correccion') return abrirSolicitudes();
+    if (tipo === 'creacion') return abrirProyectos('solicitud');
+    if (tipo === 'acompanamiento') { agenda.vendedor = sesion.id; agenda.vendedores = [sesion.id]; agenda.fecha = hoy(); return abrirAgenda(); }
+    irInicio();
 }
 
 // Al volver a la app se revisan los avisos (los temporizadores se pausan en segundo plano en algunos celulares)
@@ -912,6 +966,7 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     if (cerrarVencidas()) { repintarPantallaActiva(); sincronizar(); }
     programarAvisos();
+    revisarAprobaciones();
 });
 
 // ---------- CONTACTOS NUEVOS (PROYECTO) ----------
