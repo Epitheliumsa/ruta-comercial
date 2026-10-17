@@ -703,7 +703,7 @@ function entrarApp() {
     // Logística: solo ve el módulo de Logística, la Maestra Clientes y el Vademécum
     document.body.classList.toggle('es-logistica', esLogistica());
     $('btnPanel').style.display = esJefe() ? '' : 'none';
-    $('maestraTxt').textContent = veTodasZonas() ? 'Clientes y médicos por zona y vendedor' : 'Clientes y médicos de tu zona';
+    $('maestraTxt').textContent = veTodasZonas() ? (veProveedores() ? 'Clientes, médicos y proveedores' : 'Clientes y médicos por zona y vendedor') : 'Clientes y médicos de tu zona';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
     // Comerciales: en el título de cada pantalla, debajo, su nombre
     document.querySelectorAll('.header-logo h1').forEach(h => {
@@ -1549,9 +1549,9 @@ const DIMS_MAESTRA = {
     d: { t: 'Departamento', todos: 'Todos los departamentos', valor: c => departamento(c.p) },
     c: { t: 'Ciudad', todos: 'Todas las ciudades', valor: c => c.c || '' },
     pz: { t: 'Plazo de pago', todos: 'Todos los plazos', valor: c => c.pz || '', nombre: textoPlazo, orden: (a, b) => parseInt(a) - parseInt(b) || a.localeCompare(b) },
-    vis: { t: 'Visitas', todos: 'Visitados y no visitados', valor: c => maestra.visitados.has(normalizar(c.n)) ? 'si' : 'no',
+    vis: { t: 'Visitas', todos: 'Visitados y no visitados', valor: c => c.prov ? '' : maestra.visitados.has(normalizar(c.n)) ? 'si' : 'no',
         nombre: v => (v === 'si' ? 'Visitado en ' : 'No visitado en ') + nombrePeriodo(maestra.periodo).replace(/^el /, ''), orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
-    f: { t: 'Facturar', todos: 'Facturar: todos', valor: c => c.f ? 'si' : 'no', nombre: v => v === 'si' ? 'Cliente para facturar' : 'No factura', orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
+    f: { t: 'Facturar', todos: 'Facturar: todos', valor: c => c.prov ? '' : c.f ? 'si' : 'no', nombre: v => v === 'si' ? 'Cliente para facturar' : 'No factura', orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
     z: { t: 'Zona', jefe: true, valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
 };
 const MAX_BARRAS = 8;
@@ -1561,7 +1561,8 @@ const GRUPOS_ETIQUETA = {
     medico: { t: 'Solo médico', c: '#db2777', tinte: '#fce6f0' },
     ambos: { t: 'Médico y cliente', c: '#2563eb', c2: '#db2777', tinte: '#f1e6f6' },
     pv: { t: 'Punto de Venta', c: '#ca8a04', tinte: '#faf0d4' },
-    lead: { t: 'Lead', c: '#0891b2', tinte: '#e0f4f8' }
+    lead: { t: 'Lead', c: '#0891b2', tinte: '#e0f4f8' },
+    prov: { t: 'Proveedor', c: '#7c3aed', tinte: '#ede9fe' }   // solo Logística y administrador
 };
 // Un lead como si fuera un contacto de la Maestra (misma búsqueda y filtros); la ciudad viene "Municipio - Departamento"
 const leadComoContacto = (p, z) => { const [c, d] = String(p.ciudad || '').split(' - ');
@@ -1572,23 +1573,31 @@ const TODOS_MEDICOS = 'Todos los médicos (20-21-22)', TODOS_CLIENTES = 'Todos l
 // Punto de venta = 12 · 80 = empleados (no se muestran). Un 20 o 21 que factura es médico y cliente a la vez.
 function rolesContacto(c) {
     if (c.lead) return { lead: true };
+    if (c.prov) return { prov: true };
     const cl = String(c.cl || '');
     if (!cl) { const g = grupoEtiqueta(c.e); return { medico: g === 'medico' || g === 'ambos', cliente: g === 'cliente' || g === 'ambos', pv: g === 'pv' }; }
     return { medico: ['20', '21', '22'].includes(cl), cliente: !!c.f && !['12', '22', '80'].includes(cl), pv: cl === '12' };
 }
 function claseContacto(c) {
     const r = rolesContacto(c);
-    return r.lead ? 'lead' : r.medico && r.cliente ? 'ambos' : r.medico ? 'medico' : r.pv ? 'pv' : 'cliente';
+    return r.lead ? 'lead' : r.prov ? 'prov' : r.medico && r.cliente ? 'ambos' : r.medico ? 'medico' : r.pv ? 'pv' : 'cliente';
 }
 const esEmpleado = c => String(c.cl || '') === '80';
 // Contactos sin ningún rol (ni médico, ni cliente facturable, ni punto de venta; p. ej. un accionista liquidado que no factura) no salen en el Maestro Medico-Cliente
-const sinRolContacto = c => { const r = rolesContacto(c); return !c.lead && !r.medico && !r.cliente && !r.pv; };
+const sinRolContacto = c => { const r = rolesContacto(c); return !c.lead && !c.prov && !r.medico && !r.cliente && !r.pv; };
 const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('lead') ? 'lead' : n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
-const zonasMaestra = () => [...new Set([...Object.keys(contactos), ...proyectos().filter(p => p.estado !== 'vinculado').map(p => p.zona)])].filter(z => z && ((contactos[z] || []).length || proyectosDeZona(z).length));
+// Proveedores (maestra privada de Logística): una "zona" más, que solo ven Logística y el administrador
+const ZONA_PROV = 'Proveedores';
+const proveedoresComoContactos = () => !veProveedores() ? [] : Object.values(proveedoresMaestra.filas).sort((a, b) => a.n.localeCompare(b.n, 'es'))
+    .map(p => ({ n: p.n, e: p.e || '', c: p.c || '', p: p.p || '', ca: 'Proveedor', f: false, z: ZONA_PROV, prov: true }));
+const zonasMaestra = () => [...new Set([...Object.keys(contactos), ...proyectos().filter(p => p.estado !== 'vinculado').map(p => p.zona)])].filter(z => z && ((contactos[z] || []).length || proyectosDeZona(z).length))
+    .concat(veProveedores() && proveedoresComoContactos().length ? [ZONA_PROV] : []);
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
 
 function abrirMaestra() {
     if (!maestra.zonas) maestra.zonas = veTodasZonas() ? zonasMaestra() : [comercial(sesion.id)?.zona].filter(Boolean);
+    // Los proveedores llegan después de abrir la sesión: la primera vez que aparecen, se suman a lo elegido
+    if (veProveedores() && !maestra.provVisto && zonasMaestra().includes(ZONA_PROV)) { maestra.provVisto = true; if (!maestra.zonas.includes(ZONA_PROV)) maestra.zonas.push(ZONA_PROV); }
     $('mcZonas').hidden = !veTodasZonas();
     pintarMaestra();
     mostrarPantalla('maestraScreen');
@@ -1722,7 +1731,7 @@ document.addEventListener('click', e => {
 });
 
 // Tipo en botones: Todos · Médicos (20-21-22) · Clientes (facturables) · Puntos de venta · Leads. Otro toque al activo lo quita.
-const BOTONES_TIPO = [['', 'Todos'], [TODOS_MEDICOS, 'Médicos'], [TODOS_CLIENTES, 'Clientes'], [GRUPOS_ETIQUETA.pv.t, 'Puntos de venta'], [GRUPOS_ETIQUETA.lead.t, 'Leads']];
+const BOTONES_TIPO = [['', 'Todos'], [TODOS_MEDICOS, 'Médicos'], [TODOS_CLIENTES, 'Clientes'], [GRUPOS_ETIQUETA.pv.t, 'Puntos de venta'], [GRUPOS_ETIQUETA.lead.t, 'Leads'], [GRUPOS_ETIQUETA.prov.t, 'Proveedores']];
 function elegirTipoMaestra(v) { maestra.sel.g = v && !(maestra.sel.g.length === 1 && maestra.sel.g[0] === v) ? [v] : []; pintarMaestra(); }
 function pintarTiposMaestra(base) {
     const cont = filtrarMaestra(base, 'g'), sel = maestra.sel.g;
@@ -1752,10 +1761,10 @@ function pintarMaestra() {
         $('mcZonas').innerHTML = `<button type="button" class="vp-vend-btn todos${sel.length === todas.length ? ' activo' : ''}" onclick="elegirZonaMaestra('todas', event)">Todas las zonas</button>`
             + todas.map(z => {
                 const v = vendedorDeZona(z);
-                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${(contactos[z] || []).length + proyectosDeZona(z).length}</small></button>`;
+                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${z === ZONA_PROV ? proveedoresComoContactos().length : (contactos[z] || []).length + proyectosDeZona(z).length}</small></button>`;
             }).join('') + AYUDA_CHIPS;
     }
-    const base = sel.flatMap(z => [...(contactos[z] || []).filter(c => !esEmpleado(c) && !sinRolContacto(c)).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
+    const base = sel.flatMap(z => z === ZONA_PROV ? proveedoresComoContactos() : [...(contactos[z] || []).filter(c => !esEmpleado(c) && !sinRolContacto(c)).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
     // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
     maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && !tiposDe(x).includes(ATENEO) && enPeriodoMaestra(x.fecha))
         .map(x => normalizar(x.contacto)));
@@ -1776,21 +1785,24 @@ function pintarMaestra() {
     visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado')
         .forEach(x => { const k = normalizar(x.contacto); if (!ultima[k] || x.fecha > ultima[k]) ultima[k] = x.fecha; });
     // Logística: en vez de la última visita, la última entrega al cliente
-    if (esLogistica()) logVisibles().filter(r => r.estado === 'entregado' && r.contacto).forEach(r => { const k = normalizar(r.contacto); if (!ultima[k] || r.fecha > ultima[k]) ultima[k] = r.fecha; });
+    if (esLogistica()) logVisibles().filter(r => r.estado === 'entregado' && (r.contacto || r.proveedor)).forEach(r => { [r.contacto, r.proveedor].filter(Boolean).forEach(n => { const k = normalizar(n); if (!ultima[k] || r.fecha > ultima[k]) ultima[k] = r.fecha; }); });
+    // Proveedores: la última parada de Logística donde se recogió o radicó
+    if (veProveedores()) logVisibles().filter(r => r.estado === 'entregado' && r.proveedor).forEach(r => { const k = normalizar(r.proveedor); if (!ultima[k] || r.fecha > ultima[k]) ultima[k] = r.fecha; });
     const nMed = lista.filter(c => rolesContacto(c).medico).length, nCli = lista.filter(c => rolesContacto(c).cliente).length;
     const nPv = lista.filter(c => claseContacto(c) === 'pv').length, nAmb = lista.filter(c => claseContacto(c) === 'ambos').length;
-    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (20 y 21 que facturan): cuentan en ambos</small>` : ''}${esLogistica() ? '' : `<br>📅 ${esc(mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, '')))}: <b>${lista.filter(c => maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> con visita efectiva · <b>${lista.filter(c => !maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> sin visita efectiva`}<br><small>Toca un contacto para ver su historial</small>`;
+    $('mcLeyProv').hidden = !base.some(c => c.prov);
+    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${lista.some(c => c.prov) ? ` · <b>${lista.filter(c => c.prov).length}</b> proveedores` : ''}${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (20 y 21 que facturan): cuentan en ambos</small>` : ''}${esLogistica() || !lista.some(c => !c.prov) ? '' : `<br>📅 ${esc(mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, '')))}: <b>${lista.filter(c => maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> con visita efectiva · <b>${lista.filter(c => !maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> sin visita efectiva`}<br><small>Toca un contacto para ver su historial</small>`;
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[claseContacto(c)];
-        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)} · ${c.f ? 'Cliente para facturar' : 'No factura'}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="verCliente(this.dataset.c, this.dataset.v)">
+        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead || c.prov ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)}${c.prov ? '' : ' · ' + (c.f ? 'Cliente para facturar' : 'No factura')}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}"${c.prov ? '' : ' onclick="verCliente(this.dataset.c, this.dataset.v)"'}>
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
-                <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
-                ${esLogistica() ? '' : (() => { const a = maestra.enPeriodo[normalizar(c.n)];
+                <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead || c.prov ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
+                ${esLogistica() || c.prov ? '' : (() => { const a = maestra.enPeriodo[normalizar(c.n)];
                     return a ? `<span class="mc-periodo-dato">📅 En el periodo: ${a.ok ? `<b class="ok">${a.ok} ${a.ok === 1 ? 'visita efectiva' : 'visitas efectivas'}</b>${a.ultima ? ' · última ' + esc(fechaCorta(a.ultima)) : ''}` : '<b>sin visita efectiva</b>'}${a.no ? ` · <b class="no">${a.no} no efectiva${a.no === 1 ? '' : 's'}</b>` : ''}</span>`
                         : '<span class="mc-periodo-dato vacio">📅 En el periodo: sin visitas</span>'; })()}
                 ${!c.lead && portafolioDe(c.n).length ? `<span class="mc-portafolio" role="button" tabindex="0" data-c="${esc(c.n)}" onclick="verPortafolio(event, this.dataset.c)">📋 Portafolio del cliente <b>${portafolioDe(c.n).length}</b></span>` : ''}</span>
-            <span class="mc-ultima">${u ? (esLogistica() ? 'Última entrega' : 'Última visita') + '<br><b>' + esc(fechaCorta(u)) + '</b>' : `<i>${esLogistica() ? 'Sin entregas' : 'Sin visitas'}</i>`}</span>
+            <span class="mc-ultima">${u ? (c.prov ? 'Última parada' : esLogistica() ? 'Última entrega' : 'Última visita') + '<br><b>' + esc(fechaCorta(u)) + '</b>' : `<i>${c.prov ? 'Sin paradas' : esLogistica() ? 'Sin entregas' : 'Sin visitas'}</i>`}</span>
         </button>`;
     };
     // Jefes: agrupado por zona con el nombre del vendedor
@@ -1799,7 +1811,7 @@ function pintarMaestra() {
             const deZona = lista.filter(c => c.z === z);
             if (!deZona.length) return '';
             const v = vendedorDeZona(z);
-            return (veTodasZonas() ? `<p class="grupo-titulo">${esc(z)} · ${esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
+            return (veTodasZonas() ? `<p class="grupo-titulo">${esc(z)}${z === ZONA_PROV ? '' : ' · ' + esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
         }).join('');
 }
 
@@ -1853,7 +1865,7 @@ function pintarComposicion(lista) {
     // Cliente y Médico: rayas de los dos colores
     const colorEtiqueta = g => g.c2 ? `repeating-linear-gradient(135deg, ${g.c} 0 6px, ${g.c2} 6px 12px)` : g.c;
     const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[grupoEtiqueta(v)])}`
-        : maestra.dim === 'g' ? `; background:${{ [TODOS_MEDICOS]: GRUPOS_ETIQUETA.medico.c, [TODOS_CLIENTES]: GRUPOS_ETIQUETA.cliente.c, [GRUPOS_ETIQUETA.pv.t]: GRUPOS_ETIQUETA.pv.c, [GRUPOS_ETIQUETA.lead.t]: GRUPOS_ETIQUETA.lead.c }[v] || '#999'}` : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
+        : maestra.dim === 'g' ? `; background:${{ [TODOS_MEDICOS]: GRUPOS_ETIQUETA.medico.c, [TODOS_CLIENTES]: GRUPOS_ETIQUETA.cliente.c, [GRUPOS_ETIQUETA.pv.t]: GRUPOS_ETIQUETA.pv.c, [GRUPOS_ETIQUETA.lead.t]: GRUPOS_ETIQUETA.lead.c, [GRUPOS_ETIQUETA.prov.t]: GRUPOS_ETIQUETA.prov.c }[v] || '#999'}` : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
     const elegidos = maestra.dim === 'z' ? ((maestra.zonas || []).length < zonasMaestra().length ? maestra.zonas : []) : maestra.sel[maestra.dim];
     $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; maestra.verOtros=false; pintarMaestra()">${x.t}</button>`).join('');
     $('mcBarras').classList.toggle('con-sel', elegidos.length > 0);

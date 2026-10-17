@@ -66,7 +66,7 @@
                 </button>
                 <button class="home-btn home-btn-maestra para-log" onclick="abrirMaestra()">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="6" width="32" height="36" rx="3"/><circle cx="24" cy="18" r="5"/><path d="M15 32c1.5-5 5-7 9-7s7.5 2 9 7"/><path d="M15 37h18"/></svg>
-                    <span class="home-btn-text"><strong>Maestro Medico-Cliente</strong><small id="maestraTxt">Clientes y médicos de tu zona</small></span>
+                    <span class="home-btn-text"><strong>Maestro Medico-Cliente-Proveedor</strong><small id="maestraTxt">Clientes y médicos de tu zona</small></span>
                 </button>
                 <a class="home-btn home-btn-vade para-log" href="https://epitheliumsa.github.io/vademecum-epithelium/" target="_blank" rel="noopener" onclick="abrirVademecum(event)">
                     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 6h16v6H16zM13 12h22a3 3 0 0 1 3 3v24a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3V15a3 3 0 0 1 3-3z"/><path d="M10 22h28M10 34h28"/><path d="M24 25.5c-2 2.6-2 4.5 0 4.5s2-1.9 0-4.5z"/></svg>
@@ -265,7 +265,7 @@
             <div class="header">
                 <div class="header-logo">
                     <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
-                    <h1>Maestro Medico-Cliente</h1>
+                    <h1>Maestro Medico-Cliente-Proveedor</h1>
                 </div>
                 <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
             </div>
@@ -284,6 +284,7 @@
                 <div id="mcBarras" class="mc-barras"></div>
                 <p class="mc-grafica-nota">Toca una o varias barras para filtrar la lista; tócala otra vez para quitar el filtro.</p>
                 <p class="mc-leyenda"><span><i style="background:#2563eb"></i>Solo cliente</span><span><i style="background:#db2777"></i>Solo médico (22)</span><span><i style="background:repeating-linear-gradient(135deg, #2563eb 0 3px, #db2777 3px 6px)"></i>Médico y cliente (20-21)</span><span><i style="background:#ca8a04"></i>Punto de Venta</span><span><i style="background:#0891b2"></i>Lead</span>
+                    <span id="mcLeyProv" hidden><i style="background:#7c3aed"></i>Proveedor</span>
                     <span class="sep">Final de la barra de la tarjeta:</span><span><i style="background:#16a34a"></i>Facturable</span><span><i style="background:#dc2626"></i>No facturable</span></p>
             </section>
             <div id="mcLista" class="mc-lista"></div>
