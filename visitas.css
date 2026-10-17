@@ -1953,3 +1953,4 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .aviso-aprob button { color: #9a3412; }
 .cambio-ed { margin: 3px 0; font-size: 13px; line-height: 1.4; }
 .cambio-ed s { color: #94a3b8; }
+.mc-nombre .mc-periodo-dato b { display: inline; font-size: inherit; }
