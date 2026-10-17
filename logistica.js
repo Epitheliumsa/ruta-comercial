@@ -868,14 +868,20 @@ function subirProveedores() {
             const colN = cab['Nombre Público'] ? 'Nombre Público' : 'Nombre';
             if (!cab[colN] || !cab['Ciudad']) return toast('No encontré las columnas "Nombre" y "Ciudad": sube la Maestra de proveedores.');
             const val = (fila, n) => cab[n] ? String(fila.getCell(cab[n]).text || '').trim() : '';
-            const filas = [], vistos = new Set();
+            const filas = [], vistos = new Set(), nits = {};
             ws.eachRow((fila, i) => {
                 const n = val(fila, colN);
                 if (i === 1 || !n || vistos.has(normalizar(n))) return;
                 vistos.add(normalizar(n));
+                nits[normalizar(n)] = val(fila, 'Número de Identificación');
                 filas.push([n, val(fila, 'Ciudad'), val(fila, 'Provincia').replace(/\s*\(CO\)$/, ''), val(fila, 'Etiquetas'),
                     val(fila, 'Calle'), [...new Set([val(fila, 'Móvil'), val(fila, 'Teléfono')].filter(Boolean))].join(' / ')]);
             });
+            // Odoo trae un proveedor dos veces: "Empresa" y "Empresa, Persona" (mismo NIT). Se deja el que tiene el nombre y la razón social
+            const dobles = new Set(filas.filter(f => f[0].includes(', ')).map(f => normalizar(f[0].split(', ')[0]))
+                .filter(base => vistos.has(base) && filas.some(f => normalizar(f[0]).startsWith(base + ', ') && (!nits[base] || nits[normalizar(f[0])] === nits[base]))));
+            const sinDobles = filas.filter(f => !dobles.has(normalizar(f[0])));
+            filas.length = 0; filas.push(...sinDobles);
             if (!filas.length) return toast('La maestra de proveedores está vacía');
             if (!await dialogo({ titulo: 'Maestra de proveedores', aceptar: 'Subir',
                 texto: `${filas.length} proveedores: ${filas.filter(f => f[4]).length} con dirección y ${filas.filter(f => f[5]).length} con teléfono. Reemplaza la maestra anterior. Solo la ven Logística y tú; no queda en la app publicada.` })) return;
