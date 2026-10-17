@@ -1153,7 +1153,7 @@ function abrirProyectos(filtro) {
         ...todos.filter(p => p.estado === 'proyecto' && p.rechazo && veSolicitud(p)).map(p => ({ p, ok: false, fecha: p.rechazo.fecha || '' }))
     ].sort((a, b) => b.fecha.localeCompare(a.fecha)) : [];
     const pendientesLista = filtro === 'solicitud' && esJefe() ? lista.filter(accionable) : lista;
-    const filaResuelta = ({ p, ok, fecha }) => `<div class="sol-hist ${ok ? 'ok' : 'no'}"><b>${ok ? '✔ Aprobada' : '✕ Rechazada'}</b> · ${esc(p.nombre)}
+    const filaResuelta = ({ p, ok, fecha }) => `<div class="sol-hist ${ok ? 'ok' : 'no'}"><b class="sol-cli">${esc(p.nombre)}</b> <span class="sol-res">${ok ? '✔ Creación aprobada' : '✕ Creación rechazada'}</span>
         <small>${esc([nombreVendedor(p.vendedor), fecha && fechaHora(fecha),
             ok ? Object.entries(p.solicitud?.aprobaciones || {}).map(([r, a]) => `${FIRMAS[r] || r}: ${primerNombre(a.por)}`).join(' · ') + (p.estado === 'vinculado' ? ` · creado en la Maestra como ${p.vinculadoA}` : '')
                : `por ${nombreVendedor(p.rechazo.por)}${p.rechazo.motivo ? ' · Causa: ' + p.rechazo.motivo : ''}`].filter(Boolean).join(' · '))}</small></div>`;
@@ -1517,6 +1517,58 @@ function irAVisita(id) {
 }
 // En la solicitud de eliminar: ¿de verdad hay más de una visita a ese cliente ese día?
 const verificaRepetida = v => { const n = visitasRepetidas(v).length; return n > 1 ? `<p class="aviso-rep no">⚠ Sí: hay ${n} visitas a este cliente ese día</p>` : '<p class="aviso-rep ok">Solo hay 1 visita a este cliente ese día</p>'; };
+// ---------- HISTORIAL Y RESUMEN DE SOLICITUDES RESUELTAS ----------
+// Filtros: zona, tipo, resultado, fecha de resolución y causal (texto del pedido o de la causa del rechazo). El resumen sigue a los filtros.
+const histSol = { zona: '', tipo: '', res: '', per: '', q: '' };
+let histSolDatos = [];
+const zonaHistSol = h => comercial(h.v.vendedor)?.zona || '';
+const NOMBRE_TIPO_SOL = { eliminacion: 'Eliminación', correccion: 'Corrección', edicion: 'Edición' };
+const diaBogota = iso => new Date(new Date(iso).getTime() - 5 * 3600e3).toISOString().slice(0, 10);
+function periodoHistSol(h) {
+    if (!histSol.per) return true;
+    const d = diaBogota(h.s.resuelta || h.s.fecha || new Date().toISOString()), hoyD = hoy();
+    if (histSol.per === 'hoy') return d === hoyD;
+    if (histSol.per === 'semana') return d >= lunesDe(hoyD) && d <= sumarDias(lunesDe(hoyD), 6);
+    if (histSol.per === 'mes') return mesDe(d) === mesDe(hoyD);
+    return mesDe(d) === mesDe(sumarDias(hoyD.slice(0, 7) + '-01', -1));
+}
+const filtrarHistSol = () => histSolDatos.filter(h => (!histSol.zona || zonaHistSol(h) === histSol.zona) && (!histSol.tipo || h.tipo === histSol.tipo)
+    && (!histSol.res || h.s.estado === histSol.res) && periodoHistSol(h)
+    && (!histSol.q || normalizar([h.v.contacto, h.s.motivo, h.s.razonRechazo].join(' ')).includes(normalizar(histSol.q))));
+const duracionTxt = ms => { const h = ms / 3600e3; return h < 1 ? Math.max(1, Math.round(h * 60)) + ' min' : h < 48 ? h.toFixed(1).replace('.0', '') + ' h' : (h / 24).toFixed(1).replace('.0', '') + ' d'; };
+function barrasSol(titulo, filas) {
+    const max = Math.max(1, ...filas.map(f => f.ok + f.no));
+    return `<div class="dash-bloque"><p class="dash-tit">${esc(titulo)}</p>${filas.length ? filas.map(f => `<div class="dash-fila"><span class="dash-nom" title="${esc(f.n)}">${esc(f.n)}</span>
+        <span class="dash-barra"><i class="ok" style="width:${f.ok / max * 100}%"></i><i class="no" style="width:${f.no / max * 100}%"></i></span><b>${f.ok + f.no}</b></div>`).join('') : '<p class="meta">Sin datos</p>'}</div>`;
+}
+function pintarHistSol() {
+    if (!$('solHist')) return;
+    const l = filtrarHistSol(), ok = l.filter(h => h.s.estado === 'aprobada').length, no = l.length - ok;
+    $('solHistN').textContent = l.length === histSolDatos.length ? l.length : `${l.length} de ${histSolDatos.length}`;
+    const agrupar = (clave, orden) => { const m = {}; l.forEach(h => { const k = clave(h); if (!k) return; (m[k] = m[k] || { n: k, ok: 0, no: 0 })[h.s.estado === 'aprobada' ? 'ok' : 'no']++; });
+        return Object.values(m).sort(orden || ((a, b) => (b.ok + b.no) - (a.ok + a.no))); };
+    const tiempos = l.filter(h => h.s.resuelta && h.s.fecha).map(h => Date.parse(h.s.resuelta) - Date.parse(h.s.fecha)).filter(x => x >= 0);
+    const medio = tiempos.length ? tiempos.reduce((a, b) => a + b, 0) / tiempos.length : 0;
+    const causales = {}; l.forEach(h => {
+        if (h.tipo === 'edicion') (h.s.cambios || []).forEach(c => { const k = 'Edición: ' + (ETIQUETAS_EDICION[c.k] || c.k); causales[k] = (causales[k] || 0) + 1; });
+        else { const k = (h.s.motivo || '').trim().toLowerCase().replace(/\.$/, ''); if (k) causales[k.charAt(0).toUpperCase() + k.slice(1)] = (causales[k.charAt(0).toUpperCase() + k.slice(1)] || 0) + 1; } });
+    const topCausales = Object.entries(causales).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    $('solDash').innerHTML = l.length ? `<div class="dash-kpis">
+            <div class="dash-kpi"><small>Resueltas</small><b>${l.length}</b></div>
+            <div class="dash-kpi ok"><small>Autorizadas</small><b>${ok}</b><em>${Math.round(ok / l.length * 100)}%</em></div>
+            <div class="dash-kpi no"><small>Rechazadas</small><b>${no}</b><em>${Math.round(no / l.length * 100)}%</em></div>
+            <div class="dash-kpi"><small>Respuesta media</small><b>${tiempos.length ? duracionTxt(medio) : '—'}</b></div></div>
+        ${barrasSol('Por tipo', agrupar(h => NOMBRE_TIPO_SOL[h.tipo]))}
+        ${barrasSol('Por zona', agrupar(h => zonaHistSol(h) || 'Sin zona'))}
+        ${barrasSol('Por vendedor', agrupar(h => nombreVendedor(h.v.vendedor)))}
+        ${barrasSol('Por mes', agrupar(h => mesDe(diaBogota(h.s.resuelta || h.s.fecha || new Date().toISOString())), (a, b) => a.n.localeCompare(b.n)).map(f => ({ ...f, n: mayuscula(nombreMes(f.n)) })))}
+        <div class="dash-bloque"><p class="dash-tit">Causales más frecuentes</p>${topCausales.length ? topCausales.map(([k, n]) => `<div class="dash-fila"><span class="dash-nom" title="${esc(k)}">${esc(k)}</span><b>${n}</b></div>`).join('') : '<p class="meta">Sin datos</p>'}</div>
+        <p class="dash-leyenda"><i class="ok"></i>Autorizadas <i class="no"></i>Rechazadas</p>` : '<p class="meta">No hay solicitudes resueltas con estos filtros.</p>';
+    $('solHist').innerHTML = l.map(h => `<div class="sol-hist ${h.s.estado === 'aprobada' ? 'ok' : 'no'}">
+        <b class="sol-cli">${esc(h.v.contacto)}</b> <span class="sol-res">${h.s.estado === 'aprobada' ? '✔' : '✕'} ${NOMBRE_TIPO_SOL[h.tipo]} ${h.s.estado === 'aprobada' ? 'autorizada' : 'rechazada'}</span>
+        <small>${esc([nombreVendedor(h.v.vendedor), zonaHistSol(h), 'visita del ' + fechaCorta(h.v.fecha), 'por ' + nombreVendedor(h.s.resueltaPor), h.s.resuelta && fechaHora(h.s.resuelta)].filter(Boolean).join(' · '))}</small>
+        <small>${esc('Pedido: ' + h.s.motivo)}${h.s.razonRechazo ? esc(' · Causa del rechazo: ' + h.s.razonRechazo) : ''}</small></div>`).join('');
+}
 function abrirSolicitudes() {
     const lista = solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
     const eds = edicionesPendientes().sort((a, b) => a.edicionPendiente.fecha.localeCompare(b.edicionPendiente.fecha));
@@ -1559,11 +1611,21 @@ function abrirSolicitudes() {
                 <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitud('${v.id}', true)">Autorizar y eliminar</button>
             </div>
         </div>`).join('') : (corr.length || eds.length ? '' : '<p class="no-results">No hay solicitudes pendientes.</p>')}
-        ${resueltas.length ? `<p class="grupo-titulo">Historial · ${resueltas.length}</p>${resueltas.map(h => `<div class="sol-hist ${h.s.estado === 'aprobada' ? 'ok' : 'no'}">
-            <b>${h.s.estado === 'aprobada' ? '✔' : '✕'} ${h.tipo === 'eliminacion' ? 'Eliminación' : h.tipo === 'edicion' ? 'Edición' : 'Corrección'} ${h.s.estado === 'aprobada' ? 'autorizada' : 'rechazada'}</b> · ${esc(h.v.contacto)}
-            <small>${esc([nombreVendedor(h.v.vendedor), 'visita del ' + fechaCorta(h.v.fecha), 'por ' + nombreVendedor(h.s.resueltaPor), h.s.resuelta && fechaHora(h.s.resuelta)].filter(Boolean).join(' · '))}</small>
-            <small>${esc('Pedido: ' + h.s.motivo)}${h.s.razonRechazo ? esc(' · Causa del rechazo: ' + h.s.razonRechazo) : ''}</small></div>`).join('')}` : ''}
+        ${resueltas.length ? `<div class="sol-hist-bloque">
+            <p class="grupo-titulo">Historial · <span id="solHistN">${resueltas.length}</span></p>
+            <div class="sol-filtros">
+                <select id="shZona" onchange="histSol.zona = this.value; pintarHistSol()" aria-label="Zona"><option value="">Todas las zonas</option>${[...new Set(resueltas.map(h => zonaHistSol(h)).filter(Boolean))].sort().map(z => `<option>${esc(z)}</option>`).join('')}</select>
+                <select id="shTipo" onchange="histSol.tipo = this.value; pintarHistSol()" aria-label="Tipo"><option value="">Todos los tipos</option><option value="eliminacion">Eliminación</option><option value="correccion">Corrección</option><option value="edicion">Edición</option></select>
+                <select id="shRes" onchange="histSol.res = this.value; pintarHistSol()" aria-label="Resultado"><option value="">Autorizadas y rechazadas</option><option value="aprobada">Autorizadas</option><option value="rechazada">Rechazadas</option></select>
+                <select id="shPer" onchange="histSol.per = this.value; pintarHistSol()" aria-label="Fecha"><option value="">Todas las fechas</option><option value="hoy">Hoy</option><option value="semana">Esta semana</option><option value="mes">Este mes</option><option value="mesAnt">Mes anterior</option></select>
+                <input id="shQ" type="search" placeholder="Causal o cliente…" oninput="histSol.q = this.value; pintarHistSol()" aria-label="Buscar causal o cliente">
+            </div>
+            <details class="sol-dash" open><summary>📊 Resumen de lo resuelto</summary><div id="solDash"></div></details>
+            <div id="solHist"></div></div>` : ''}
     </div>`, 'theme-rojo');
+    histSolDatos = resueltas;
+    Object.assign(histSol, { zona: '', tipo: '', res: '', per: '', q: '' });
+    pintarHistSol();
 }
 
 async function resolverSolicitud(id, autorizar) {
