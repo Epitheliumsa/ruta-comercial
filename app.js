@@ -1555,8 +1555,6 @@ const DIMS_MAESTRA = {
     z: { t: 'Zona', jefe: true, valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
 };
 const MAX_BARRAS = 8;
-// Con solo proveedores en pantalla no aplican clasificación, plazo de pago, visitas ni facturar
-const SIN_PROVEEDOR = ['cat', 'pz', 'f', 'vis'];
 // Color por tipo de etiqueta (se unifican en Cliente, Médico y Punto de Venta) y por si es cliente para facturar
 const GRUPOS_ETIQUETA = {
     cliente: { t: 'Solo cliente', c: '#2563eb', tinte: '#e3ecfd' },
@@ -1746,7 +1744,7 @@ function pintarTiposMaestra(base) {
 }
 function pintarFiltrosMaestra(base) {
     pintarTiposMaestra(base);
-    pintarMultis($('mcFiltrosMulti'), 'maestra', FILTROS_MAESTRA.filter(k => k !== 'g' && !(maestra.soloProv && SIN_PROVEEDOR.includes(k))).map(k => {
+    pintarMultis($('mcFiltrosMulti'), 'maestra', FILTROS_MAESTRA.filter(k => k !== 'g').map(k => {
         const d = DIMS_MAESTRA[k], ejemplo = {}, cuenta = {};
         base.forEach(c => valsMaestra(k, c).forEach(v => { if (v && !ejemplo[v]) ejemplo[v] = c; }));
         filtrarMaestra(base, k).forEach(c => valsMaestra(k, c).forEach(v => { cuenta[v] = (cuenta[v] || 0) + 1; }));
@@ -1778,7 +1776,6 @@ function pintarMaestra() {
     });
     // Las opciones elegidas que ya no existen en las zonas elegidas se quitan
     FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => v === NINGUNA || base.some(c => valsMaestra(k, c).includes(v))); });
-    maestra.soloProv = !!base.length && (base.every(c => c.prov) || (maestra.sel.g.length === 1 && maestra.sel.g[0] === GRUPOS_ETIQUETA.prov.t));
     pintarFiltrosMaestra(base);
     const lista = filtrarMaestra(base);
     // La gráfica no se filtra por su propia columna: así se pueden tocar varias barras
@@ -1846,7 +1843,7 @@ function buscarPortafolio(campo) {
 
 // Barras con la composición de los clientes filtrados. Tocar una barra filtra por ese valor; tocarla otra vez lo quita.
 function pintarComposicion(lista) {
-    const dims = Object.entries(DIMS_MAESTRA).filter(([k, d]) => (!d.jefe || esJefe()) && !(maestra.soloProv && SIN_PROVEEDOR.includes(k)));
+    const dims = Object.entries(DIMS_MAESTRA).filter(([, d]) => !d.jefe || esJefe());
     if (!dims.some(([k]) => k === maestra.dim)) maestra.dim = 'e';
     const d = DIMS_MAESTRA[maestra.dim];
     // El título lleva el nombre del botón de Tipo activo (Composición de Médicos, de Clientes...)
