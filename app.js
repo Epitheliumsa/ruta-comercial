@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610162201';
+const APP_VERSION = '202610162207';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -5302,8 +5302,11 @@ function filtrarPanel() {
     pintarPanel();
 }
 
+// El estado filtra todo el panel (cifras, gráficas, tabla y detalle): Efectiva, No efectiva, Sin reporte a tiempo o Pendiente
+const pasaEstadoPanel = v => !filtroPanel.estado || (filtroPanel.estado === 'sin' ? sinReporte(v) : filtroPanel.estado === 'no_visitado' ? v.estado === 'no_visitado' && !sinReporte(v)
+    : filtroPanel.estado === 'pendiente' ? v.estado === 'pendiente' && !sinReporte(v) : v.estado === filtroPanel.estado);
 const pasaFiltro = v => (!filtroPanel.vendedor || v.vendedor === filtroPanel.vendedor)
-    && (!filtroPanel.tipo || (filtroPanel.tipo === '__interno' ? v.interno : tiposDe(v).includes(filtroPanel.tipo)));
+    && (!filtroPanel.tipo || (filtroPanel.tipo === '__interno' ? v.interno : tiposDe(v).includes(filtroPanel.tipo))) && pasaEstadoPanel(v);
 
 function pintarPanel() {
     iniciarFiltrosPanel();
@@ -5363,7 +5366,7 @@ function pintarPanel() {
         : '<p class="no-results" style="padding:10px">Sin visitas fallidas este mes.</p>';
 
     // Detalle de cada visita (más recientes primero)
-    const det = vis.filter(v => !filtroPanel.estado || (filtroPanel.estado === 'sin' ? sinReporte(v) : filtroPanel.estado === 'no_visitado' ? v.estado === 'no_visitado' && !sinReporte(v) : v.estado === filtroPanel.estado && !sinReporte(v)))
+    const det = vis
         .sort((a, b) => b.fecha.localeCompare(a.fecha) || ordenCita(a, b));
     $('panDetTxt').textContent = `${det.length} ${det.length === 1 ? 'registro' : 'registros'}`;
     $('panDetalle').innerHTML = det.length ? det.map(v => {

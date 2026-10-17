@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Visita Comercial</title>
-    <link rel="stylesheet" href="styles.css?v=202610162201">
-    <link rel="stylesheet" href="visitas.css?v=202610162201">
+    <link rel="stylesheet" href="styles.css?v=202610162207">
+    <link rel="stylesheet" href="visitas.css?v=202610162207">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -98,7 +98,7 @@
                 </button>
                                 <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 16/10/2026 22:01</p>
+                <p class="version-app">Versión 16/10/2026 22:07</p>
             </div>
         </div>
 
@@ -327,15 +327,15 @@
             </div>
 
             <div class="filters filtros-panel">
-                <select id="panVend" onchange="filtrarPanel()" aria-label="Vendedor"></select>
-                <select id="panTipo" onchange="filtrarPanel()" aria-label="Tipo de visita"></select>
-                <select id="panEstado" onchange="filtrarPanel()" aria-label="Estado">
+                <label class="fp-campo"><span>Vendedor</span><select id="panVend" onchange="filtrarPanel()" aria-label="Vendedor"></select></label>
+                <label class="fp-campo"><span>Tipo de visita</span><select id="panTipo" onchange="filtrarPanel()" aria-label="Tipo de visita"></select></label>
+                <label class="fp-campo"><span>Estado</span><select id="panEstado" onchange="filtrarPanel()" aria-label="Estado">
                     <option value="">Todos los estados</option>
                     <option value="visitado">Visita Efectiva / realizadas</option>
                     <option value="no_visitado">Visita No Efectiva / no realizadas</option>
                     <option value="sin">Sin reporte a tiempo</option>
                     <option value="pendiente">Pendientes</option>
-                </select>
+                </select></label>
             </div>
 
             <div class="panel-cuerpo">
@@ -402,13 +402,13 @@
         </div>
     </div>
 
-    <script src="ciudades.js?v=202610162201"></script>
-    <script src="objetivos.js?v=202610162201"></script>
-    <script src="circulares.js?v=202610162201"></script>
-    <script src="productos.js?v=202610162201"></script>
-    <script src="portafolios.js?v=202610162201"></script>
-    <script src="app.js?v=202610162201"></script>
-    <script src="logistica.js?v=202610162201"></script>
-    <script src="bases.js?v=202610162201"></script>
+    <script src="ciudades.js?v=202610162207"></script>
+    <script src="objetivos.js?v=202610162207"></script>
+    <script src="circulares.js?v=202610162207"></script>
+    <script src="productos.js?v=202610162207"></script>
+    <script src="portafolios.js?v=202610162207"></script>
+    <script src="app.js?v=202610162207"></script>
+    <script src="logistica.js?v=202610162207"></script>
+    <script src="bases.js?v=202610162207"></script>
 </body>
 </html>

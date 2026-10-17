@@ -1996,3 +1996,6 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .mc-ultima i.contactado { color: #be185d; font-style: normal; font-weight: 700; }
 .mc-barra-num em { font-style: normal; color: #94a3b8; margin-left: 2px; }
 .mc-barra-num em::before { content: '· '; }
+.filtros-panel .fp-campo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.filtros-panel .fp-campo > span { font-size: 11.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #5b21b6; }
+.filtros-panel .fp-campo select { width: 100%; }
