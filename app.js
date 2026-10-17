@@ -1084,6 +1084,18 @@ function abrirProyectos(filtro) {
         .filter(p => filtro || pasaFiltroLeads(p))
         .filter(p => p.estado !== 'solicitud' || !esJefe() || veSolicitud(p))
         .sort((a, b) => ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(a.estado) - ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(b.estado) || a.nombre.localeCompare(b.nombre));
+    // Solicitudes de creación: lo pendiente (o que pide una acción) primero y en grande; lo ya resuelto, abajo y pequeño (huella)
+    const accionable = p => !solicitudAprobada(p) || (esJefe() && candidatosVinculo(p).length);
+    const resueltas = filtro === 'solicitud' && esJefe() ? [
+        ...lista.filter(p => !accionable(p)).map(p => ({ p, ok: true, fecha: Object.values(p.solicitud?.aprobaciones || {}).map(a => a.fecha).sort().pop() || p.solicitud?.fecha || '' })),
+        ...todos.filter(p => p.estado === 'vinculado' && p.solicitud && veSolicitud(p)).map(p => ({ p, ok: true, fecha: Object.values(p.solicitud?.aprobaciones || {}).map(a => a.fecha).sort().pop() || p.solicitud?.fecha || '' })),
+        ...todos.filter(p => p.estado === 'proyecto' && p.rechazo && veSolicitud(p)).map(p => ({ p, ok: false, fecha: p.rechazo.fecha || '' }))
+    ].sort((a, b) => b.fecha.localeCompare(a.fecha)) : [];
+    const pendientesLista = filtro === 'solicitud' && esJefe() ? lista.filter(accionable) : lista;
+    const filaResuelta = ({ p, ok, fecha }) => `<div class="sol-hist ${ok ? 'ok' : 'no'}"><b>${ok ? '✔ Aprobada' : '✕ Rechazada'}</b> · ${esc(p.nombre)}
+        <small>${esc([nombreVendedor(p.vendedor), fecha && fechaHora(fecha),
+            ok ? Object.entries(p.solicitud?.aprobaciones || {}).map(([r, a]) => `${FIRMAS[r] || r}: ${primerNombre(a.por)}`).join(' · ') + (p.estado === 'vinculado' ? ` · creado en la Maestra como ${p.vinculadoA}` : '')
+               : `por ${nombreVendedor(p.rechazo.por)}${p.rechazo.motivo ? ' · Causa: ' + p.rechazo.motivo : ''}`].filter(Boolean).join(' · '))}</small></div>`;
     const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? (solicitudAprobada(p) ? 'ok' : 'np') : p.estado === 'perdido' ? 'perdida' : 'proy'}">${p.estado === 'solicitud' ? (solicitudAprobada(p) ? 'Aprobada · en creación' : 'Ganada · por aprobar') : ESTADO_PROYECTO[p.estado]}</span>`;
     const acciones = p => {
         if (p.estado === 'vinculado') return `<p>Creado en la Maestra como <b>${esc(p.vinculadoA)}</b></p>`;
@@ -1136,13 +1148,14 @@ function abrirProyectos(filtro) {
             <select onchange="filtrarLeads('estado', this.value)" aria-label="Estado">${Object.entries(ESTADOS_LEAD).map(([k, t]) => `<option value="${k}" ${filtroLeads.estado === k ? 'selected' : ''}>${t} (${todos.filter(p => k === 'todas' || (k === 'activas' ? ['proyecto', 'solicitud'].includes(p.estado) : p.estado === k)).length})</option>`).join('')}</select>
             <select onchange="filtrarLeads('tipo', this.value)" aria-label="Tipo"><option value="">Todos los tipos</option>${TIPOS_PROYECTO.map(t => `<option ${filtroLeads.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
         </div><p class="leads-cuenta">${lista.length} ${lista.length === 1 ? 'lead' : 'leads'}${lista.length !== todos.length ? ` de ${todos.length}` : ''}</p>`}
-        ${lista.length ? gruposProyectos(lista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
+        ${pendientesLista.length ? gruposProyectos(pendientesLista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
             <div class="visita-cab"><strong class="cliente-link" data-c="${esc(p.nombre)}" onclick="verCliente(this.dataset.c, '${p.vendedor}')" title="Ver historial de visitas">${esc(p.nombre)}</strong>${chip(p)}</div>
             ${esJefe() ? `<p class="lead-dueno">👤 ${esc(nombreVendedor(p.vendedor))} · ${esc(comercial(p.vendedor)?.zona || p.zona || 'Sin zona')}</p>` : ''}
             <small>${esc([p.tipo, p.clasificacion && 'Clasificación ' + p.clasificacion, nombrePropio(p.persona), p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
             ${seguimientoLead(p)}
             ${acciones(p)}
-        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación.' : todos.length ? 'No hay leads con estos filtros.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
+        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? (resueltas.length ? 'No hay solicitudes pendientes.' : 'No hay solicitudes de creación.') : todos.length ? 'No hay leads con estos filtros.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
+        ${resueltas.length ? `<p class="grupo-titulo">Historial · ${resueltas.length}</p>${resueltas.map(filaResuelta).join('')}` : ''}
     </div>`);
 }
 
@@ -1446,6 +1459,9 @@ const verificaRepetida = v => { const n = visitasRepetidas(v).length; return n >
 function abrirSolicitudes() {
     const lista = solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
     const corr = correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
+    // Lo ya resuelto queda como huella, pequeño y debajo de lo pendiente (incluye las visitas eliminadas)
+    const resueltas = Object.values(registros).filter(r => r.clase === 'visita').flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion]]
+        .filter(([, s]) => s && s.estado && s.estado !== 'pendiente').map(([tipo, s]) => ({ v, tipo, s }))).sort((a, b) => (b.s.resuelta || '').localeCompare(a.s.resuelta || ''));
     const estadoTxt = v => v.cierreAutomatico ? 'cerrada sin reporte' : v.estado === 'visitado' ? (v.interno ? 'realizado' : 'visitada') : (v.interno ? 'no realizado' : 'no visitada');
     abrirModal(`<div class="form-rc">
         <h2>Solicitudes de eliminación y corrección</h2>
@@ -1471,6 +1487,10 @@ function abrirSolicitudes() {
                 <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitud('${v.id}', true)">Autorizar y eliminar</button>
             </div>
         </div>`).join('') : '<p class="no-results">No hay solicitudes pendientes.</p>'}
+        ${resueltas.length ? `<p class="grupo-titulo">Historial · ${resueltas.length}</p>${resueltas.map(h => `<div class="sol-hist ${h.s.estado === 'aprobada' ? 'ok' : 'no'}">
+            <b>${h.s.estado === 'aprobada' ? '✔' : '✕'} ${h.tipo === 'eliminacion' ? 'Eliminación' : 'Corrección'} ${h.s.estado === 'aprobada' ? 'autorizada' : 'rechazada'}</b> · ${esc(h.v.contacto)}
+            <small>${esc([nombreVendedor(h.v.vendedor), 'visita del ' + fechaCorta(h.v.fecha), 'por ' + nombreVendedor(h.s.resueltaPor), h.s.resuelta && fechaHora(h.s.resuelta)].filter(Boolean).join(' · '))}</small>
+            <small>${esc('Pedido: ' + h.s.motivo)}${h.s.razonRechazo ? esc(' · Causa del rechazo: ' + h.s.razonRechazo) : ''}</small></div>`).join('')}` : ''}
     </div>`, 'theme-rojo');
 }
 
