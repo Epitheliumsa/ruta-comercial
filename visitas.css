@@ -1951,3 +1951,5 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .aviso-aprob { top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); background: #9a3412; }
 .aviso-aprob span { white-space: pre-line; display: block; margin-top: 2px; }
 .aviso-aprob button { color: #9a3412; }
+.cambio-ed { margin: 3px 0; font-size: 13px; line-height: 1.4; }
+.cambio-ed s { color: #94a3b8; }

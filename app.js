@@ -520,7 +520,11 @@ function guardarLocal() {
 }
 
 // Guarda un registro (visita o actividad) y lo deja listo para subir
+// Visita cerrada cuyo reporte se está editando para enviarlo a aprobación del Gerente General: el guardado no cambia el reporte,
+// queda como una propuesta (edicionPendiente) hasta que se autorice. Se apaga al cerrar el recuadro.
+let modoPropuesta = '';
 function guardarRegistro(r) {
+    if (modoPropuesta && r.id === modoPropuesta) return proponerEdicion(r);
     r.actualizado = new Date().toISOString();
     r.etapa = ETAPA_DATOS;
     if (r.clase === 'visita') r.limiteReporte = new Date(limiteCierre(r)).toISOString();
@@ -796,7 +800,8 @@ function pintarInicio() {
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     const corrs = correccionesPendientes().length;
-    $('solicitudesTxt').textContent = sols.length + corrs ? [sols.length && `${sols.length} de eliminación`, corrs && `${corrs} de corrección`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
+    const edsN = edicionesPendientes().length;
+    $('solicitudesTxt').textContent = sols.length + corrs + edsN ? [sols.length && `${sols.length} de eliminación`, corrs && `${corrs} de corrección`, edsN && `${edsN} de edición`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
     const vigentes = CIRCULARES.filter(c => estadoCircular(c) === 'vigente').length;
     $('homeActTxt').textContent = `${vigentes} ${vigentes === 1 ? 'circular vigente' : 'circulares vigentes'}` + (acts.length ? ` · ${hechas} de ${acts.length} tareas del mes` : '');
     pintarInicioLog();
@@ -920,13 +925,14 @@ function aprobacionesPendientes() {
     const l = [];
     if (esAdmin()) {
         solicitudesPendientes().forEach(v => l.push({ k: 'el:' + v.id, tipo: 'eliminacion', txt: `${nombreVendedor(v.vendedor)} pide eliminar la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
+        edicionesPendientes().forEach(v => l.push({ k: 'ed:' + v.id + ':' + v.edicionPendiente.fecha, tipo: 'edicion', txt: `${nombreVendedor(v.edicionPendiente.por)} propone editar el reporte de ${v.contacto} (${fechaCorta(v.fecha)})` }));
         correccionesPendientes().forEach(v => l.push({ k: 'co:' + v.id + ':' + v.solicitudCorreccion.fecha, tipo: 'correccion', txt: `${nombreVendedor(v.vendedor)} pide corregir la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
     }
     if (esJefe()) porAprobarMias().forEach(p => l.push({ k: 'cr:' + p.id, tipo: 'creacion', txt: `Solicitud de creación: ${p.nombre}${p.vendedor ? ' · ' + nombreVendedor(p.vendedor) : ''}` }));
     invitacionesMias().forEach(a => l.push({ k: 'ac:' + a.id, tipo: 'acompanamiento', txt: `${nombreVendedor(a.solicitante)} te pide acompañamiento: ${a.contacto} (${fechaCorta(a.fecha)})` }));
     return l;
 }
-const TITULO_APROB = { eliminacion: 'Solicitud de eliminación', correccion: 'Solicitud de corrección', creacion: 'Solicitud de creación', acompanamiento: 'Solicitud de acompañamiento' };
+const TITULO_APROB = { edicion: 'Edición de reporte por aprobar', eliminacion: 'Solicitud de eliminación', correccion: 'Solicitud de corrección', creacion: 'Solicitud de creación', acompanamiento: 'Solicitud de acompañamiento' };
 let ultimaAprobNueva = null;
 function revisarAprobaciones() {
     if (!sesion) return;
@@ -955,7 +961,7 @@ function cerrarAvisoAprob() { $('avisoAprob').classList.remove('visible'); }
 function verAprobaciones() {
     cerrarAvisoAprob();
     const tipo = ultimaAprobNueva;
-    if (tipo === 'eliminacion' || tipo === 'correccion') return abrirSolicitudes();
+    if (tipo === 'eliminacion' || tipo === 'correccion' || tipo === 'edicion') return abrirSolicitudes();
     if (tipo === 'creacion') return abrirProyectos('solicitud');
     if (tipo === 'acompanamiento') { agenda.vendedor = sesion.id; agenda.vendedores = [sesion.id]; agenda.fecha = hoy(); return abrirAgenda(); }
     irInicio();
@@ -1513,13 +1519,24 @@ function irAVisita(id) {
 const verificaRepetida = v => { const n = visitasRepetidas(v).length; return n > 1 ? `<p class="aviso-rep no">⚠ Sí: hay ${n} visitas a este cliente ese día</p>` : '<p class="aviso-rep ok">Solo hay 1 visita a este cliente ese día</p>'; };
 function abrirSolicitudes() {
     const lista = solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
+    const eds = edicionesPendientes().sort((a, b) => a.edicionPendiente.fecha.localeCompare(b.edicionPendiente.fecha));
     const corr = correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
     // Lo ya resuelto queda como huella, pequeño y debajo de lo pendiente (incluye las visitas eliminadas)
-    const resueltas = Object.values(registros).filter(r => r.clase === 'visita').flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion]]
+    const resueltas = Object.values(registros).filter(r => r.clase === 'visita').flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion], ['edicion', v.edicionPendiente]]
         .filter(([, s]) => s && s.estado && s.estado !== 'pendiente').map(([tipo, s]) => ({ v, tipo, s }))).sort((a, b) => (b.s.resuelta || '').localeCompare(a.s.resuelta || ''));
     const estadoTxt = v => v.cierreAutomatico ? 'cerrada sin reporte' : v.estado === 'visitado' ? (v.interno ? 'realizado' : 'visitada') : (v.interno ? 'no realizado' : 'no visitada');
     abrirModal(`<div class="form-rc">
         <h2>Solicitudes de eliminación y corrección</h2>
+        ${eds.length ? `<p class="grupo-titulo">✏️ Edición de reportes cerrados · ${eds.length}</p>${eds.map(v => `<div class="solicitud">
+            <strong>${esc(v.contacto)}</strong>
+            <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} · propuesta por ${esc(nombreVendedor(v.edicionPendiente.por))} el ${esc(fechaHora(v.edicionPendiente.fecha))}</small>
+            ${(v.edicionPendiente.cambios || []).map(c => `<p class="cambio-ed"><b>${esc(ETIQUETAS_EDICION[c.k] || c.k)}:</b> <s>${esc(c.antes)}</s> → ${esc(c.despues)}</p>`).join('') || '<p class="cambio-ed">Otros cambios en el reporte</p>'}
+            <div class="form-botones">
+                <button class="btn-secundario" onclick="irAVisita('${v.id}')">Ver la visita</button>
+                <button class="btn-secundario" onclick="resolverEdicion('${v.id}', false)">Rechazar</button>
+                <button class="btn-primario" onclick="resolverEdicion('${v.id}', true)">Autorizar edición</button>
+            </div>
+        </div>`).join('')}` : ''}
         ${corr.length ? `<p class="grupo-titulo">✏️ Corrección de visitas ya cerradas · ${corr.length}</p>${corr.map(v => `<div class="solicitud">
             <strong>${esc(v.contacto)}</strong>
             <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} (${estadoTxt(v)}) · pedida el ${esc(fechaHora(v.solicitudCorreccion.fecha))}</small>
@@ -1541,9 +1558,9 @@ function abrirSolicitudes() {
                 <button class="btn-secundario" onclick="resolverSolicitud('${v.id}', false)">Rechazar</button>
                 <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitud('${v.id}', true)">Autorizar y eliminar</button>
             </div>
-        </div>`).join('') : '<p class="no-results">No hay solicitudes pendientes.</p>'}
+        </div>`).join('') : (corr.length || eds.length ? '' : '<p class="no-results">No hay solicitudes pendientes.</p>')}
         ${resueltas.length ? `<p class="grupo-titulo">Historial · ${resueltas.length}</p>${resueltas.map(h => `<div class="sol-hist ${h.s.estado === 'aprobada' ? 'ok' : 'no'}">
-            <b>${h.s.estado === 'aprobada' ? '✔' : '✕'} ${h.tipo === 'eliminacion' ? 'Eliminación' : 'Corrección'} ${h.s.estado === 'aprobada' ? 'autorizada' : 'rechazada'}</b> · ${esc(h.v.contacto)}
+            <b>${h.s.estado === 'aprobada' ? '✔' : '✕'} ${h.tipo === 'eliminacion' ? 'Eliminación' : h.tipo === 'edicion' ? 'Edición' : 'Corrección'} ${h.s.estado === 'aprobada' ? 'autorizada' : 'rechazada'}</b> · ${esc(h.v.contacto)}
             <small>${esc([nombreVendedor(h.v.vendedor), 'visita del ' + fechaCorta(h.v.fecha), 'por ' + nombreVendedor(h.s.resueltaPor), h.s.resuelta && fechaHora(h.s.resuelta)].filter(Boolean).join(' · '))}</small>
             <small>${esc('Pedido: ' + h.s.motivo)}${h.s.razonRechazo ? esc(' · Causa del rechazo: ' + h.s.razonRechazo) : ''}</small></div>`).join('')}` : ''}
     </div>`, 'theme-rojo');
@@ -3011,11 +3028,17 @@ function accionesVisita(v, txtOk, txtNo) {
         const hastaCorr = correccionAutorizada(v) ? `${fechaHora(sc.hasta)} (autorizada)` : textoCierre(v);
         const estadoCorr = sc?.estado === 'pendiente' ? '<span class="chip np">Corrección por autorizar</span>'
             : sc?.estado === 'rechazada' ? `<span class="chip gris">Corrección rechazada${sc.razonRechazo ? ': ' + esc(sc.razonRechazo) : ''}</span>` : '';
-        const pedir = puedePedirCorreccion(v) ? `<button class="link-mini" onclick="solicitarCorreccion('${v.id}')">✏️ Solicitar corrección</button>` : '';
+        const pedir = puedePedirCorreccion(v) && !puedeProponerEdicion(v) ? `<button class="link-mini" onclick="solicitarCorreccion('${v.id}')">✏️ Solicitar corrección</button>` : '';
+        const ed = v.edicionPendiente;
+        const estadoEd = ed?.estado === 'pendiente' ? '<span class="chip np">Edición por autorizar</span>'
+            : ed?.estado === 'rechazada' ? `<span class="chip gris">Edición rechazada${ed.razonRechazo ? ': ' + esc(ed.razonRechazo) : ''}</span>` : '';
+        const proponer = puedeProponerEdicion(v) ? `<span class="corregir">✏️ Editar (lo aprueba ${esc(primerNombre(ADMIN.id))}):
+            <button class="link-mini" onclick="abrirRegistro('${v.id}','ok',true)">${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
+            <button class="link-mini" onclick="abrirRegistro('${v.id}','no',true)">${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
         const corregir = puedeCorregir(v) ? `<span class="corregir">Corregir hasta el ${esc(hastaCorr)}:
             <button class="link-mini" onclick="abrirRegistro('${v.id}','ok')">✏️ ${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
             <button class="link-mini" onclick="abrirRegistro('${v.id}','no')">✏️ ${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
-        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${estadoCorr}${pedir}${eliminar}</div>`;
+        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${proponer}${estadoCorr}${estadoEd}${pedir}${eliminar}</div>`;
     }
     const editar = `<button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>`;
     if (v.fecha > hoy()) {
@@ -3158,6 +3181,7 @@ function textoReporte(v) {
     return d.textContent;
 }
 function copiarReporteAcomp(v) {
+    if (modoPropuesta) return;
     if (v.clase !== 'visita' || v.estado === 'pendiente') return;
     const rep = { estado: v.estado, texto: textoReporte(v), fecha: new Date().toISOString() };
     const a = v.acompanamiento?.solicitud && registros[v.acompanamiento.solicitud];
@@ -3264,6 +3288,70 @@ function enviarCorreccion(e, id) {
 }
 
 const correccionesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.solicitudCorreccion?.estado === 'pendiente');
+
+// ---------- EDITAR UNA VISITA CERRADA (propuesta que aprueba el Gerente General) ----------
+// El dueño de la visita y los jefes editan el reporte; el reporte no cambia hasta que el Gerente General aprueba. Queda la huella.
+const puedeProponerEdicion = v => !!v && v.clase === 'visita' && !v.interno && !conDetalle(v) && !v.eliminada && !v.borrado && v.estado !== 'pendiente'
+    && !esAdmin() && (sesion?.id === v.vendedor || esJefe()) && !puedeCorregir(v) && !enCorreccionProvisional(v) && v.edicionPendiente?.estado !== 'pendiente';
+const edicionesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.edicionPendiente?.estado === 'pendiente');
+const ETIQUETAS_EDICION = { estado: 'Resultado', modalidad: 'Modalidad', motivo: 'Motivo', observaciones: 'Observaciones', atendio: 'Atendió', compromisos: 'Compromisos',
+    productos: 'Productos presentados', muestras: 'Muestras', pedido: 'Pedido', reprogramadaPara: 'Reprogramada para', proximaVisita: 'Próxima visita', proximaHora: 'Hora próxima visita',
+    objetivosCumplidos: 'Objetivos cumplidos' };
+const textoEdicion = (k, x) => {
+    if (x === undefined || x === null || x === '') return '—';
+    if (k === 'estado') return x === 'visitado' ? 'Visita Efectiva' : x === 'no_visitado' ? 'Visita No Efectiva' : x;
+    if (k === 'pedido') return x === 'si' ? 'Con pedido' : 'Sin pedido';
+    if (Array.isArray(x)) return x.length ? x.join(', ') : '—';
+    return String(x);
+};
+// El guardado del reporte llega aquí: se compara con el reporte actual y se guarda como propuesta
+function proponerEdicion(r) {
+    const antes = registros[r.id];
+    const ignorar = new Set(['actualizado', 'etapa', 'limiteReporte', 'actualizadoPor', 'registrada', 'corregida', 'solicitudCorreccion', 'cierreAutomatico', 'correccionProvisional', 'edicionPendiente']);
+    const datos = {}, cambios = [];
+    Object.keys({ ...antes, ...r }).forEach(k => {
+        const vacio = x => x == null || x === '' || (typeof x === 'object' && !Object.keys(x).length);   // sin dato = vacío = lista o conjunto vacío
+        if (ignorar.has(k) || (vacio(antes[k]) && vacio(r[k])) || JSON.stringify(antes[k]) === JSON.stringify(r[k])) return;
+        datos[k] = r[k] === undefined ? null : r[k];
+        if (ETIQUETAS_EDICION[k]) cambios.push({ k, antes: textoEdicion(k, antes[k]), despues: textoEdicion(k, r[k]) });
+    });
+    if (!Object.keys(datos).length) { toast('No cambiaste nada'); return; }
+    const ep = { estado: 'pendiente', por: sesion.id, fecha: new Date().toISOString(), datos, cambios,
+        motivo: 'Cambia: ' + (cambios.map(c => ETIQUETAS_EDICION[c.k]).join(', ') || 'el reporte') };
+    const guardado = modoPropuesta; modoPropuesta = '';
+    guardarRegistro({ ...antes, edicionPendiente: ep });
+    modoPropuesta = guardado;
+    toast(`Edición enviada a ${ADMIN.nombre}: el reporte cambia cuando la apruebe`);
+}
+async function resolverEdicion(id, autorizar) {
+    if (!esAdmin()) return;
+    const v = registros[id], ep = v?.edicionPendiente;
+    if (!ep || ep.estado !== 'pendiente') return;
+    const razon = autorizar ? '' : await dialogo({ titulo: 'Rechazar la edición', texto: `${v.contacto} · ${fechaCorta(v.fecha)}\n¿Por qué se rechaza? (obligatorio, máximo 50 caracteres)`,
+        campo: 'Ej: el reporte original está bien', max: 50, obligatorio: true, aceptar: 'Rechazar' });
+    if (razon === null) return;
+    const ahora = new Date().toISOString();
+    const resuelta = { ...ep, estado: autorizar ? 'aprobada' : 'rechazada', razonRechazo: (razon || '').trim(), resueltaPor: sesion.id, resuelta: ahora };
+    if (!autorizar) guardarRegistro({ ...v, edicionPendiente: resuelta });
+    else {
+        const nuevo = { ...v, ...Object.fromEntries(Object.entries(ep.datos).map(([k, x]) => [k, x === null ? undefined : x])), edicionPendiente: resuelta,
+            registrada: v.cierreAutomatico || !v.registrada ? ep.fecha : v.registrada, corregida: ahora, cierreAutomatico: false,
+            editadaPorAprobacion: { por: ep.por, aprobadaPor: sesion.id, fecha: ahora } };
+        guardarRegistro(nuevo);
+        copiarReporteAcomp(nuevo);
+        if (nuevo.proximaVisita && nuevo.proximaVisita !== v.proximaVisita) agendarProxima(nuevo);
+        // Si la edición reprograma una visita no efectiva, la nueva visita se crea al aprobarla
+        if (nuevo.reprogramadaPara && !v.reprogramadaPara) {
+            guardarRegistro({ id: nuevoId(), clase: 'visita', vendedor: v.vendedor, estado: 'pendiente', contacto: v.contacto, tipoContacto: v.tipoContacto, ciudad: v.ciudad,
+                fecha: nuevo.reprogramadaPara, hora: '', objetivo: v.objetivo, vieneDe: v.fecha, origen: 'reprogramada', modalidad: v.modalidad, tipoVisita: v.tipoVisita,
+                tiposVisita: v.tiposVisita, objetivos: v.objetivos, interno: false, programada: Date.now() < limiteProgramacion(nuevo.reprogramadaPara),
+                creado: ahora, creadoPor: sesion.id });
+        }
+    }
+    toast(autorizar ? 'Edición aprobada: el reporte quedó actualizado' : 'Edición rechazada');
+    abrirSolicitudes();
+    pintarInicio();
+}
 
 async function resolverCorreccion(id, autorizar) {
     if (!esAdmin()) return;
@@ -4220,16 +4308,17 @@ const contadorNota = (id, n = 100) => `<p class="ayuda cuenta-nota" id="${id}Cue
 const cuentaNota = (id, n = 100) => `oninput="$('${id}Cuenta').textContent = this.value.length + ' / ${n}'"`;
 
 // Formulario para registrar lo que pasó: visitado / no visitado
-function abrirRegistro(id, tipo) {
+function abrirRegistro(id, tipo, propuesta = false) {
     const v = registros[id];
+    modoPropuesta = propuesta && puedeProponerEdicion(v) ? id : '';
     const opciones = (lista, actual) => lista.map(o => `<option ${o === actual ? 'selected' : ''}>${esc(o)}</option>`).join('');
-    if (!puedeGuardarReporte(v)) return toast(v.estado !== 'pendiente' ? 'El plazo para corregir esta visita ya cerró' : 'El plazo para reportar esta visita ya cerró');
+    if (!modoPropuesta && !puedeGuardarReporte(v)) return toast(v.estado !== 'pendiente' ? 'El plazo para corregir esta visita ya cerró' : 'El plazo para reportar esta visita ya cerró');
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
     ctxCircular = { cliente: mc || null, fecha: v.fecha, ateneo: tiposDe(v).includes(ATENEO) };
     const cab = (v.interno ? `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`
         : `<p class="cierre-cliente">${esc(v.contacto)}</p>${mc && (mc.cl || mc.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(mc.cl || '')}</b>${mc.ca ? ' · ' + esc(mc.ca) : ''}</p>` : ''}
         <p class="sub">${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`) + `
-        ${puedeCorregirProvisional(v) ? `<p class="aviso-hora prov">✏️ Corrección visita Sin Reporte a tiempo (provisional). Reporta lo que sucedió tal cual. Plazo: hasta ${esc(CORRECCION_PROV.texto)} La fecha de la visita no se puede mover.</p>`
+        ${modoPropuesta ? `<p class="aviso-hora prov">✏️ Estás proponiendo cambios a un reporte cerrado. Nada cambia hasta que ${esc(ADMIN.nombre)} los apruebe.</p>` : puedeCorregirProvisional(v) ? `<p class="aviso-hora prov">✏️ Corrección visita Sin Reporte a tiempo (provisional). Reporta lo que sucedió tal cual. Plazo: hasta ${esc(CORRECCION_PROV.texto)} La fecha de la visita no se puede mover.</p>`
             : `<p class="aviso-hora">${v.estado !== 'pendiente' ? 'Estás corrigiendo el reporte. ' : ''}Plazo: ${esc(textoCierre(v))}. Hasta esa hora puedes corregir el reporte.</p>`}`;
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
@@ -4335,7 +4424,7 @@ const marcaReporte = antes => puedeCorregirProvisional(antes)
 
 // Revisa que el plazo siga abierto al momento de guardar
 function plazoAbierto(id) {
-    if (puedeGuardarReporte(registros[id])) return true;
+    if (modoPropuesta === id || puedeGuardarReporte(registros[id])) return true;
     cerrarModal();
     toast('El plazo para reportar esta visita ya cerró');
     pintarAgenda();
@@ -4396,17 +4485,19 @@ function guardarVisitado(e, id) {
     if (dAt) registrarAvance(proyAt, dAt.det, v);
     const proximaAntes = registros[id].proximaVisita;
     if (v.proximaVisita && v.proximaVisita !== proximaAntes && visitaMismoDia(v, v.proximaVisita, id)) { $('rProxima').focus(); return avisoYaProgramado(v, v.proximaVisita, true); }
+    const propuesta = !!modoPropuesta;   // si es una edición para aprobar, el aviso lo da proponerEdicion
     guardarRegistro(v);
     copiarReporteAcomp(v);
     if (v.proximaVisita && v.proximaVisita !== proximaAntes) agendarProxima(v);
     cerrarModal();
-    toast(v.proximaVisita ? `Visita registrada · próxima visita el ${fechaCorta(v.proximaVisita)}` : 'Visita registrada');
+    if (!propuesta) toast(v.proximaVisita ? `Visita registrada · próxima visita el ${fechaCorta(v.proximaVisita)}` : 'Visita registrada');
     pintarAgenda();
 }
 
 // La próxima visita queda programada en ese día. En el Visiplan sale en la casilla R en rojo hasta que sea efectiva.
 // Si ese día ya estaba planeada, queda como la confirmación del plan (no se duplica).
 function agendarProxima(antes) {
+    if (modoPropuesta) return;
     const fecha = antes.proximaVisita;
     if (visitaMismoDia({ vendedor: antes.vendedor, contacto: antes.contacto, interno: false }, fecha, antes.id)) return;   // ya está programada ese día
     const nueva = {
@@ -4600,7 +4691,7 @@ function guardarNoVisitado(e, id) {
     guardarRegistro(v);
     copiarReporteAcomp(v);
     // La visita reprogramada queda como una nueva visita pendiente en esa fecha
-    if (repro && !antes.reprogramadaPara) {
+    if (repro && !antes.reprogramadaPara && !modoPropuesta) {
         guardarRegistro({
             id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente',
             contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
@@ -4610,8 +4701,9 @@ function guardarNoVisitado(e, id) {
             creado: new Date().toISOString(), creadoPor: sesion.id
         });
     }
+    const propuestaNo = !!modoPropuesta;
     cerrarModal();
-    toast(repro ? `${antes.interno ? 'Programado' : 'Reprogramada'} para el ${fechaCorta(repro)}` : antes.interno ? 'Marcado como no realizado' : 'Marcada como no visitada');
+    if (!propuestaNo) toast(repro ? `${antes.interno ? 'Programado' : 'Reprogramada'} para el ${fechaCorta(repro)}` : antes.interno ? 'Marcado como no realizado' : 'Marcada como no visitada');
     pintarAgenda();
 }
 
@@ -5730,6 +5822,7 @@ function marcarObligatorios(raiz) {
 }
 
 function cerrarModal() {
+    modoPropuesta = '';
     $('modal').classList.remove('active');
     $('modalContenido').innerHTML = '';
 }
