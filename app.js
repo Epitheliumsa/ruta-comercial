@@ -547,6 +547,8 @@ const visitasDe = (vendedor, fecha) => visibles()
 // Un cliente no se programa dos veces el mismo día con el mismo vendedor (la visita ya existente se edita)
 const visitaMismoDia = (v, fecha, idExcluir) => v.interno ? null
     : visitasDe(v.vendedor, fecha).find(x => x.id !== idExcluir && !x.interno && normalizar(x.contacto) === normalizar(v.contacto)) || null;
+// Visitas del mismo vendedor al mismo cliente el mismo día (no debería pasar: se avisa para poder corregirlo)
+const visitasRepetidas = v => v.interno ? [] : visitasDe(v.vendedor, v.fecha).filter(x => !x.interno && normalizar(x.contacto) === normalizar(v.contacto));
 const avisoYaProgramado = (v, fecha, elegirOtra = false) => toast(`"${v.contacto}" ya está programado el ${fechaCorta(fecha)}.${elegirOtra ? ' Elige otra fecha.' : ' Abre esa visita para editarla.'}`);
 const visitasMes = (mes, vendedor) => visibles()
     .filter(r => r.clase === 'visita' && mesDe(r.fecha) === mes && (!vendedor || r.vendedor === vendedor));
@@ -1423,6 +1425,24 @@ function vincularCon(p, c) {
 // ---------- SOLICITUDES DE ELIMINACIÓN (administrador) ----------
 const solicitudesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.solicitudEliminar?.estado === 'pendiente');
 
+// Del cuadro de solicitudes a la visita (su día en la agenda de quien la tiene) para revisarla antes de aprobar
+function irAVisita(id) {
+    const v = registros[id];
+    if (!v) return;
+    cerrarModal();
+    Object.assign(agenda, { vendedor: v.vendedor, vendedores: [v.vendedor], fecha: v.fecha, filtro: '', busca: '', novTipo: '' });
+    if ($('agBuscar')) $('agBuscar').value = '';
+    abrirAgenda();
+    sincronizar(mesDe(v.fecha));
+    setTimeout(() => {
+        const t = document.querySelector(`[data-vid="${id}"]`);
+        if (!t) return;
+        t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        t.classList.add('resaltada'); setTimeout(() => t.classList.remove('resaltada'), 4000);
+    }, 250);
+}
+// En la solicitud de eliminar: ¿de verdad hay más de una visita a ese cliente ese día?
+const verificaRepetida = v => { const n = visitasRepetidas(v).length; return n > 1 ? `<p class="aviso-rep no">⚠ Sí: hay ${n} visitas a este cliente ese día</p>` : '<p class="aviso-rep ok">Solo hay 1 visita a este cliente ese día</p>'; };
 function abrirSolicitudes() {
     const lista = solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
     const corr = correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
@@ -1434,6 +1454,7 @@ function abrirSolicitudes() {
             <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} (${estadoTxt(v)}) · pedida el ${esc(fechaHora(v.solicitudCorreccion.fecha))}</small>
             <p>${esc(v.solicitudCorreccion.motivo)}</p>
             <div class="form-botones">
+                <button class="btn-secundario" onclick="irAVisita('${v.id}')">Ver la visita</button>
                 <button class="btn-secundario" onclick="resolverCorreccion('${v.id}', false)">Rechazar</button>
                 <button class="btn-primario" onclick="resolverCorreccion('${v.id}', true)">Autorizar corrección (24 h)</button>
             </div>
@@ -1443,7 +1464,9 @@ function abrirSolicitudes() {
             <strong>${esc(v.contacto)}</strong>
             <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} · pedida el ${esc(fechaHora(v.solicitudEliminar.fecha))}</small>
             <p>${esc(v.solicitudEliminar.motivo)}</p>
+            ${verificaRepetida(v)}
             <div class="form-botones">
+                <button class="btn-secundario" onclick="irAVisita('${v.id}')">Ver la visita</button>
                 <button class="btn-secundario" onclick="resolverSolicitud('${v.id}', false)">Rechazar</button>
                 <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitud('${v.id}', true)">Autorizar y eliminar</button>
             </div>
@@ -2785,6 +2808,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
         : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Visita de seguimiento' : 'Reprogramada'}</span>`
         : '<span class="chip p">Pendiente</span>';
+    const repetida = visitasRepetidas(v).length > 1 ? '<span class="chip no" title="Este cliente está programado más de una vez ese día">⚠ Repetida</span> ' : '';
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
     const meta = [mc?.cl ? `Clasificación <b>${esc(mc.cl)}</b>` : '', ...[nombreEtq(v.tipoContacto), v.ciudad].filter(Boolean).map(esc)].filter(Boolean).join(' · ');
     const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
@@ -2806,8 +2830,8 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         reporte = `<div class="reporte"><b>${esc(v.motivo)}</b>${v.reprogramadaPara ? ` · Reprogramada para el ${esc(fechaCorta(v.reprogramadaPara))}` : ''}${v.observaciones ? '<br>' + esc(v.observaciones) : ''}</div>`;
     }
     const reprog = !v.interno && v.estado === 'pendiente' && esReprogramada(v) ? ' reprog' : '';
-    return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${v.esProyecto && !v.interno ? (v.estado === 'visitado' ? ' lead lead-ok' : ' lead lead-no') : ''}${reprog}">
-        <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
+    return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${v.esProyecto && !v.interno ? (v.estado === 'visitado' ? ' lead lead-ok' : ' lead lead-no') : ''}${reprog}" data-vid="${v.id}">
+        <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${repetida}${chip}</div>
         ${botonesOrden(v, ord || {}, mover)}
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
@@ -3003,6 +3027,9 @@ function crearVisitaAcomp(a) {
         programada: true, origen: 'acompanamiento', acompanamiento: { de: a.solicitante, visitaId: a.visitaId, solicitud: a.id },
         creado: new Date().toISOString(), creadoPor: sesion.id
     };
+    // Si quien acompaña ya tiene esa visita ese día, se usa esa (no se crea otra)
+    const ya = visitaMismoDia(nueva, nueva.fecha, nueva.id);
+    if (ya) return ya;
     guardarRegistro(nueva);
     return nueva;
 }
@@ -4306,6 +4333,7 @@ function guardarVisitado(e, id) {
 // Si ese día ya estaba planeada, queda como la confirmación del plan (no se duplica).
 function agendarProxima(antes) {
     const fecha = antes.proximaVisita;
+    if (visitaMismoDia({ vendedor: antes.vendedor, contacto: antes.contacto, interno: false }, fecha, antes.id)) return;   // ya está programada ese día
     const nueva = {
         id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente', origen: 'proxima',
         contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,

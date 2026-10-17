@@ -1938,3 +1938,8 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .mapa-opciones h3 { margin: 0; }
 .mapa-opciones p { margin: 0 0 4px; font-size: 14px; color: #3f524d; }
 .mapa-opciones a.btn-primario { display: block; text-decoration: none; text-align: center; }
+.aviso-rep { margin: 4px 0 8px; font-size: 13px; font-weight: 700; }
+.aviso-rep.no { color: #b91c1c; }
+.aviso-rep.ok { color: #166534; }
+.visita-card.resaltada { animation: resaltarVisita 1.2s ease-in-out 3; }
+@keyframes resaltarVisita { 0%, 100% { box-shadow: 0 0 0 0 rgba(217, 130, 43, 0); } 50% { box-shadow: 0 0 0 5px rgba(217, 130, 43, .55); } }
