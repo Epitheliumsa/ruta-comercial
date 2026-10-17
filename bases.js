@@ -48,7 +48,7 @@ async function cargarBases(forzar = false) {
 // ---------- Pantalla ----------
 const TARJETAS_BASES = [
     { k: 'contactos', t: 'Maestra de contactos', d: 'Clientes y médicos de cada zona (Maestra de Contactos de Odoo). Reemplaza la lista de la app.', a: 'subirContactos()', n: 'contactos' },
-    { k: 'catalogo', t: 'Productos', d: 'Catálogo con etiquetas (Nuevo, Foco, Transición-Impulso…) para visitas y muestras. Sube Base_Productos y Productos_Terminados juntos.', a: 'subirCatalogo()', n: 'productos' },
+    { k: 'catalogo', t: 'Productos', d: 'Catálogo con etiquetas (Nuevo, Foco, Transición-Impulso…) para visitas y muestras. Sube Base_Productos (materias primas), Productos_Terminados (terminados) o los dos: cada archivo reemplaza solo lo suyo.', a: 'subirCatalogo()', n: 'productos' },
     { k: 'directorio', t: 'Direcciones y teléfonos', d: 'Calle, teléfono y móvil de los clientes (Maestra de Odoo). Los ven Logística, los jefes y tú; cada comercial, solo su zona.', a: 'subirDirectorio()', n: 'clientes' },
     { k: 'proveedores', t: 'Proveedores', d: 'Maestra de proveedores con dirección y teléfono. Solo la ven Logística y tú.', a: 'subirProveedores()', n: 'proveedores' }
 ];
@@ -179,18 +179,27 @@ function catalogoDeLibros(libros) {
     productos.sort((a, b) => claveTexto(a.n).localeCompare(claveTexto(b.n)));
     return { desplegables: DESPLEGABLES_BASE, cerradas: CERRADAS_BASE, productos, guia };
 }
+// Cada archivo trae su familia: Base_Productos las materias primas (MP) y Productos_Terminados los terminados (PT).
+// Lo que se sube reemplaza solo su familia; lo demás del catálogo se conserva (así se puede subir un archivo solo).
+const familiaProducto = c => String(c).startsWith('PT') ? 'PT' : 'MP';
+const NOMBRE_FAMILIA = { PT: 'Productos terminados', MP: 'Materias primas' };
 async function subirCatalogo() {
     if (!esAdmin()) return;
     const archivos = await elegirArchivos(true);
     if (!archivos.length) return;
     try {
         const libros = []; for (const a of archivos) libros.push(await leerLibro(a));
-        const d = catalogoDeLibros(libros);
-        if (d.productos.length < 20) return toast('No encontré productos: sube Base_Productos y Productos_Terminados (con la columna "Referencia Interna")');
+        const leido = catalogoDeLibros(libros);
+        if (!leido.productos.length) return toast('No encontré productos: el archivo debe tener la columna "Referencia Interna" (Base_Productos o Productos_Terminados)');
+        const familias = new Set(leido.productos.map(p => familiaProducto(p.c)));
+        const conservados = CATALOGO.productos.filter(p => !familias.has(familiaProducto(p.c)));
+        const productos = [...conservados, ...leido.productos].sort((a, b) => claveTexto(a.n).localeCompare(claveTexto(b.n)));
+        const d = { desplegables: DESPLEGABLES_BASE, cerradas: CERRADAS_BASE, productos, guia: Object.keys(leido.guia).length ? leido.guia : CATALOGO.guia || {} };
         const cuenta = {}; d.productos.forEach(p => p.e.forEach(e => { cuenta[e] = (cuenta[e] || 0) + 1; }));
-        const antes = CATALOGO.productos.length, resumen = `${d.productos.length} productos`;
+        const linea = f => `${NOMBRE_FAMILIA[f]}: ${d.productos.filter(p => familiaProducto(p.c) === f).length} (antes ${CATALOGO.productos.filter(p => familiaProducto(p.c) === f).length})${familias.has(f) ? ' · se reemplazan' : ' · se conservan'}`;
+        const resumen = `${d.productos.length} productos`;
         if (!await dialogo({ titulo: 'Productos', aceptar: 'Subir',
-            texto: `${d.productos.length} productos (antes ${antes}). ${[...DESPLEGABLES_BASE, ...CERRADAS_BASE].map(c => `${c}: ${cuenta[c] || 0}`).join(' · ')}\nGuía de etiquetas: ${Object.keys(d.guia).length}\nReemplaza el catálogo de la app para todos los usuarios.` })) return;
+            texto: `${linea('MP')}\n${linea('PT')}\nTotal: ${d.productos.length} productos. ${[...DESPLEGABLES_BASE, ...CERRADAS_BASE].map(c => `${c}: ${cuenta[c] || 0}`).join(' · ')}\nReemplaza el catálogo de la app para todos los usuarios.` })) return;
         await guardarBaseServidor('catalogo', d, resumen);
         toast(`Productos actualizados: ${d.productos.length}`);
     } catch (e) { toast('No se pudo subir el catálogo de productos: ' + e.message); }

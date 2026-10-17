@@ -311,5 +311,6 @@
 - Contactos y productos se guardan en el servidor (hoja "Bases" de `Codigo.gs`: acciones `guardarBase`, `leerBase`, `versionesBases`, `estadoBases`; el contenido va en partes de
   40.000 caracteres) y **reemplazan** a `contactos.json` y `productos.js` para todos los usuarios: `cargarBases()` los trae al sincronizar (cada 10 min como mucho) y los
   guarda en el teléfono (`rc_base_contactos`, `rc_base_catalogo`). Mientras no se haya subido nada, la app usa lo publicado.
+- Productos: Base_Productos trae las materias primas (MP) y Productos_Terminados los terminados (PT). Se puede subir **uno solo o los dos**: cada archivo reemplaza solo su familia y el resto del catálogo se conserva (`subirCatalogo`).
 - Portafolios por cliente, circulares y matrices siguen saliendo del repositorio (necesitan el Vademécum); no se suben desde aquí.
 - Probado con los mismos Excel de `datos/`: el catálogo y los contactos salen idénticos a los publicados.
