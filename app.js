@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610162035';
+const APP_VERSION = '202610162116';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -520,7 +520,11 @@ function guardarLocal() {
 }
 
 // Guarda un registro (visita o actividad) y lo deja listo para subir
+// Visita cerrada cuyo reporte se está editando para enviarlo a aprobación del Gerente General: el guardado no cambia el reporte,
+// queda como una propuesta (edicionPendiente) hasta que se autorice. Se apaga al cerrar el recuadro.
+let modoPropuesta = '';
 function guardarRegistro(r) {
+    if (modoPropuesta && r.id === modoPropuesta) return proponerEdicion(r);
     r.actualizado = new Date().toISOString();
     r.etapa = ETAPA_DATOS;
     if (r.clase === 'visita') r.limiteReporte = new Date(limiteCierre(r)).toISOString();
@@ -547,6 +551,8 @@ const visitasDe = (vendedor, fecha) => visibles()
 // Un cliente no se programa dos veces el mismo día con el mismo vendedor (la visita ya existente se edita)
 const visitaMismoDia = (v, fecha, idExcluir) => v.interno ? null
     : visitasDe(v.vendedor, fecha).find(x => x.id !== idExcluir && !x.interno && normalizar(x.contacto) === normalizar(v.contacto)) || null;
+// Visitas del mismo vendedor al mismo cliente el mismo día (no debería pasar: se avisa para poder corregirlo)
+const visitasRepetidas = v => v.interno ? [] : visitasDe(v.vendedor, v.fecha).filter(x => !x.interno && normalizar(x.contacto) === normalizar(v.contacto));
 const avisoYaProgramado = (v, fecha, elegirOtra = false) => toast(`"${v.contacto}" ya está programado el ${fechaCorta(fecha)}.${elegirOtra ? ' Elige otra fecha.' : ' Abre esa visita para editarla.'}`);
 const visitasMes = (mes, vendedor) => visibles()
     .filter(r => r.clase === 'visita' && mesDe(r.fecha) === mes && (!vendedor || r.vendedor === vendedor));
@@ -616,6 +622,7 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         cargarDirectorio();
         cargarProveedores();
         cargarBases();
+        revisarAprobaciones();
     } catch (e) {
         console.warn('No se pudo sincronizar:', e);
         errorSync = navigator.onLine ? (e.message || 'Error de conexión') : 'Sin internet';
@@ -796,7 +803,8 @@ function pintarInicio() {
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     const corrs = correccionesPendientes().length;
-    $('solicitudesTxt').textContent = sols.length + corrs ? [sols.length && `${sols.length} de eliminación`, corrs && `${corrs} de corrección`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
+    const edsN = edicionesPendientes().length;
+    $('solicitudesTxt').textContent = sols.length + corrs + edsN ? [sols.length && `${sols.length} de eliminación`, corrs && `${corrs} de corrección`, edsN && `${edsN} de edición`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
     const vigentes = CIRCULARES.filter(c => estadoCircular(c) === 'vigente').length;
     $('homeActTxt').textContent = `${vigentes} ${vigentes === 1 ? 'circular vigente' : 'circulares vigentes'}` + (acts.length ? ` · ${hechas} de ${acts.length} tareas del mes` : '');
     pintarInicioLog();
@@ -898,14 +906,68 @@ function cerrarAvisoCita() {
 function pintarBotonAvisos() {
     const b = $('btnAvisos');
     if (!b) return;
-    b.hidden = !esComercial() || !('Notification' in window) || Notification.permission !== 'default';
+    b.hidden = !(esComercial() || esJefe()) || !('Notification' in window) || Notification.permission !== 'default';
 }
 
 async function activarAvisos() {
     if (!('Notification' in window)) return;
     const permiso = await Notification.requestPermission();
-    toast(permiso === 'granted' ? 'Listo: te avisaremos 15 minutos antes de cada cita' : 'Sin permiso de notificaciones: el aviso saldrá solo dentro de la app');
+    toast(permiso === 'granted' ? (esComercial() ? 'Listo: te avisaremos 15 minutos antes de cada cita y cuando te llegue algo por aprobar' : 'Listo: te avisaremos cuando llegue una aprobación') : 'Sin permiso de notificaciones: el aviso saldrá solo dentro de la app');
     pintarBotonAvisos();
+}
+
+// ---------- AVISOS DE APROBACIONES ----------
+// Lo que le llega a cada uno para aprobar o responder: el administrador, las solicitudes de eliminación y de corrección de
+// visitas; los jefes, las solicitudes de creación en su turno de firma; y cada vendedor o jefe, las solicitudes de acompañamiento.
+// Cada solicitud avisa una sola vez (banner + notificación del celular si se dio el permiso). Funciona con la app abierta
+// o en segundo plano; con la app cerrada, avisa al abrirla.
+const AVISADAS_APROB = 'rc_aprob_avisadas';
+const avisadasAprob = () => { try { return JSON.parse(localStorage.getItem(AVISADAS_APROB)) || {}; } catch (e) { return {}; } };
+function aprobacionesPendientes() {
+    if (!sesion) return [];
+    const l = [];
+    if (esAdmin()) {
+        solicitudesPendientes().forEach(v => l.push({ k: 'el:' + v.id, tipo: 'eliminacion', txt: `${nombreVendedor(v.vendedor)} pide eliminar la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
+        edicionesPendientes().forEach(v => l.push({ k: 'ed:' + v.id + ':' + v.edicionPendiente.fecha, tipo: 'edicion', txt: `${nombreVendedor(v.edicionPendiente.por)} propone editar el reporte de ${v.contacto} (${fechaCorta(v.fecha)})` }));
+        correccionesPendientes().forEach(v => l.push({ k: 'co:' + v.id + ':' + v.solicitudCorreccion.fecha, tipo: 'correccion', txt: `${nombreVendedor(v.vendedor)} pide corregir la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
+    }
+    if (esJefe()) porAprobarMias().forEach(p => l.push({ k: 'cr:' + p.id, tipo: 'creacion', txt: `Solicitud de creación: ${p.nombre}${p.vendedor ? ' · ' + nombreVendedor(p.vendedor) : ''}` }));
+    invitacionesMias().forEach(a => l.push({ k: 'ac:' + a.id, tipo: 'acompanamiento', txt: `${nombreVendedor(a.solicitante)} te pide acompañamiento: ${a.contacto} (${fechaCorta(a.fecha)})` }));
+    return l;
+}
+const TITULO_APROB = { edicion: 'Edición de reporte por aprobar', eliminacion: 'Solicitud de eliminación', correccion: 'Solicitud de corrección', creacion: 'Solicitud de creación', acompanamiento: 'Solicitud de acompañamiento' };
+let ultimaAprobNueva = null;
+function revisarAprobaciones() {
+    if (!sesion) return;
+    const l = aprobacionesPendientes(), ya = avisadasAprob();
+    const nuevas = l.filter(a => !ya[a.k]);
+    // Se olvidan las que ya se resolvieron
+    const vivas = Object.fromEntries(Object.entries(ya).filter(([k]) => l.some(a => a.k === k)));
+    nuevas.forEach(a => { vivas[a.k] = Date.now(); });
+    try { localStorage.setItem(AVISADAS_APROB, JSON.stringify(vivas)); } catch (e) { /* nada */ }
+    if (!nuevas.length) return;
+    ultimaAprobNueva = nuevas[0].tipo;
+    const titulo = nuevas.length === 1 ? TITULO_APROB[nuevas[0].tipo] : `${nuevas.length} aprobaciones nuevas`;
+    const texto = nuevas.length === 1 ? nuevas[0].txt : nuevas.slice(0, 3).map(a => a.txt).join('\n') + (nuevas.length > 3 ? `\n… y ${nuevas.length - 3} más` : '');
+    $('avisoAprobTit').textContent = titulo;
+    $('avisoAprobTxt').textContent = texto;
+    $('avisoAprob').classList.add('visible');
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    if ('Notification' in window && Notification.permission === 'granted') {
+        const opciones = { body: texto, icon: 'icons/icon-192.png', tag: 'aprob-' + nuevas[0].k };
+        if (registroSW) registroSW.showNotification(titulo, opciones);
+        else try { new Notification(titulo, opciones); } catch (e) {}
+    }
+    if (pantallaActiva() === 'homeScreen') pintarInicio();
+}
+function cerrarAvisoAprob() { $('avisoAprob').classList.remove('visible'); }
+function verAprobaciones() {
+    cerrarAvisoAprob();
+    const tipo = ultimaAprobNueva;
+    if (tipo === 'eliminacion' || tipo === 'correccion' || tipo === 'edicion') return abrirSolicitudes();
+    if (tipo === 'creacion') return abrirProyectos('solicitud');
+    if (tipo === 'acompanamiento') { agenda.vendedor = sesion.id; agenda.vendedores = [sesion.id]; agenda.fecha = hoy(); return abrirAgenda(); }
+    irInicio();
 }
 
 // Al volver a la app se revisan los avisos (los temporizadores se pausan en segundo plano en algunos celulares)
@@ -913,6 +975,7 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     if (cerrarVencidas()) { repintarPantallaActiva(); sincronizar(); }
     programarAvisos();
+    revisarAprobaciones();
 });
 
 // ---------- CONTACTOS NUEVOS (PROYECTO) ----------
@@ -1085,6 +1148,18 @@ function abrirProyectos(filtro) {
         .filter(p => filtro || pasaFiltroLeads(p))
         .filter(p => p.estado !== 'solicitud' || !esJefe() || veSolicitud(p))
         .sort((a, b) => ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(a.estado) - ['solicitud', 'proyecto', 'perdido', 'vinculado'].indexOf(b.estado) || a.nombre.localeCompare(b.nombre));
+    // Solicitudes de creación: lo pendiente (o que pide una acción) primero y en grande; lo ya resuelto, abajo y pequeño (huella)
+    const accionable = p => !solicitudAprobada(p) || (esJefe() && candidatosVinculo(p).length);
+    const resueltas = filtro === 'solicitud' && esJefe() ? [
+        ...lista.filter(p => !accionable(p)).map(p => ({ p, ok: true, fecha: Object.values(p.solicitud?.aprobaciones || {}).map(a => a.fecha).sort().pop() || p.solicitud?.fecha || '' })),
+        ...todos.filter(p => p.estado === 'vinculado' && p.solicitud && veSolicitud(p)).map(p => ({ p, ok: true, fecha: Object.values(p.solicitud?.aprobaciones || {}).map(a => a.fecha).sort().pop() || p.solicitud?.fecha || '' })),
+        ...todos.filter(p => p.estado === 'proyecto' && p.rechazo && veSolicitud(p)).map(p => ({ p, ok: false, fecha: p.rechazo.fecha || '' }))
+    ].sort((a, b) => b.fecha.localeCompare(a.fecha)) : [];
+    const pendientesLista = filtro === 'solicitud' && esJefe() ? lista.filter(accionable) : lista;
+    const filaResuelta = ({ p, ok, fecha }) => `<div class="sol-hist ${ok ? 'ok' : 'no'}"><b class="sol-cli">${esc(p.nombre)}</b> <span class="sol-res">${ok ? '✔ Creación aprobada' : '✕ Creación rechazada'}</span>
+        <small>${esc([nombreVendedor(p.vendedor), fecha && fechaHora(fecha),
+            ok ? Object.entries(p.solicitud?.aprobaciones || {}).map(([r, a]) => `${FIRMAS[r] || r}: ${primerNombre(a.por)}`).join(' · ') + (p.estado === 'vinculado' ? ` · creado en la Maestra como ${p.vinculadoA}` : '')
+               : `por ${nombreVendedor(p.rechazo.por)}${p.rechazo.motivo ? ' · Causa: ' + p.rechazo.motivo : ''}`].filter(Boolean).join(' · '))}</small></div>`;
     const chip = p => `<span class="chip ${p.estado === 'vinculado' ? 'ok' : p.estado === 'solicitud' ? (solicitudAprobada(p) ? 'ok' : 'np') : p.estado === 'perdido' ? 'perdida' : 'proy'}">${p.estado === 'solicitud' ? (solicitudAprobada(p) ? 'Aprobada · en creación' : 'Ganada · por aprobar') : ESTADO_PROYECTO[p.estado]}</span>`;
     const acciones = p => {
         if (p.estado === 'vinculado') return `<p>Creado en la Maestra como <b>${esc(p.vinculadoA)}</b></p>`;
@@ -1137,13 +1212,14 @@ function abrirProyectos(filtro) {
             <select onchange="filtrarLeads('estado', this.value)" aria-label="Estado">${Object.entries(ESTADOS_LEAD).map(([k, t]) => `<option value="${k}" ${filtroLeads.estado === k ? 'selected' : ''}>${t} (${todos.filter(p => k === 'todas' || (k === 'activas' ? ['proyecto', 'solicitud'].includes(p.estado) : p.estado === k)).length})</option>`).join('')}</select>
             <select onchange="filtrarLeads('tipo', this.value)" aria-label="Tipo"><option value="">Todos los tipos</option>${TIPOS_PROYECTO.map(t => `<option ${filtroLeads.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
         </div><p class="leads-cuenta">${lista.length} ${lista.length === 1 ? 'lead' : 'leads'}${lista.length !== todos.length ? ` de ${todos.length}` : ''}</p>`}
-        ${lista.length ? gruposProyectos(lista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
+        ${pendientesLista.length ? gruposProyectos(pendientesLista, p => `<div class="solicitud proyecto${p.estado === 'vinculado' ? ' vinculado' : ''}">
             <div class="visita-cab"><strong class="cliente-link" data-c="${esc(p.nombre)}" onclick="verCliente(this.dataset.c, '${p.vendedor}')" title="Ver historial de visitas">${esc(p.nombre)}</strong>${chip(p)}</div>
             ${esJefe() ? `<p class="lead-dueno">👤 ${esc(nombreVendedor(p.vendedor))} · ${esc(comercial(p.vendedor)?.zona || p.zona || 'Sin zona')}</p>` : ''}
             <small>${esc([p.tipo, p.clasificacion && 'Clasificación ' + p.clasificacion, nombrePropio(p.persona), p.direccion, p.ciudad, p.telefono].filter(Boolean).join(' · '))}</small>
             ${seguimientoLead(p)}
             ${acciones(p)}
-        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? 'No hay solicitudes de creación.' : todos.length ? 'No hay leads con estos filtros.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
+        </div>`) : `<p class="no-results">${filtro === 'solicitud' ? (resueltas.length ? 'No hay solicitudes pendientes.' : 'No hay solicitudes de creación.') : todos.length ? 'No hay leads con estos filtros.' : 'No hay leads. Créalo con "+ Crear Lead" o al programar una visita (Contacto nuevo > Lead).'}</p>`}
+        ${resueltas.length ? `<p class="grupo-titulo">Historial · ${resueltas.length}</p>${resueltas.map(filaResuelta).join('')}` : ''}
     </div>`);
 }
 
@@ -1426,17 +1502,102 @@ function vincularCon(p, c) {
 // ---------- SOLICITUDES DE ELIMINACIÓN (administrador) ----------
 const solicitudesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.solicitudEliminar?.estado === 'pendiente');
 
+// Del cuadro de solicitudes a la visita (su día en la agenda de quien la tiene) para revisarla antes de aprobar
+function irAVisita(id) {
+    const v = registros[id];
+    if (!v) return;
+    cerrarModal();
+    Object.assign(agenda, { vendedor: v.vendedor, vendedores: [v.vendedor], fecha: v.fecha, filtro: '', busca: '', novTipo: '' });
+    if ($('agBuscar')) $('agBuscar').value = '';
+    abrirAgenda();
+    sincronizar(mesDe(v.fecha));
+    setTimeout(() => {
+        const t = document.querySelector(`[data-vid="${id}"]`);
+        if (!t) return;
+        t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        t.classList.add('resaltada'); setTimeout(() => t.classList.remove('resaltada'), 4000);
+    }, 250);
+}
+// En la solicitud de eliminar: ¿de verdad hay más de una visita a ese cliente ese día?
+const verificaRepetida = v => { const n = visitasRepetidas(v).length; return n > 1 ? `<p class="aviso-rep no">⚠ Sí: hay ${n} visitas a este cliente ese día</p>` : '<p class="aviso-rep ok">Solo hay 1 visita a este cliente ese día</p>'; };
+// ---------- HISTORIAL Y RESUMEN DE SOLICITUDES RESUELTAS ----------
+// Filtros: zona, tipo, resultado, fecha de resolución y causal (texto del pedido o de la causa del rechazo). El resumen sigue a los filtros.
+const histSol = { zona: '', tipo: '', res: '', per: '', q: '' };
+let histSolDatos = [];
+const zonaHistSol = h => comercial(h.v.vendedor)?.zona || '';
+const NOMBRE_TIPO_SOL = { eliminacion: 'Eliminación', correccion: 'Corrección', edicion: 'Edición' };
+const diaBogota = iso => new Date(new Date(iso).getTime() - 5 * 3600e3).toISOString().slice(0, 10);
+function periodoHistSol(h) {
+    if (!histSol.per) return true;
+    const d = diaBogota(h.s.resuelta || h.s.fecha || new Date().toISOString()), hoyD = hoy();
+    if (histSol.per === 'hoy') return d === hoyD;
+    if (histSol.per === 'semana') return d >= lunesDe(hoyD) && d <= sumarDias(lunesDe(hoyD), 6);
+    if (histSol.per === 'mes') return mesDe(d) === mesDe(hoyD);
+    return mesDe(d) === mesDe(sumarDias(hoyD.slice(0, 7) + '-01', -1));
+}
+const filtrarHistSol = () => histSolDatos.filter(h => (!histSol.zona || zonaHistSol(h) === histSol.zona) && (!histSol.tipo || h.tipo === histSol.tipo)
+    && (!histSol.res || h.s.estado === histSol.res) && periodoHistSol(h)
+    && (!histSol.q || normalizar([h.v.contacto, h.s.motivo, h.s.razonRechazo].join(' ')).includes(normalizar(histSol.q))));
+const duracionTxt = ms => { const h = ms / 3600e3; return h < 1 ? Math.max(1, Math.round(h * 60)) + ' min' : h < 48 ? h.toFixed(1).replace('.0', '') + ' h' : (h / 24).toFixed(1).replace('.0', '') + ' d'; };
+function barrasSol(titulo, filas) {
+    const max = Math.max(1, ...filas.map(f => f.ok + f.no));
+    return `<div class="dash-bloque"><p class="dash-tit">${esc(titulo)}</p>${filas.length ? filas.map(f => `<div class="dash-fila"><span class="dash-nom" title="${esc(f.n)}">${esc(f.n)}</span>
+        <span class="dash-barra"><i class="ok" style="width:${f.ok / max * 100}%"></i><i class="no" style="width:${f.no / max * 100}%"></i></span><b>${f.ok + f.no}</b></div>`).join('') : '<p class="meta">Sin datos</p>'}</div>`;
+}
+function pintarHistSol() {
+    if (!$('solHist')) return;
+    const l = filtrarHistSol(), ok = l.filter(h => h.s.estado === 'aprobada').length, no = l.length - ok;
+    $('solHistN').textContent = l.length === histSolDatos.length ? l.length : `${l.length} de ${histSolDatos.length}`;
+    const agrupar = (clave, orden) => { const m = {}; l.forEach(h => { const k = clave(h); if (!k) return; (m[k] = m[k] || { n: k, ok: 0, no: 0 })[h.s.estado === 'aprobada' ? 'ok' : 'no']++; });
+        return Object.values(m).sort(orden || ((a, b) => (b.ok + b.no) - (a.ok + a.no))); };
+    const tiempos = l.filter(h => h.s.resuelta && h.s.fecha).map(h => Date.parse(h.s.resuelta) - Date.parse(h.s.fecha)).filter(x => x >= 0);
+    const medio = tiempos.length ? tiempos.reduce((a, b) => a + b, 0) / tiempos.length : 0;
+    const causales = {}; l.forEach(h => {
+        if (h.tipo === 'edicion') (h.s.cambios || []).forEach(c => { const k = 'Edición: ' + (ETIQUETAS_EDICION[c.k] || c.k); causales[k] = (causales[k] || 0) + 1; });
+        else { const k = (h.s.motivo || '').trim().toLowerCase().replace(/\.$/, ''); if (k) causales[k.charAt(0).toUpperCase() + k.slice(1)] = (causales[k.charAt(0).toUpperCase() + k.slice(1)] || 0) + 1; } });
+    const topCausales = Object.entries(causales).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    $('solDash').innerHTML = l.length ? `<div class="dash-kpis">
+            <div class="dash-kpi"><small>Resueltas</small><b>${l.length}</b></div>
+            <div class="dash-kpi ok"><small>Autorizadas</small><b>${ok}</b><em>${Math.round(ok / l.length * 100)}%</em></div>
+            <div class="dash-kpi no"><small>Rechazadas</small><b>${no}</b><em>${Math.round(no / l.length * 100)}%</em></div>
+            <div class="dash-kpi"><small>Respuesta media</small><b>${tiempos.length ? duracionTxt(medio) : '—'}</b></div></div>
+        ${barrasSol('Por tipo', agrupar(h => NOMBRE_TIPO_SOL[h.tipo]))}
+        ${barrasSol('Por zona', agrupar(h => zonaHistSol(h) || 'Sin zona'))}
+        ${barrasSol('Por vendedor', agrupar(h => nombreVendedor(h.v.vendedor)))}
+        ${barrasSol('Por mes', agrupar(h => mesDe(diaBogota(h.s.resuelta || h.s.fecha || new Date().toISOString())), (a, b) => a.n.localeCompare(b.n)).map(f => ({ ...f, n: mayuscula(nombreMes(f.n)) })))}
+        <div class="dash-bloque"><p class="dash-tit">Causales más frecuentes</p>${topCausales.length ? topCausales.map(([k, n]) => `<div class="dash-fila"><span class="dash-nom" title="${esc(k)}">${esc(k)}</span><b>${n}</b></div>`).join('') : '<p class="meta">Sin datos</p>'}</div>
+        <p class="dash-leyenda"><i class="ok"></i>Autorizadas <i class="no"></i>Rechazadas</p>` : '<p class="meta">No hay solicitudes resueltas con estos filtros.</p>';
+    $('solHist').innerHTML = l.map(h => `<div class="sol-hist ${h.s.estado === 'aprobada' ? 'ok' : 'no'}">
+        <b class="sol-cli">${esc(h.v.contacto)}</b> <span class="sol-res">${h.s.estado === 'aprobada' ? '✔' : '✕'} ${NOMBRE_TIPO_SOL[h.tipo]} ${h.s.estado === 'aprobada' ? 'autorizada' : 'rechazada'}</span>
+        <small>${esc([nombreVendedor(h.v.vendedor), zonaHistSol(h), 'visita del ' + fechaCorta(h.v.fecha), 'por ' + nombreVendedor(h.s.resueltaPor), h.s.resuelta && fechaHora(h.s.resuelta)].filter(Boolean).join(' · '))}</small>
+        <small>${esc('Pedido: ' + h.s.motivo)}${h.s.razonRechazo ? esc(' · Causa del rechazo: ' + h.s.razonRechazo) : ''}</small></div>`).join('');
+}
 function abrirSolicitudes() {
     const lista = solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
+    const eds = edicionesPendientes().sort((a, b) => a.edicionPendiente.fecha.localeCompare(b.edicionPendiente.fecha));
     const corr = correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
+    // Lo ya resuelto queda como huella, pequeño y debajo de lo pendiente (incluye las visitas eliminadas)
+    const resueltas = Object.values(registros).filter(r => r.clase === 'visita').flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion], ['edicion', v.edicionPendiente]]
+        .filter(([, s]) => s && s.estado && s.estado !== 'pendiente').map(([tipo, s]) => ({ v, tipo, s }))).sort((a, b) => (b.s.resuelta || '').localeCompare(a.s.resuelta || ''));
     const estadoTxt = v => v.cierreAutomatico ? 'cerrada sin reporte' : v.estado === 'visitado' ? (v.interno ? 'realizado' : 'visitada') : (v.interno ? 'no realizado' : 'no visitada');
     abrirModal(`<div class="form-rc">
         <h2>Solicitudes de eliminación y corrección</h2>
+        ${eds.length ? `<p class="grupo-titulo">✏️ Edición de reportes cerrados · ${eds.length}</p>${eds.map(v => `<div class="solicitud">
+            <strong>${esc(v.contacto)}</strong>
+            <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} · propuesta por ${esc(nombreVendedor(v.edicionPendiente.por))} el ${esc(fechaHora(v.edicionPendiente.fecha))}</small>
+            ${(v.edicionPendiente.cambios || []).map(c => `<p class="cambio-ed"><b>${esc(ETIQUETAS_EDICION[c.k] || c.k)}:</b> <s>${esc(c.antes)}</s> → ${esc(c.despues)}</p>`).join('') || '<p class="cambio-ed">Otros cambios en el reporte</p>'}
+            <div class="form-botones">
+                <button class="btn-secundario" onclick="irAVisita('${v.id}')">Ver la visita</button>
+                <button class="btn-secundario" onclick="resolverEdicion('${v.id}', false)">Rechazar</button>
+                <button class="btn-primario" onclick="resolverEdicion('${v.id}', true)">Autorizar edición</button>
+            </div>
+        </div>`).join('')}` : ''}
         ${corr.length ? `<p class="grupo-titulo">✏️ Corrección de visitas ya cerradas · ${corr.length}</p>${corr.map(v => `<div class="solicitud">
             <strong>${esc(v.contacto)}</strong>
             <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} (${estadoTxt(v)}) · pedida el ${esc(fechaHora(v.solicitudCorreccion.fecha))}</small>
             <p>${esc(v.solicitudCorreccion.motivo)}</p>
             <div class="form-botones">
+                <button class="btn-secundario" onclick="irAVisita('${v.id}')">Ver la visita</button>
                 <button class="btn-secundario" onclick="resolverCorreccion('${v.id}', false)">Rechazar</button>
                 <button class="btn-primario" onclick="resolverCorreccion('${v.id}', true)">Autorizar corrección (24 h)</button>
             </div>
@@ -1446,12 +1607,28 @@ function abrirSolicitudes() {
             <strong>${esc(v.contacto)}</strong>
             <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} · pedida el ${esc(fechaHora(v.solicitudEliminar.fecha))}</small>
             <p>${esc(v.solicitudEliminar.motivo)}</p>
+            ${verificaRepetida(v)}
             <div class="form-botones">
+                <button class="btn-secundario" onclick="irAVisita('${v.id}')">Ver la visita</button>
                 <button class="btn-secundario" onclick="resolverSolicitud('${v.id}', false)">Rechazar</button>
                 <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitud('${v.id}', true)">Autorizar y eliminar</button>
             </div>
-        </div>`).join('') : '<p class="no-results">No hay solicitudes pendientes.</p>'}
+        </div>`).join('') : (corr.length || eds.length ? '' : '<p class="no-results">No hay solicitudes pendientes.</p>')}
+        ${resueltas.length ? `<div class="sol-hist-bloque">
+            <p class="grupo-titulo">Historial · <span id="solHistN">${resueltas.length}</span></p>
+            <div class="sol-filtros">
+                <select id="shZona" onchange="histSol.zona = this.value; pintarHistSol()" aria-label="Zona"><option value="">Todas las zonas</option>${[...new Set(resueltas.map(h => zonaHistSol(h)).filter(Boolean))].sort().map(z => `<option>${esc(z)}</option>`).join('')}</select>
+                <select id="shTipo" onchange="histSol.tipo = this.value; pintarHistSol()" aria-label="Tipo"><option value="">Todos los tipos</option><option value="eliminacion">Eliminación</option><option value="correccion">Corrección</option><option value="edicion">Edición</option></select>
+                <select id="shRes" onchange="histSol.res = this.value; pintarHistSol()" aria-label="Resultado"><option value="">Autorizadas y rechazadas</option><option value="aprobada">Autorizadas</option><option value="rechazada">Rechazadas</option></select>
+                <select id="shPer" onchange="histSol.per = this.value; pintarHistSol()" aria-label="Fecha"><option value="">Todas las fechas</option><option value="hoy">Hoy</option><option value="semana">Esta semana</option><option value="mes">Este mes</option><option value="mesAnt">Mes anterior</option></select>
+                <input id="shQ" type="search" placeholder="Causal o cliente…" oninput="histSol.q = this.value; pintarHistSol()" aria-label="Buscar causal o cliente">
+            </div>
+            <details class="sol-dash" open><summary>📊 Resumen de lo resuelto</summary><div id="solDash"></div></details>
+            <div id="solHist"></div></div>` : ''}
     </div>`, 'theme-rojo');
+    histSolDatos = resueltas;
+    Object.assign(histSol, { zona: '', tipo: '', res: '', per: '', q: '' });
+    pintarHistSol();
 }
 
 async function resolverSolicitud(id, autorizar) {
@@ -1799,7 +1976,7 @@ function pintarMaestra() {
     const nMed = lista.filter(c => rolesContacto(c).medico).length, nCli = lista.filter(c => rolesContacto(c).cliente).length;
     const nPv = lista.filter(c => claseContacto(c) === 'pv').length, nAmb = lista.filter(c => claseContacto(c) === 'ambos').length;
     $('mcLeyProv').hidden = !base.some(c => c.prov);
-    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${lista.some(c => c.prov) ? ` · <b>${lista.filter(c => c.prov).length}</b> proveedores` : ''}${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (20 y 21 que facturan): cuentan en ambos</small>` : ''}${esLogistica() || !lista.some(c => !c.prov) ? '' : `<br>📅 ${esc(mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, '')))}: <b>${lista.filter(c => maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> con visita efectiva · <b>${lista.filter(c => !maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> sin visita efectiva`}<br><small>Toca un contacto para ver su historial</small>`;
+    $('mcResumen').innerHTML = `<b>${lista.length}</b> ${lista.length === 1 ? 'contacto' : 'contactos'}${lista.length !== base.length ? ` de ${base.length}` : ''}: <b>${nMed}</b> médicos · <b>${nCli}</b> clientes · <b>${nPv}</b> puntos de venta${lista.some(c => c.prov) ? ` · <b>${lista.filter(c => c.prov).length}</b> proveedores` : ''}${nAmb ? `<br><small>${nAmb} son médico y cliente a la vez (20 y 21 que facturan): cuentan en ambos</small>` : ''}${esLogistica() || !lista.some(c => !c.prov) ? '' : `<br>📅 ${esc(mayuscula(nombrePeriodo(maestra.periodo).replace(/^el /, '')))}: <b>${lista.filter(c => !c.prov && maestra.enPeriodo[normalizar(c.n)]?.ok).length}</b> con visita efectiva · <b>${lista.filter(c => !c.prov && !maestra.enPeriodo[normalizar(c.n)]?.ok && maestra.enPeriodo[normalizar(c.n)]?.no).length}</b> contactados sin visita efectiva · <b>${lista.filter(c => !c.prov && !maestra.enPeriodo[normalizar(c.n)]).length}</b> sin visitas`}<br><small>Toca un contacto para ver su historial</small>`;
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[claseContacto(c)];
@@ -1807,7 +1984,7 @@ function pintarMaestra() {
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, esLogistica() && !c.prov && c.z ? c.z + (v ? ' · ' + v.nombre : '') : '', [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
                 <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead || c.prov ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
                 ${esLogistica() || c.prov ? '' : (() => { const a = maestra.enPeriodo[normalizar(c.n)];
-                    return a ? `<span class="mc-periodo-dato">📅 En el periodo: ${a.ok ? `<b class="ok">${a.ok} ${a.ok === 1 ? 'visita efectiva' : 'visitas efectivas'}</b>${a.ultima ? ' · última ' + esc(fechaCorta(a.ultima)) : ''}` : '<b>sin visita efectiva</b>'}${a.no ? ` · <b class="no">${a.no} no efectiva${a.no === 1 ? '' : 's'}</b>` : ''}</span>`
+                    return a ? `<span class="mc-periodo-dato">📅 En el periodo: ${a.ok ? `<b class="ok">${a.ok} ${a.ok === 1 ? 'visita efectiva' : 'visitas efectivas'}</b>${a.ultima ? ' · última ' + esc(fechaCorta(a.ultima)) : ''}` : '<b>Contactado sin visita efectiva</b>'}${a.no ? ` · <b class="no">${a.no} no efectiva${a.no === 1 ? '' : 's'}</b>` : ''}</span>`
                         : '<span class="mc-periodo-dato vacio">📅 En el periodo: sin visitas</span>'; })()}
                 ${!c.lead && portafolioDe(c.n).length ? `<span class="mc-portafolio" role="button" tabindex="0" data-c="${esc(c.n)}" onclick="verPortafolio(event, this.dataset.c)">📋 Portafolio del cliente <b>${portafolioDe(c.n).length}</b></span>` : ''}</span>
             <span class="mc-ultima">${u ? (c.prov ? 'Última parada' : esLogistica() ? 'Última entrega' : 'Última visita') + '<br><b>' + esc(fechaCorta(u)) + '</b>' : `<i>${c.prov ? 'Sin paradas' : esLogistica() ? 'Sin entregas' : 'Sin visitas'}</i>`}</span>
@@ -2788,6 +2965,7 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         : v.estado === 'no_visitado' ? `<span class="chip no">${txtNo}</span>`
         : !v.interno && esReprogramada(v) ? `<span class="chip no">${v.origen === 'proxima' ? 'Visita de seguimiento' : 'Reprogramada'}</span>`
         : '<span class="chip p">Pendiente</span>';
+    const repetida = visitasRepetidas(v).length > 1 ? '<span class="chip no" title="Este cliente está programado más de una vez ese día">⚠ Repetida</span> ' : '';
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
     const meta = [mc?.cl ? `Clasificación <b>${esc(mc.cl)}</b>` : '', ...[nombreEtq(v.tipoContacto), v.ciudad].filter(Boolean).map(esc)].filter(Boolean).join(' · ');
     const cumplidos = v.estado === 'visitado' ? (v.objetivosCumplidos || []) : null;
@@ -2809,8 +2987,8 @@ function tarjetaVisita(v, ord = null, mover = null, conVendedor = false) {
         reporte = `<div class="reporte"><b>${esc(v.motivo)}</b>${v.reprogramadaPara ? ` · Reprogramada para el ${esc(fechaCorta(v.reprogramadaPara))}` : ''}${v.observaciones ? '<br>' + esc(v.observaciones) : ''}</div>`;
     }
     const reprog = !v.interno && v.estado === 'pendiente' && esReprogramada(v) ? ' reprog' : '';
-    return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${v.esProyecto && !v.interno ? (v.estado === 'visitado' ? ' lead lead-ok' : ' lead lead-no') : ''}${reprog}">
-        <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${chip}</div>
+    return `<div class="producto-card visita-card ${clase}${v.interno ? ' interno' : ''}${v.esProyecto && !v.interno ? (v.estado === 'visitado' ? ' lead lead-ok' : ' lead lead-no') : ''}${reprog}" data-vid="${v.id}">
+        <div class="visita-cab"><div>${conVendedor ? `<span class="vend-card">${esc(nombreVendedor(v.vendedor))}</span>` : ''}${v.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Cita ${esc(horaBonita(v.hora))}</span>` : ''}${insigniasOrden(v, ord || {}, mover)}${v.interno ? `<h3>${esc(v.contacto)}</h3>` : `<h3 class="cliente-link" data-c="${esc(v.contacto)}" onclick="verCliente(this.dataset.c, '${v.vendedor}')" title="Ver historial del cliente">${esc(v.contacto)}</h3>`}</div>${repetida}${chip}</div>
         ${botonesOrden(v, ord || {}, mover)}
         ${meta ? `<p class="meta">${meta}</p>` : ''}
         <div class="marcas">${marcas}</div>
@@ -2915,11 +3093,17 @@ function accionesVisita(v, txtOk, txtNo) {
         const hastaCorr = correccionAutorizada(v) ? `${fechaHora(sc.hasta)} (autorizada)` : textoCierre(v);
         const estadoCorr = sc?.estado === 'pendiente' ? '<span class="chip np">Corrección por autorizar</span>'
             : sc?.estado === 'rechazada' ? `<span class="chip gris">Corrección rechazada${sc.razonRechazo ? ': ' + esc(sc.razonRechazo) : ''}</span>` : '';
-        const pedir = puedePedirCorreccion(v) ? `<button class="link-mini" onclick="solicitarCorreccion('${v.id}')">✏️ Solicitar corrección</button>` : '';
+        const pedir = puedePedirCorreccion(v) && !puedeProponerEdicion(v) ? `<button class="link-mini" onclick="solicitarCorreccion('${v.id}')">✏️ Solicitar corrección</button>` : '';
+        const ed = v.edicionPendiente;
+        const estadoEd = ed?.estado === 'pendiente' ? '<span class="chip np">Edición por autorizar</span>'
+            : ed?.estado === 'rechazada' ? `<span class="chip gris">Edición rechazada${ed.razonRechazo ? ': ' + esc(ed.razonRechazo) : ''}</span>` : '';
+        const proponer = puedeProponerEdicion(v) ? `<span class="corregir">✏️ Editar (lo aprueba ${esc(primerNombre(ADMIN.id))}):
+            <button class="link-mini" onclick="abrirRegistro('${v.id}','ok',true)">${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
+            <button class="link-mini" onclick="abrirRegistro('${v.id}','no',true)">${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
         const corregir = puedeCorregir(v) ? `<span class="corregir">Corregir hasta el ${esc(hastaCorr)}:
             <button class="link-mini" onclick="abrirRegistro('${v.id}','ok')">✏️ ${v.estado === 'visitado' ? 'Editar reporte' : 'Pasar a ' + txtOk}</button>
             <button class="link-mini" onclick="abrirRegistro('${v.id}','no')">✏️ ${v.estado === 'no_visitado' ? 'Editar reporte' : 'Pasar a ' + txtNo}</button></span>` : '';
-        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${estadoCorr}${pedir}${eliminar}</div>`;
+        return `<div class="acciones cerrada"><span class="nota-cierre">${corregir ? '' : '🔒 '}${esc(nota)}</span>${corregir}${proponer}${estadoCorr}${estadoEd}${pedir}${eliminar}</div>`;
     }
     const editar = `<button class="link-mini" onclick="abrirProgramar('${v.id}')">Editar</button>`;
     if (v.fecha > hoy()) {
@@ -3006,6 +3190,9 @@ function crearVisitaAcomp(a) {
         programada: true, origen: 'acompanamiento', acompanamiento: { de: a.solicitante, visitaId: a.visitaId, solicitud: a.id },
         creado: new Date().toISOString(), creadoPor: sesion.id
     };
+    // Si quien acompaña ya tiene esa visita ese día, se usa esa (no se crea otra)
+    const ya = visitaMismoDia(nueva, nueva.fecha, nueva.id);
+    if (ya) return ya;
     guardarRegistro(nueva);
     return nueva;
 }
@@ -3059,6 +3246,7 @@ function textoReporte(v) {
     return d.textContent;
 }
 function copiarReporteAcomp(v) {
+    if (modoPropuesta) return;
     if (v.clase !== 'visita' || v.estado === 'pendiente') return;
     const rep = { estado: v.estado, texto: textoReporte(v), fecha: new Date().toISOString() };
     const a = v.acompanamiento?.solicitud && registros[v.acompanamiento.solicitud];
@@ -3165,6 +3353,70 @@ function enviarCorreccion(e, id) {
 }
 
 const correccionesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.solicitudCorreccion?.estado === 'pendiente');
+
+// ---------- EDITAR UNA VISITA CERRADA (propuesta que aprueba el Gerente General) ----------
+// El dueño de la visita y los jefes editan el reporte; el reporte no cambia hasta que el Gerente General aprueba. Queda la huella.
+const puedeProponerEdicion = v => !!v && v.clase === 'visita' && !v.interno && !conDetalle(v) && !v.eliminada && !v.borrado && v.estado !== 'pendiente'
+    && !esAdmin() && (sesion?.id === v.vendedor || esJefe()) && !puedeCorregir(v) && !enCorreccionProvisional(v) && v.edicionPendiente?.estado !== 'pendiente';
+const edicionesPendientes = () => visibles().filter(v => v.clase === 'visita' && v.edicionPendiente?.estado === 'pendiente');
+const ETIQUETAS_EDICION = { estado: 'Resultado', modalidad: 'Modalidad', motivo: 'Motivo', observaciones: 'Observaciones', atendio: 'Atendió', compromisos: 'Compromisos',
+    productos: 'Productos presentados', muestras: 'Muestras', pedido: 'Pedido', reprogramadaPara: 'Reprogramada para', proximaVisita: 'Próxima visita', proximaHora: 'Hora próxima visita',
+    objetivosCumplidos: 'Objetivos cumplidos' };
+const textoEdicion = (k, x) => {
+    if (x === undefined || x === null || x === '') return '—';
+    if (k === 'estado') return x === 'visitado' ? 'Visita Efectiva' : x === 'no_visitado' ? 'Visita No Efectiva' : x;
+    if (k === 'pedido') return x === 'si' ? 'Con pedido' : 'Sin pedido';
+    if (Array.isArray(x)) return x.length ? x.join(', ') : '—';
+    return String(x);
+};
+// El guardado del reporte llega aquí: se compara con el reporte actual y se guarda como propuesta
+function proponerEdicion(r) {
+    const antes = registros[r.id];
+    const ignorar = new Set(['actualizado', 'etapa', 'limiteReporte', 'actualizadoPor', 'registrada', 'corregida', 'solicitudCorreccion', 'cierreAutomatico', 'correccionProvisional', 'edicionPendiente']);
+    const datos = {}, cambios = [];
+    Object.keys({ ...antes, ...r }).forEach(k => {
+        const vacio = x => x == null || x === '' || (typeof x === 'object' && !Object.keys(x).length);   // sin dato = vacío = lista o conjunto vacío
+        if (ignorar.has(k) || (vacio(antes[k]) && vacio(r[k])) || JSON.stringify(antes[k]) === JSON.stringify(r[k])) return;
+        datos[k] = r[k] === undefined ? null : r[k];
+        if (ETIQUETAS_EDICION[k]) cambios.push({ k, antes: textoEdicion(k, antes[k]), despues: textoEdicion(k, r[k]) });
+    });
+    if (!Object.keys(datos).length) { toast('No cambiaste nada'); return; }
+    const ep = { estado: 'pendiente', por: sesion.id, fecha: new Date().toISOString(), datos, cambios,
+        motivo: 'Cambia: ' + (cambios.map(c => ETIQUETAS_EDICION[c.k]).join(', ') || 'el reporte') };
+    const guardado = modoPropuesta; modoPropuesta = '';
+    guardarRegistro({ ...antes, edicionPendiente: ep });
+    modoPropuesta = guardado;
+    toast(`Edición enviada a ${ADMIN.nombre}: el reporte cambia cuando la apruebe`);
+}
+async function resolverEdicion(id, autorizar) {
+    if (!esAdmin()) return;
+    const v = registros[id], ep = v?.edicionPendiente;
+    if (!ep || ep.estado !== 'pendiente') return;
+    const razon = autorizar ? '' : await dialogo({ titulo: 'Rechazar la edición', texto: `${v.contacto} · ${fechaCorta(v.fecha)}\n¿Por qué se rechaza? (obligatorio, máximo 50 caracteres)`,
+        campo: 'Ej: el reporte original está bien', max: 50, obligatorio: true, aceptar: 'Rechazar' });
+    if (razon === null) return;
+    const ahora = new Date().toISOString();
+    const resuelta = { ...ep, estado: autorizar ? 'aprobada' : 'rechazada', razonRechazo: (razon || '').trim(), resueltaPor: sesion.id, resuelta: ahora };
+    if (!autorizar) guardarRegistro({ ...v, edicionPendiente: resuelta });
+    else {
+        const nuevo = { ...v, ...Object.fromEntries(Object.entries(ep.datos).map(([k, x]) => [k, x === null ? undefined : x])), edicionPendiente: resuelta,
+            registrada: v.cierreAutomatico || !v.registrada ? ep.fecha : v.registrada, corregida: ahora, cierreAutomatico: false,
+            editadaPorAprobacion: { por: ep.por, aprobadaPor: sesion.id, fecha: ahora } };
+        guardarRegistro(nuevo);
+        copiarReporteAcomp(nuevo);
+        if (nuevo.proximaVisita && nuevo.proximaVisita !== v.proximaVisita) agendarProxima(nuevo);
+        // Si la edición reprograma una visita no efectiva, la nueva visita se crea al aprobarla
+        if (nuevo.reprogramadaPara && !v.reprogramadaPara) {
+            guardarRegistro({ id: nuevoId(), clase: 'visita', vendedor: v.vendedor, estado: 'pendiente', contacto: v.contacto, tipoContacto: v.tipoContacto, ciudad: v.ciudad,
+                fecha: nuevo.reprogramadaPara, hora: '', objetivo: v.objetivo, vieneDe: v.fecha, origen: 'reprogramada', modalidad: v.modalidad, tipoVisita: v.tipoVisita,
+                tiposVisita: v.tiposVisita, objetivos: v.objetivos, interno: false, programada: Date.now() < limiteProgramacion(nuevo.reprogramadaPara),
+                creado: ahora, creadoPor: sesion.id });
+        }
+    }
+    toast(autorizar ? 'Edición aprobada: el reporte quedó actualizado' : 'Edición rechazada');
+    abrirSolicitudes();
+    pintarInicio();
+}
 
 async function resolverCorreccion(id, autorizar) {
     if (!esAdmin()) return;
@@ -4121,16 +4373,17 @@ const contadorNota = (id, n = 100) => `<p class="ayuda cuenta-nota" id="${id}Cue
 const cuentaNota = (id, n = 100) => `oninput="$('${id}Cuenta').textContent = this.value.length + ' / ${n}'"`;
 
 // Formulario para registrar lo que pasó: visitado / no visitado
-function abrirRegistro(id, tipo) {
+function abrirRegistro(id, tipo, propuesta = false) {
     const v = registros[id];
+    modoPropuesta = propuesta && puedeProponerEdicion(v) ? id : '';
     const opciones = (lista, actual) => lista.map(o => `<option ${o === actual ? 'selected' : ''}>${esc(o)}</option>`).join('');
-    if (!puedeGuardarReporte(v)) return toast(v.estado !== 'pendiente' ? 'El plazo para corregir esta visita ya cerró' : 'El plazo para reportar esta visita ya cerró');
+    if (!modoPropuesta && !puedeGuardarReporte(v)) return toast(v.estado !== 'pendiente' ? 'El plazo para corregir esta visita ya cerró' : 'El plazo para reportar esta visita ya cerró');
     const mc = !v.interno && (buscarMaestra(comercial(v.vendedor)?.zona, v.contacto) || buscarEnTodas(v.contacto));
     ctxCircular = { cliente: mc || null, fecha: v.fecha, ateneo: tiposDe(v).includes(ATENEO) };
     const cab = (v.interno ? `<p class="sub">${esc(v.contacto)} · ${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`
         : `<p class="cierre-cliente">${esc(v.contacto)}</p>${mc && (mc.cl || mc.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(mc.cl || '')}</b>${mc.ca ? ' · ' + esc(mc.ca) : ''}</p>` : ''}
         <p class="sub">${esc(fechaCorta(v.fecha))}${v.hora ? ' · Cita ' + esc(horaBonita(v.hora)) : ''}</p>`) + `
-        ${puedeCorregirProvisional(v) ? `<p class="aviso-hora prov">✏️ Corrección visita Sin Reporte a tiempo (provisional). Reporta lo que sucedió tal cual. Plazo: hasta ${esc(CORRECCION_PROV.texto)} La fecha de la visita no se puede mover.</p>`
+        ${modoPropuesta ? `<p class="aviso-hora prov">✏️ Estás proponiendo cambios a un reporte cerrado. Nada cambia hasta que ${esc(ADMIN.nombre)} los apruebe.</p>` : puedeCorregirProvisional(v) ? `<p class="aviso-hora prov">✏️ Corrección visita Sin Reporte a tiempo (provisional). Reporta lo que sucedió tal cual. Plazo: hasta ${esc(CORRECCION_PROV.texto)} La fecha de la visita no se puede mover.</p>`
             : `<p class="aviso-hora">${v.estado !== 'pendiente' ? 'Estás corrigiendo el reporte. ' : ''}Plazo: ${esc(textoCierre(v))}. Hasta esa hora puedes corregir el reporte.</p>`}`;
     if (tipo === 'ok' && v.interno) {
         abrirModal(`<form class="form-rc" onsubmit="guardarInternoRealizado(event, '${id}')">
@@ -4236,7 +4489,7 @@ const marcaReporte = antes => puedeCorregirProvisional(antes)
 
 // Revisa que el plazo siga abierto al momento de guardar
 function plazoAbierto(id) {
-    if (puedeGuardarReporte(registros[id])) return true;
+    if (modoPropuesta === id || puedeGuardarReporte(registros[id])) return true;
     cerrarModal();
     toast('El plazo para reportar esta visita ya cerró');
     pintarAgenda();
@@ -4297,18 +4550,21 @@ function guardarVisitado(e, id) {
     if (dAt) registrarAvance(proyAt, dAt.det, v);
     const proximaAntes = registros[id].proximaVisita;
     if (v.proximaVisita && v.proximaVisita !== proximaAntes && visitaMismoDia(v, v.proximaVisita, id)) { $('rProxima').focus(); return avisoYaProgramado(v, v.proximaVisita, true); }
+    const propuesta = !!modoPropuesta;   // si es una edición para aprobar, el aviso lo da proponerEdicion
     guardarRegistro(v);
     copiarReporteAcomp(v);
     if (v.proximaVisita && v.proximaVisita !== proximaAntes) agendarProxima(v);
     cerrarModal();
-    toast(v.proximaVisita ? `Visita registrada · próxima visita el ${fechaCorta(v.proximaVisita)}` : 'Visita registrada');
+    if (!propuesta) toast(v.proximaVisita ? `Visita registrada · próxima visita el ${fechaCorta(v.proximaVisita)}` : 'Visita registrada');
     pintarAgenda();
 }
 
 // La próxima visita queda programada en ese día. En el Visiplan sale en la casilla R en rojo hasta que sea efectiva.
 // Si ese día ya estaba planeada, queda como la confirmación del plan (no se duplica).
 function agendarProxima(antes) {
+    if (modoPropuesta) return;
     const fecha = antes.proximaVisita;
+    if (visitaMismoDia({ vendedor: antes.vendedor, contacto: antes.contacto, interno: false }, fecha, antes.id)) return;   // ya está programada ese día
     const nueva = {
         id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente', origen: 'proxima',
         contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
@@ -4500,7 +4756,7 @@ function guardarNoVisitado(e, id) {
     guardarRegistro(v);
     copiarReporteAcomp(v);
     // La visita reprogramada queda como una nueva visita pendiente en esa fecha
-    if (repro && !antes.reprogramadaPara) {
+    if (repro && !antes.reprogramadaPara && !modoPropuesta) {
         guardarRegistro({
             id: nuevoId(), clase: 'visita', vendedor: antes.vendedor, estado: 'pendiente',
             contacto: antes.contacto, tipoContacto: antes.tipoContacto, ciudad: antes.ciudad,
@@ -4510,8 +4766,9 @@ function guardarNoVisitado(e, id) {
             creado: new Date().toISOString(), creadoPor: sesion.id
         });
     }
+    const propuestaNo = !!modoPropuesta;
     cerrarModal();
-    toast(repro ? `${antes.interno ? 'Programado' : 'Reprogramada'} para el ${fechaCorta(repro)}` : antes.interno ? 'Marcado como no realizado' : 'Marcada como no visitada');
+    if (!propuestaNo) toast(repro ? `${antes.interno ? 'Programado' : 'Reprogramada'} para el ${fechaCorta(repro)}` : antes.interno ? 'Marcado como no realizado' : 'Marcada como no visitada');
     pintarAgenda();
 }
 
@@ -4939,6 +5196,8 @@ const sinReporte = x => !x.interno && ((x.estado === 'no_visitado' && !!x.cierre
 const estadoVisitaTxt = x => x.interno ? ({ visitado: 'Realizado', no_visitado: 'No realizado' }[x.estado] || 'Pendiente')
     : x.estado === 'visitado' ? 'Visita Efectiva' : sinReporte(x) ? 'Sin reporte a tiempo' : x.estado === 'no_visitado' ? 'Visita No Efectiva' : 'Pendiente';
 function claseAnillo(x) {
+    // Todo lo que se programó y no se reportó a tiempo (también leads y ateneos) es "Sin reporte a tiempo"
+    if (sinReporte(x) && x.estado !== 'visitado') return 'sin';
     if (x.esProyecto && !x.interno) return x.estado === 'visitado' ? 'lead' : 'leadNo';   // los leads van por aparte
     if (esVisAteneo(x)) return x.estado === 'visitado' ? 'ateneo' : 'ateneoNo';   // los ateneos también
     if (x.estado === 'visitado') return 'ok';
@@ -4977,19 +5236,21 @@ function cuentaVisitas(todas) {
     const leads = todas.filter(v => !v.interno && v.esProyecto);
     const ateneos = todas.filter(esVisAteneo);
     const ok = lista.filter(v => v.estado === 'visitado').length;
-    const sin = lista.filter(sinReporte).length;                                       // programadas sin reporte a tiempo
+    const sinL = lista.filter(sinReporte).length;                                       // programadas sin reporte a tiempo (clientes)
+    const leadsSin = leads.filter(sinReporte).length, ateneosSin = ateneos.filter(sinReporte).length;   // leads y ateneos sin reporte: también van a "Sin reporte a tiempo"
+    const sin = sinL + leadsSin + ateneosSin;
     const no = lista.filter(v => v.estado === 'no_visitado').length - lista.filter(v => v.estado === 'no_visitado' && sinReporte(v)).length;   // reportadas como no efectivas
     const prog = lista.filter(esProgramada);
     const okProg = prog.filter(v => v.estado === 'visitado').length;
     return {
-        t: lista.length, ok, no, sin, p: lista.length - ok - no - sin,
+        t: lista.length, ok, no, sin, p: lista.length - ok - no - sinL,
         prog: prog.length, noProg: lista.length - prog.length, okProg,
         cumpl: prog.length ? okProg / prog.length : 0,
         virtual: lista.filter(v => v.modalidad === 'virtual').length,
         pedidos: lista.filter(v => v.pedido === 'si').length,
         // Leads (contactos nuevos): por aparte, como Lead visitado y Lead no visitado
-        leads: leads.length, leadsOk: leads.filter(v => v.estado === 'visitado').length, leadsNo: leads.filter(v => v.estado !== 'visitado').length,
-        ateneos: ateneos.length, ateneosOk: ateneos.filter(v => v.estado === 'visitado').length, ateneosNo: ateneos.filter(v => v.estado !== 'visitado').length,
+        leads: leads.length, leadsOk: leads.filter(v => v.estado === 'visitado').length, leadsNo: leads.filter(v => v.estado !== 'visitado' && !sinReporte(v)).length,
+        ateneos: ateneos.length, ateneosOk: ateneos.filter(v => v.estado === 'visitado').length, ateneosNo: ateneos.filter(v => v.estado !== 'visitado' && !sinReporte(v)).length,
         internos: todas.filter(v => v.interno).length
     };
 }
@@ -5626,6 +5887,7 @@ function marcarObligatorios(raiz) {
 }
 
 function cerrarModal() {
+    modoPropuesta = '';
     $('modal').classList.remove('active');
     $('modalContenido').innerHTML = '';
 }

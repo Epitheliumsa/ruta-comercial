@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Visita Comercial</title>
-    <link rel="stylesheet" href="styles.css?v=202610162035">
-    <link rel="stylesheet" href="visitas.css?v=202610162035">
+    <link rel="stylesheet" href="styles.css?v=202610162116">
+    <link rel="stylesheet" href="visitas.css?v=202610162116">
 
     <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
     <link rel="manifest" href="manifest.json">
@@ -96,9 +96,9 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="12" rx="14" ry="6"/><path d="M10 12v12c0 3.3 6.3 6 14 6s14-2.7 14-6V12"/><path d="M10 24v12c0 3.3 6.3 6 14 6s14-2.7 14-6V24"/></svg>
                     <span class="home-btn-text"><strong>Bases de datos</strong><small>Sube las maestras: contactos, productos, direcciones y proveedores</small></span>
                 </button>
-                <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos de citas en este celular</button>
+                                <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos en este celular</button>
                 <p class="estado-sync" id="estadoSync"></p>
-                <p class="version-app">Versión 16/10/2026 20:35</p>
+                <p class="version-app">Versión 16/10/2026 21:16</p>
             </div>
         </div>
 
@@ -389,6 +389,11 @@
         <div id="toast" class="toast"></div>
         <div id="dialogo" class="dialogo"></div>
         <div id="tooltip" class="tooltip" role="status"></div>
+        <div id="avisoAprob" class="aviso-cita aviso-aprob" role="alert">
+            <div><strong id="avisoAprobTit">Aprobaciones por revisar</strong><span id="avisoAprobTxt"></span></div>
+            <button onclick="verAprobaciones()">Ver</button>
+            <button class="cerrar" onclick="cerrarAvisoAprob()" aria-label="Cerrar aviso">&times;</button>
+        </div>
         <div id="avisoCita" class="aviso-cita" role="alert">
             <div><strong>Cita en 15 minutos</strong><span id="avisoCitaTxt"></span></div>
             <button onclick="verCitaAvisada()">Ver</button>
@@ -396,13 +401,13 @@
         </div>
     </div>
 
-    <script src="ciudades.js?v=202610162035"></script>
-    <script src="objetivos.js?v=202610162035"></script>
-    <script src="circulares.js?v=202610162035"></script>
-    <script src="productos.js?v=202610162035"></script>
-    <script src="portafolios.js?v=202610162035"></script>
-    <script src="app.js?v=202610162035"></script>
-    <script src="logistica.js?v=202610162035"></script>
-    <script src="bases.js?v=202610162035"></script>
+    <script src="ciudades.js?v=202610162116"></script>
+    <script src="objetivos.js?v=202610162116"></script>
+    <script src="circulares.js?v=202610162116"></script>
+    <script src="productos.js?v=202610162116"></script>
+    <script src="portafolios.js?v=202610162116"></script>
+    <script src="app.js?v=202610162116"></script>
+    <script src="logistica.js?v=202610162116"></script>
+    <script src="bases.js?v=202610162116"></script>
 </body>
 </html>
