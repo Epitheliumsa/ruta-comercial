@@ -258,6 +258,7 @@ let pendientes = new Set();     // ids por subir al servidor
 let agenda = { fecha: hoy(), vendedor: null, filtro: '', orden: 'prog', novTipo: '' };
 let mesAct = mesDe(hoy());
 let mesPanel = mesDe(hoy());
+const periodoPanel = { t: 'mes', v: mesDe(hoy()) };   // Panel del equipo: día, mes, trimestre, semestre o año
 
 // ---------- UTILIDADES ----------
 function hoy() { return iso(new Date()); }
@@ -582,7 +583,7 @@ async function llamarApi(cuerpo, espera = 0) {
     return datos;
 }
 
-async function sincronizar(mesCentro = mesDe(hoy())) {
+async function sincronizar(mesCentro = mesDe(hoy()), rango = null) {
     if (sincronizando) { sincronizarOtraVez = true; return; }
     if (!API_URL || !sesion) return pintarEstadoSync();
     sincronizando = true;
@@ -605,8 +606,8 @@ async function sincronizar(mesCentro = mesDe(hoy())) {
         // 2. Traer lo del servidor: mes anterior, actual y siguiente
         const datos = await llamarApi({
             accion: 'listar',
-            desde: sumarMes(mesCentro, -1) + '-01',
-            hasta: finDeMes(sumarMes(mesCentro, 1))
+            desde: rango ? rango.desde : sumarMes(mesCentro, -1) + '-01',
+            hasta: rango ? rango.hasta : finDeMes(sumarMes(mesCentro, 1))
         });
         datos.registros.forEach(r => {
             if (deOtraEtapa(r)) return;   // registros de otra etapa (pruebas) no entran
@@ -782,6 +783,7 @@ function todoElEquipo() {
 // Al salir de una pantalla se borran sus filtros: al volver se ve todo
 function limpiarFiltros() {
     if (esJefe()) todoElEquipo();
+    Object.assign(periodoPanel, { t: 'mes', v: mesDe(hoy()) }); mesPanel = periodoPanel.v;
     if (typeof logi !== 'undefined') Object.assign(logi, { mensajero: '', filtro: '', busca: '' });   // Logística: todos los mensajeros
     Object.assign(visiplan, { busca: '', sel: { t: [], e: [], f: [] } });
     Object.keys(maestra.sel).forEach(k => { maestra.sel[k] = []; });
@@ -1705,28 +1707,30 @@ function nombrePeriodo({ t, v }) {
     if (t === 'sem') return `el ${v.slice(-1)}.º semestre ${v.slice(0, 4)}`;
     return 'el año ' + v;
 }
-function abrirPeriodoMaestra(t = maestra.periodo.t) {
+function abrirPeriodoMaestra(t = maestra.periodo.t, panel = false) {
+    const P = panel ? periodoPanel : maestra.periodo;
     const fechas = visibles().filter(x => x.clase === 'visita' && x.fecha).map(x => x.fecha).concat(hoy());
     const valores = [...new Set(fechas.map(f => valorPeriodo(t, f)))].sort().reverse();
-    const actual = maestra.periodo.t === t ? maestra.periodo.v : valorPeriodo(t, hoy());
+    const actual = P.t === t ? P.v : valorPeriodo(t, hoy());
     const etiqueta = v => mayuscula(nombrePeriodo({ t, v }).replace(/^el (año )?/, ''));
     abrirModal(`<div class="form-rc periodo-maestra">
         <h2>📅 Periodo de las visitas</h2>
-        <p class="sub">Para el filtro Visitados / No visitados de la Maestra</p>
-        <div class="periodo-tabs" role="group">${Object.entries(PERIODOS_MAESTRA).map(([k, n]) => `<button type="button" class="${k === t ? 'activo' : ''}" onclick="abrirPeriodoMaestra('${k}')">${n}</button>`).join('')}</div>
+        <p class="sub">${panel ? 'Para el Panel del equipo' : 'Para el filtro Visitados / No visitados de la Maestra'}</p>
+        <div class="periodo-tabs" role="group">${Object.entries(PERIODOS_MAESTRA).map(([k, n]) => `<button type="button" class="${k === t ? 'activo' : ''}" onclick="abrirPeriodoMaestra('${k}', ${panel})">${n}</button>`).join('')}</div>
         ${t === 'dia' ? `<label for="pmDia">Día</label><input id="pmDia" type="date" value="${esc(actual)}">`
             : `<label for="pmValor">${PERIODOS_MAESTRA[t]}</label><select id="pmValor">${valores.map(v => `<option value="${v}" ${v === actual ? 'selected' : ''}>${esc(etiqueta(v))}</option>`).join('')}</select>`}
         <div class="form-botones">
             <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
-            <button type="button" class="btn-primario" onclick="elegirPeriodoMaestra('${t}')">Aplicar</button>
+            <button type="button" class="btn-primario" onclick="elegirPeriodoMaestra('${t}', ${panel})">Aplicar</button>
         </div>
     </div>`);
 }
-function elegirPeriodoMaestra(t) {
+function elegirPeriodoMaestra(t, panel = false) {
     const v = t === 'dia' ? $('pmDia').value : $('pmValor').value;
     if (!v) return toast('Escoge el día');
-    maestra.periodo = { t, v };
     cerrarModal();
+    if (panel) { Object.assign(periodoPanel, { t, v }); return cambioPeriodoPanel(); }
+    maestra.periodo = { t, v };
     pintarMaestra();
 }
 // Columnas por las que se filtra y se agrupa la gráfica: cómo se saca el valor de cada cliente y cómo se nombra
@@ -5199,10 +5203,35 @@ function abrirPanel() {
     pintarPanel();
 }
 
-function moverMesPanel(n) {
-    mesPanel = sumarMes(mesPanel, n);
+// Meses que cubre un periodo (para traer los datos y las actividades)
+function mesesDePeriodo({ t, v }) {
+    if (t === 'dia') return [mesDe(v)];
+    if (t === 'mes') return [v];
+    const a = v.slice(0, 4), ini = t === 'ano' ? 1 : t === 'sem' ? (+v.slice(-1) - 1) * 6 + 1 : (+v.slice(-1) - 1) * 3 + 1, n = t === 'ano' ? 12 : t === 'sem' ? 6 : 3;
+    return Array.from({ length: n }, (_, i) => `${a}-${String(ini + i).padStart(2, '0')}`);
+}
+const enPeriodoPanel = f => !!f && valorPeriodo(periodoPanel.t, f) === periodoPanel.v;
+function cambioPeriodoPanel() {
+    const m = mesesDePeriodo(periodoPanel);
+    mesPanel = m[0];
     pintarPanel();
-    sincronizar(mesPanel);
+    sincronizar(m[Math.floor(m.length / 2)], m.length > 1 ? { desde: m[0] + '-01', hasta: finDeMes(m[m.length - 1]) } : null);
+}
+function moverPeriodoPanel(n) {
+    const { t, v } = periodoPanel;
+    const parte = (a, q, max) => { while (q > max) { q -= max; a++; } while (q < 1) { q += max; a--; } return [a, q]; };
+    if (t === 'dia') periodoPanel.v = sumarDias(v, n);
+    else if (t === 'mes') periodoPanel.v = sumarMes(v, n);
+    else if (t === 'trim') { const [a, q] = parte(+v.slice(0, 4), +v.slice(-1) + n, 4); periodoPanel.v = `${a}-T${q}`; }
+    else if (t === 'sem') { const [a, q] = parte(+v.slice(0, 4), +v.slice(-1) + n, 2); periodoPanel.v = `${a}-S${q}`; }
+    else periodoPanel.v = String(+v + n);
+    cambioPeriodoPanel();
+}
+function elegirTipoPeriodoPanel(t) {
+    // Se conserva el momento actual si cae dentro del periodo; si no, el inicio del periodo que se estaba viendo
+    const ref = enPeriodoPanel(hoy()) ? hoy() : periodoPanel.t === 'dia' ? periodoPanel.v : mesesDePeriodo(periodoPanel)[0] + '-01';
+    Object.assign(periodoPanel, { t, v: valorPeriodo(t, ref) });
+    cambioPeriodoPanel();
 }
 
 // Indicadores de visitas (el trabajo interno no cuenta). Cumplimiento = visitadas de las programadas
@@ -5310,10 +5339,12 @@ const pasaFiltro = v => (!filtroPanel.vendedor || v.vendedor === filtroPanel.ven
 
 function pintarPanel() {
     iniciarFiltrosPanel();
-    $('panMesTxt').textContent = mayuscula(nombreMes(mesPanel));
-    $('panMesSub').textContent = API_URL ? 'Datos de todo el equipo' : 'Solo los datos guardados en este dispositivo';
-    const vis = visitasMes(mesPanel).filter(pasaFiltro);
-    const acts = actividadesMes(mesPanel, filtroPanel.vendedor);
+    $('panTabs').innerHTML = Object.entries(PERIODOS_MAESTRA).map(([k, n]) => `<button type="button" class="${k === periodoPanel.t ? 'activo' : ''}" onclick="elegirTipoPeriodoPanel('${k}')">${n}</button>`).join('');
+    $('panMesTxt').textContent = mayuscula(nombrePeriodo(periodoPanel).replace(/^el /, ''));
+    $('panMesSub').textContent = API_URL ? 'Datos de todo el equipo · toca para elegir' : 'Solo los datos guardados en este dispositivo · toca para elegir';
+    $('panGrafTit').textContent = periodoPanel.t === 'dia' ? 'Visitas del día' : ['mes'].includes(periodoPanel.t) ? 'Visitas por día' : 'Visitas por mes';
+    const vis = visibles().filter(r => r.clase === 'visita' && enPeriodoPanel(r.fecha)).filter(pasaFiltro);
+    const acts = mesesDePeriodo(periodoPanel).flatMap(m => actividadesMes(m, filtroPanel.vendedor));
     const c = cuentaVisitas(vis);
     const actHechas = acts.filter(a => a.hecha).length;
     $('panKpis').innerHTML = `
@@ -5386,13 +5417,16 @@ function pintarPanel() {
 const COLOR = { ok: '#0a6647', no: '#f472b6', sin: '#b91c1c', p: '#b9c4bf', obj: '#9fd3bd', objOk: '#0a6647', tipo: '#009460' };
 
 function pintarGraficaDias(vis) {
-    const dias = Number(finDeMes(mesPanel).slice(8));
-    const datos = [];
-    for (let d = 1; d <= dias; d++) {
-        const f = `${mesPanel}-${String(d).padStart(2, '0')}`;
-        const k = cuentaVisitas(vis.filter(v => v.fecha === f));
-        datos.push({ f, d, ok: k.ok, no: k.no, sin: k.sin, p: k.p });
-    }
+    // Día: una barra · Mes: una por día · Trimestre, semestre y año: una por mes
+    const porMes = !['dia', 'mes'].includes(periodoPanel.t);
+    const cubetas = periodoPanel.t === 'dia' ? [periodoPanel.v]
+        : periodoPanel.t === 'mes' ? Array.from({ length: Number(finDeMes(periodoPanel.v).slice(8)) }, (_, i) => `${periodoPanel.v}-${String(i + 1).padStart(2, '0')}`)
+        : mesesDePeriodo(periodoPanel);
+    const dias = cubetas.length;
+    const datos = cubetas.map((f, i) => {
+        const k = cuentaVisitas(vis.filter(v => porMes ? mesDe(v.fecha) === f : v.fecha === f));
+        return { f, d: porMes ? Number(f.slice(5, 7)) : Number(f.slice(8)), i, ok: k.ok, no: k.no, sin: k.sin, p: k.p };
+    });
     const max = Math.max(4, ...datos.map(x => x.ok + x.no + x.sin + x.p));
     const paso = max <= 6 ? 2 : max <= 12 ? 3 : Math.ceil(max / 4);
     const tope = Math.ceil(max / paso) * paso;
@@ -5415,11 +5449,11 @@ function pintarGraficaDias(vis) {
             svg += ultimo ? rectRedondo(cx, base - alto + hueco, barra, alto - hueco, COLOR[clave]) : `<rect x="${cx}" y="${base - alto + hueco}" width="${barra}" height="${Math.max(0, alto - hueco)}" fill="${COLOR[clave]}"/>`;
             base -= alto;
         });
-        const tip = `${fechaCorta(x.f)}: ${x.ok} Visita Efectiva · ${x.no} Visita No Efectiva · ${x.sin} Sin reporte a tiempo · ${x.p} pendientes`;
+        const tip = `${porMes ? mayuscula(nombreMes(x.f)) : fechaCorta(x.f)}: ${x.ok} Visita Efectiva · ${x.no} Visita No Efectiva · ${x.sin} Sin reporte a tiempo · ${x.p} pendientes`;
         svg += `<rect x="${izq + ancho * i}" y="${arr}" width="${ancho}" height="${H - arr - abj}" fill="transparent" data-tip="${esc(tip)}"/>`;
-        if (x.d === 1 || x.d % 5 === 0) svg += `<text x="${cx + barra / 2}" y="${H - 8}" class="g-eje" text-anchor="middle">${x.d}</text>`;
+        if (porMes || dias <= 1 || x.d === 1 || x.d % 5 === 0) svg += `<text x="${cx + barra / 2}" y="${H - 8}" class="g-eje" text-anchor="middle">${porMes ? MESES_CORTOS[x.d - 1] : x.d}</text>`;
     });
-    $('grafDias').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitas por día del mes">${svg}</svg>`;
+    $('grafDias').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitas del periodo">${svg}</svg>`;
 }
 
 // Las gráficas se dibujan al ancho real del contenedor para que el texto no se achique en el celular

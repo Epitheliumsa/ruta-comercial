@@ -319,10 +319,11 @@
             </div>
 
             <div class="filters filtros-rc">
+                <div class="periodo-tabs panel-periodo-tabs" id="panTabs" role="group" aria-label="Periodo"></div>
                 <div class="nav-fecha">
-                    <button class="btn-nav" onclick="moverMesPanel(-1)" aria-label="Mes anterior">&lsaquo;</button>
-                    <div class="nav-titulo"><strong id="panMesTxt"></strong><small id="panMesSub"></small></div>
-                    <button class="btn-nav" onclick="moverMesPanel(1)" aria-label="Mes siguiente">&rsaquo;</button>
+                    <button class="btn-nav" onclick="moverPeriodoPanel(-1)" aria-label="Periodo anterior">&lsaquo;</button>
+                    <div class="nav-titulo clic" onclick="abrirPeriodoMaestra(periodoPanel.t, true)" title="Elegir periodo"><strong id="panMesTxt"></strong><small id="panMesSub"></small></div>
+                    <button class="btn-nav" onclick="moverPeriodoPanel(1)" aria-label="Periodo siguiente">&rsaquo;</button>
                 </div>
             </div>
 
@@ -341,14 +342,14 @@
             <div class="panel-cuerpo">
                 <div class="kpis" id="panKpis"></div>
                 <div class="panel-bloque">
-                    <h2>Visitas por día</h2>
+                    <h2 id="panGrafTit">Visitas por día</h2>
                     <div class="leyenda"><span><i style="background:#0a6647"></i>Visita Efectiva</span><span><i style="background:#f472b6"></i>Visita No Efectiva</span><span><i style="background:#b91c1c"></i>Sin reporte a tiempo</span><span><i style="background:#b9c4bf"></i>Pendientes</span></div>
                     <div class="grafica" id="grafDias"></div>
                 </div>
                 <div class="panel-dos">
                     <div class="panel-bloque">
                         <h2>Por tipo de visita</h2>
-                        <p class="g-sub">Visitas programadas en el mes</p>
+                        <p class="g-sub">Visitas programadas en el periodo</p>
                         <div class="grafica" id="grafTipos"></div>
                     </div>
                     <div class="panel-bloque">
