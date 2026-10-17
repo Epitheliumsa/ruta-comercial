@@ -50,6 +50,7 @@ const TARJETAS_BASES = [
     { k: 'contactos', t: 'Maestra de contactos', d: 'Clientes y médicos de cada zona (Maestra de Contactos de Odoo). Reemplaza la lista de la app.', a: 'subirContactos()', n: 'contactos' },
     { k: 'catalogo', t: 'Productos', d: 'Catálogo con etiquetas (Nuevo, Foco, Transición-Impulso…) para visitas y muestras. Sube Base_Productos (materias primas), Productos_Terminados (terminados) o los dos: cada archivo reemplaza solo lo suyo.', a: 'subirCatalogo()', n: 'productos' },
     { k: 'directorio', t: 'Direcciones y teléfonos', d: 'Calle, teléfono y móvil de los clientes (Maestra de Odoo). Los ven Logística, los jefes y tú; cada comercial, solo su zona.', a: 'subirDirectorio()', n: 'clientes' },
+    { k: 'vademecum', t: 'Vademécum', d: 'Productos y portafolios por cliente del Vademécum. Sube Vademecum_Epithelium (productos), Vademecum_clientes (portafolios) o los dos: cada archivo reemplaza solo lo suyo. El Vademécum lo toma de aquí.', a: 'subirVademecum()', n: 'vademecum' },
     { k: 'proveedores', t: 'Proveedores', d: 'Maestra de proveedores con dirección y teléfono. Solo la ven Logística y tú.', a: 'subirProveedores()', n: 'proveedores' }
 ];
 const cuandoBase = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }) : ''; };
@@ -254,9 +255,86 @@ async function descargarBase(k) {
             if (filas.some(f => !f[0])) return toast('Falta el nombre en el directorio guardado: vuelve a sincronizar e inténtalo de nuevo');
             hojaTabla(wb, 'Direcciones', ['Nombre Público', 'Ciudad', 'Calle', 'Teléfono', 'Equipo de ventas'], filas, [40, 18, 45, 24, 20]);
             nombre = 'Direcciones'; cuenta = filas.length;
+        } else if (k === 'vademecum') {
+            const t = await descargarVademecum();
+            if (!t) return toast('Aún no has subido el Vademécum desde aquí: no hay nada para descargar');
+            return toast('Copia descargada: ' + t);
         } else return;
         if (!cuenta) return toast('Esta base aún no tiene registros para descargar');
         await bajarLibro(wb, nombre);
         toast(`Copia descargada: ${cuenta} registros`);
     } catch (e) { toast('No se pudo descargar la copia: ' + e.message); }
+}
+
+// ---------- Vademécum: productos y portafolios por cliente (el Vademécum los lee del servidor) ----------
+const URL_INDICE_VADEMECUM = 'https://epitheliumsa.github.io/vademecum-epithelium/portafolios-index.json';
+const COLS_VADE = ['Referencia Interna', 'Nombre', 'Grupo de Producto', 'Categoría del Producto', 'Forma Farmacéutica', 'Presentación Farmacéutica', 'Tamaño', 'Masa',
+    'Componentes', 'Indicación', 'Dosis Recomendada', 'Etiquetas de producto'];
+// Filas de una hoja como productos del Vademécum (mismas llaves que data.json); extra = columnas adicionales (Cliente, Zona)
+function productosVademecum(filas, extra = []) {
+    const cab = filas[0].map(x => x.trim()), col = Object.fromEntries(cab.map((n, i) => [n, i]));
+    for (const n of [...COLS_VADE, ...extra]) if (!(n in col)) throw new Error(`Falta la columna "${n}"`);
+    return filas.slice(1).filter(f => f[col['Referencia Interna']]).map(f => {
+        const o = Object.fromEntries(COLS_VADE.map(n => [n, f[col[n]] ?? '']));
+        if (o['Tamaño'] !== '' && !isNaN(Number(o['Tamaño']))) o['Tamaño'] = Number(o['Tamaño']);
+        return { o, f, col };
+    });
+}
+const encabezadoLibro = wb => filasHoja(wb.worksheets[0])[0]?.map(x => x.trim()) || [];
+async function subirVademecum() {
+    if (!esAdmin()) return;
+    const archivos = await elegirArchivos(true);
+    if (!archivos.length) return;
+    try {
+        let maestro = null, clientes = null;
+        for (const a of archivos) {
+            const wb = await leerLibro(a), cab = encabezadoLibro(wb);
+            if (!cab.includes('Referencia Interna')) throw new Error(`"${a.name}" no tiene la columna "Referencia Interna": sube Vademecum_Epithelium y/o Vademecum_clientes`);
+            const filas = filasHoja(wb.worksheets[0]);
+            if (cab.includes('Cliente')) clientes = productosVademecum(filas, ['Cliente', 'Zona de Vendedor']);
+            else maestro = productosVademecum(filas).map(x => x.o);
+        }
+        if (maestro && maestro.length < 100) return toast('El Vademécum trae muy pocos productos: revisa que sea Vademecum_Epithelium');
+        if (maestro && new Set(maestro.map(p => p['Referencia Interna'])).size !== maestro.length) return toast('Hay referencias repetidas en Vademecum_Epithelium: revísalas antes de subir');
+        const bases = [], lineas = [];
+        let resumen = '';
+        if (maestro) {
+            bases.push({ nombre: 'vademecum', contenido: JSON.stringify(maestro), resumen: `${maestro.length} productos` });
+            lineas.push(`Productos: ${maestro.length}`);
+        }
+        let sinAcceso = [];
+        if (clientes) {
+            let indice;
+            try { const r = await fetch(URL_INDICE_VADEMECUM, { cache: 'no-cache' }); if (!r.ok) throw new Error('HTTP ' + r.status); indice = await r.json(); }
+            catch (e) { return toast('No pude traer la lista de clientes del Vademécum: revisa la conexión e inténtalo de nuevo'); }
+            const huella = Object.fromEntries(indice.map(x => [x.cliente, x.huella]));
+            const por = {};
+            clientes.forEach(({ o, f, col }) => { const c = f[col['Cliente']]; (por[c] ||= { cliente: c, zona: f[col['Zona de Vendedor']] || '', productos: [] }).productos.push(o); });
+            Object.values(por).forEach(c => { if (huella[c.cliente]) bases.push({ nombre: 'pf_' + huella[c.cliente], contenido: JSON.stringify(c), resumen: '' }); else sinAcceso.push(c.cliente); });
+            const n = bases.filter(b => b.nombre !== 'vademecum').length;
+            if (!n) return toast('Ningún cliente del archivo está en la lista del Vademécum');
+            lineas.push(`Portafolios de clientes: ${n}${sinAcceso.length ? ` (sin acceso configurado, no se suben: ${sinAcceso.join(', ')})` : ''}`);
+        }
+        resumen = [maestro && `${maestro.length} productos`, clientes && `${bases.filter(b => b.nombre !== 'vademecum').length} portafolios`].filter(Boolean).join(' · ');
+        if (!await dialogo({ titulo: 'Vademécum', aceptar: 'Subir',
+            texto: `${lineas.join('\n')}\n${maestro ? '' : 'Los productos no cambian (no subiste Vademecum_Epithelium).\n'}${clientes ? '' : 'Los portafolios no cambian (no subiste Vademecum_clientes).\n'}Reemplaza lo que lee el Vademécum.` })) return;
+        bases[0].resumen = resumen;
+        let cuando = new Date().toISOString();
+        if (API_URL) cuando = (await llamarApi({ accion: 'guardarBases', bases, borrarPortafolios: !!clientes }, 180000)).actualizado || cuando;
+        estadoBases.vademecum = { actualizado: cuando, resumen };
+        refrescarBases();
+        toast('Vademécum actualizado: ' + resumen);
+    } catch (e) { toast('No se pudo subir el Vademécum: ' + e.message); }
+}
+async function descargarVademecum() {
+    const r = API_URL ? await llamarApi({ accion: 'leerVademecum' }, 120000) : { productos: null };
+    if (!r.productos) return null;
+    const wb = new ExcelJS.Workbook();
+    hojaTabla(wb, 'Vademecum Epithelium', COLS_VADE, r.productos.map(p => COLS_VADE.map(c => p[c] ?? '')), [14, 50, 22, 34, 18, 22, 9, 8, 60, 70, 50, 20]);
+    const wc = new ExcelJS.Workbook(), filas = [];
+    Object.values(r.portafolios || {}).sort((a, b) => a.cliente.localeCompare(b.cliente)).forEach(c => c.productos.forEach(p => filas.push([c.cliente, ...COLS_VADE.map(k => p[k] ?? ''), c.zona || ''])));
+    hojaTabla(wc, 'Vademecum clientes', ['Cliente', ...COLS_VADE, 'Zona de Vendedor'], filas, [36, 14, 50, 22, 34, 18, 22, 9, 8, 60, 70, 50, 20, 20]);
+    await bajarLibro(wb, 'Vademecum_Epithelium');
+    if (filas.length) { await new Promise(res => setTimeout(res, 600)); await bajarLibro(wc, 'Vademecum_clientes'); }
+    return `${r.productos.length} productos y ${filas.length} filas de portafolios`;
 }

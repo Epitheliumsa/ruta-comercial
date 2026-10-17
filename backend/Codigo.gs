@@ -31,6 +31,9 @@ const COLUMNAS = ['id', 'clase', 'vendedor', 'fecha', 'actualizado', 'borrado', 
 function doPost(e) {
   try {
     const pedido = JSON.parse(e.postData.contents);
+    // El Vademécum no tiene usuarios de Ruta Comercial: lee su maestro y el portafolio de cada cliente (por huella), solo lectura
+    if (pedido.accion === 'vademecumMaestro') return responder_(Object.assign({ ok: true }, vademecumMaestro_()));
+    if (pedido.accion === 'vademecumPortafolio') return responder_(Object.assign({ ok: true }, vademecumPortafolio_(pedido.huella)));
     const usuario = autenticar_(pedido.usuario, pedido.clave);
     if (!usuario) return responder_({ ok: false, error: 'Usuario o clave incorrectos' });
     if (pedido.accion === 'listar') return responder_({ ok: true, registros: listar_(usuario, pedido.desde, pedido.hasta) });
@@ -44,6 +47,8 @@ function doPost(e) {
     if (pedido.accion === 'versionesBases') return responder_({ ok: true, versiones: versionesBases_(usuario) });
     if (pedido.accion === 'leerBase') return responder_(Object.assign({ ok: true }, leerBase_(usuario, pedido.nombre)));
     if (pedido.accion === 'guardarBase') return responder_(Object.assign({ ok: true }, guardarBase_(usuario, pedido.nombre, pedido.contenido, pedido.resumen)));
+    if (pedido.accion === 'guardarBases') return responder_(Object.assign({ ok: true }, guardarBases_(usuario, pedido.bases, pedido.borrarPortafolios)));
+    if (pedido.accion === 'leerVademecum') return responder_(Object.assign({ ok: true }, leerVademecum_(usuario)));
     if (pedido.accion === 'firmarFormato') return responder_(Object.assign({ ok: true }, firmarFormato_(usuario, pedido)));
     return responder_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
@@ -310,7 +315,7 @@ function guardarProveedores_(usuario, filas) {
 // Direcciones (hoja "Directorio") y Proveedores (hoja "Proveedores") siguen con sus propias hojas y permisos.
 const HOJA_BASES = 'Bases';
 const COLUMNAS_BASES = ['Nombre', 'Parte', 'Contenido', 'Actualizado', 'Resumen'];
-const BASES_VALIDAS = ['contactos', 'catalogo'];
+const BASES_VALIDAS = ['contactos', 'catalogo', 'vademecum'];
 const PARTE_BASES = 40000;
 function filasBases_() {
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_BASES);
@@ -318,32 +323,62 @@ function filasBases_() {
 }
 function versionesBases_(usuario) {
   const v = {};
-  filasBases_().forEach(f => { if (Number(f[1]) === 0) v[f[0]] = String(f[3]); });
+  filasBases_().forEach(f => { if (Number(f[1]) === 0 && !/^pf_/.test(f[0])) v[f[0]] = String(f[3]); });
   return v;
 }
 function leerBase_(usuario, nombre) {
-  if (BASES_VALIDAS.indexOf(nombre) < 0) throw new Error('Base desconocida');
+  if (!baseValida_(nombre)) throw new Error('Base desconocida');
   const partes = filasBases_().filter(f => f[0] === nombre).sort((a, b) => Number(a[1]) - Number(b[1]));
   if (!partes.length) return { contenido: '', actualizado: '' };
   return { contenido: partes.map(f => String(f[2])).join(''), actualizado: String(partes[0][3]) };
 }
+const baseValida_ = n => BASES_VALIDAS.indexOf(n) >= 0 || /^pf_[0-9a-f]{24}$/.test(n);
 function guardarBase_(usuario, nombre, contenido, resumen) {
+  return guardarBases_(usuario, [{ nombre: nombre, contenido: contenido, resumen: resumen }]);
+}
+// Guarda varias bases de una sola vez (una sola reescritura de la hoja). borrarPortafolios: retira los portafolios del Vademécum que ya no vienen.
+function guardarBases_(usuario, bases, borrarPortafolios) {
   if (!usuario.admin) throw new Error('Solo el administrador sube las bases de datos');
-  if (BASES_VALIDAS.indexOf(nombre) < 0) throw new Error('Base desconocida');
-  if (typeof contenido !== 'string' || contenido.length < 10) throw new Error('La base llegó vacía');
-  JSON.parse(contenido);   // que sea un JSON válido
+  if (!bases || !bases.length) throw new Error('No llegó nada para guardar');
+  bases.forEach(b => {
+    if (!baseValida_(b.nombre)) throw new Error('Base desconocida');
+    if (typeof b.contenido !== 'string' || b.contenido.length < 10) throw new Error('La base llegó vacía');
+    JSON.parse(b.contenido);   // que sea un JSON válido
+  });
   const libro = SpreadsheetApp.getActiveSpreadsheet();
   const h = libro.getSheetByName(HOJA_BASES) || libro.insertSheet(HOJA_BASES);
   if (h.getLastRow() < 1) { h.getRange(1, 1, 1, COLUMNAS_BASES.length).setValues([COLUMNAS_BASES]).setFontWeight('bold'); h.setFrozenRows(1); }
-  const cuando = new Date().toISOString();
-  const otras = h.getDataRange().getValues().slice(1).filter(f => f[0] && f[0] !== nombre);
+  const cuando = new Date().toISOString(), nombres = bases.map(b => b.nombre);
+  const otras = h.getDataRange().getValues().slice(1).filter(f => f[0] && nombres.indexOf(f[0]) < 0 && !(borrarPortafolios && /^pf_/.test(f[0])));
   const nuevas = [];
-  for (let i = 0, p = 0; i < contenido.length; i += PARTE_BASES, p++) nuevas.push([nombre, p, contenido.substr(i, PARTE_BASES), cuando, p === 0 ? String(resumen || '').slice(0, 300) : '']);
+  bases.forEach(b => { for (let i = 0, p = 0; i < b.contenido.length; i += PARTE_BASES, p++) nuevas.push([b.nombre, p, b.contenido.substr(i, PARTE_BASES), cuando, p === 0 ? String(b.resumen || '').slice(0, 300) : '']); });
   const todo = otras.concat(nuevas);
   if (h.getMaxRows() < todo.length + 1) h.insertRowsAfter(h.getMaxRows(), todo.length + 1 - h.getMaxRows());
   h.getRange(2, 1, h.getMaxRows() - 1, COLUMNAS_BASES.length).clearContent();
   h.getRange(2, 1, todo.length, COLUMNAS_BASES.length).setNumberFormat('@').setValues(todo);
   return { actualizado: cuando, partes: nuevas.length };
+}
+// ---------- Vademécum: el maestro de productos ("vademecum") y un portafolio por cliente ("pf_<huella>") ----------
+function textoBase_(nombre) {
+  const partes = filasBases_().filter(f => f[0] === nombre).sort((a, b) => Number(a[1]) - Number(b[1]));
+  return partes.length ? { contenido: partes.map(f => String(f[2])).join(''), actualizado: String(partes[0][3]) } : null;
+}
+function vademecumMaestro_() {
+  const b = textoBase_('vademecum');
+  return b ? { productos: JSON.parse(b.contenido), actualizado: b.actualizado } : { productos: null, actualizado: '' };
+}
+function vademecumPortafolio_(huella) {
+  if (!/^[0-9a-f]{24}$/.test(String(huella || ''))) return { portafolio: null };
+  const b = textoBase_('pf_' + huella);
+  return b ? { portafolio: JSON.parse(b.contenido), actualizado: b.actualizado } : { portafolio: null };
+}
+function leerVademecum_(usuario) {
+  if (!usuario.admin) throw new Error('Solo el administrador descarga el Vademécum');
+  const m = vademecumMaestro_(), portafolios = {};
+  const nombres = {};
+  filasBases_().forEach(f => { if (/^pf_/.test(f[0])) nombres[f[0]] = 1; });
+  Object.keys(nombres).forEach(n => { portafolios[n.slice(3)] = JSON.parse(textoBase_(n).contenido); });
+  return { productos: m.productos, portafolios: portafolios, actualizado: m.actualizado };
 }
 // Lo que muestra la pantalla "Bases de datos": cuándo se subió cada cosa y cuántos registros trae
 function estadoBases_(usuario) {
@@ -356,7 +391,7 @@ function estadoBases_(usuario) {
   };
   estado.directorio = hoja(HOJA_DIR, COLUMNAS_DIR.length + 1);
   estado.proveedores = hoja(HOJA_PROV, COLUMNAS_PROV.length + 1);
-  filasBases_().forEach(f => { if (Number(f[1]) === 0) estado[f[0]] = { actualizado: String(f[3]), resumen: String(f[4]) }; });
+  filasBases_().forEach(f => { if (Number(f[1]) === 0 && !/^pf_/.test(f[0])) estado[f[0]] ={ actualizado: String(f[3]), resumen: String(f[4]) }; });
   return { estado: estado };
 }
 

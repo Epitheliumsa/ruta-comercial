@@ -306,6 +306,7 @@
 
 ## Bases de datos (solo el administrador) — `bases.js`
 - Cada tarjeta tiene **⬇ Descargar** (`descargarBase(k)`): respaldo en Excel sin cuadrícula de lo que está cargado (Maestra_Contactos, Productos con hoja "Guía de Etiquetas", Direcciones —se trae fresco del servidor—, Proveedores). Los archivos se pueden volver a subir tal cual. `ponerDirectorio` guarda también el nombre original (`n`).
+- Tarjeta **Vademécum**: sube Vademecum_Epithelium (productos → base `vademecum`) y/o Vademecum_clientes (un portafolio por cliente → bases `pf_<huella>`; la huella sale de `portafolios-index.json` publicado por el Vademécum). El Vademécum los lee con acciones públicas de solo lectura (`vademecumMaestro`, `vademecumPortafolio`) y, si fallan o están vacías, usa sus archivos publicados. `guardarBases` guarda todo en una sola pasada. Requiere pegar `Codigo.gs` y crear nueva versión. `lib/exceljs.min.js` se parchó para leer Excel con tablas (`tables.filter(Boolean)`).
 - Botón **Bases de datos** en el inicio (solo `esAdmin()`). Ahí se suben las maestras: **Maestra de contactos** (misma lógica que `herramientas/maestra_contactos.py`),
   **Productos** (Base_Productos + Productos_Terminados, misma lógica que `herramientas/productos.py`), **Direcciones y teléfonos** y **Proveedores**. Se quitaron los
   botones 📇 Direcciones y 🏭 Proveedores de Logística.
