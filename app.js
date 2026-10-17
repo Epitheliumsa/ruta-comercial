@@ -1544,7 +1544,7 @@ const DIMS_MAESTRA = {
         orden: (a, b) => { const o = [TODOS_MEDICOS, TODOS_CLIENTES, ...Object.values(GRUPOS_ETIQUETA).map(x => x.t)]; return o.indexOf(a) - o.indexOf(b); } },
     e: { t: 'Etiqueta', todos: 'Todas las etiquetas', valor: c => c.e || '', orden: ordenLeadAlFinal },   // Leads al final
     // Clasificación y categoría son lo mismo: el número es la clasificación y el nombre la categoría
-    cat: { t: 'Clasificación', todos: 'Todas las clasificaciones', valor: c => c.prov ? '' : c.cl || c.ca || '', nombre: (v, c) => c && c.ca && c.cl ? `${c.cl} · ${c.ca}` : v,
+    cat: { t: 'Clasificación', todos: 'Todas las clasificaciones', valor: c => c.cl || c.ca || '', nombre: (v, c) => c && c.ca && c.cl ? `${c.cl} · ${c.ca}` : v,
         orden: (a, b) => (a === LEAD) - (b === LEAD) || Number(a) - Number(b) || a.localeCompare(b) },
     d: { t: 'Departamento', todos: 'Todos los departamentos', valor: c => departamento(c.p) },
     c: { t: 'Ciudad', todos: 'Todas las ciudades', valor: c => c.c || '' },
