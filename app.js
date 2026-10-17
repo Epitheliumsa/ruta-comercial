@@ -1777,6 +1777,8 @@ function pintarMaestra() {
     // Las opciones elegidas que ya no existen en las zonas elegidas se quitan
     FILTROS_MAESTRA.forEach(k => { maestra.sel[k] = maestra.sel[k].filter(v => v === NINGUNA || base.some(c => valsMaestra(k, c).includes(v))); });
     pintarFiltrosMaestra(base);
+    // Logística solo busca y elige el tipo: sin filtros de columnas ni gráfica de composición
+    $('mcFiltrosMulti').style.display = document.querySelector('.mc-grafica').style.display = esLogistica() ? 'none' : '';
     const lista = filtrarMaestra(base);
     // La gráfica no se filtra por su propia columna: así se pueden tocar varias barras
     pintarComposicion(FILTROS_MAESTRA.includes(maestra.dim) ? filtrarMaestra(base, maestra.dim) : lista);
