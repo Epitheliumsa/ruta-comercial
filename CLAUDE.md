@@ -303,3 +303,13 @@
 - Visitas cerradas: el dueño y los jefes (no el administrador) tienen **✏️ Editar (lo aprueba Hernán)** cuando ya no se puede corregir directo. Editan el reporte con el mismo formulario, pero nada cambia: queda una propuesta (`edicionPendiente`, con antes y después) que el Gerente General aprueba o rechaza en "Solicitudes de eliminación y corrección" (`proponerEdicion` / `resolverEdicion`). Al aprobar se aplica el reporte, se copia al acompañante y se crean la próxima visita o la reprogramada si la edición las trae. Queda en el historial y avisa como las demás aprobaciones. No aplica al trabajo administrativo ni a Mercadeo.
 - Maestro Contactos, "En el periodo": el cliente con visitas no efectivas y ninguna efectiva dice **Contactado sin visita efectiva · N no efectivas**; "sin visitas" queda solo para quien no tuvo ninguna. El resumen separa: con visita efectiva · contactados sin visita efectiva · sin visitas (sin contar proveedores).
 - Historial de solicitudes (administrador): primero el nombre del cliente; filtros de zona, tipo, resultado, fecha (hoy, semana, mes, mes anterior) y causal (texto); y un **resumen** que sigue a los filtros: resueltas, autorizadas y rechazadas con porcentaje, respuesta media, y barras por tipo, zona, vendedor, mes y causales más frecuentes (`pintarHistSol`).
+
+## Bases de datos (solo el administrador) — `bases.js`
+- Botón **Bases de datos** en el inicio (solo `esAdmin()`). Ahí se suben las maestras: **Maestra de contactos** (misma lógica que `herramientas/maestra_contactos.py`),
+  **Productos** (Base_Productos + Productos_Terminados, misma lógica que `herramientas/productos.py`), **Direcciones y teléfonos** y **Proveedores**. Se quitaron los
+  botones 📇 Direcciones y 🏭 Proveedores de Logística.
+- Contactos y productos se guardan en el servidor (hoja "Bases" de `Codigo.gs`: acciones `guardarBase`, `leerBase`, `versionesBases`, `estadoBases`; el contenido va en partes de
+  40.000 caracteres) y **reemplazan** a `contactos.json` y `productos.js` para todos los usuarios: `cargarBases()` los trae al sincronizar (cada 10 min como mucho) y los
+  guarda en el teléfono (`rc_base_contactos`, `rc_base_catalogo`). Mientras no se haya subido nada, la app usa lo publicado.
+- Portafolios por cliente, circulares y matrices siguen saliendo del repositorio (necesitan el Vademécum); no se suben desde aquí.
+- Probado con los mismos Excel de `datos/`: el catálogo y los contactos salen idénticos a los publicados.

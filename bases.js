@@ -121,6 +121,7 @@ function contactosDeMaestra(filas) {
             cl: val(f, 'Categoría de cliente/Clasificación'), ca: val(f, 'Categoría de cliente'), pz: colPlazo ? val(f, colPlazo) : '' };
         const c = { n: nombre, c: val(f, 'Ciudad'), e: val(f, 'Etiquetas') };
         Object.entries(extra).forEach(([k, v]) => { if (v !== '' && v !== false) c[k] = v; });
+        c.f = extra.f;   // como en la maestra publicada: "facturar" siempre va, también en falso
         nuevo[zona].push(c);
     });
     ZONAS_BASE.forEach(z => nuevo[z].sort((a, b) => a.n.toLowerCase().localeCompare(b.n.toLowerCase())));
