@@ -699,6 +699,7 @@ async function cerrarSesion() {
 function entrarApp() {
     agenda.vendedor = esComercial() ? sesion.id : COMERCIALES[0].id;
     agenda.vendedores = [agenda.vendedor];
+    if (esJefe()) todoElEquipo();
     const intro = $('homeIntro');
     intro.innerHTML = '';
     const saludo = document.createElement('span');
@@ -765,8 +766,21 @@ function repintarPantallaActiva() {
     if (p === 'basesScreen') pintarBases();
 }
 
+// Jefes y administrador: las pantallas con filtro de vendedor, zona o mensajero abren siempre en "todo el equipo"
+function todoElEquipo() {
+    agenda.vendedores = opcionesAgenda().map(c => c.id);
+    agenda.vendedor = agenda.vendedores[0];
+    visiplan.vendedores = null;
+    maestra.zonas = null;
+    Object.assign(filtroPanel, { vendedor: '', tipo: '', estado: '' });
+    ['panVend', 'panTipo', 'panEstado', 'actVendedor'].forEach(id => { if ($(id)) $(id).value = ''; });
+    abrirActividades.yaAbrio = true;
+    if (typeof logi !== 'undefined') Object.assign(logi, { mensajero: '', filtro: '', busca: '' });
+}
 // Al salir de una pantalla se borran sus filtros: al volver se ve todo
 function limpiarFiltros() {
+    if (esJefe()) todoElEquipo();
+    if (typeof logi !== 'undefined') Object.assign(logi, { mensajero: '', filtro: '', busca: '' });   // Logística: todos los mensajeros
     Object.assign(visiplan, { busca: '', sel: { t: [], e: [], f: [] } });
     Object.keys(maestra.sel).forEach(k => { maestra.sel[k] = []; });
     maestra.busca = '';
@@ -2155,7 +2169,7 @@ function planeadasDe(vendedor, fecha) {
 // Vendedores que se ven: el comercial solo el suyo; los jefes escogen uno, varios o todo el equipo
 function abrirVisiplan() {
     if (!esJefe()) visiplan.vendedores = [sesion.id];
-    else if (!visiplan.vendedores) visiplan.vendedores = [agenda.vendedor || COMERCIALES[0].id];
+    else if (!visiplan.vendedores) visiplan.vendedores = COMERCIALES.map(c => c.id);
     $('vpVendedores').hidden = !esJefe();
     pintarVisiplan();
     mostrarPantalla('visiplanScreen');

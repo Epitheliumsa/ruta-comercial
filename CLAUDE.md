@@ -314,3 +314,4 @@
 - Productos: Base_Productos trae las materias primas (MP) y Productos_Terminados los terminados (PT). Se puede subir **uno solo o los dos**: cada archivo reemplaza solo su familia y el resto del catálogo se conserva (`subirCatalogo`).
 - Portafolios por cliente, circulares y matrices siguen saliendo del repositorio (necesitan el Vademécum); no se suben desde aquí.
 - Probado con los mismos Excel de `datos/`: el catálogo y los contactos salen idénticos a los publicados.
+- Los filtros de vendedor, zona y mensajero se borran al salir de una pantalla: jefes y administrador vuelven a abrir en **todo el equipo** (agenda, Visiplan, panel, actividades, Maestro y Logística) (`todoElEquipo`, `limpiarFiltros`). Antes la agenda abría con la primera comercial (Lizeth).
