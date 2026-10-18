@@ -18,9 +18,9 @@ const USUARIOS = [
     { usuario: 'M.Castro',    huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', tipo: 'comercial', id: 'mcastro',    nombre: 'Maryi Castro',      zona: 'Zona Desarrollo', cumple: '1999-07-09', subeVentas: true },
     { usuario: 'H.Reyes',     huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' },
     // Logística: coordinador y auxiliares de domicilios y mensajería (módulo Logística, Maestra Clientes y Vademécum)
-    { usuario: 'J.Arjona',    huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', tipo: 'logistica', id: 'jarjona',  nombre: 'Javier Arjona',  cumple: '2000-07-02', cargo: 'Coordinador Logístico', coordLogistica: true },
-    { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cumple: '2000-06-30', cargo: 'Auxiliar de Domicilios y Mensajería' },
-    { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cumple: '2000-12-17', cargo: 'Auxiliar de Domicilios y Mensajería' }
+    { usuario: 'J.Arjona',    huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', tipo: 'logistica', id: 'jarjona',  nombre: 'Javier Arjona',  cumple: '1995-07-02', cargo: 'Coordinador Logístico', coordLogistica: true },
+    { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cumple: '1998-06-30', cargo: 'Auxiliar de Domicilios y Mensajería' },
+    { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cumple: '1996-12-17', cargo: 'Auxiliar de Domicilios y Mensajería' }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
 // Quienes hacen paradas: los auxiliares y también el coordinador (que además programa a sus auxiliares); el coordinador va de último
