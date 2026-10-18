@@ -2008,3 +2008,5 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-reincide { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 700; background: #fee2e2; color: #b91c1c; }
 .lg-aviso-reincide { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 13px; }
 .lg-banner-reincide { margin: 8px 12px; padding: 8px 12px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 13px; }
+.lg-fotos.fija .lg-foto img { width: 112px; height: 112px; }
+.lg-sin-foto { margin-top: 6px; font-size: 12.5px; font-weight: 600; color: #b45309; }
