@@ -595,7 +595,6 @@ function abrirLogReporte(id, ok) {
         <label for="lgFotos">Foto <small>${ok ? (conRadicacion(r) ? '(obligatoria: foto del sello de radicado)' : '(obligatoria: foto de la entrega o del recibido)') : '(obligatoria: foto del lugar o de la novedad)'}</small></label>
         <div class="lg-foto-btns">
             <label class="btn-secundario lg-foto-btn">📷 Tomar foto<input type="file" accept="image/*" capture="environment" hidden onchange="agregarFotosLog(this)"></label>
-            <label class="btn-secundario lg-foto-btn">🖼 Galería o captura<input type="file" accept="image/*" multiple hidden onchange="agregarFotosLog(this)"></label>
         </div>
         <p class="ayuda" id="lgFotosTxt"></p>
         <p class="ayuda">Se guarda con la hora de ahora: ${esc(fechaHora(new Date().toISOString()))}</p>
@@ -672,7 +671,7 @@ async function guardarLogReporte(e, id, ok) {
     e.preventDefault();
     const r = registros[id], btn = $('lgBtnRep');
     if (!r || r.estado !== 'pendiente') return;
-    if (!fotosLogSel.length && !(r.fotos || []).length) return toast('Falta la foto: toma una o escógela de la galería para guardar el reporte');
+    if (!fotosLogSel.length && !(r.fotos || []).length) return toast('Falta la foto: toma una con la cámara para guardar el reporte');
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
         const archivos = fotosLogSel.slice(0, 4);
