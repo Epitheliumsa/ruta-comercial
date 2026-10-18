@@ -2013,3 +2013,7 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 
 .lg-otro { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 700; background: #e0e7ff; color: #3730a3; }
 .lg-otro-nota { color: #3730a3; background: #eef2ff; border-radius: 8px; padding: 6px 10px; }
+
+.lg-nov { border-left: 4px solid #6366f1; background: #f5f6ff; }
+.lg-nov .lg-nov-chip { background: #e0e7ff; color: #3730a3; }
+.lg-dia-completo { margin: 4px 0; }

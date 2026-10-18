@@ -36,7 +36,16 @@ const MOTIVOS_LOG = ['No estaba quien recibe', 'Lugar cerrado', 'Dirección inco
 const logi = { fecha: '', mensajero: '', filtro: '', busca: '', soloLectura: false };
 
 // ---------- DATOS ----------
-const logRegs = () => visibles().filter(r => r.clase === 'logistica');
+const logRegs = () => visibles().filter(r => r.clase === 'logistica' && r.tipo !== 'novedad');
+// Novedades del equipo de Logística (cita médica, incapacidad, permiso, vacaciones): se guardan como registros de logística de tipo 'novedad'
+const NOVEDADES_LOG = ['Cita médica', 'Incapacidad', 'Permiso', 'Vacaciones'];
+const ICONO_NOV = { 'Cita médica': '🩺', Incapacidad: '🤒', Permiso: '📝', Vacaciones: '🌴' };
+const novLogRegs = () => visibles().filter(r => r.clase === 'logistica' && r.tipo === 'novedad')
+    .filter(r => esLogistica() ? (esCoordLog() || r.vendedor === sesion.id) : esAdmin());
+const novLogDe = (fecha, vendedor) => novLogRegs().filter(n => n.fecha <= fecha && (n.hasta || n.fecha) >= fecha && (!vendedor || n.vendedor === vendedor));
+const novPorHoras = n => ['Cita médica', 'Permiso'].includes(n.novedad) && !n.diaCompleto && n.horaInicio && n.horaFin;
+const rangoNovLog = n => novPorHoras(n) ? `${fechaCorta(n.fecha)}, de ${horaBonita(n.horaInicio)} a ${horaBonita(n.horaFin)}`
+    : n.hasta && n.hasta !== n.fecha ? `${fechaCorta(n.fecha)} al ${fechaCorta(n.hasta)}` : fechaCorta(n.fecha);
 // Cada uno ve lo suyo: el coordinador y los jefes, todo; el auxiliar, sus paradas; el comercial, las entregas a sus clientes
 // (el administrador ve todo; la jefe comercial, todo lo de clientes; el comercial, lo de sus clientes)
 const logVisibles = () => logRegs().filter(r => esLogistica() ? (esCoordLog() || r.vendedor === sesion.id) : esAdmin() ? true : esJefe() ? hayTipo(r, 'cliente') : r.comercial === sesion.id);
@@ -180,7 +189,7 @@ function pintarLog() {
     const varios = fp === 'semana' || fp === 'mes';
     lista.sort((a, b) => a.fecha.localeCompare(b.fecha) || ordenLog(a, b)).forEach(r => { const g = varios ? r.fecha : r.vendedor; (grupos[g] = grupos[g] || []).push(r); });
     const conTitulo = varios || Object.keys(grupos).length > 1 || esCoordLog() || esJefe();
-    const tarjetasCumple = varios ? '' : cumplen(f).map(tarjetaCumple).join('');
+    const tarjetasCumple = varios ? '' : cumplen(f).map(tarjetaCumple).join('') + novLogDe(f).filter(delMens).map(tarjetaNovLog).join('');
     $('logLista').innerHTML = tarjetasCumple + (!lista.length
         ? `<div class="no-results">${base.length ? 'No hay paradas con este filtro.' : lectura ? 'No hay entregas a tus clientes este día.' : 'No hay paradas programadas para este día.'}${lectura || varios ? '' : '<br><button class="btn-nuevo active" onclick="abrirLogForm()">+ Programar</button>'}</div>`
         : Object.entries(grupos).map(([g, ps]) => (conTitulo ? `<p class="grupo-titulo">${esc(varios ? mayuscula(fechaLarga(g)) : nombreVendedor(g))} · ${ps.length} ${ps.length === 1 ? 'parada' : 'paradas'}</p>` : '')
@@ -298,7 +307,7 @@ function tarjetaLog(r, n, total) {
 function abrirLogForm(id) {
     if (!puedeOperarLog()) return;
     const r = id ? registros[id] : null;
-    if (r && r.estado !== 'pendiente') return toast('Esta parada ya se reportó');
+    if (r && r.tipo !== 'novedad' && r.estado !== 'pendiente') return toast('Esta parada ya se reportó');
     const mens = esCoordLog() || esAdmin();
     const clientes = [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre)])].sort((a, b) => a.localeCompare(b, 'es'));
     const provs = [...new Set([...Object.values(proveedoresMaestra.filas).map(p => p.n), ...logRegs().map(x => x.proveedor)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
@@ -308,14 +317,16 @@ function abrirLogForm(id) {
     abrirModal(`<form class="form-rc" onsubmit="guardarLog(event, '${id || ''}')">
         <h2>${r ? 'Editar parada' : 'Programar parada'}</h2>
         <div class="fila-fecha lg-fila-fecha">
-            <div><label for="lgFecha">Fecha ${REQ}</label><input type="date" id="lgFecha" required min="${r && r.fecha < hoy() ? r.fecha : hoy()}" value="${esc(r?.fecha || logi.fecha || hoy())}"></div>
-            <div><label for="lgHora">Hora <small>(si es fija)</small></label><input type="time" id="lgHora" value="${esc(r?.hora || '')}"></div>
+            <div><label for="lgFecha">Fecha ${REQ}</label><input type="date" id="lgFecha" required min="${r && r.fecha < hoy() ? r.fecha : hoy()}" data-min="${r && r.fecha < hoy() ? r.fecha : hoy()}" value="${esc(r?.fecha || logi.fecha || hoy())}"></div>
+            <div id="lgFilaHora"><label for="lgHora">Hora <small>(si es fija)</small></label><input type="time" id="lgHora" value="${esc(r?.hora || '')}"></div>
             ${mens ? `<div><label for="lgMens">Mensajero ${REQ}</label><select id="lgMens" required>${MENSAJEROS.map(m => `<option value="${m.id}"${(r?.vendedor || logi.mensajero) === m.id ? ' selected' : ''}>${esc(m.nombre)}${m.id === sesion.id ? ' (yo)' : ''}</option>`).join('')}</select></div>` : ''}
         </div>
         <label>Tipo de parada ${REQ}</label>
         <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).filter(([k]) => k !== 'radicacion').map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onclick="tipoClick(this)"><span>${esc(v.t)}</span></label>`).join('')}
             <label class="lg-chip lg-chip-rad"><input type="checkbox" id="lgRadChk"${r && conRadicacion(r) ? ' checked' : ''} onchange="logCampos()"><span>${esc(TIPOS_LOG.radicacion.t)}</span></label></div>
         <p class="ayuda">Escoge uno. La radicación de documentos puede ir sola o sumarse a cualquier otro.</p>
+        <label>Novedades <small>(del mensajero)</small></label>
+        <div class="lg-chips" id="lgNovs">${NOVEDADES_LOG.map(n => `<label class="lg-chip"><input type="radio" name="lgTipo" value="nov:${esc(n)}"${r?.tipo === 'novedad' && r.novedad === n ? ' checked' : ''} onclick="tipoClick(this)"><span>${ICONO_NOV[n]} ${esc(n)}</span></label>`).join('')}</div>
         <div id="lgBVuelta">
             <label for="lgArea">Área ${REQ}</label>
             <select id="lgArea">${AREAS_LOG.map(a => `<option${r?.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>
@@ -383,6 +394,11 @@ function abrirLogForm(id) {
                         : `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`}<button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra ${c.k === 'factura' ? 'factura' : 'nota crédito'}</button></div>`}</div>
             </div>`).join('')}</div>
         </div>
+        <div id="lgBNov" hidden>
+            <div class="fila-fecha compacta"><div><label for="lgHasta">Hasta <small>(si son varios días)</small></label><input type="date" id="lgHasta" value="${esc(r?.tipo === 'novedad' && r.hasta !== r.fecha ? r.hasta || '' : '')}"></div></div>
+            <label class="lg-chip lg-dia-completo"><input type="checkbox" id="lgDiaCompleto"${r?.tipo === 'novedad' && !r.diaCompleto ? '' : ' checked'} onchange="logCampos()"><span>Día completo</span></label>
+            <div class="fila-fecha compacta" id="lgHorasNov"><div><label for="lgHoraIni">Hora de inicio ${REQ}</label><input type="time" id="lgHoraIni" value="${esc(r?.horaInicio || '')}"></div><div><label for="lgHoraFin">Hora de fin ${REQ}</label><input type="time" id="lgHoraFin" value="${esc(r?.horaFin || '')}"></div></div>
+        </div>
         <label for="lgDetalle" id="lgLblDet">Indicaciones <small>(opcional)</small></label>
         <textarea id="lgDetalle" rows="2" maxlength="200" placeholder="Ej: preguntar por la jefe de compras, recoger uniformes de las 3 sedes…">${esc(r?.detalle || '')}</textarea>
         <div class="form-botones">
@@ -398,18 +414,36 @@ function abrirLogForm(id) {
 const radMarcada = () => !!$('lgRadChk')?.checked;
 // La radicación puede ser a un proveedor (salvo en entrega y envío, que siempre llevan cliente)
 const radAProv = () => radMarcada() && !['entrega', 'envio'].includes(tipoMarcado()) && document.querySelector('input[name=lgRadA]:checked')?.value === 'proveedor';
-const tipoMarcado = () => document.querySelector('#lgTipos input[name=lgTipo]:checked')?.value || (radMarcada() ? 'radicacion' : '');
+const tipoMarcado = () => document.querySelector('input[name=lgTipo]:checked')?.value || (radMarcada() ? 'radicacion' : '');
 // Tocar otra vez el tipo marcado lo desmarca (para dejar solo la radicación)
 function tipoClick(el) {
     if (el.dataset.on === '1') el.checked = false;
-    document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
+    document.querySelectorAll('input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
     logCampos();
 }
 const incluyeMarcado = () => [...document.querySelectorAll('#lgBIncluyeEnvio .lg-pedido')].filter(f => f.querySelector('.lg-pchk input').checked).map(f => f.dataset.k);
 // Muestra solo los campos del tipo de parada escogido
 function logCampos() {
-    document.querySelectorAll('#lgTipos input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
-    const k = tipoMarcado(), tp = TIPOS_LOG[k] || {}, conRad = radMarcada();
+    document.querySelectorAll('input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
+    const k = tipoMarcado(), nv = k.startsWith('nov:') ? k.slice(4) : '';
+    $('lgBNov').hidden = !nv; $('lgFilaHora').hidden = !!nv;
+    $('lgFecha').min = nv ? '' : $('lgFecha').dataset.min;
+    if (nv) {   // Novedad del mensajero: solo fechas, horas (cita y permiso) y el detalle
+        $('lgRadChk').checked = false;
+        ['lgBRadA', 'lgBIncluyeEnvio', 'lgBCli', 'lgBProv', 'lgBDocs', 'lgBRad', 'lgBRecol', 'lgBVuelta', 'lgBDirTel', 'lgBBanco'].forEach(id => { $(id).hidden = true; });
+        ['lgCliente', 'lgProv', 'lgBanco', 'lgDir', 'lgTel'].forEach(id => { $(id).required = false; });
+        document.querySelectorAll('.lg-pcampos input').forEach(i => { i.required = false; });
+        const rango = ['Vacaciones', 'Incapacidad', 'Permiso'].includes(nv), horas = ['Cita médica', 'Permiso'].includes(nv), porHoras = horas && !$('lgDiaCompleto').checked;
+        $('lgHasta').closest('.fila-fecha').hidden = !rango || porHoras;
+        $('lgDiaCompleto').closest('label').hidden = !horas;
+        $('lgHorasNov').hidden = !porHoras; $('lgHoraIni').required = $('lgHoraFin').required = porHoras;
+        const obl = { Permiso: 'motivo del permiso', Incapacidad: 'razón de la incapacidad', 'Cita médica': 'motivo de la cita (máx. 50 caracteres)' }[nv];
+        $('lgLblDet').innerHTML = obl ? `Detalle: ${obl} ${REQ}` : 'Detalle <small>(opcional)</small>';
+        $('lgDetalle').required = !!obl; $('lgDetalle').maxLength = nv === 'Cita médica' ? 50 : 200;
+        return;
+    }
+    $('lgDetalle').maxLength = 200;
+    const tp = TIPOS_LOG[k] || {}, conRad = radMarcada();
     $('lgReqCli').innerHTML = tp.cliente || conRad ? REQ : '<small>(si aplica)</small>';
     const aProv = radAProv(), conProv = !!tp.recoleccion || aProv;
     $('lgBRadA').hidden = !conRad || k === 'entrega' || k === 'envio';
@@ -489,8 +523,37 @@ function logInfoCliente(rellenar = true) {
     poner($('lgTel'), d.tel || ultima?.telefono);
 }
 
+async function guardarNovedadLog(e, id, nv) {
+    const antes = id ? registros[id] : null, desde = $('lgFecha').value;
+    const horas = ['Cita médica', 'Permiso'].includes(nv), porHoras = horas && !$('lgDiaCompleto').checked;
+    const horaInicio = porHoras ? $('lgHoraIni').value : '', horaFin = porHoras ? $('lgHoraFin').value : '';
+    if (!desde) return toast('Elige la fecha');
+    if (porHoras && horaFin <= horaInicio) return toast('La hora de fin debe ser después de la hora de inicio');
+    const hasta = ['Vacaciones', 'Incapacidad', 'Permiso'].includes(nv) && !porHoras && $('lgHasta').value ? $('lgHasta').value : desde;
+    if (hasta < desde) return toast('La fecha "Hasta" no puede ser antes de "Desde"');
+    const vendedor = $('lgMens') ? $('lgMens').value : (antes?.vendedor || sesion.id);
+    const n = { ...(antes || { id: nuevoId(), clase: 'logistica', creado: new Date().toISOString(), creadoPor: sesion.id }),
+        tipo: 'novedad', novedad: nv, vendedor, fecha: desde, hasta, diaCompleto: horas ? !porHoras : true, horaInicio, horaFin, detalle: $('lgDetalle').value.trim() };
+    guardarRegistro(n);
+    cerrarModal();
+    logi.fecha = desde; pintarLog();
+    const pend = logRegs().filter(x => x.vendedor === vendedor && x.estado === 'pendiente' && x.fecha >= desde && x.fecha <= hasta).length;
+    toast(`${nv} registrada para ${primerNombre(vendedor)}: ${rangoNovLog(n)}${pend ? ` · tiene ${pend} ${pend === 1 ? 'parada programada' : 'paradas programadas'} esos días: reasígnalas` : ''}`);
+}
+async function eliminarNovLog(id) {
+    const n = registros[id];
+    if (!n || !await dialogo({ titulo: '¿Eliminar esta novedad?', texto: `${n.novedad} · ${nombreVendedor(n.vendedor)} · ${rangoNovLog(n)}`, aceptar: 'Eliminar' })) return;
+    borrarRegistro({ ...n });
+    toast('Novedad eliminada'); pintarLog();
+}
+const tarjetaNovLog = n => `<div class="producto-card novedad-card lg-nov">
+    <div class="visita-cab"><div><span class="vend-card">${esc(nombreVendedor(n.vendedor))}</span><h3>${ICONO_NOV[n.novedad] || ''} ${esc(n.novedad)}</h3></div><span class="chip lg-nov-chip">${esc(n.novedad)}</span></div>
+    <p class="meta">${esc(rangoNovLog(n))}</p>${n.detalle ? `<p>${esc(n.detalle)}</p>` : ''}
+    ${puedeOperarLog() && (esCoordLog() || esAdmin() || n.vendedor === sesion.id) ? `<div class="acciones"><button type="button" class="btn-link" onclick="abrirLogForm('${n.id}')">Editar</button><button type="button" class="btn-link peligro" onclick="eliminarNovLog('${n.id}')">Eliminar</button></div>` : ''}
+</div>`;
 async function guardarLog(e, id) {
     e.preventDefault();
+    if (tipoMarcado().startsWith('nov:')) return guardarNovedadLog(e, id, tipoMarcado().slice(4));
     const antes = id ? registros[id] : null, tipo = tipoMarcado(), tp = TIPOS_LOG[tipo], fecha = $('lgFecha').value;
     if (!tp) return toast('Escoge el tipo de parada');
     const conRad = radMarcada(), tipos = conRad && tipo !== 'radicacion' ? [tipo, 'radicacion'] : [tipo];
@@ -498,7 +561,7 @@ async function guardarLog(e, id) {
     const vendedor = $('lgMens') ? $('lgMens').value : (antes?.vendedor || sesion.id);
     const errFecha = errorFechaLog(fecha, vendedor, antes?.id || '', !!antes && antes.fecha === fecha && antes.vendedor === vendedor);
     if (errFecha) return toast(errFecha);
-    if (!(antes && antes.fecha === fecha) && !await confirmarDiaLog(fecha)) return;
+    if (!(antes && antes.fecha === fecha) && !await confirmarDiaLog(fecha, vendedor)) return;
     const incluye = tipo === 'entrega' || tipo === 'envio' ? incluyeMarcado() : [];   // lo que también va: PQR/OUT, REA/OUT, Devolución
     // Cada línea marcada puede tener varias facturas (una por bloque); los bloques vacíos de más se ignoran
     const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).flatMap(f => {
@@ -658,8 +721,11 @@ function errorFechaLog(fecha, vendedor, idIgnorar = '', sinCambio = false) {
     if (dia.length && dia.every(x => x.estado !== 'pendiente')) return `El ${fechaLarga(fecha)} ya está cerrado para ${primerNombre(vendedor)}: todas sus paradas están reportadas. Elige otro día`;
     return '';
 }
-async function confirmarDiaLog(fecha) {
+async function confirmarDiaLog(fecha, vendedor = '') {
     const festivo = nombreFestivo(fecha), domingo = !festivo && deIso(fecha).getDay() === 0;
+    const nov = vendedor ? novLogDe(fecha, vendedor)[0] : null;
+    if (nov && !festivo && !domingo) return dialogo({ tono: 'aviso', icono: ICONO_NOV[nov.novedad] || '📅', titulo: nov.novedad, aceptar: 'Sí, continuar', cancelar: 'No',
+        texto: `${nombreVendedor(vendedor)} tiene ${nov.novedad.toLowerCase()} ese día (${rangoNovLog(nov)}).\n¿Deseas continuar con la programación?` });
     if (!festivo && !domingo) return true;
     return dialogo({ tono: festivo ? 'aviso' : 'playa', icono: festivo ? '📅' : '🛋️', titulo: festivo ? 'Día festivo' : 'Domingo · día de descanso', aceptar: 'Sí, continuar', cancelar: 'No',
         texto: (festivo ? `El ${fechaLarga(fecha)} es festivo: ${festivo}.` : `El ${fechaLarga(fecha)} es día de descanso.`) + '\n¿Deseas continuar con la programación?' });
@@ -752,7 +818,7 @@ async function guardarLogReporte(e, id, ok) {
         if (reporte.reprogramadaPara) {
             const err = errorFechaLog(reporte.reprogramadaPara, r.vendedor, r.id);
             if (err) { btn.disabled = false; btn.textContent = 'Guardar'; return toast(err); }
-            if (!await confirmarDiaLog(reporte.reprogramadaPara)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
+            if (!await confirmarDiaLog(reporte.reprogramadaPara, r.vendedor)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         }
         if (reporte.reprogramadaPara && !await confirmarDobleParada(nombreParada(r), reporte.reprogramadaPara, r.id)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
