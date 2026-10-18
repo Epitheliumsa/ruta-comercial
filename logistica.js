@@ -308,7 +308,7 @@ function abrirLogForm(id) {
     abrirModal(`<form class="form-rc" onsubmit="guardarLog(event, '${id || ''}')">
         <h2>${r ? 'Editar parada' : 'Programar parada'}</h2>
         <div class="fila-fecha lg-fila-fecha">
-            <div><label for="lgFecha">Fecha ${REQ}</label><input type="date" id="lgFecha" required min="${r ? '' : hoy()}" value="${esc(r?.fecha || logi.fecha || hoy())}"></div>
+            <div><label for="lgFecha">Fecha ${REQ}</label><input type="date" id="lgFecha" required min="${r && r.fecha < hoy() ? r.fecha : hoy()}" value="${esc(r?.fecha || logi.fecha || hoy())}"></div>
             <div><label for="lgHora">Hora <small>(si es fija)</small></label><input type="time" id="lgHora" value="${esc(r?.hora || '')}"></div>
             ${mens ? `<div><label for="lgMens">Mensajero ${REQ}</label><select id="lgMens" required>${MENSAJEROS.map(m => `<option value="${m.id}"${(r?.vendedor || logi.mensajero) === m.id ? ' selected' : ''}>${esc(m.nombre)}${m.id === sesion.id ? ' (yo)' : ''}</option>`).join('')}</select></div>` : ''}
         </div>
@@ -495,8 +495,10 @@ async function guardarLog(e, id) {
     if (!tp) return toast('Escoge el tipo de parada');
     const conRad = radMarcada(), tipos = conRad && tipo !== 'radicacion' ? [tipo, 'radicacion'] : [tipo];
     if (!fecha) return toast('Elige la fecha');
-    if (!antes && fecha < hoy()) return toast('Ese día ya pasó: programa desde hoy');
     const vendedor = $('lgMens') ? $('lgMens').value : (antes?.vendedor || sesion.id);
+    const errFecha = errorFechaLog(fecha, vendedor, antes?.id || '', !!antes && antes.fecha === fecha && antes.vendedor === vendedor);
+    if (errFecha) return toast(errFecha);
+    if (!(antes && antes.fecha === fecha) && !await confirmarDiaLog(fecha)) return;
     const incluye = tipo === 'entrega' || tipo === 'envio' ? incluyeMarcado() : [];   // lo que también va: PQR/OUT, REA/OUT, Devolución
     // Cada línea marcada puede tener varias facturas (una por bloque); los bloques vacíos de más se ignoran
     const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).flatMap(f => {
@@ -644,6 +646,24 @@ const textoAccionLog = rp => rp?.accion === 'oficina' ? 'Se devuelve a la oficin
     : rp?.reprogramadaPara ? `Reprogramada para el ${fechaCorta(rp.reprogramadaPara)}${rp.horaRepro ? ' a las ' + horaBonita(rp.horaRepro) : ''}` : '';
 // Paradas del mismo cliente (o proveedor) en un día; si ya hay, se confirma antes de programar otra
 const nombreParada = r => r.contacto || r.proveedor || '';
+// Reglas de la fecha al programar (nueva, editada o reprogramada): no a días pasados, no hoy después de las 6 p. m.,
+// no a un día ya cerrado del mensajero, y aviso con confirmación en domingos y festivos
+const HORA_CORTE_LOG = 18;
+const horaBogotaLog = () => +new Date().toLocaleString('en-US', { timeZone: 'America/Bogota', hour: 'numeric', hourCycle: 'h23' });
+function errorFechaLog(fecha, vendedor, idIgnorar = '', sinCambio = false) {
+    if (sinCambio) return '';
+    if (fecha < hoy()) return 'Ese día ya pasó: programa desde hoy';
+    if (fecha === hoy() && horaBogotaLog() >= HORA_CORTE_LOG) return 'Después de las 6:00 p. m. ya no se programa para hoy: elige el siguiente día';
+    const dia = logRegs().filter(x => x.fecha === fecha && x.vendedor === vendedor && x.id !== idIgnorar);
+    if (dia.length && dia.every(x => x.estado !== 'pendiente')) return `El ${fechaLarga(fecha)} ya está cerrado para ${primerNombre(vendedor)}: todas sus paradas están reportadas. Elige otro día`;
+    return '';
+}
+async function confirmarDiaLog(fecha) {
+    const festivo = nombreFestivo(fecha), domingo = !festivo && deIso(fecha).getDay() === 0;
+    if (!festivo && !domingo) return true;
+    return dialogo({ tono: festivo ? 'aviso' : 'playa', icono: festivo ? '📅' : '🛋️', titulo: festivo ? 'Día festivo' : 'Domingo · día de descanso', aceptar: 'Sí, continuar', cancelar: 'No',
+        texto: (festivo ? `El ${fechaLarga(fecha)} es festivo: ${festivo}.` : `El ${fechaLarga(fecha)} es día de descanso.`) + '\n¿Deseas continuar con la programación?' });
+}
 // Segundo intento y reincidencia: la parada reprogramada lleva su número de intento; el cliente o proveedor con 2 o más paradas no efectivas en 30 días queda alertado
 const intentoLog = r => r.intento || 1;
 function fallosParada(r) {
@@ -729,6 +749,11 @@ async function guardarLogReporte(e, id, ok) {
         const envio = { ...(cambio ? { destino: val('lgDestino'), dirDestino: val('lgDirDest'), telDestino: val('lgTelDest') } : {}),
             ...(ok && r.tipo === 'envio' ? { transportadora: val('lgTransp'), ...(cambio ? {} : { destino: ciudadCliente(r.contacto), dirDestino: '', telDestino: '' }) } : {}) };
         // Si se reprograma para un día en que el cliente ya tiene parada, primero se confirma (el reporte aún no se guardó)
+        if (reporte.reprogramadaPara) {
+            const err = errorFechaLog(reporte.reprogramadaPara, r.vendedor, r.id);
+            if (err) { btn.disabled = false; btn.textContent = 'Guardar'; return toast(err); }
+            if (!await confirmarDiaLog(reporte.reprogramadaPara)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
+        }
         if (reporte.reprogramadaPara && !await confirmarDobleParada(nombreParada(r), reporte.reprogramadaPara, r.id)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
         guardarRegistro({ ...r, ...envio, estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
