@@ -42,6 +42,9 @@ const logRegs = () => visibles().filter(r => r.clase === 'logistica');
 const logVisibles = () => logRegs().filter(r => esLogistica() ? (esCoordLog() || r.vendedor === sesion.id) : esAdmin() ? true : esJefe() ? hayTipo(r, 'cliente') : r.comercial === sesion.id);
 const tituloModuloLog = () => esLogistica() || esAdmin() ? 'Logística' : esJefe() ? 'Entregas a clientes' : 'Entregas a tus clientes';
 const zonaDeContacto = nombre => Object.keys(contactos).find(z => buscarMaestra(z, nombre));
+// Los leads (contactos nuevos en seguimiento) también salen en la lista de clientes de Logística
+const leadsLog = () => proyectos().filter(p => p.estado !== 'vinculado' && p.estado !== 'perdido');
+const leadPorNombre = nombre => nombre ? leadsLog().find(p => normalizar(p.nombre) === normalizar(nombre)) : null;
 const tiposLog = r => (r.tipos?.length ? r.tipos : [r.tipo]).filter(k => TIPOS_LOG[k]);
 const hayTipo = (r, campo) => tiposLog(r).some(k => TIPOS_LOG[k][campo]);
 const conRadicacion = r => hayTipo(r, 'radicacion');
@@ -279,7 +282,7 @@ function tarjetaLog(r, n, total) {
         <button type="button" onclick="moverLog('${r.id}', -1)" ${k === 0 ? 'disabled' : ''}>▲ Subir</button><button type="button" onclick="moverLog('${r.id}', 1)" ${k === sueltas.length - 1 ? 'disabled' : ''}>▼ Bajar</button></div>` : '';
     const meta = [nombreTipos(r), r.zona || '', r.vieneDe ? `reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · ');
     return `<div class="producto-card visita-card lg-card ${clase} lg-${r.tipo}">
-        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
+        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${r.proveedorOtro ? '<span class="lg-otro" title="Proveedor que no está en la Maestra">Otros</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
         ${mover}
         <p class="meta">${esc(meta)}</p>
         ${(r.ediciones || []).length ? (e => `<p class="lg-huella" title="${esc(r.ediciones.map(x => `${nombreVendedor(x.por)} · ${fechaHora(x.cuando)}: ${x.campos.join(', ')}`).join('\n'))}">✏️ Editada por ${esc(nombreVendedor(e.por))} · ${esc(fechaHora(e.cuando))} · cambió ${esc(e.campos.join(', '))}${r.ediciones.length > 1 ? ` · ${r.ediciones.length} ediciones` : ''}</p>`)(r.ediciones[r.ediciones.length - 1]) : ''}
@@ -297,7 +300,7 @@ function abrirLogForm(id) {
     const r = id ? registros[id] : null;
     if (r && r.estado !== 'pendiente') return toast('Esta parada ya se reportó');
     const mens = esCoordLog() || esAdmin();
-    const clientes = [...new Set(Object.values(contactos).flat().map(c => c.n))].sort((a, b) => a.localeCompare(b, 'es'));
+    const clientes = [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre)])].sort((a, b) => a.localeCompare(b, 'es'));
     const provs = [...new Set([...Object.values(proveedoresMaestra.filas).map(p => p.n), ...logRegs().map(x => x.proveedor)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
     const docs = k => (r?.documentos || []).filter(d => d.clase === k);
     const rads = k => (r?.radicacion || []).filter(d => d.doc === k);
@@ -327,7 +330,8 @@ function abrirLogForm(id) {
         <div id="lgBProv">
             <label for="lgProv">Proveedor ${REQ}</label>
             <input id="lgProv" list="dlLogProv" autocomplete="off" placeholder="Busca proveedor" oninput="logInfoProv()" onchange="logInfoProv()" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
-            ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}<datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+            ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}
+            <p class="ayuda lg-otro-nota" id="lgOtroProv" hidden>🆕 <b>Otros:</b> este proveedor no está en la Maestra. Escribe su dirección y su teléfono; la parada queda marcada como "Otros".</p><datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
         </div>
         <div id="lgBDirTel"><label for="lgDir">Dirección <small>(sale sola con el <span id="lgQuienDir">cliente</span>; puedes cambiarla)</small></label>
         <input id="lgDir" autocomplete="off" maxlength="120" value="${esc(r?.direccion || '')}" oninput="this.dataset.auto = ''">
@@ -421,7 +425,7 @@ function logCampos() {
     const docsObl = (k === 'envio' || k === 'entrega') && !incluyeMarcado().length;
     $('lgReqDoc').innerHTML = docsObl ? REQ : '<small>(opcional)</small>';
     $('lgBRad').hidden = !conRad || aProv;
-    $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = conProv;
+    $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = conProv; logInfoProv();
     $('lgBVuelta').hidden = !tp.vuelta;
     $('lgBDirTel').hidden = !!tp.banco;
     $('lgQuienDir').textContent = $('lgQuienTel').textContent = conProv ? 'proveedor' : k === 'vuelta' ? 'contacto' : 'cliente';
@@ -442,13 +446,19 @@ function logCampos() {
 }
 // Dirección y teléfono del proveedor, de la maestra (si los trae); no pisa lo que escribe logística
 function logInfoProv() {
-    const p = proveedoresMaestra.filas[normalizar($('lgProv')?.value || '')];
+    const nombre = ($('lgProv')?.value || '').trim(), p = proveedoresMaestra.filas[normalizar(nombre)];
+    // Un proveedor que no está en la Maestra es "Otros": dirección y teléfono a mano
+    const otro = !!nombre && !p && !$('lgBProv').hidden;
+    $('lgOtroProv').hidden = !otro;
+    $('lgDir').required = $('lgTel').required = otro && !$('lgBDirTel').hidden;
     if (!p) return;
     [['lgDir', p.dir], ['lgTel', p.tel]].forEach(([id, v]) => { const c = $(id); if (v && c && (!c.value || c.dataset.auto === '1')) { c.value = v; c.dataset.auto = '1'; } });
 }
 // A quién le llega la entrega (el vendedor de la zona del cliente) y los datos del cliente en la Maestra
 function datosClienteLog(nombre) {
     const zona = nombre ? zonaDeContacto(nombre) : '', c = zona ? buscarMaestra(zona, nombre) : null, d = dirDe(nombre);
+    const lead = !zona ? leadPorNombre(nombre) : null;
+    if (lead) return { zona: lead.zona || '', comercial: lead.vendedor || (lead.zona ? vendedorDeZona(lead.zona)?.id || '' : ''), ciudad: lead.ciudad || '', dir: lead.direccion || '', tel: lead.telefono || '', lead: true };
     return { zona: zona || '', comercial: zona ? vendedorDeZona(zona)?.id || '' : '', ciudad: c?.c || d?.c || '', dir: d?.dir || '', tel: d?.tel || '' };
 }
 // Dirección y teléfono: los de la Maestra y, si la Maestra aún no los tiene, los de la última parada a ese cliente.
@@ -458,7 +468,8 @@ function logInfoCliente(rellenar = true) {
     if (!$('lgInfoCli')) return;
     if (!nombre) { $('lgInfoCli').textContent = ''; return; }
     const d = datosClienteLog(nombre);
-    $('lgInfoCli').innerHTML = d.comercial ? `✓ ${esc(d.zona)} · ${esc(nombreVendedor(d.comercial))} verá esta entrega en el historial del cliente${d.ciudad ? ' · ' + esc(d.ciudad) : ''}`
+    $('lgInfoCli').innerHTML = d.lead ? `✓ Lead${d.zona ? ' · ' + esc(d.zona) : ''}${d.comercial ? ' · ' + esc(nombreVendedor(d.comercial)) + ' verá esta entrega en el historial del cliente' : ''}`
+        : d.comercial ? `✓ ${esc(d.zona)} · ${esc(nombreVendedor(d.comercial))} verá esta entrega en el historial del cliente${d.ciudad ? ' · ' + esc(d.ciudad) : ''}`
         : 'No está en la Maestra: no se le avisará a ningún comercial.';
     if (!rellenar) return;
     const ultima = logRegs().filter(x => x.contacto && normalizar(x.contacto) === normalizar(nombre) && (x.direccion || x.telefono)).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
@@ -500,7 +511,8 @@ async function guardarLog(e, id) {
     if (radicacion.some(d => d.doc !== 'otros' ? !d.numero : !d.texto)) return toast('Escribe el número (o el documento) de lo que se radica');
     // El cliente de la Maestra se guarda con su nombre exacto; uno que no esté en la Maestra, con nombre propio
     const escrito = $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
-    const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : escrito ? nombrePropio(escrito) : '';
+    const lead = !zonaC && escrito ? leadPorNombre(escrito) : null;
+    const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : lead ? lead.nombre : escrito ? nombrePropio(escrito) : '';
     const cl = datosClienteLog(contacto);
     const base = antes || { id: nuevoId(), clase: 'logistica', estado: 'pendiente', creado: new Date().toISOString(), creadoPor: sesion.id };
     // El mismo cliente (o proveedor) ya tiene parada ese día: se pregunta si de verdad se va dos veces
@@ -510,7 +522,7 @@ async function guardarLog(e, id) {
     const nuevo = {
         ...base, tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
-        proveedor: tp.recoleccion || aProv ? $('lgProv').value.trim() : '', materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
+        proveedor: tp.recoleccion || aProv ? $('lgProv').value.trim() : '', proveedorOtro: (tp.recoleccion || aProv) && !!$('lgProv').value.trim() && !proveedoresMaestra.filas[normalizar($('lgProv').value)], materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
         area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco ? '' : $('lgDir').value.trim(), telefono: tp.banco ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
@@ -1029,7 +1041,7 @@ function armarLibroLog(regs, mes, mens) {
         if (!docs.length) docs.push({ doc: '' });
         const fotos = (r.fotos || []).map(f => f.url).filter(Boolean);
         docs.forEach((d, i) => filas.push([
-            diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), r.contacto || r.proveedor || r.entidad || r.area || '',
+            diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), (r.contacto || r.proveedor || r.entidad || r.area || '') + (r.proveedorOtro && !r.contacto ? ' (Otros)' : ''),
             r.zona || '', r.comercial ? nombreVendedor(r.comercial) : '', [r.destino, r.dirDestino, r.telDestino].filter(Boolean).join(' · '), r.transportadora || '',
             d.doc || '', d.ov || '', d.ovi || '', d.otro || '', r.estado === 'entregado' ? okTxt(r) : r.estado === 'no_entregado' ? noTxt(r) : 'Pendiente',
             r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : '', intentoLog(r) > 1 ? `${intentoLog(r)}.º intento` : ''].filter(Boolean).join(' · '),
