@@ -555,7 +555,7 @@ function abrirLogReporte(id, ok) {
     abrirModal(`<form class="form-rc" onsubmit="guardarLogReporte(event, '${id}', ${ok})">
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
         <p class="sub">${esc(tituloLog(r))}${(r.documentos || []).length ? ' · ' + esc(r.documentos.map(textoDoc).join(' · ')) : ''}${(r.incluyeDocs || []).length ? ' · ' + esc(r.incluyeDocs.map(textoInc).join(' · ')) : ''}${(r.radicacion || []).length ? ' · ' + esc(r.radicacion.map(textoRad).join(' · ')) : ''}</p>
-        ${!ok && fallosParada(r) >= 1 ? `<p class="lg-aviso-reincide">⚠ ${intentoLog(r) > 1 ? 'Este es el ' + intentoLog(r) + '.º intento. ' : ''}Con este reporte serán <b>${fallosParada(r) + 1} paradas no efectivas</b> con este cliente en 30 días: avisa a la coordinadora.</p>` : ''}
+        ${!ok && fallosParada(r) >= 1 ? `<p class="lg-aviso-reincide">⚠ ${intentoLog(r) > 1 ? 'Este es el ' + intentoLog(r) + '.º intento. ' : ''}Con este reporte serán <b>${fallosParada(r) + 1} paradas no efectivas</b> con este cliente en 30 días: <b>reporta la novedad</b>.</p>` : ''}
         ${ok ? `
             ${tp.cliente ? `<div class="lg-dir-entrega">📍 <b>Dirección de entrega</b><br>${esc(ciudadCli || '')}${ciudadCli && r.direccion ? ' · ' : ''}${r.direccion ? enlaceDir(r.direccion, ciudadCli) : ciudadCli ? '' : 'Sin dirección registrada'}${r.telefono ? `<br>📞 ${enlacesTel(r.telefono)}` : ''}</div>
             <label class="lg-chip lg-cambiar"><input type="checkbox" id="lgCambiarDir" onchange="cambiarDirLog()"><span>Cambiar la dirección de entrega</span></label>
