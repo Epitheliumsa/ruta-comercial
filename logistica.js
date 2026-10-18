@@ -254,7 +254,7 @@ function tarjetaLog(r, n, total) {
             : [`<b>${esc(no)}</b>${hora ? ' · ' + esc(hora) : ''}`, `<b>Motivo:</b> ${esc(rp.motivo || '')}`, rp.novedad ? esc(rp.novedad) : '', textoAccionLog(rp) ? `<b>${rp.accion === 'oficina' ? '🏢' : '📅'} ${esc(textoAccionLog(rp))}</b>` : ''];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener" title="Foto ${i + 1}"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         const pend = (leerFotosPend()[r.id] || []).length;
-        reporte = `<div class="reporte">${partes.filter(Boolean).join('<br>')}${fotos || pend ? `<div class="lg-fotos">${fotos}${pend ? `<span class="chip np">${pend} ${pend === 1 ? 'foto subiendo' : 'fotos subiendo'}…</span>` : ''}</div>` : ''}</div>`;
+        reporte = `<div class="reporte">${partes.filter(Boolean).join('<br>')}${!fotos && !pend ? '<div class="lg-sin-foto">📷 Sin foto</div>' : ''}${fotos || pend ? `<div class="lg-fotos fija">${fotos}${pend ? `<span class="chip np">${pend} ${pend === 1 ? 'foto subiendo' : 'fotos subiendo'}…</span>` : ''}</div>` : ''}</div>`;
     }
     let acciones = '';
     if (logi.soloLectura) {
@@ -592,7 +592,7 @@ function abrirLogReporte(id, ok) {
                 <div><label for="lgReproHora">Hora <small>(opcional)</small></label><input id="lgReproHora" type="time"></div>
             </div>
         `}
-        <label for="lgFotos">Foto <small>${ok ? (conRadicacion(r) ? '(recomendada: foto del sello de radicado)' : '(recomendada: foto de la entrega o del recibido)') : '(opcional)'}</small></label>
+        <label for="lgFotos">Foto <small>${ok ? (conRadicacion(r) ? '(obligatoria: foto del sello de radicado)' : '(obligatoria: foto de la entrega o del recibido)') : '(obligatoria: foto del lugar o de la novedad)'}</small></label>
         <div class="lg-foto-btns">
             <label class="btn-secundario lg-foto-btn">📷 Tomar foto<input type="file" accept="image/*" capture="environment" hidden onchange="agregarFotosLog(this)"></label>
             <label class="btn-secundario lg-foto-btn">🖼 Galería o captura<input type="file" accept="image/*" multiple hidden onchange="agregarFotosLog(this)"></label>
@@ -672,6 +672,7 @@ async function guardarLogReporte(e, id, ok) {
     e.preventDefault();
     const r = registros[id], btn = $('lgBtnRep');
     if (!r || r.estado !== 'pendiente') return;
+    if (!fotosLogSel.length && !(r.fotos || []).length) return toast('Falta la foto: toma una o escógela de la galería para guardar el reporte');
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
         const archivos = fotosLogSel.slice(0, 4);
