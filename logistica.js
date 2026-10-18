@@ -163,6 +163,10 @@ function pintarLog() {
     $('logGrafico').innerHTML = graficoLog(todos.filter(r => mesDe(r.fecha) === mesDe(f) && delMens(r)), mesDe(f));
     const parte = PARTES_LOG.find(x => x.f === fe);
     $('logResumen').innerHTML = fp && parte ? `<span class="chip chip-filtro activo lg-filtro-act"><i style="background:${parte.c}"></i>${esc(parte.t)} · ${esc({ dia: 'día ' + fechaCorta(f), semana: tSem.toLowerCase(), mes: tMes.toLowerCase() }[fp])}</span><button type="button" class="link-mini" onclick="filtrarLog('')">✕ Quitar filtro</button>` : '';
+    // Coordinación, jefes y administrador: clientes con 2 o más no efectivas que aún tienen una parada pendiente
+    const reinc = {};
+    if (esCoordLog() || esAdmin() || esJefe()) todos.filter(r => r.estado === 'pendiente' && r.fecha >= t && delMens(r) && fallosParada(r) >= 2).sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach(r => { reinc[normalizar(nombreParada(r))] ||= r; });
+    $('logResumen').innerHTML += Object.values(reinc).map(r => `<div class="lg-banner-reincide">⚠ <b>Reincidencia:</b> ${esc(nombreParada(r))} · ${fallosParada(r)} no efectivas en 30 días · ${intentoLog(r)}.º intento el ${esc(fechaCorta(r.fecha))}</div>`).join('');
     const base = fp && fp !== 'dia' ? deP[fp] : dia;
     const lista = base.filter(r => (!parte || claseLog(r) === parte.f)
         && (!q || normalizar([tituloLog(r), r.proveedor, r.direccion, r.telefono, r.destino, ...(r.documentos || []).flatMap(d => [d.ov, d.ovi]), ...(r.incluyeDocs || []).map(d => d.numero), ...(r.radicacion || []).map(textoRad)].join(' ')).includes(q)));
@@ -275,7 +279,7 @@ function tarjetaLog(r, n, total) {
         <button type="button" onclick="moverLog('${r.id}', -1)" ${k === 0 ? 'disabled' : ''}>▲ Subir</button><button type="button" onclick="moverLog('${r.id}', 1)" ${k === sueltas.length - 1 ? 'disabled' : ''}>▼ Bajar</button></div>` : '';
     const meta = [nombreTipos(r), r.zona || '', r.vieneDe ? `reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · ');
     return `<div class="producto-card visita-card lg-card ${clase} lg-${r.tipo}">
-        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}</div>${chipEstadoLog(r)}</div>
+        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
         ${mover}
         <p class="meta">${esc(meta)}</p>
         ${(r.ediciones || []).length ? (e => `<p class="lg-huella" title="${esc(r.ediciones.map(x => `${nombreVendedor(x.por)} · ${fechaHora(x.cuando)}: ${x.campos.join(', ')}`).join('\n'))}">✏️ Editada por ${esc(nombreVendedor(e.por))} · ${esc(fechaHora(e.cuando))} · cambió ${esc(e.campos.join(', '))}${r.ediciones.length > 1 ? ` · ${r.ediciones.length} ediciones` : ''}</p>`)(r.ediciones[r.ediciones.length - 1]) : ''}
@@ -551,6 +555,7 @@ function abrirLogReporte(id, ok) {
     abrirModal(`<form class="form-rc" onsubmit="guardarLogReporte(event, '${id}', ${ok})">
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
         <p class="sub">${esc(tituloLog(r))}${(r.documentos || []).length ? ' · ' + esc(r.documentos.map(textoDoc).join(' · ')) : ''}${(r.incluyeDocs || []).length ? ' · ' + esc(r.incluyeDocs.map(textoInc).join(' · ')) : ''}${(r.radicacion || []).length ? ' · ' + esc(r.radicacion.map(textoRad).join(' · ')) : ''}</p>
+        ${!ok && fallosParada(r) >= 1 ? `<p class="lg-aviso-reincide">⚠ ${intentoLog(r) > 1 ? 'Este es el ' + intentoLog(r) + '.º intento. ' : ''}Con este reporte serán <b>${fallosParada(r) + 1} paradas no efectivas</b> con este cliente en 30 días: avisa a la coordinadora.</p>` : ''}
         ${ok ? `
             ${tp.cliente ? `<div class="lg-dir-entrega">📍 <b>Dirección de entrega</b><br>${esc(ciudadCli || '')}${ciudadCli && r.direccion ? ' · ' : ''}${r.direccion ? enlaceDir(r.direccion, ciudadCli) : ciudadCli ? '' : 'Sin dirección registrada'}${r.telefono ? `<br>📞 ${enlacesTel(r.telefono)}` : ''}</div>
             <label class="lg-chip lg-cambiar"><input type="checkbox" id="lgCambiarDir" onchange="cambiarDirLog()"><span>Cambiar la dirección de entrega</span></label>
@@ -617,6 +622,15 @@ const textoAccionLog = rp => rp?.accion === 'oficina' ? 'Se devuelve a la oficin
     : rp?.reprogramadaPara ? `Reprogramada para el ${fechaCorta(rp.reprogramadaPara)}${rp.horaRepro ? ' a las ' + horaBonita(rp.horaRepro) : ''}` : '';
 // Paradas del mismo cliente (o proveedor) en un día; si ya hay, se confirma antes de programar otra
 const nombreParada = r => r.contacto || r.proveedor || '';
+// Segundo intento y reincidencia: la parada reprogramada lleva su número de intento; el cliente o proveedor con 2 o más paradas no efectivas en 30 días queda alertado
+const intentoLog = r => r.intento || 1;
+function fallosParada(r) {
+    const n = normalizar(nombreParada(r)); if (!n) return 0;
+    const desde = sumarDias(hoy(), -30);
+    return logRegs().filter(x => x.estado === 'no_entregado' && x.fecha >= desde && normalizar(nombreParada(x)) === n).length;
+}
+const chipsIntentoLog = r => { const n = fallosParada(r);
+    return `${intentoLog(r) > 1 ? `<span class="lg-intento">${intentoLog(r)}.º intento</span>` : ''}${n >= 2 ? `<span class="lg-reincide" title="Paradas no efectivas con este cliente o proveedor en los últimos 30 días">⚠ Reincidencia · ${n} no efectivas</span>` : ''}`; };
 const paradasMismoDia = (nombre, fecha, idExcluir) => nombre ? logRegs().filter(x => x.fecha === fecha && x.id !== idExcluir && normalizar(nombreParada(x)) === normalizar(nombre)) : [];
 async function confirmarDobleParada(nombre, fecha, idExcluir) {
     const ya = paradasMismoDia(String(nombre || '').trim(), fecha, idExcluir);
@@ -702,7 +716,7 @@ async function guardarLogReporte(e, id, ok) {
             const f = reporte.reprogramadaPara, mismo = logRegs().filter(x => x.fecha === f && x.vendedor === r.vendedor);
             const { reporte: _r, fotos: _f, correcciones: _c, registrada: _g, reportadoPor: _p, ...datos } = r;
             guardarRegistro({ ...datos, id: nuevoId(), estado: 'pendiente', fecha: f, hora: reporte.horaRepro || '', orden: Math.max(0, ...mismo.map(x => x.orden || 0)) + 1,
-                vieneDe: r.vieneDe || r.fecha, origen: 'reprogramada', creado: new Date().toISOString(), creadoPor: sesion.id });
+                vieneDe: r.vieneDe || r.fecha, origen: 'reprogramada', intento: intentoLog(r) + 1, creado: new Date().toISOString(), creadoPor: sesion.id });
         }
         cerrarModal();
         toast(ok ? `${okTxt(r)}: queda registrado` : reporte.reprogramadaPara ? `Reprogramada para el ${fechaCorta(reporte.reprogramadaPara)}` : accion === 'oficina' ? 'Novedad registrada: se devuelve a la oficina' : 'Novedad registrada');
@@ -1018,7 +1032,7 @@ function armarLibroLog(regs, mes, mens) {
             diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), r.contacto || r.proveedor || r.entidad || r.area || '',
             r.zona || '', r.comercial ? nombreVendedor(r.comercial) : '', [r.destino, r.dirDestino, r.telDestino].filter(Boolean).join(' · '), r.transportadora || '',
             d.doc || '', d.ov || '', d.ovi || '', d.otro || '', r.estado === 'entregado' ? okTxt(r) : r.estado === 'no_entregado' ? noTxt(r) : 'Pendiente',
-            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · '),
+            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : '', intentoLog(r) > 1 ? `${intentoLog(r)}.º intento` : ''].filter(Boolean).join(' · '),
             [r.direccion, r.telefono && `Tel. ${r.telefono}`, r.proveedor && r.contacto ? `Proveedor: ${r.proveedor}` : '', r.detalle].filter(Boolean).join(' · '), i === 0 && fotos.length ? fotos.length : '', i === 0 ? fotos.join('\n') : '',
             r.reportadoPor ? nombreVendedor(r.reportadoPor) : '', (r.correcciones || []).length || ''
         ]));
