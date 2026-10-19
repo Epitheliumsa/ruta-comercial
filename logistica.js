@@ -18,12 +18,17 @@ const TIPOS_LOG = {
     radicacion:  { t: 'Radicación de documentos', corto: 'Radicación', cliente: true, radicacion: true, ok: 'Radicado', no: 'No radicado', quien: '¿Quién recibió?', rec: 'Recibió' },
     recoleccion: { t: 'Proveedor', corto: 'Proveedor', recoleccion: true, ok: 'Recogido', no: 'No recogido', quien: '¿Quién entregó?', rec: 'Entregó' },
     vuelta:      { t: 'Trámite área', corto: 'Trámite', vuelta: true, ok: 'Realizado', no: 'No realizado', quien: '¿Con quién se hizo?', rec: 'Con' },
-    banco:       { t: 'Bancos', corto: 'Banco', banco: true, ok: 'Realizado', no: 'No realizado', quien: '¿Quién atendió en el banco?', rec: 'Atendió' }
+    banco:       { t: 'Bancos', corto: 'Banco', banco: true, ok: 'Realizado', no: 'No realizado', quien: '¿Quién atendió en el banco?', rec: 'Atendió' },
+    oficina:     { t: 'Oficina', corto: 'Oficina', oficina: true, ok: 'Realizado', no: 'No realizado', quien: '¿Con quién se hizo?', rec: 'Con' }
 };
+// Oficina: lo que se hace allá. Aforar lleva cliente y una o varias facturas; las demás solo se marcan (Otro, con su texto)
+const OFICINA_LOG = [['aforar', 'Aforar'], ['alistamiento', 'Alistamiento'], ['etiquetas', 'Etiquetas'], ['otro', 'Otro']];
+const itemsOficina = r => (r.oficina || []).map(k => k === 'aforar' ? `Aforar${(r.facturasAforo || []).length ? ': ' + r.facturasAforo.join(' · ') : ''}`
+    : k === 'otro' ? `Otro: ${r.otroOficina || ''}`.trim() : OFICINA_LOG.find(x => x[0] === k)?.[1] || k);
 const BANCOS_LOG = ['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Banco de Occidente', 'Banco Popular', 'AV Villas', 'Scotiabank Colpatria', 'Itaú', 'Banco Caja Social'];
 // Campos de una parada que dejan huella cuando se editan (nombre con el que se muestra el cambio)
 const CAMPOS_HUELLA_LOG = { fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
-    proveedor: 'proveedor', entidad: 'banco', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
+    proveedor: 'proveedor', oficina: 'lo que se hace en la oficina', facturasAforo: 'facturas a aforar', otroOficina: 'otro', entidad: 'banco', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
 const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
 const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT' };
@@ -61,7 +66,7 @@ const okTxt = r => TIPOS_LOG[r.tipo]?.ok || 'Realizada';
 const noTxt = r => TIPOS_LOG[r.tipo]?.no || 'No realizada';
 const incluyeTxt = r => (r.incluye || []).map(k => k === 'devolucion' ? 'devolución' : NOMBRE_INCLUYE[k] || k).join(' y ');
 const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (r.incluye?.length ? ` + incluye ${incluyeTxt(r)}` : '') + (r.tipo !== 'radicacion' && conRadicacion(r) ? ' + radicación' : '');
-const tituloLog = r => r.contacto || r.proveedor || (r.entidad ? `Banco · ${r.entidad}` : r.area ? `Trámite · ${r.area}` : 'Parada');
+const tituloLog = r => r.contacto || r.proveedor || (r.entidad ? `Banco · ${r.entidad}` : r.area ? `Trámite · ${r.area}` : r.tipo === 'oficina' ? 'Oficina' : 'Parada');
 // Paradas con hora fija primero (por hora) y después el resto en el orden de la ruta
 const ordenLog = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '').localeCompare(b.hora || '') || (a.orden ?? 1e9) - (b.orden ?? 1e9) || (a.creado || '').localeCompare(b.creado || '');
 // Facturas que se llevan (en pantalla A = OVI y B = OV, siempre de 6 cifras): A en terminados; A y/o B en magistral individual; B en magistral de pedido
@@ -72,11 +77,11 @@ const CLASES_PEDIDO = [
 ];
 const claseDoc = k => CLASES_PEDIDO.find(c => c.k === k);
 // Lo que se programó en la parada, uno por uno (cada factura A o B, cada documento que incluye, lo que se radica o se recoge): se marca en el reporte
-const VERBO_LOG = { entrega: 'entregaste', envio: 'enviaste', radicacion: 'radicaste', recoleccion: 'recogiste' };
+const VERBO_LOG = { entrega: 'entregaste', envio: 'enviaste', radicacion: 'radicaste', recoleccion: 'recogiste', oficina: 'hiciste' };
 function itemsProgramados(r) {
     const nom = d => claseDoc(d.clase)?.t || 'Pedido';
     return [...(r.documentos || []).flatMap(d => [d.ovi && `${nom(d)} · A ${d.ovi}`, d.ov && `${nom(d)} · B ${d.ov}`]),
-        ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'recoleccion' ? (r.materiales || []) : [])].filter(Boolean);
+        ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'recoleccion' ? (r.materiales || []) : []), ...(r.tipo === 'oficina' ? itemsOficina(r) : [])].filter(Boolean);
 }
 const textoInc = d => `${NOMBRE_INCLUYE[d.k] || d.k} ${d.numero}`;
 const textoDoc = d => [claseDoc(d.clase)?.t, d.ovi && `A ${d.ovi}`, d.ov && `B ${d.ov}`].filter(Boolean).join(' · ');
@@ -258,6 +263,7 @@ function tarjetaLog(r, n, total) {
         r.destino ? `<b>${r.tipo === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${enlaceDir(r.dirDestino, r.destino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
         r.proveedor && (r.contacto || r.materiales?.length) ? `<b>Proveedor:</b> ${esc(r.proveedor)}` : '',
         r.materiales?.length ? `<b>Recoger:</b> ${esc(r.materiales.join(', '))}` : '',
+        r.tipo === 'oficina' ? itemsOficina(r).map(x => `<b>${esc(x.split(':')[0])}</b>${x.includes(':') ? ':' + esc(x.split(':').slice(1).join(':')) : ''}`).join(' · ') : '',
         r.direccion ? `<b>Dirección:</b> ${enlaceDir(r.direccion, r.ciudad)}` : '',
         r.telefono ? `<b>Teléfono:</b> ${enlacesTel(r.telefono)}` : '',
         r.detalle ? `<b>Indicaciones:</b> ${esc(r.detalle)}` : ''
@@ -291,7 +297,7 @@ function tarjetaLog(r, n, total) {
         <button type="button" onclick="moverLog('${r.id}', -1)" ${k === 0 ? 'disabled' : ''}>▲ Subir</button><button type="button" onclick="moverLog('${r.id}', 1)" ${k === sueltas.length - 1 ? 'disabled' : ''}>▼ Bajar</button></div>` : '';
     const meta = [nombreTipos(r), r.zona || '', r.vieneDe ? `reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · ');
     return `<div class="producto-card visita-card lg-card ${clase} lg-${r.tipo}">
-        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${r.proveedorOtro || r.contactoOtro ? '<span class="lg-otro" title="No está en la Maestra">Otros</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
+        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${r.tipo === 'oficina' ? (r.oficina || []).map(k => `<span class="lg-tipo oficina">${esc(OFICINA_LOG.find(x => x[0] === k)?.[1] || k)}</span>`).join('') : ''}${r.proveedorOtro || r.contactoOtro ? '<span class="lg-otro" title="No está en la Maestra">Otros</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
         ${mover}
         <p class="meta">${esc(meta)}</p>
         ${(r.ediciones || []).length ? (e => `<p class="lg-huella" title="${esc(r.ediciones.map(x => `${nombreVendedor(x.por)} · ${fechaHora(x.cuando)}: ${x.campos.join(', ')}`).join('\n'))}">✏️ Editada por ${esc(nombreVendedor(e.por))} · ${esc(fechaHora(e.cuando))} · cambió ${esc(e.campos.join(', '))}${r.ediciones.length > 1 ? ` · ${r.ediciones.length} ediciones` : ''}</p>`)(r.ediciones[r.ediciones.length - 1]) : ''}
@@ -329,6 +335,16 @@ function abrirLogForm(id) {
         <summary>🗓 Novedades <small>(del mensajero: cita médica, incapacidad, permiso, vacaciones)</small></summary>
         <div class="lg-chips" id="lgNovs">${NOVEDADES_LOG.map(n => `<label class="lg-chip"><input type="radio" name="lgTipo" value="nov:${esc(n)}"${r?.tipo === 'novedad' && r.novedad === n ? ' checked' : ''} onclick="tipoClick(this)"><span>${ICONO_NOV[n]} ${esc(n)}</span></label>`).join('')}</div>
         </details>
+        <div id="lgBOficina" hidden>
+            <label>Qué se hace en la oficina ${REQ} <small>(marca lo que aplica)</small></label>
+            <div class="lg-chips" id="lgOfChips">${OFICINA_LOG.map(([k, t]) => `<label class="lg-chip"><input type="checkbox" value="${k}"${(r?.oficina || []).includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${t}</span></label>`).join('')}</div>
+            <div id="lgOfAforar" hidden>
+                <label>Facturas a aforar ${REQ} <small>(puede ser más de una)</small></label>
+                <div id="lgOfFacs">${((r?.facturasAforo || []).length ? r.facturasAforo : ['']).map(f => `<div class="lg-of-fila"><input class="lg-of-fac" ${NUM6} value="${esc(f)}"></div>`).join('')}</div>
+                <button type="button" class="btn-link" onclick="agregarOfFac()">+ Otra factura</button>
+            </div>
+            <div id="lgOfOtro" hidden><label for="lgOfOtroTxt">Otro: ¿qué se hace? ${REQ}</label><input id="lgOfOtroTxt" maxlength="100" autocomplete="off" value="${esc(r?.otroOficina || '')}"></div>
+        </div>
         <div id="lgBVuelta">
             <label for="lgArea">Área ${REQ}</label>
             <select id="lgArea">${AREAS_LOG.map(a => `<option${r?.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>
@@ -416,6 +432,10 @@ function abrirLogForm(id) {
 const radMarcada = () => !!$('lgRadChk')?.checked;
 // La radicación puede ser a un proveedor (salvo en entrega y envío, que siempre llevan cliente)
 const radAProv = () => radMarcada() && !['entrega', 'envio'].includes(tipoMarcado()) && document.querySelector('input[name=lgRadA]:checked')?.value === 'proveedor';
+function agregarOfFac() {
+    const d = document.createElement('div'); d.className = 'lg-of-fila';
+    d.innerHTML = `<input class="lg-of-fac" ${NUM6}>`; $('lgOfFacs').appendChild(d); d.querySelector('input').focus();
+}
 const tipoMarcado = () => document.querySelector('input[name=lgTipo]:checked')?.value || (radMarcada() ? 'radicacion' : '');
 // Tocar otra vez el tipo marcado lo desmarca (para dejar solo la radicación)
 function tipoClick(el) {
@@ -432,7 +452,8 @@ function logCampos() {
     $('lgFecha').min = nv ? '' : $('lgFecha').dataset.min;
     if (nv) {   // Novedad del mensajero: solo fechas, horas (cita y permiso) y el detalle
         $('lgRadChk').checked = false;
-        ['lgBRadA', 'lgBIncluyeEnvio', 'lgBCli', 'lgBProv', 'lgBDocs', 'lgBRad', 'lgBRecol', 'lgBVuelta', 'lgBDirTel', 'lgBBanco'].forEach(id => { $(id).hidden = true; });
+        ['lgBRadA', 'lgBIncluyeEnvio', 'lgBCli', 'lgBProv', 'lgBDocs', 'lgBRad', 'lgBRecol', 'lgBVuelta', 'lgBOficina', 'lgBDirTel', 'lgBBanco'].forEach(id => { $(id).hidden = true; });
+        document.querySelectorAll('.lg-of-fac').forEach(i => { i.required = false; }); $('lgOfOtroTxt').required = false;
         ['lgCliente', 'lgProv', 'lgBanco', 'lgDir', 'lgTel'].forEach(id => { $(id).required = false; });
         document.querySelectorAll('.lg-pcampos input').forEach(i => { i.required = false; });
         const rango = ['Vacaciones', 'Incapacidad', 'Permiso'].includes(nv), horas = ['Cita médica', 'Permiso'].includes(nv), porHoras = horas && !$('lgDiaCompleto').checked;
@@ -446,14 +467,17 @@ function logCampos() {
     }
     $('lgDetalle').maxLength = 200;
     const tp = TIPOS_LOG[k] || {}, conRad = radMarcada();
-    $('lgReqCli').innerHTML = tp.cliente || conRad ? REQ : '<small>(si aplica)</small>';
+    const ofSel = tp.oficina ? [...document.querySelectorAll('#lgOfChips input:checked')].map(i => i.value) : [], aforar = ofSel.includes('aforar');
+    $('lgBOficina').hidden = !tp.oficina; $('lgOfAforar').hidden = !aforar; $('lgOfOtro').hidden = !ofSel.includes('otro');
+    document.querySelectorAll('.lg-of-fac').forEach((i, n) => { i.required = aforar && n === 0; }); $('lgOfOtroTxt').required = ofSel.includes('otro');
+    $('lgReqCli').innerHTML = tp.cliente || conRad || aforar ? REQ : '<small>(si aplica)</small>';
     const aProv = radAProv(), conProv = !!tp.recoleccion || aProv;
     $('lgBRadA').hidden = !conRad || k === 'entrega' || k === 'envio';
-    $('lgCliente').required = !!(tp.cliente || conRad) && !aProv;
+    $('lgCliente').required = (!!(tp.cliente || conRad) || aforar) && !aProv;
     $('lgBIncluyeEnvio').hidden = k !== 'entrega' && k !== 'envio';
     $('lgTitInc').textContent = k === 'entrega' ? 'Esta entrega también incluye' : 'Este envío también incluye';
     // Proveedor: en vez del cliente va el proveedor; Trámite área: el cliente se llama contacto
-    $('lgBCli').hidden = aProv || ((!!tp.recoleccion || !!tp.banco) && !conRad);
+    $('lgBCli').hidden = aProv || ((!!tp.recoleccion || !!tp.banco) && !conRad) || (!!tp.oficina && !aforar && !conRad);
     $('lgBProv').hidden = !conProv;
     $('lgTxtCli').textContent = k === 'vuelta' ? 'Contacto' : 'Cliente';
     logInfoCliente(false);
@@ -465,7 +489,7 @@ function logCampos() {
     $('lgBRad').hidden = !conRad || aProv;
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = conProv; logInfoProv();
     $('lgBVuelta').hidden = !tp.vuelta;
-    $('lgBDirTel').hidden = !!tp.banco;
+    $('lgBDirTel').hidden = !!tp.banco || !!tp.oficina;
     $('lgQuienDir').textContent = $('lgQuienTel').textContent = conProv ? 'proveedor' : k === 'vuelta' ? 'contacto' : 'cliente';
     $('lgBBanco').hidden = !tp.banco; $('lgBanco').required = !!tp.banco;
     $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : aProv ? `Qué se radica ${REQ}` : 'Indicaciones <small>(opcional)</small>';
@@ -590,8 +614,17 @@ async function guardarLog(e, id) {
     if ((tipo === 'envio' || tipo === 'entrega') && !incluye.length && !documentos.length) return toast('Marca qué pedido llevas y escribe sus números');
     if (conRad && !radAProv() && !radicacion.length) return toast('Marca qué se radica: factura, nota crédito u otros');
     if (radicacion.some(d => d.doc !== 'otros' ? !d.numero : !d.texto)) return toast('Escribe el número (o el documento) de lo que se radica');
+    // Oficina: qué se hace (Aforar pide cliente y facturas; Otro, el texto)
+    const oficina = tp.oficina ? [...document.querySelectorAll('#lgOfChips input:checked')].map(i => i.value) : [];
+    if (tp.oficina && !oficina.length) return toast('Marca qué se hace en la oficina: Aforar, Alistamiento, Etiquetas u Otro');
+    const facturasAforo = oficina.includes('aforar') ? [...document.querySelectorAll('.lg-of-fac')].map(i => seisCifras(i.value)).filter(Boolean) : [];
+    if (oficina.includes('aforar') && !$('lgCliente').value.trim()) return toast('Aforar: escoge el cliente');
+    if (oficina.includes('aforar') && !facturasAforo.length) return toast('Aforar: escribe el número de la factura');
+    if (new Set(facturasAforo).size !== facturasAforo.length) return toast('Hay una factura repetida en Aforar: revisa los números');
+    const otroOficina = oficina.includes('otro') ? $('lgOfOtroTxt').value.trim() : '';
+    if (oficina.includes('otro') && !otroOficina) return toast('Otro: escribe qué se hace en la oficina');
     // El cliente de la Maestra se guarda con su nombre exacto; uno que no esté en la Maestra, con nombre propio
-    const escrito = $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
+    const escrito = tp.oficina && !oficina.includes('aforar') ? '' : $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
     const lead = !zonaC && escrito ? leadPorNombre(escrito) : null;
     const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : lead ? lead.nombre : escrito ? nombrePropio(escrito) : '';
     const cl = datosClienteLog(contacto);
@@ -601,10 +634,10 @@ async function guardarLog(e, id) {
     const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === vendedor && x.id !== base.id);
     const orden = antes && antes.fecha === fecha && antes.vendedor === vendedor ? antes.orden : Math.max(0, ...mismo.map(x => x.orden || 0)) + 1;
     const nuevo = {
-        ...base, tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
+        ...base, ...(tp.oficina ? { oficina, facturasAforo, otroOficina } : {}), tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
         proveedor: tp.recoleccion || aProv ? $('lgProv').value.trim() : '', contactoOtro: tp.vuelta && !!contacto && !zonaC && !lead, proveedorOtro: (tp.recoleccion || aProv) && !!$('lgProv').value.trim() && !proveedoresMaestra.filas[normalizar($('lgProv').value)], materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
-        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco ? '' : $('lgDir').value.trim(), telefono: tp.banco ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
+        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco || tp.oficina ? '' : $('lgDir').value.trim(), telefono: tp.banco || tp.oficina ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
     if (antes) {
@@ -643,7 +676,7 @@ function abrirLogReporte(id, ok) {
     const tp = TIPOS_LOG[r.tipo], tieneEnvio = r.tipo === 'envio';
     const req = !!tp.cliente;   // entregas y radicaciones piden quién recibió (en el envío no: van transportadora y guía)
     const ciudadCli = ciudadCliente(r.contacto), ant = antesCliente(r.contacto);
-    const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' || r.tipo === 'banco' ? 'Resultado' : r.tipo === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
+    const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' || r.tipo === 'banco' || r.tipo === 'oficina' ? 'Resultado' : r.tipo === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
     fotosLogSel = [];
     abrirModal(`<form class="form-rc" onsubmit="guardarLogReporte(event, '${id}', ${ok})">
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
@@ -1083,7 +1116,7 @@ function htmlEntregasCliente(nombre, dia = '') {
     if (!lista.length) return esLogistica() && !dia ? '<div class="no-results">Todavía no hay entregas registradas para este cliente.</div>' : '';
     return `<p class="grupo-titulo hist-sec l">🚚 Entregas y recolecciones · ${lista.length}</p>` + lista.map(r => {
         const tp = TIPOS_LOG[r.tipo], rp = r.reporte || {}, cls = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p';
-        const docs = [...(r.documentos || []).map(textoDoc), ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad)].filter(Boolean).map(esc).join('<br>');
+        const docs = [...(r.documentos || []).map(textoDoc), ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'oficina' ? itemsOficina(r) : [])].filter(Boolean).map(esc).join('<br>');
         const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         return `<div class="hist-item ${cls}">
@@ -1144,7 +1177,8 @@ function armarLibroLog(regs, mes, mens) {
         // Una fila por clase de pedido y por documento radicado (la factura A va en OVI y la B en OV)
         const docs = [...(r.documentos || []).map(d => ({ doc: claseDoc(d.clase)?.t || '', ov: d.ov, ovi: d.ovi })),
             ...(r.radicacion || []).map(d => d.doc === 'factura' ? { doc: `Radicar factura ${d.serie}`, [d.serie === 'A' ? 'ovi' : 'ov']: d.numero }
-                : d.doc === 'nc' ? { doc: 'Radicar nota crédito RNC', otro: d.numero } : { doc: 'Radicar otros', otro: d.texto })];
+                : d.doc === 'nc' ? { doc: 'Radicar nota crédito RNC', otro: d.numero } : { doc: 'Radicar otros', otro: d.texto }),
+            ...(r.tipo === 'oficina' ? (r.oficina || []).flatMap(k => k === 'aforar' ? (r.facturasAforo || []).map(f => ({ doc: 'Aforar', otro: f })) : k === 'otro' ? [{ doc: 'Otro (oficina)', otro: r.otroOficina || '' }] : [{ doc: OFICINA_LOG.find(x => x[0] === k)?.[1] || k }]) : [])];
         if (!docs.length) docs.push({ doc: '' });
         const fotos = (r.fotos || []).map(f => f.url).filter(Boolean);
         docs.forEach((d, i) => filas.push([
