@@ -189,7 +189,7 @@ function pintarLog() {
     const varios = fp === 'semana' || fp === 'mes';
     lista.sort((a, b) => a.fecha.localeCompare(b.fecha) || ordenLog(a, b)).forEach(r => { const g = varios ? r.fecha : r.vendedor; (grupos[g] = grupos[g] || []).push(r); });
     const conTitulo = varios || Object.keys(grupos).length > 1 || esCoordLog() || esJefe();
-    const tarjetasCumple = varios ? '' : cumplen(f).map(tarjetaCumple).join('') + novLogDe(f).filter(delMens).map(tarjetaNovLog).join('');
+    const tarjetasCumple = varios ? '' : cumplen(f).map(tarjetaCumple).join('') + panelNovLog(novLogDe(f).filter(delMens));
     $('logLista').innerHTML = tarjetasCumple + (!lista.length
         ? `<div class="no-results">${base.length ? 'No hay paradas con este filtro.' : lectura ? 'No hay entregas a tus clientes este día.' : 'No hay paradas programadas para este día.'}${lectura || varios ? '' : '<br><button class="btn-nuevo active" onclick="abrirLogForm()">+ Programar</button>'}</div>`
         : Object.entries(grupos).map(([g, ps]) => (conTitulo ? `<p class="grupo-titulo">${esc(varios ? mayuscula(fechaLarga(g)) : nombreVendedor(g))} · ${ps.length} ${ps.length === 1 ? 'parada' : 'paradas'}</p>` : '')
@@ -546,6 +546,9 @@ async function eliminarNovLog(id) {
     borrarRegistro({ ...n });
     toast('Novedad eliminada'); pintarLog();
 }
+// Las novedades del día van en un panel que se puede esconder, igual que el gráfico de entregas
+const panelNovLog = lista => !lista.length ? '' : `<details class="lg-grafico lg-novs"${logi.novAbierto === false ? '' : ' open'} ontoggle="logi.novAbierto = this.open">
+    <summary>🗓 Novedades del día <small>${lista.length} ${lista.length === 1 ? 'novedad' : 'novedades'}</small></summary>${lista.map(tarjetaNovLog).join('')}</details>`;
 const tarjetaNovLog = n => `<div class="producto-card novedad-card lg-nov">
     <div class="visita-cab"><div><span class="vend-card">${esc(nombreVendedor(n.vendedor))}</span><h3>${ICONO_NOV[n.novedad] || ''} ${esc(n.novedad)}</h3></div><span class="chip lg-nov-chip">${esc(n.novedad)}</span></div>
     <p class="meta">${esc(rangoNovLog(n))}</p>${n.detalle ? `<p>${esc(n.detalle)}</p>` : ''}

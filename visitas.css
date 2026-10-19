@@ -2017,3 +2017,4 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-nov { border-left: 4px solid #6366f1; background: #f5f6ff; }
 .lg-nov .lg-nov-chip { background: #e0e7ff; color: #3730a3; }
 .lg-dia-completo { margin: 4px 0; }
+.lg-novs .lg-nov { margin: 8px 0 4px; }
