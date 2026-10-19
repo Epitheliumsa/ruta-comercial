@@ -568,7 +568,11 @@ let sincronizarOtraVez = false;   // hubo cambios mientras se sincronizaba: se r
 let ultimaSync = null;
 let errorSync = '';
 
+// Modo prueba: solo se leen datos reales; cualquier otra acción (guardar, subir archivos, cargar bases…) se simula y no llega al servidor
+const MODO_PRUEBA = !!window.MODO_PRUEBA;
+const ACCIONES_LECTURA = ['listar', 'directorio', 'proveedores', 'estadoBases', 'versionesBases', 'leerBase', 'leerVademecum', 'consultarDocumento'];
 async function llamarApi(cuerpo, espera = 0) {
+    if (MODO_PRUEBA && !ACCIONES_LECTURA.includes(cuerpo.accion)) return { ok: true, guardados: (cuerpo.registros || []).length, actualizado: new Date().toISOString() };
     // espera (ms): si el servidor no responde en ese tiempo se cancela (ej: subir un archivo)
     const corte = espera ? new AbortController() : null, reloj = corte && setTimeout(() => corte.abort(), espera);
     const resp = await fetch(API_URL, {

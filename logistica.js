@@ -846,7 +846,7 @@ async function guardarLogReporte(e, id, ok) {
     try {
         const archivos = fotosLogSel.slice(0, 4);
         const fotos = [];
-        for (const f of archivos) fotos.push(await comprimirFoto(f, API_URL ? 1280 : 480, API_URL ? 0.72 : 0.6));
+        for (const f of archivos) fotos.push(await comprimirFoto(f, API_URL && !MODO_PRUEBA ? 1280 : 480, API_URL && !MODO_PRUEBA ? 0.72 : 0.6));
         const val = k => $(k)?.value.trim() || '';
         const cambio = ok && !!$('lgCambiarDir')?.checked;
         if (cambio && !validarCiudad($('lgDestino'))) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Escoge la ciudad de destino de la lista'); }
@@ -874,8 +874,8 @@ async function guardarLogReporte(e, id, ok) {
         if (reporte.reprogramadaPara && !await confirmarDobleParada(nombreParada(r), reporte.reprogramadaPara, r.id)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
         guardarRegistro({ ...r, ...envio, estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
-            fotos: [...(r.fotos || []), ...(API_URL ? [] : fotos.map(d => ({ data: d })))] });
-        if (API_URL && fotos.length) { const p = leerFotosPend(); p[id] = [...(p[id] || []), ...fotos]; guardarFotosPend(p); subirFotosPend(); }
+            fotos: [...(r.fotos || []), ...(API_URL && !MODO_PRUEBA ? [] : fotos.map(d => ({ data: d })))] });
+        if (API_URL && !MODO_PRUEBA && fotos.length) { const p = leerFotosPend(); p[id] = [...(p[id] || []), ...fotos]; guardarFotosPend(p); subirFotosPend(); }
         // Reprogramada: queda una parada nueva, pendiente, con lo mismo (cliente, tipo, facturas, indicaciones) en la nueva fecha
         if (reporte.reprogramadaPara) {
             const f = reporte.reprogramadaPara, mismo = logRegs().filter(x => x.fecha === f && x.vendedor === r.vendedor);

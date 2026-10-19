@@ -6,6 +6,28 @@
     <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#006b4f">
     <title>Visita Comercial</title>
+    <script>
+        // MODO PRUEBA (dirección con ?prueba): trabaja con los datos reales pero NO guarda nada en el servidor, y lo que se haga
+        // en este teléfono queda aparte de los datos reales (otro espacio de almacenamiento).
+        (function () {
+            if (!/[?&]prueba(=|&|$)/.test(location.search)) return;
+            window.MODO_PRUEBA = true;
+            const real = window.localStorage, P = 'prueba_', propias = () => Object.keys(real).filter(k => k.indexOf(P) === 0);
+            const aparte = { getItem: k => real.getItem(P + k), setItem: (k, v) => real.setItem(P + k, String(v)), removeItem: k => real.removeItem(P + k),
+                clear: () => propias().forEach(k => real.removeItem(k)), key: i => (propias()[i] || '').slice(P.length) || null, get length() { return propias().length; } };
+            try { Object.defineProperty(window, 'localStorage', { value: aparte, configurable: true }); if (window.localStorage !== aparte) throw 0; }
+            catch (e) {   // navegadores que no dejan reemplazar localStorage: se desvían sus métodos
+                const sp = Storage.prototype, g = sp.getItem, s = sp.setItem, r = sp.removeItem;
+                sp.getItem = function (k) { return this === real ? g.call(this, P + k) : g.call(this, k); };
+                sp.setItem = function (k, v) { return this === real ? s.call(this, P + k, v) : s.call(this, k, v); };
+                sp.removeItem = function (k) { return this === real ? r.call(this, P + k) : r.call(this, k); };
+            }
+            document.title = 'PRUEBA · Visita Comercial';
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.insertAdjacentHTML('afterbegin', '<div class="banner-prueba">🧪 MODO PRUEBA · datos reales · nada de lo que hagas queda guardado</div><div class="sello-prueba">PRUEBA</div>');
+            });
+        })();
+    </script>
     <link rel="stylesheet" href="styles.css?v=202610182317">
     <link rel="stylesheet" href="visitas.css?v=202610182317">
 

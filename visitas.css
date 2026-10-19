@@ -2048,3 +2048,7 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .home-btn.home-btn-doc { border-left-color: #ea580c; background: linear-gradient(135deg, #ffffff 60%, #ffedd5 100%); }
 .home-btn.home-btn-doc svg { background: linear-gradient(135deg, #9a3412, #fb923c); }
 .home-btn.home-btn-doc .home-btn-text strong { color: #9a3412; }
+
+/* Modo prueba */
+.banner-prueba { background: #b91c1c; color: #fff; text-align: center; font-weight: 800; font-size: 12.5px; padding: 6px 10px; letter-spacing: .02em; }
+.sello-prueba { position: fixed; top: 4px; left: 50%; transform: translateX(-50%); z-index: 5000; background: #dc2626; color: #fff; font-weight: 800; font-size: 10px; letter-spacing: .12em; padding: 1px 9px; border-radius: 0 0 8px 8px; pointer-events: none; opacity: .9; }
