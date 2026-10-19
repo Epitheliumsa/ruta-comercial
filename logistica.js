@@ -24,15 +24,16 @@ const TIPOS_LOG = {
 // Oficina: lo que se hace allá. Aforar lleva cliente y una o varias facturas; las demás solo se marcan (Otro, con su texto)
 const OFICINA_LOG = [['aforar', 'Aforar'], ['alistamiento', 'Alistamiento'], ['etiquetas', 'Etiquetas'], ['otro', 'Otro']];
 const textoFacAforo = f => `${f.serie || ''} ${f.numero || ''}`.trim();
-const itemsOficina = r => (r.oficina || []).map(k => k === 'aforar' ? `Aforar${(r.facturasAforo || []).length ? ': ' + r.facturasAforo.map(textoFacAforo).join(' · ') : ''}`
+const textoFacAforoLargo = f => `${claseDoc(f.clase)?.t ? claseDoc(f.clase).t + ' · ' : ''}${textoFacAforo(f)}`;
+const itemsOficina = r => (r.oficina || []).map(k => k === 'aforar' ? `Aforar${(r.facturasAforo || []).length ? ': ' + r.facturasAforo.map(textoFacAforoLargo).join(' · ') : ''}`
     : k === 'otro' ? `Otro: ${r.otroOficina || ''}`.trim() : OFICINA_LOG.find(x => x[0] === k)?.[1] || k);
 const BANCOS_LOG = ['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Banco de Occidente', 'Banco Popular', 'AV Villas', 'Scotiabank Colpatria', 'Itaú', 'Banco Caja Social'];
 // Campos de una parada que dejan huella cuando se editan (nombre con el que se muestra el cambio)
 const CAMPOS_HUELLA_LOG = { fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
     proveedor: 'proveedor', oficina: 'lo que se hace en la oficina', facturasAforo: 'facturas a aforar', otroOficina: 'otro', entidad: 'banco', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
-const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
-const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT' };
+const INCLUYE_ENVIO = { pqr_out: 'PQR', rea_out: 'Reacondicionamiento', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
+const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR', rea_out: 'Reacondicionamiento' };
 // Radicación: factura (serie A = OVI o B = OV) con su número, nota crédito (RNC) con su número, u otros (texto)
 const DOCS_RADICACION = [{ k: 'factura', t: 'Factura' }, { k: 'nc', t: 'Nota crédito RNC' }, { k: 'otros', t: 'Otros' }];
 const SERIES_FACTURA = { A: 'OVI', B: 'OV' };   // en pantalla solo se ve la letra
@@ -74,9 +75,27 @@ const ordenLog = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '')
 const CLASES_PEDIDO = [
     { k: 'pt', t: 'Producto Terminado', campos: [['ovi', 'A']] },
     { k: 'mi', t: 'Magistral Individual', campos: [['ovi', 'A'], ['ov', 'B']] },
+    { k: 'mini', t: 'Magistral Individual NI', campos: [['ov', 'B']] },
     { k: 'mp', t: 'Magistral de Pedido', campos: [['ov', 'B']] }
 ];
 const claseDoc = k => CLASES_PEDIDO.find(c => c.k === k);
+// Facturas con selector: A (OVI) para Producto Terminado y Magistral Individual; B (OV) para Magistral Individual NI y Magistral de Pedido
+const OPC_FACTURA = [['pt', 'Producto Terminado', 'A'], ['mi', 'Magistral Individual', 'A'], ['mini', 'Magistral Individual NI', 'B'], ['mp', 'Magistral de Pedido', 'B']];
+const OPC_INCLUYE = Object.entries(INCLUYE_ENVIO).map(([k, t]) => [k, t, '']);
+// Fila de documento: [tipo ▾] [serie] [número]. g = grupo (docs: facturas; aforo: facturas a aforar; inc: PQR, Reacondicionamientos, Devoluciones)
+const filaDoc = (g, f = {}) => {
+    const opc = g === 'inc' ? OPC_INCLUYE : OPC_FACTURA, sel = opc.find(o => o[0] === f.k) || opc[0];
+    return `<div class="lg-fila-doc" data-g="${g}"><label class="lg-pc"><select class="lg-pref lg-serie lg-doc-sel" aria-label="Tipo de documento" onchange="cambiaFilaDoc(this)">${opc.map(([k, t, sr]) => `<option value="${k}" data-s="${sr}"${k === sel[0] ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><span class="lg-pref lg-doc-serie">${sel[2] || 'Nº'}</span><input class="lg-doc-num" ${NUM6} value="${esc(f.numero || '')}"></label><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarFilaDoc(this)" hidden>×</button></div>`;
+};
+const contFilasDoc = g => $('lgFilas_' + g);
+function refrescarFilasDoc(g) { const filas = contFilasDoc(g).querySelectorAll('.lg-fila-doc'); filas.forEach(f => { f.querySelector('.lg-quitar').hidden = filas.length < 2; }); }
+function masFilaDoc(g) { contFilasDoc(g).insertAdjacentHTML('beforeend', filaDoc(g)); refrescarFilasDoc(g); contFilasDoc(g).lastElementChild.querySelector('input').focus(); logCampos(); }
+function quitarFilaDoc(btn) { const f = btn.closest('.lg-fila-doc'), g = f.dataset.g; f.remove(); refrescarFilasDoc(g); logCampos(); }
+function cambiaFilaDoc(sel) { sel.closest('.lg-fila-doc').querySelector('.lg-doc-serie').textContent = sel.selectedOptions[0].dataset.s || 'Nº'; }
+// Filas con número: [{ k, serie, numero }]
+const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: seisCifras(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero);
+// Lo ya guardado (A = OVI, B = OV) pasa a filas; una factura "Magistral Individual" con B se muestra como Magistral Individual NI
+const filasDeDocumentos = docs => (docs || []).flatMap(d => [d.ovi && { k: d.clase === 'mp' ? 'mi' : d.clase, numero: d.ovi }, d.ov && { k: d.clase === 'mi' ? 'mini' : d.clase, numero: d.ov }]).filter(Boolean);
 // Lo que se programó en la parada, uno por uno (cada factura A o B, cada documento que incluye, lo que se radica o se recoge): se marca en el reporte
 const VERBO_LOG = { entrega: 'entregaste', envio: 'enviaste', radicacion: 'radicaste', recoleccion: 'recogiste', oficina: 'hiciste' };
 function itemsProgramados(r) {
@@ -321,7 +340,7 @@ function abrirLogForm(id) {
     const docs = k => (r?.documentos || []).filter(d => d.clase === k);
     const rads = k => (r?.radicacion || []).filter(d => d.doc === k);
     const rad = k => rads(k)[0];
-    abrirModal(`<form class="form-rc" onsubmit="guardarLog(event, '${id || ''}')">
+    abrirModal(`<form class="form-rc" onsubmit="guardarLog(event, '${id || ''}')" oninput="if (event.target.closest('.lg-fila-doc')) logCampos()">
         <h2>${r ? 'Editar parada' : 'Programar parada'}</h2>
         <div class="fila-fecha lg-fila-fecha">
             <div><label for="lgFecha">Fecha ${REQ}</label><input type="date" id="lgFecha" required min="${r && r.fecha < hoy() ? r.fecha : hoy()}" data-min="${r && r.fecha < hoy() ? r.fecha : hoy()}" value="${esc(r?.fecha || logi.fecha || hoy())}"></div>
@@ -359,9 +378,9 @@ function abrirLogForm(id) {
             <p class="ayuda lg-otro-nota" id="lgOtroProv" hidden>🆕 <b>Otros:</b> este proveedor no está en la Maestra. Escribe su dirección y su teléfono; la parada queda marcada como "Otros".</p><datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
         </div>
         <div id="lgOfAforar" hidden>
-            <label>Facturas a aforar ${REQ} <small>(puede ser más de una)</small></label>
-            <div id="lgOfFacs">${((r?.facturasAforo || []).length ? r.facturasAforo : [{}]).map(f => filaOfFac(f)).join('')}</div>
-            <button type="button" class="link-mini lg-mas" onclick="agregarOfFac()">+ Otra factura</button>
+            <label>Facturas a aforar ${REQ} <small>(escoge el tipo; puede ser más de una)</small></label>
+            <div id="lgFilas_aforo">${((r?.facturasAforo || []).length ? r.facturasAforo.map(f => ({ k: f.clase, numero: f.numero })) : [{}]).map(f => filaDoc('aforo', f)).join('')}</div>
+            <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('aforo')">+ Otra factura</button>
         </div>
         <div id="lgOfOtro" hidden><label for="lgOfOtroTxt">Otro: ¿qué se hace en la oficina? ${REQ}</label><input id="lgOfOtroTxt" maxlength="100" autocomplete="off" value="${esc(r?.otroOficina || '')}"></div>
         <div id="lgBDirTel"><label for="lgDir">Dirección <small>(sale sola con el <span id="lgQuienDir">cliente</span>; puedes cambiarla)</small></label>
@@ -369,24 +388,14 @@ function abrirLogForm(id) {
         <label for="lgTel">Teléfono <small>(sale solo con el <span id="lgQuienTel">cliente</span>; puedes cambiarlo)</small></label>
         <input id="lgTel" type="tel" autocomplete="off" maxlength="40" value="${esc(r?.telefono || '')}" oninput="this.dataset.auto = ''"></div>
         <div id="lgBDocs">
-            <label>Factura <span id="lgReqDoc">${REQ}</span> <small>(marca qué llevas)</small></label>
-            <div class="lg-pedidos">${CLASES_PEDIDO.map(c => `<div class="lg-pedido" data-k="${c.k}">
-                <label class="lg-pchk"><input type="checkbox"${docs(c.k).length ? ' checked' : ''} onchange="logCampos()"><span>${esc(c.t)}</span></label>
-                <div class="lg-pcampos">${c.campos.map(([f, t]) => {
-                    // A y B son facturas independientes: cada una tiene sus casillas y su "+ Otra factura"
-                    const valores = docs(c.k).map(d => d[f]).filter(Boolean);
-                    return `<div class="lg-pgrupo">${(valores.length ? valores : ['']).map(v => `<div class="lg-pset"><label class="lg-pc"><span class="lg-pref">${t}</span><input data-f="${f}" ${NUM6} value="${esc(v)}"></label><button type="button" class="lg-quitar" title="Quitar esta factura" aria-label="Quitar esta factura" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra factura ${t}</button></div>`;
-                }).join('')}</div>
-            </div>`).join('')}</div>
+            <label>Factura <span id="lgReqDoc">${REQ}</span> <small>(escoge el tipo y escribe el número; puedes agregar varias)</small></label>
+            <div id="lgFilas_docs">${(filasDeDocumentos(r?.documentos).length ? filasDeDocumentos(r.documentos) : [{}]).map(f => filaDoc('docs', f)).join('')}</div>
+            <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('docs')">+ Otra factura</button>
         </div>
         <div id="lgBIncluyeEnvio">
-            <label><span id="lgTitInc">Este envío también incluye</span> <small>(opcional: marca y escribe el número del documento; puedes agregar varios)</small></label>
-            <div class="lg-pedidos">${Object.entries(INCLUYE_ENVIO).map(([k, t]) => {
-                const nums = (r?.incluyeDocs || []).filter(d => d.k === k).map(d => d.numero);
-                return `<div class="lg-pedido" data-k="${k}">
-                <label class="lg-pchk"><input type="checkbox"${r?.incluye?.includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${esc(t)}</span></label>
-                <div class="lg-pcampos"><div class="lg-pgrupo">${(nums.length ? nums : ['']).map(v => `<div class="lg-pset"><label class="lg-pc"><span class="lg-pref">Nº</span><input data-f="numero" ${NUM6} value="${esc(v)}"></label><button type="button" class="lg-quitar" title="Quitar este documento" aria-label="Quitar este documento" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otro ${esc(t)}</button></div></div>
-            </div>`; }).join('')}</div>
+            <label><span id="lgTitInc">PQR - Reacondicionamientos - Devoluciones</span> <small>(opcional: escoge el tipo y escribe el número del documento; puedes agregar varios)</small></label>
+            <div id="lgFilas_inc">${((r?.incluyeDocs || []).length ? r.incluyeDocs : [{}]).map(f => filaDoc('inc', f)).join('')}</div>
+            <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('inc')">+ Otro documento</button>
         </div>
         <div id="lgBRecol">
             <label>Qué se recoge</label>
@@ -433,11 +442,6 @@ function abrirLogForm(id) {
 const radMarcada = () => !!$('lgRadChk')?.checked;
 // La radicación puede ser a un proveedor (salvo en entrega y envío, que siempre llevan cliente)
 const radAProv = () => radMarcada() && !['entrega', 'envio'].includes(tipoMarcado()) && document.querySelector('input[name=lgRadA]:checked')?.value === 'proveedor';
-// Cada factura a aforar lleva su serie (A = OVI o B = OV) y su número de 6 cifras, como en el resto de Logística
-const filaOfFac = (f = {}) => `<div class="lg-of-fila"><label class="lg-pc"><select class="lg-pref lg-serie lg-of-serie" aria-label="Serie de la factura">${Object.keys(SERIES_FACTURA).map(sr => `<option value="${sr}"${f.serie === sr ? ' selected' : ''}>${sr}</option>`).join('')}</select><input class="lg-of-fac" ${NUM6} value="${esc(f.numero || '')}"></label></div>`;
-function agregarOfFac() {
-    $('lgOfFacs').insertAdjacentHTML('beforeend', filaOfFac()); $('lgOfFacs').lastElementChild.querySelector('input').focus();
-}
 const tipoMarcado = () => document.querySelector('input[name=lgTipo]:checked')?.value || (radMarcada() ? 'radicacion' : '');
 // Tocar otra vez el tipo marcado lo desmarca (para dejar solo la radicación)
 function tipoClick(el) {
@@ -445,7 +449,7 @@ function tipoClick(el) {
     document.querySelectorAll('input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
     logCampos();
 }
-const incluyeMarcado = () => [...document.querySelectorAll('#lgBIncluyeEnvio .lg-pedido')].filter(f => f.querySelector('.lg-pchk input').checked).map(f => f.dataset.k);
+const incluyeMarcado = () => [...new Set(filasDoc('inc').map(x => x.k))];
 // Muestra solo los campos del tipo de parada escogido
 function logCampos() {
     document.querySelectorAll('input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
@@ -455,7 +459,7 @@ function logCampos() {
     if (nv) {   // Novedad del mensajero: solo fechas, horas (cita y permiso) y el detalle
         $('lgRadChk').checked = false;
         ['lgBRadA', 'lgBIncluyeEnvio', 'lgBCli', 'lgBProv', 'lgBDocs', 'lgBRad', 'lgBRecol', 'lgBVuelta', 'lgBOficina', 'lgOfAforar', 'lgOfOtro', 'lgBDirTel', 'lgBBanco'].forEach(id => { $(id).hidden = true; });
-        document.querySelectorAll('.lg-of-fac').forEach(i => { i.required = false; }); $('lgOfOtroTxt').required = false;
+        document.querySelectorAll('.lg-doc-num').forEach(i => { i.required = false; }); $('lgOfOtroTxt').required = false;
         ['lgCliente', 'lgProv', 'lgBanco', 'lgDir', 'lgTel'].forEach(id => { $(id).required = false; });
         document.querySelectorAll('.lg-pcampos input').forEach(i => { i.required = false; });
         const rango = ['Vacaciones', 'Incapacidad', 'Permiso'].includes(nv), horas = ['Cita médica', 'Permiso'].includes(nv), porHoras = horas && !$('lgDiaCompleto').checked;
@@ -471,13 +475,12 @@ function logCampos() {
     const tp = TIPOS_LOG[k] || {}, conRad = radMarcada();
     const ofSel = tp.oficina ? [...document.querySelectorAll('#lgOfChips input:checked')].map(i => i.value) : [], aforar = ofSel.includes('aforar');
     $('lgBOficina').hidden = !tp.oficina; $('lgOfAforar').hidden = !aforar; $('lgOfOtro').hidden = !ofSel.includes('otro');
-    document.querySelectorAll('.lg-of-fac').forEach((i, n) => { i.required = aforar && n === 0; }); $('lgOfOtroTxt').required = ofSel.includes('otro');
+    $('lgOfOtroTxt').required = ofSel.includes('otro');
     $('lgReqCli').innerHTML = tp.cliente || conRad || aforar ? REQ : '<small>(si aplica)</small>';
     const aProv = radAProv(), conProv = !!tp.recoleccion || aProv;
     $('lgBRadA').hidden = !conRad || k === 'entrega' || k === 'envio';
     $('lgCliente').required = (!!(tp.cliente || conRad) || aforar) && !aProv;
     $('lgBIncluyeEnvio').hidden = k !== 'entrega' && k !== 'envio';
-    $('lgTitInc').textContent = k === 'entrega' ? 'Esta entrega también incluye' : 'Este envío también incluye';
     // Proveedor: en vez del cliente va el proveedor; Trámite área: el cliente se llama contacto
     $('lgBCli').hidden = aProv || ((!!tp.recoleccion || !!tp.banco) && !conRad) || (!!tp.oficina && !aforar && !conRad);
     $('lgBProv').hidden = !conProv;
@@ -488,6 +491,8 @@ function logCampos() {
     // En la entrega, los pedidos son obligatorios salvo que solo se vaya a recoger una devolución o una PQR
     const docsObl = (k === 'envio' || k === 'entrega') && !incluyeMarcado().length;
     $('lgReqDoc').innerHTML = docsObl ? REQ : '<small>(opcional)</small>';
+    // Solo el primer número de cada grupo puede ser obligatorio (facturas, si no hay nada más; aforar, si está marcado)
+    ['docs', 'aforo', 'inc'].forEach(g => { contFilasDoc(g).querySelectorAll('.lg-doc-num').forEach((i, n) => { i.required = n === 0 && (g === 'docs' ? !$('lgBDocs').hidden && docsObl : g === 'aforo' ? aforar : false); }); refrescarFilasDoc(g); });
     $('lgBRad').hidden = !conRad || aProv;
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = conProv; logInfoProv();
     $('lgBVuelta').hidden = !tp.vuelta;
@@ -593,33 +598,29 @@ async function guardarLog(e, id) {
     const errFecha = errorFechaLog(fecha, vendedor, antes?.id || '', !!antes && antes.fecha === fecha && antes.vendedor === vendedor);
     if (errFecha) return toast(errFecha);
     if (!(antes && antes.fecha === fecha) && !await confirmarDiaLog(fecha, vendedor)) return;
-    const incluye = tipo === 'entrega' || tipo === 'envio' ? incluyeMarcado() : [];   // lo que también va: PQR/OUT, REA/OUT, Devolución
-    // Cada línea marcada puede tener varias facturas (una por bloque); los bloques vacíos de más se ignoran
+    // Facturas y documentos que también van: una fila por documento (tipo + número); las filas vacías se ignoran
     const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).flatMap(f => {
-        const sets = [...f.querySelectorAll('.lg-pset')], bloques = sets.length ? sets : [f.querySelector('.lg-pcampos')];   // un bloque por factura
+        const sets = [...f.querySelectorAll('.lg-pset')], bloques = sets.length ? sets : [f.querySelector('.lg-pcampos')];   // un bloque por documento
         const lista = bloques.map(b => { const d = {}; b.querySelectorAll('[data-f]').forEach(i => { d[i.dataset.f] = ['ov', 'ovi', 'numero'].includes(i.dataset.f) ? seisCifras(i.value) : i.value.trim(); }); return { k: f.dataset.k, d }; });
         const llenos = lista.filter(x => Object.entries(x.d).some(([c, v]) => c !== 'serie' && v));
         return llenos.length ? llenos : lista.slice(0, 1);
     });
-    const documentos = tp.docs ? leer('#lgBDocs .lg-pedido').map(({ k, d }) => ({ clase: k, ...d })) : [];
+    const documentos = tp.docs ? filasDoc('docs').map(x => ({ clase: x.k, [x.serie === 'A' ? 'ovi' : 'ov']: x.numero })) : [];
     const radicacion = conRad && !radAProv() ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
-    // Entrega o envío: número(s) de cada documento que también va (PQR/OUT, REA/OUT, Devolución)
-    const incluyeDocs = incluye.length ? leer('#lgBIncluyeEnvio .lg-pedido').map(({ k, d }) => ({ k, numero: d.numero })).filter(d => d.numero) : [];
-    const sinNumeroInc = incluye.find(k => !incluyeDocs.some(d => d.k === k));
-    if (sinNumeroInc) return toast(`${INCLUYE_ENVIO[sinNumeroInc]}: escribe el número del documento`);
+    // Entrega o envío: PQR, Reacondicionamientos y Devoluciones que también van, cada uno con su número
+    const incluyeDocs = tipo === 'entrega' || tipo === 'envio' ? filasDoc('inc').map(x => ({ k: x.k, numero: x.numero })) : [];
+    const incluye = [...new Set(incluyeDocs.map(d => d.k))];
     // Una misma factura no se repite dentro de la parada
-    const claves = [...documentos.flatMap(d => [d.ov && `B ${d.clase} ${d.ov}`, d.ovi && `A ${d.clase} ${d.ovi}`]), ...incluyeDocs.map(d => `${d.k} ${d.numero}`), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
+    const claves = [...documentos.flatMap(d => [d.ov && `B ${d.ov}`, d.ovi && `A ${d.ovi}`]), ...incluyeDocs.map(d => `${d.k} ${d.numero}`), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
     const repetida = claves.find((x, i) => claves.indexOf(x) !== i);
     if (repetida) return toast('Hay una factura repetida en la parada: revisa los números');
-    const sinNumero = documentos.find(d => !d.ov && !d.ovi);
-    if (sinNumero) return toast(`${claseDoc(sinNumero.clase)?.t}: escribe al menos la factura A o la B`);
     if ((tipo === 'envio' || tipo === 'entrega') && !incluye.length && !documentos.length) return toast('Marca qué pedido llevas y escribe sus números');
     if (conRad && !radAProv() && !radicacion.length) return toast('Marca qué se radica: factura, nota crédito u otros');
     if (radicacion.some(d => d.doc !== 'otros' ? !d.numero : !d.texto)) return toast('Escribe el número (o el documento) de lo que se radica');
     // Oficina: qué se hace (Aforar pide cliente y facturas; Otro, el texto)
     const oficina = tp.oficina ? [...document.querySelectorAll('#lgOfChips input:checked')].map(i => i.value) : [];
     if (tp.oficina && !oficina.length) return toast('Marca qué se hace en la oficina: Aforar, Alistamiento, Etiquetas u Otro');
-    const facturasAforo = oficina.includes('aforar') ? [...document.querySelectorAll('.lg-of-fila')].map(f => ({ serie: f.querySelector('.lg-of-serie').value, numero: seisCifras(f.querySelector('.lg-of-fac').value) })).filter(f => f.numero) : [];
+    const facturasAforo = oficina.includes('aforar') ? filasDoc('aforo').map(x => ({ clase: x.k, serie: x.serie, numero: x.numero })) : [];
     if (oficina.includes('aforar') && !$('lgCliente').value.trim()) return toast('Aforar: escoge el cliente');
     if (oficina.includes('aforar') && !facturasAforo.length) return toast('Aforar: escribe el número de la factura');
     if (new Set(facturasAforo.map(textoFacAforo)).size !== facturasAforo.length) return toast('Hay una factura repetida en Aforar: revisa los números');
@@ -1180,7 +1181,7 @@ function armarLibroLog(regs, mes, mens) {
         const docs = [...(r.documentos || []).map(d => ({ doc: claseDoc(d.clase)?.t || '', ov: d.ov, ovi: d.ovi })),
             ...(r.radicacion || []).map(d => d.doc === 'factura' ? { doc: `Radicar factura ${d.serie}`, [d.serie === 'A' ? 'ovi' : 'ov']: d.numero }
                 : d.doc === 'nc' ? { doc: 'Radicar nota crédito RNC', otro: d.numero } : { doc: 'Radicar otros', otro: d.texto }),
-            ...(r.tipo === 'oficina' ? (r.oficina || []).flatMap(k => k === 'aforar' ? (r.facturasAforo || []).map(f => ({ doc: 'Aforar', [f.serie === 'A' ? 'ovi' : 'ov']: f.numero })) : k === 'otro' ? [{ doc: 'Otro (oficina)', otro: r.otroOficina || '' }] : [{ doc: OFICINA_LOG.find(x => x[0] === k)?.[1] || k }]) : [])];
+            ...(r.tipo === 'oficina' ? (r.oficina || []).flatMap(k => k === 'aforar' ? (r.facturasAforo || []).map(f => ({ doc: `Aforar${claseDoc(f.clase)?.t ? ' · ' + claseDoc(f.clase).t : ''}`, [f.serie === 'A' ? 'ovi' : 'ov']: f.numero })) : k === 'otro' ? [{ doc: 'Otro (oficina)', otro: r.otroOficina || '' }] : [{ doc: OFICINA_LOG.find(x => x[0] === k)?.[1] || k }]) : [])];
         if (!docs.length) docs.push({ doc: '' });
         const fotos = (r.fotos || []).map(f => f.url).filter(Boolean);
         docs.forEach((d, i) => filas.push([

@@ -2022,3 +2022,8 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-tipo.oficina { background: #ede9fe; color: #5b21b6; }
 .lg-of-fila { margin: 4px 0; }
 .lg-of-fila input { max-width: 180px; }
+
+.form-rc .lg-pc select.lg-doc-sel { min-width: 200px; max-width: 60%; }
+.lg-fila-doc { display: flex; align-items: stretch; gap: 6px; margin: 6px 0; }
+.lg-fila-doc .lg-pc { flex: 1; }
+.lg-doc-serie { min-width: 38px; }
