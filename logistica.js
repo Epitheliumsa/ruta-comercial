@@ -325,8 +325,10 @@ function abrirLogForm(id) {
         <div class="lg-chips" id="lgTipos">${Object.entries(TIPOS_LOG).filter(([k]) => k !== 'radicacion').map(([k, v]) => `<label class="lg-chip"><input type="radio" name="lgTipo" value="${k}"${r?.tipo === k ? ' checked' : ''} onclick="tipoClick(this)"><span>${esc(v.t)}</span></label>`).join('')}
             <label class="lg-chip lg-chip-rad"><input type="checkbox" id="lgRadChk"${r && conRadicacion(r) ? ' checked' : ''} onchange="logCampos()"><span>${esc(TIPOS_LOG.radicacion.t)}</span></label></div>
         <p class="ayuda">Escoge uno. La radicación de documentos puede ir sola o sumarse a cualquier otro.</p>
-        <label>Novedades <small>(del mensajero)</small></label>
+        <details class="lg-grafico lg-novs-sel" id="lgNovDet"${r?.tipo === 'novedad' ? ' open' : ''}>
+        <summary>🗓 Novedades <small>(del mensajero: cita médica, incapacidad, permiso, vacaciones)</small></summary>
         <div class="lg-chips" id="lgNovs">${NOVEDADES_LOG.map(n => `<label class="lg-chip"><input type="radio" name="lgTipo" value="nov:${esc(n)}"${r?.tipo === 'novedad' && r.novedad === n ? ' checked' : ''} onclick="tipoClick(this)"><span>${ICONO_NOV[n]} ${esc(n)}</span></label>`).join('')}</div>
+        </details>
         <div id="lgBVuelta">
             <label for="lgArea">Área ${REQ}</label>
             <select id="lgArea">${AREAS_LOG.map(a => `<option${r?.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>
