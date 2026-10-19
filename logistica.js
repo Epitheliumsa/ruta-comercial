@@ -1267,3 +1267,75 @@ function armarLibroLog(regs, mes, mens) {
     r.getCell(sig + 9, 1).font = { italic: true, size: 9, color: { argb: 'FF777777' } };
     return libro;
 }
+
+// ---------- CONSULTAR POR DOCUMENTO ----------
+// Busca un número de documento (pedido de una visita, factura A o B, PQR/OUT, REA/OUT, devolución, aforo, radicación) en todo lo cargado:
+// paradas de Logística y pedidos de las visitas. Con conexión trae antes los últimos 12 meses.
+const TIPOS_CONSULTA = [['', 'Todos los documentos'], ['pedido', 'Pedido (visita comercial)'], ['facA', 'Factura A (OVI)'], ['facB', 'Factura B (OV)'], ['pqr', 'PQR/OUT'], ['rea', 'REA/OUT'], ['dev', 'Devolución'], ['aforo', 'Aforar'], ['rad', 'Radicación']];
+const consultaDoc = { q: '', tipo: '', cargado: false, buscando: false };
+function documentosDeParada(r) {
+    const nom = d => claseDoc(d.clase)?.t || 'Pedido';
+    return [
+        ...(r.documentos || []).flatMap(d => [d.ovi && { t: 'facA', txt: `${nom(d)} · A ${d.ovi}`, num: d.ovi }, d.ov && { t: 'facB', txt: `${nom(d)} · B ${d.ov}`, num: d.ov }]),
+        ...(r.incluyeDocs || []).map(d => ({ t: d.k === 'pqr_out' || d.k === 'pqr' ? 'pqr' : d.k === 'rea_out' ? 'rea' : 'dev', txt: textoInc(d), num: d.numero })),
+        ...(r.facturasAforo || []).map(f => ({ t: 'aforo', txt: `Aforar · ${textoFacAforoLargo(f)}`, num: f.numero })),
+        ...(r.radicacion || []).map(d => ({ t: 'rad', txt: textoRad(d), num: d.numero || '', texto: d.texto || '' })),
+        ...(r.reporte?.devoluciones || []).map(d => ({ t: 'dev', txt: textoDev(d), num: String(d.factura || '').replace(/\D/g, '').slice(-6) }))
+    ].filter(Boolean);
+}
+function buscarDocumento(q, tipo) {
+    const dig = String(q || '').replace(/\D/g, ''), letras = /[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(q), texto = normalizar(q);
+    const coincide = d => (dig && String(d.num || '').replace(/\D/g, '').includes(dig)) || (letras && normalizar(`${d.txt} ${d.texto || ''}`).includes(texto));
+    const res = [];
+    logVisibles().forEach(r => { const docs = documentosDeParada(r).filter(d => (!tipo || d.t === tipo) && coincide(d)); if (docs.length) res.push({ fuente: 'log', r, docs, fecha: r.fecha }); });
+    if (!tipo || tipo === 'pedido') visibles().filter(v => v.clase === 'visita' && (v.pedidos || []).length).forEach(v => {
+        const docs = v.pedidos.filter(p => p.num).map(p => ({ t: 'pedido', txt: `${p.cat} ${p.num}`, num: p.num })).filter(coincide);
+        if (docs.length) res.push({ fuente: 'visita', r: v, docs, fecha: v.fecha });
+    });
+    return res.sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+const resaltarDoc = (txt, q) => { const dig = String(q || '').replace(/\D/g, ''); const t = esc(txt); return dig ? t.replace(new RegExp(`(${dig.split('').join('\\s*')})`), '<mark>$1</mark>') : t; };
+function tarjetaConsulta({ fuente, r, docs }, q) {
+    const docsHtml = docs.map(d => `<span class="lg-doc-chip">${resaltarDoc(d.txt, q)}</span>`).join('');
+    if (fuente === 'visita') return `<div class="cd-item"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b><span class="chip p">🤝 Visita · ${esc(r.estado === 'visitado' ? 'Visitada' : r.estado === 'pendiente' ? 'Pendiente' : 'No visitada')}</span></div>
+        <p><b>${esc(r.contacto || '')}</b> · ${esc(nombreVendedor(r.vendedor))}</p><div class="lg-docs">${docsHtml}</div>
+        <button type="button" class="link-mini" onclick="irAVisita('${r.id}')">Ver la visita</button></div>`;
+    const rp = r.reporte || {}, fotos = (r.fotos || []).slice(0, 3).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
+    return `<div class="cd-item"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b>${chipEstadoLog(r)}</div>
+        <p><b>${esc(tituloLog(r))}</b> · ${esc(TIPOS_LOG[r.tipo]?.corto || '')} · ${esc(nombreVendedor(r.vendedor))}</p><div class="lg-docs">${docsHtml}</div>
+        ${r.estado === 'entregado' ? `<p class="meta">${esc(okTxt(r))}${r.registrada ? ' a las ' + esc(horaLog(r.registrada)) : ''}${rp.recibio ? ' · ' + esc(TIPOS_LOG[r.tipo]?.rec || 'Recibió') + ': ' + esc(rp.recibio) : ''}${(rp.devoluciones || []).length ? ' · ' + esc(rp.devoluciones.map(textoDev).join(' | ')) : ''}</p>`
+            : r.estado === 'no_entregado' ? `<p class="meta">${esc(noTxt(r))}${rp.motivo ? ' · ' + esc(rp.motivo) : ''}</p>` : ''}
+        ${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}<button type="button" class="link-mini" onclick="cerrarModal(); logElegir('${r.fecha}')">Ver ese día</button></div>`;
+}
+function pintarConsultaDoc() {
+    const caja = $('cdResultados'); if (!caja) return;
+    const q = consultaDoc.q.trim();
+    if (consultaDoc.buscando) { caja.innerHTML = '<p class="ayuda">Buscando en los últimos 12 meses…</p>'; return; }
+    if (!q) { caja.innerHTML = '<p class="ayuda">Escribe el número (o parte del número) del documento.</p>'; return; }
+    const dig = q.replace(/\D/g, '');
+    if (dig.length < 3 && !/[a-zA-Z]/.test(q)) { caja.innerHTML = '<p class="ayuda">Escribe al menos 3 cifras.</p>'; return; }
+    const res = buscarDocumento(q, consultaDoc.tipo);
+    caja.innerHTML = `<p class="ayuda"><b>${res.length}</b> ${res.length === 1 ? 'resultado' : 'resultados'}</p>` + (res.length ? res.slice(0, 60).map(x => tarjetaConsulta(x, q)).join('') + (res.length > 60 ? '<p class="ayuda">Se muestran los 60 más recientes: afina el número.</p>' : '') : '<div class="no-results">No encontré ese documento en lo cargado.</div>');
+}
+async function buscarConsultaDoc() {
+    consultaDoc.q = $('cdNum').value; consultaDoc.tipo = $('cdTipo').value;
+    if (API_URL && !consultaDoc.cargado) {
+        consultaDoc.buscando = true; pintarConsultaDoc();
+        try { const m = mesDe(hoy()); await sincronizar(m, { desde: sumarMes(m, -12) + '-01', hasta: finDeMes(sumarMes(m, 1)) }); consultaDoc.cargado = true; } catch (e) { /* se busca en lo que ya hay */ }
+        consultaDoc.buscando = false;
+    }
+    pintarConsultaDoc();
+}
+function abrirConsultaDoc() {
+    abrirModal(`<form class="form-rc" onsubmit="event.preventDefault(); buscarConsultaDoc()">
+        <h2>🔎 Consultar documento</h2>
+        <p class="sub">Pedido, factura, PQR/OUT, REA/OUT, devolución, aforo o radicación: encuentra dónde está, su estado y quién lo recibió.</p>
+        <label for="cdTipo">Tipo de documento</label>
+        <select id="cdTipo">${TIPOS_CONSULTA.map(([k, t]) => `<option value="${k}"${consultaDoc.tipo === k ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>
+        <label for="cdNum">Número</label>
+        <input id="cdNum" type="search" autocomplete="off" inputmode="search" placeholder="Ej: 005498" value="${esc(consultaDoc.q)}">
+        <div class="form-botones"><button type="button" class="btn-secundario" onclick="cerrarModal()">Cerrar</button><button class="btn-primario">Buscar</button></div>
+        <div id="cdResultados"></div>
+    </form>`);
+    pintarConsultaDoc(); $('cdNum').focus();
+}

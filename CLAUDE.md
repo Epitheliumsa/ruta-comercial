@@ -243,6 +243,15 @@
   (estado, hora del reporte en hora de Colombia, quién recibió, guía, novedades, enlaces de las fotos, correcciones) y hoja "Resumen"
   por mensajero y por tipo. Sin líneas de cuadrícula.
 
+### Logística: novedades, Oficina, facturas con selector, devoluciones y consulta por documento
+- **Reglas de fecha** (`errorFechaLog`, `confirmarDiaLog`): no a días pasados, no hoy después de las 6 p. m. (hora de Bogotá), aviso con confirmación en domingos, festivos y cuando el mensajero tiene una novedad ese día.
+- **Novedades** del mensajero (Cita médica, Incapacidad, Permiso, Vacaciones): se guardan como registros `clase: 'logistica'` con `tipo: 'novedad'` (así el servidor no cambia); `logRegs()` las excluye de anillos, gráfico y Excel; `novLogRegs()` las trae. Salen en un panel que se esconde.
+- **Oficina** (`tipo: 'oficina'`): Aforar (cliente + facturas con tipo y serie), Alistamiento, Etiquetas, Otro (texto). Sin dirección ni teléfono.
+- **Facturas con selector** (`filaDoc`, `OPC_FACTURA`): serie A (OVI) = Producto Terminado y Magistral Individual; serie B (OV) = Magistral Individual NI y Magistral de Pedido. Mismo selector en Aforar y en el pedido de Colocación de Comercial (`filaPedido` en `app.js`). El bloque "PQR - Reacondicionamientos - Devoluciones" usa PQR/OUT, REA/OUT y Devolución.
+- **Proveedor / contacto "Otros"**: no está en la Maestra → dirección y teléfono obligatorios y etiqueta Otros. Los leads salen en la lista de clientes.
+- **Foto obligatoria** al reportar; **segundo intento** (`intento`) y alerta de **reincidencia** (2 o más no efectivas en 30 días); **devolución** total o parcial de una factura (`reporte.devoluciones`).
+- **Consultar documento** (`abrirConsultaDoc`): busca un número en paradas de Logística y en los pedidos de las visitas; con conexión trae antes los últimos 12 meses.
+
 ## Visiplan: Reprogramar / Ignorar y Maestro Medico-Cliente
 - En la agenda, cada tarjeta "Planeada" del Visiplan (por confirmar o cerrada) tiene dos botones además de Confirmar: **Reprogramar**
   (elige nueva fecha, abre el formulario de programar y la visita pasa a ser una visita normal de ese día) e **Ignorar** (sale de la agenda).
