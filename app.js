@@ -4248,7 +4248,10 @@ const nombreProducto = c => productoPorCodigo[c] ? `[${c}] ${productoPorCodigo[c
 // Pedido: sale solo si en Colocación se cumplió Producto Terminado, Magistral Individual o Magistral de Pedido.
 // El número de pedido lleva prefijo A (Producto Terminado), B (Magistral de Pedido) o A/B (Magistral Individual).
 // Magistral Individual puede llevar dos pedidos en la misma visita: uno OV y otro OVI (basta con uno)
-const PEDIDO_CATS = { 'Producto Terminado': ['OVI'], 'Magistral Individual': ['OV', 'OVI'], 'Magistral de Pedido': ['OV'] };
+// Estructura de selector (igual que en Logística): se escoge el tipo y la serie sale sola: A (OVI) para Producto Terminado y
+// Magistral Individual; B (OV) para Magistral Individual NI y Magistral de Pedido
+const PEDIDO_CATS = { 'Producto Terminado': ['OVI'], 'Magistral Individual': ['OVI'], 'Magistral Individual NI': ['OV'], 'Magistral de Pedido': ['OV'] };
+const SERIE_PEDIDO = { OVI: 'A', OV: 'B' };
 // Los pedidos tienen 6 cifras: se escriben solo los números y se completan con ceros a la izquierda (123 → 000123)
 const DIGITOS_PEDIDO = 6;
 const cifrasPedido = t => { const d = String(t || '').replace(/\D/g, '').slice(-DIGITOS_PEDIDO); return d ? d.padStart(DIGITOS_PEDIDO, '0') : ''; };
@@ -4357,17 +4360,16 @@ function leerMuestras() {
     return r;
 }
 const textoMuestras = m => Object.entries(m || {}).filter(([, l]) => l.length).map(([t, l]) => `${t}: ${l.map(x => `${nombreProducto(x.c)} x${x.q}`).join(', ')}`).join(' · ');
-// Una casilla de número de pedido (6 cifras) con su prefijo; la × quita las casillas de más
-const filaPedidoNum = (cat, pref, dig = '', quitar = false) => `<div class="p-num"><span class="p-pref">${pref}</span>
-    <input class="n-pedido" data-cat="${esc(cat)}" data-pref="${pref}" inputmode="numeric" maxlength="${DIGITOS_PEDIDO}" placeholder="000000" autocomplete="off" value="${esc(dig)}"
-        oninput="this.value = this.value.replace(/\\D/g, '')" onblur="this.value = cifrasPedido(this.value)"><button type="button" class="p-quitar" title="Quitar este pedido" aria-label="Quitar este pedido" onclick="quitarPedidoNum(this)"${quitar ? '' : ' hidden'}>×</button></div>`;
-const refrescarPedidoGrupo = g => { const filas = g.querySelectorAll('.p-num'); filas.forEach(f => { f.querySelector('.p-quitar').hidden = filas.length < 2; }); };
-function masPedidoNum(btn) {
-    const g = btn.parentElement, nueva = g.querySelector('.p-num').cloneNode(true);
-    nueva.querySelector('input').value = '';
-    g.insertBefore(nueva, btn); refrescarPedidoGrupo(g); nueva.querySelector('input').focus();
-}
-function quitarPedidoNum(btn) { const g = btn.closest('.p-grupo'); btn.closest('.p-num').remove(); refrescarPedidoGrupo(g); }
+// Una fila de pedido: [tipo ▾] [serie] [número de 6 cifras]; la × quita las filas de más
+const filaPedido = (cat = 'Producto Terminado', dig = '', quitar = false) => `<div class="p-num ped-fila"><select class="p-pref p-cat-sel" aria-label="Tipo de pedido" onchange="cambiaPedidoCat(this)">${Object.keys(PEDIDO_CATS).map(c => `<option${c === cat ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select><span class="p-pref p-serie">${SERIE_PEDIDO[PEDIDO_CATS[cat][0]]}</span>
+    <input class="n-pedido" inputmode="numeric" maxlength="${DIGITOS_PEDIDO}" placeholder="000000" autocomplete="off" value="${esc(dig)}"
+        oninput="this.value = this.value.replace(/\\D/g, '')" onblur="this.value = cifrasPedido(this.value)"><button type="button" class="p-quitar" title="Quitar este pedido" aria-label="Quitar este pedido" onclick="quitarPedido(this)"${quitar ? '' : ' hidden'}>×</button></div>`;
+const refrescarPedidos = () => { const filas = document.querySelectorAll('#pedFilas .ped-fila'); filas.forEach(f => { f.querySelector('.p-quitar').hidden = filas.length < 2; }); };
+function masPedido() { $('pedFilas').insertAdjacentHTML('beforeend', filaPedido()); $('cajaPedido').dataset.tocada = 1; refrescarPedidos(); $('pedFilas').lastElementChild.querySelector('input').focus(); }
+function quitarPedido(btn) { btn.closest('.ped-fila').remove(); $('cajaPedido').dataset.tocada = 1; refrescarPedidos(); }
+function cambiaPedidoCat(sel) { sel.closest('.ped-fila').querySelector('.p-serie').textContent = SERIE_PEDIDO[PEDIDO_CATS[sel.value][0]]; $('cajaPedido').dataset.tocada = 1; }
+// Lo guardado pasa a filas (un pedido "Magistral Individual" con OV se muestra como Magistral Individual NI)
+const filasDePedidos = ped => (ped || []).map(p => { const { pre, dig } = partesPedido(p.num); return { cat: p.cat === 'Magistral Individual' && pre === 'OV' ? 'Magistral Individual NI' : p.cat, dig }; });
 const textoPedidos = v => (v.pedidos || []).map(p => `${p.cat} ${p.num || '(sin número)'}`).join(' · ');
 
 // Muestra u oculta pedido, productos pedidos y muestras según lo que se marca en los objetivos cumplidos
@@ -4378,14 +4380,13 @@ function actualizarCierreVisita() {
     // Pedido: sale al marcar Colocación. Se elige la categoría del pedido (las subcategorías marcadas vienen elegidas)
     const conColocacion = objs.includes('Colocación');
     $('cajaPedido').hidden = !conColocacion;
-    const col = subs['Colocación'] || [];
-    let hay = false;
-    Object.keys(PEDIDO_CATS).forEach(cat => {
-        const fila = $('pedido-' + cat.replace(/\s/g, '')), casilla = fila.querySelector('.p-cat');
-        if (col.includes(cat) && !casilla.dataset.tocada) casilla.checked = true;
-        fila.querySelector('.p-nums').hidden = !casilla.checked;
-        hay = hay || (conColocacion && casilla.checked);
-    });
+    // Las subcategorías de Colocación marcadas arman las filas (mientras no se toquen a mano); siempre queda al menos una fila
+    const col = (subs['Colocación'] || []).filter(c => PEDIDO_CATS[c]);
+    if (conColocacion && !$('cajaPedido').dataset.tocada) {
+        const actuales = [...document.querySelectorAll('#pedFilas .p-cat-sel')].map(x => x.value).join('|'), pedidas = (col.length ? col : ['Producto Terminado']).join('|');
+        if (actuales !== pedidas) { $('pedFilas').innerHTML = (col.length ? col : ['Producto Terminado']).map(c => filaPedido(c)).join(''); refrescarPedidos(); }
+    }
+    const hay = conColocacion && !!document.querySelector('#pedFilas .ped-fila');
     $('cajaProdPedidos').hidden = !hay;
     // Productos presentados: solo si en lo cumplido hay algo de presentar productos
     const presento = objs.some(o => OBJ_PRESENTA.includes(o)) || Object.values(subs).flat().some(x => SUBS_PRESENTA.includes(x));
@@ -4438,17 +4439,10 @@ function abrirRegistro(id, tipo, propuesta = false) {
             <label>Modalidad</label>
             ${botonesModalidad(v.modalidad)}
             ${cajaCierre(v)}
-            <div id="cajaPedido" class="caja-cierre" hidden>
-                <label>Pedido ${REQ} <small>(marca la categoría; el número de ${DIGITOS_PEDIDO} cifras es opcional)</small></label>
-                ${Object.entries(PEDIDO_CATS).map(([cat, pre]) => {
-                    const antes = ((ya && v.pedidos) || []).filter(p => p.cat === cat).map(p => partesPedido(p.num));
-                    return `<div class="fila-pedido" id="pedido-${cat.replace(/\s/g, '')}"><label class="check p-check"><input type="checkbox" class="p-cat" ${antes.length ? 'checked' : ''} onchange="this.dataset.tocada = 1; actualizarCierreVisita()"><span>${esc(cat)}</span></label>
-                    <div class="p-nums">${pre.map(x => {
-                        const previos = antes.filter(a => a.pre === x).map(a => a.dig);
-                        // Cada línea puede llevar más de un pedido (ej: dos Magistral de Pedido OV): "+ Otro OV" agrega otra casilla
-                        return `<div class="p-grupo">${(previos.length ? previos : ['']).map(d => filaPedidoNum(cat, x, d, previos.length > 1)).join('')}<button type="button" class="link-mini p-mas" onclick="masPedidoNum(this)">+ Otro ${x}</button></div>`;
-                    }).join('')}</div></div>`;
-                }).join('')}
+            <div id="cajaPedido" class="caja-cierre"${ya && (v.pedidos || []).length ? ' data-tocada="1"' : ''} hidden>
+                <label>Pedido ${REQ} <small>(escoge el tipo; el número de ${DIGITOS_PEDIDO} cifras es opcional; puedes agregar varios)</small></label>
+                <div id="pedFilas">${(ya && filasDePedidos(v.pedidos).length ? filasDePedidos(v.pedidos) : [{ cat: 'Producto Terminado', dig: '' }]).map((f, i, l) => filaPedido(f.cat, f.dig, l.length > 1)).join('')}</div>
+                <button type="button" class="link-mini p-mas" onclick="masPedido()">+ Otro pedido</button>
             </div>
             <div id="cajaProdPedidos" hidden>
                 <label>Productos pedidos</label>
@@ -4538,17 +4532,15 @@ function guardarVisitado(e, id) {
     // Números de pedido (Colocación): obligatorios y con su prefijo
     const pedidos = [];
     const colMarcada = !$('cajaPedido').hidden;
-    if (colMarcada && !document.querySelector('#cajaPedido .p-cat:checked')) return toast('Marca la categoría del pedido: Producto Terminado, Magistral Individual o Magistral de Pedido');
-    for (const fila of colMarcada ? document.querySelectorAll('#cajaPedido .p-nums:not([hidden])') : []) {
-        const inps = [...fila.querySelectorAll('.n-pedido')], cat = inps[0].dataset.cat;
-        const llenos = inps.filter(i => Number(cifrasPedido(i.value)));
-        // El número de pedido es opcional: si falta, queda la categoría sin número
-        if (!llenos.length) { pedidos.push({ cat, num: '' }); continue; }
-        const vistos = new Set();
-        for (const i of llenos) {
-            i.value = cifrasPedido(i.value);
-            const num = i.dataset.pref + i.value;
-            if (vistos.has(num)) { i.focus(); return toast(`El pedido ${num} está repetido en ${cat}`); }
+    if (colMarcada) {
+        // Cada fila lleva su tipo y su número (opcional); una misma serie y número no se repite
+        const vistos = new Set(), sinNumero = new Set();
+        for (const fila of document.querySelectorAll('#pedFilas .ped-fila')) {
+            const cat = fila.querySelector('.p-cat-sel').value, inp = fila.querySelector('.n-pedido'), dig = cifrasPedido(inp.value);
+            if (!Number(dig)) { if (!sinNumero.has(cat)) { sinNumero.add(cat); pedidos.push({ cat, num: '' }); } continue; }
+            inp.value = dig;
+            const num = PEDIDO_CATS[cat][0] + dig;
+            if (vistos.has(num)) { inp.focus(); return toast(`El pedido ${num} está repetido`); }
             vistos.add(num); pedidos.push({ cat, num });
         }
     }

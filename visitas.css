@@ -2027,3 +2027,10 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-fila-doc { display: flex; align-items: stretch; gap: 6px; margin: 6px 0; }
 .lg-fila-doc .lg-pc { flex: 1; }
 .lg-doc-serie { min-width: 38px; }
+
+/* Pedido con selector de tipo (Colocación) */
+#pedFilas { display: flex; flex-direction: column; gap: 6px; }
+.ped-fila { display: flex; align-items: stretch; }
+.ped-fila select.p-cat-sel { min-width: 190px; max-width: 62%; font-weight: 700; color: #0b5c56 !important; }
+.ped-fila .p-serie { border-left: 0; border-radius: 0; min-width: 38px; justify-content: center; font-weight: 800; }
+.ped-fila .n-pedido { flex: 1; max-width: 180px; }
