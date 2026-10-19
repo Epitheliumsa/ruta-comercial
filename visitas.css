@@ -2027,3 +2027,9 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-fila-doc { display: flex; align-items: stretch; gap: 6px; margin: 6px 0; }
 .lg-fila-doc .lg-pc { flex: 1; }
 .lg-doc-serie { min-width: 38px; }
+
+.lg-dev-chip { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 700; background: #ffedd5; color: #9a3412; }
+.lg-dev-fila { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; align-items: center; }
+.lg-dev-fila select { flex: 1 1 200px; }
+.lg-dev-fila .lg-dev-tipo { flex: 0 0 110px; }
+.lg-dev-fila .lg-dev-det { flex: 2 1 240px; }

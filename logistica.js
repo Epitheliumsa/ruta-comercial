@@ -103,6 +103,12 @@ function itemsProgramados(r) {
     return [...(r.documentos || []).flatMap(d => [d.ovi && `${nom(d)} · A ${d.ovi}`, d.ov && `${nom(d)} · B ${d.ov}`]),
         ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'recoleccion' ? (r.materiales || []) : []), ...(r.tipo === 'oficina' ? itemsOficina(r) : [])].filter(Boolean);
 }
+// Devoluciones al entregar: una factura puede volver total o parcialmente (se registra como novedad del reporte)
+const textoDev = d => `${d.tipo === 'total' ? 'Devolución total' : 'Devolución parcial'}: ${d.factura}${d.detalle ? ' · ' + d.detalle : ''}`;
+const chipDevLog = r => { const l = r.reporte?.devoluciones || []; return l.length ? `<span class="lg-dev-chip" title="${esc(l.map(textoDev).join(' | '))}">↩ ${l.every(d => d.tipo === 'total') ? 'Devolución total' : l.every(d => d.tipo === 'parcial') ? 'Devolución parcial' : 'Devoluciones'}</span>` : ''; };
+const facturasDeParada = r => (r.documentos || []).flatMap(d => [d.ovi && `${claseDoc(d.clase)?.t || 'Pedido'} · A ${d.ovi}`, d.ov && `${claseDoc(d.clase)?.t || 'Pedido'} · B ${d.ov}`]).filter(Boolean);
+const filaDev = r => `<div class="lg-dev-fila"><select class="lg-dev-fac" aria-label="Factura devuelta">${facturasDeParada(r).map(f => `<option>${esc(f)}</option>`).join('')}</select><select class="lg-dev-tipo" aria-label="Total o parcial"><option value="total">Total</option><option value="parcial">Parcial</option></select><input class="lg-dev-det" maxlength="100" autocomplete="off" placeholder="Motivo y qué devolvieron (productos, unidades)"><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="this.closest('.lg-dev-fila').remove()">×</button></div>`;
+function masDev(id) { $('lgDevLista').insertAdjacentHTML('beforeend', filaDev(registros[id])); $('lgDevLista').lastElementChild.querySelector('input').focus(); }
 const textoInc = d => `${NOMBRE_INCLUYE[d.k] || d.k} ${d.numero}`;
 const textoDoc = d => [claseDoc(d.clase)?.t, d.ovi && `A ${d.ovi}`, d.ov && `B ${d.ov}`].filter(Boolean).join(' · ');
 // Números de factura y nota crédito: 6 cifras, se completan con ceros a la izquierda (58 → 000058)
@@ -292,7 +298,7 @@ function tarjetaLog(r, n, total) {
     if (cerrada) {
         const hora = r.registrada ? horaLog(r.registrada) : '';
         const partes = r.estado === 'entregado'
-            ? [`<b>${esc(ok)}</b>${hora ? ' a las ' + esc(hora) : ''}`, rp.recibio ? `<b>${esc(tp.rec)}:</b> ${esc(rp.recibio)}` : '', rp.guia ? `<b>Guía:</b> ${esc(rp.guia)}` : '', rp.radicado ? `<b>Radicado:</b> ${esc(rp.radicado)}` : '', rp.detalle ? `<b>Detalle:</b> ${esc(rp.detalle)}` : '', rp.faltantes?.length ? `<b>⚠ Sin hacer:</b> ${esc(rp.faltantes.join(' · '))}` : '', rp.novedad ? `<b>Novedad:</b> ${esc(rp.novedad)}` : '']
+            ? [`<b>${esc(ok)}</b>${hora ? ' a las ' + esc(hora) : ''}`, rp.recibio ? `<b>${esc(tp.rec)}:</b> ${esc(rp.recibio)}` : '', rp.guia ? `<b>Guía:</b> ${esc(rp.guia)}` : '', rp.radicado ? `<b>Radicado:</b> ${esc(rp.radicado)}` : '', rp.detalle ? `<b>Detalle:</b> ${esc(rp.detalle)}` : '', rp.faltantes?.length ? `<b>⚠ Sin hacer:</b> ${esc(rp.faltantes.join(' · '))}` : '', ...(rp.devoluciones || []).map(d => `<b>↩ ${esc(d.tipo === 'total' ? 'Devolución total' : 'Devolución parcial')}:</b> ${esc(d.factura)}${d.detalle ? ' · ' + esc(d.detalle) : ''}`), rp.novedad ? `<b>Novedad:</b> ${esc(rp.novedad)}` : '']
             : [`<b>${esc(no)}</b>${hora ? ' · ' + esc(hora) : ''}`, `<b>Motivo:</b> ${esc(rp.motivo || '')}`, rp.novedad ? esc(rp.novedad) : '', textoAccionLog(rp) ? `<b>${rp.accion === 'oficina' ? '🏢' : '📅'} ${esc(textoAccionLog(rp))}</b>` : ''];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener" title="Foto ${i + 1}"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         const pend = (leerFotosPend()[r.id] || []).length;
@@ -317,7 +323,7 @@ function tarjetaLog(r, n, total) {
         <button type="button" onclick="moverLog('${r.id}', -1)" ${k === 0 ? 'disabled' : ''}>▲ Subir</button><button type="button" onclick="moverLog('${r.id}', 1)" ${k === sueltas.length - 1 ? 'disabled' : ''}>▼ Bajar</button></div>` : '';
     const meta = [nombreTipos(r), r.zona || '', r.vieneDe ? `reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · ');
     return `<div class="producto-card visita-card lg-card ${clase} lg-${r.tipo}">
-        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${r.tipo === 'oficina' ? (r.oficina || []).map(k => `<span class="lg-tipo oficina">${esc(OFICINA_LOG.find(x => x[0] === k)?.[1] || k)}</span>`).join('') : ''}${r.proveedorOtro || r.contactoOtro ? '<span class="lg-otro" title="No está en la Maestra">Otros</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
+        <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${r.tipo === 'oficina' ? (r.oficina || []).map(k => `<span class="lg-tipo oficina">${esc(OFICINA_LOG.find(x => x[0] === k)?.[1] || k)}</span>`).join('') : ''}${chipDevLog(r)}${r.proveedorOtro || r.contactoOtro ? '<span class="lg-otro" title="No está en la Maestra">Otros</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
         ${mover}
         <p class="meta">${esc(meta)}</p>
         ${(r.ediciones || []).length ? (e => `<p class="lg-huella" title="${esc(r.ediciones.map(x => `${nombreVendedor(x.por)} · ${fechaHora(x.cuando)}: ${x.campos.join(', ')}`).join('\n'))}">✏️ Editada por ${esc(nombreVendedor(e.por))} · ${esc(fechaHora(e.cuando))} · cambió ${esc(e.campos.join(', '))}${r.ediciones.length > 1 ? ` · ${r.ediciones.length} ediciones` : ''}</p>`)(r.ediciones[r.ediciones.length - 1]) : ''}
@@ -708,6 +714,8 @@ function abrirLogReporte(id, ok) {
             </div>` : ''}
             ${(items => items.length && r.tipo !== 'vuelta' && r.tipo !== 'banco' ? `<label>Lo programado <small>(marca lo que sí ${VERBO_LOG[r.tipo] || 'hiciste'}; desmarca lo que no)</small></label>
             <div class="lg-chips" id="lgProg">${items.map(t => `<label class="lg-chip"><input type="checkbox" checked data-t="${esc(t)}"><span>${esc(t)}</span></label>`).join('')}</div>` : '')(itemsProgramados(r))}
+            ${facturasDeParada(r).length ? `<div id="lgBDev"><label class="lg-chip lg-dev-chk"><input type="checkbox" id="lgHayDev" onchange="$('lgDevFilas').hidden = !this.checked"><span>↩ Devolvieron una factura (total o parcial)</span></label>
+            <div id="lgDevFilas" hidden><div id="lgDevLista">${filaDev(r)}</div><button type="button" class="link-mini lg-mas" onclick="masDev('${r.id}')">+ Otra devolución</button></div></div>` : ''}
             ${detalle ? `<label for="lgRDetalle">${esc(detalle)} <small>(opcional)</small></label><textarea id="lgRDetalle" rows="2" maxlength="200"></textarea>` : ''}
             <label for="lgNovedad">Novedades <small>(opcional)</small></label>
             <textarea id="lgNovedad" rows="2" maxlength="200" placeholder="Ej: faltó una unidad, el cliente pidió cambiar la factura…"></textarea>
@@ -849,7 +857,11 @@ async function guardarLogReporte(e, id, ok) {
         // Lo programado que se marcó y lo que quedó sin hacer
         const prog = [...document.querySelectorAll('#lgProg input')].map(i => ({ t: i.dataset.t, ok: i.checked }));
         const faltantes = prog.filter(x => !x.ok).map(x => x.t);
-        const reporte = ok ? { recibio: nombrePropio(val('lgRecibio')), guia: val('lgGuia'), detalle: val('lgRDetalle'), novedad: val('lgNovedad'), ...(prog.length ? { programado: prog, faltantes } : {}) }
+        // Devoluciones de factura (total o parcial): la parcial pide qué se devolvió
+        const devoluciones = ok && $('lgHayDev')?.checked ? [...document.querySelectorAll('#lgDevLista .lg-dev-fila')].map(f => ({ factura: f.querySelector('.lg-dev-fac').value, tipo: f.querySelector('.lg-dev-tipo').value, detalle: f.querySelector('.lg-dev-det').value.trim() })) : [];
+        const sinDetalle = devoluciones.find(d => d.tipo === 'parcial' && !d.detalle);
+        if (sinDetalle) { btn.disabled = false; btn.textContent = 'Guardar'; return toast(`Devolución parcial de ${sinDetalle.factura}: escribe qué devolvieron`); }
+        const reporte = ok ? { recibio: nombrePropio(val('lgRecibio')), guia: val('lgGuia'), detalle: val('lgRDetalle'), novedad: val('lgNovedad'), ...(prog.length ? { programado: prog, faltantes } : {}), ...(devoluciones.length ? { devoluciones } : {}) }
             : { motivo: val('lgMotivo'), novedad: val('lgNovedad'), accion,
                 ...(accion === 'reprogramar' ? { reprogramadaPara: val('lgReproFecha'), horaRepro: val('lgReproHora') } : {}) };
         // Dirección cambiada al entregar y, en el envío, destino (la ciudad del cliente si no se cambió), transportadora y guía
@@ -1120,7 +1132,7 @@ function htmlEntregasCliente(nombre, dia = '') {
     return `<p class="grupo-titulo hist-sec l">🚚 Entregas y recolecciones · ${lista.length}</p>` + lista.map(r => {
         const tp = TIPOS_LOG[r.tipo], rp = r.reporte || {}, cls = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p';
         const docs = [...(r.documentos || []).map(textoDoc), ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'oficina' ? itemsOficina(r) : [])].filter(Boolean).map(esc).join('<br>');
-        const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
+        const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, ...(rp.devoluciones || []).map(textoDev), rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : r.hora ? ' · hora fija ' + esc(horaBonita(r.hora)) : ''}</b>${chipEstadoLog(r)}</div>
@@ -1188,7 +1200,7 @@ function armarLibroLog(regs, mes, mens) {
             diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), (r.contacto || r.proveedor || r.entidad || r.area || '') + (r.proveedorOtro && !r.contacto || r.contactoOtro ? ' (Otros)' : ''),
             r.zona || '', r.comercial ? nombreVendedor(r.comercial) : '', [r.destino, r.dirDestino, r.telDestino].filter(Boolean).join(' · '), r.transportadora || '',
             d.doc || '', d.ov || '', d.ovi || '', d.otro || '', r.estado === 'entregado' ? okTxt(r) : r.estado === 'no_entregado' ? noTxt(r) : 'Pendiente',
-            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : '', intentoLog(r) > 1 ? `${intentoLog(r)}.º intento` : ''].filter(Boolean).join(' · '),
+            r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, ...(rp.devoluciones || []).map(textoDev), rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : '', intentoLog(r) > 1 ? `${intentoLog(r)}.º intento` : ''].filter(Boolean).join(' · '),
             [r.direccion, r.telefono && `Tel. ${r.telefono}`, r.proveedor && r.contacto ? `Proveedor: ${r.proveedor}` : '', r.detalle].filter(Boolean).join(' · '), i === 0 && fotos.length ? fotos.length : '', i === 0 ? fotos.join('\n') : '',
             r.reportadoPor ? nombreVendedor(r.reportadoPor) : '', (r.correcciones || []).length || ''
         ]));
