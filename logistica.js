@@ -1289,7 +1289,8 @@ function buscarDocumento(q, tipo) {
     const coincide = d => !!n6 && seisCifras(d.num) === n6;
     const res = [];
     logVisibles().forEach(r => { const docs = documentosDeParada(r).filter(d => (!tipo || d.t === tipo) && coincide(d)); if (docs.length) res.push({ fuente: 'log', r, docs, fecha: r.fecha }); });
-    if (!tipo || tipo === 'pedido') visibles().filter(v => v.clase === 'visita' && (v.pedidos || []).length).forEach(v => {
+    // Pedidos de visitas: cada comercial, los suyos; jefes y administrador, los de todos (Logística no ve visitas)
+    if ((!tipo || tipo === 'pedido') && !esLogistica()) visibles().filter(v => v.clase === 'visita' && (v.pedidos || []).length && (esJefe() || esAdmin() || v.vendedor === sesion.id)).forEach(v => {
         const docs = v.pedidos.filter(p => p.num).map(p => ({ t: 'pedido', txt: `${p.cat} ${p.num}`, num: p.num })).filter(coincide);
         if (docs.length) res.push({ fuente: 'visita', r: v, docs, fecha: v.fecha });
     });
@@ -1306,7 +1307,7 @@ function tarjetaConsulta({ fuente, r, docs }, q) {
         <p><b>${esc(tituloLog(r))}</b> · ${esc(TIPOS_LOG[r.tipo]?.corto || '')} · ${esc(nombreVendedor(r.vendedor))}</p><div class="lg-docs">${docsHtml}</div>
         ${r.estado === 'entregado' ? `<p class="meta">${esc(okTxt(r))}${r.registrada ? ' a las ' + esc(horaLog(r.registrada)) : ''}${rp.recibio ? ' · ' + esc(TIPOS_LOG[r.tipo]?.rec || 'Recibió') + ': ' + esc(rp.recibio) : ''}${(rp.devoluciones || []).length ? ' · ' + esc(rp.devoluciones.map(textoDev).join(' | ')) : ''}</p>`
             : r.estado === 'no_entregado' ? `<p class="meta">${esc(noTxt(r))}${rp.motivo ? ' · ' + esc(rp.motivo) : ''}</p>` : ''}
-        ${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}<button type="button" class="link-mini" onclick="cerrarModal(); logElegir('${r.fecha}')">Ver ese día</button></div>`;
+        ${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}<button type="button" class="link-mini" onclick="irADiaLog('${r.fecha}')">Ver ese día</button></div>`;
 }
 function pintarConsultaDoc() {
     const caja = $('cdResultados'); if (!caja) return;
@@ -1339,3 +1340,6 @@ function abrirConsultaDoc() {
     </form>`);
     pintarConsultaDoc(); $('cdNum').focus();
 }
+
+// Desde la consulta: abre Logística (o "Entregas a tus clientes") en el día de la parada
+function irADiaLog(fecha) { cerrarModal(); logi.fecha = fecha; abrirLogistica(); }

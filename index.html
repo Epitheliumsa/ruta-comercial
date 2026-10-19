@@ -129,6 +129,7 @@
                     <input type="date" id="agFechaPick" onchange="elegirFecha(this.value)" aria-label="Elegir fecha">
                     <input type="search" id="agBuscar" class="ag-buscar-in" placeholder="Buscar cliente en este día..." aria-label="Buscar cliente" oninput="agenda.busca=this.value; pintarAgenda()">
                     <button class="btn-nuevo" onclick="abrirCalendario()" aria-label="Ver el mes">Mes</button>
+                    <button class="btn-nuevo" onclick="abrirConsultaDoc()" aria-label="Consultar por documento">🔎 Documento</button>
                     <button class="btn-nuevo active btn-programar" onclick="abrirProgramar()">+ Programar</button>
                 </div>
             </div>
