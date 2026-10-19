@@ -1283,9 +1283,10 @@ function documentosDeParada(r) {
         ...(r.reporte?.devoluciones || []).map(d => ({ t: 'dev', txt: textoDev(d), num: String(d.factura || '').replace(/\D/g, '').slice(-6) }))
     ].filter(Boolean);
 }
+// Los documentos tienen 6 cifras: se busca el número exacto (58 → 000058)
 function buscarDocumento(q, tipo) {
-    const dig = String(q || '').replace(/\D/g, ''), letras = /[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(q), texto = normalizar(q);
-    const coincide = d => (dig && String(d.num || '').replace(/\D/g, '').includes(dig)) || (letras && normalizar(`${d.txt} ${d.texto || ''}`).includes(texto));
+    const n6 = seisCifras(q);
+    const coincide = d => !!n6 && seisCifras(d.num) === n6;
     const res = [];
     logVisibles().forEach(r => { const docs = documentosDeParada(r).filter(d => (!tipo || d.t === tipo) && coincide(d)); if (docs.length) res.push({ fuente: 'log', r, docs, fecha: r.fecha }); });
     if (!tipo || tipo === 'pedido') visibles().filter(v => v.clase === 'visita' && (v.pedidos || []).length).forEach(v => {
@@ -1294,7 +1295,7 @@ function buscarDocumento(q, tipo) {
     });
     return res.sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
-const resaltarDoc = (txt, q) => { const dig = String(q || '').replace(/\D/g, ''); const t = esc(txt); return dig ? t.replace(new RegExp(`(${dig.split('').join('\\s*')})`), '<mark>$1</mark>') : t; };
+const resaltarDoc = (txt, q) => { const n6 = seisCifras(q); const t = esc(txt); return n6 ? t.replace(n6, `<mark>${n6}</mark>`) : t; };
 function tarjetaConsulta({ fuente, r, docs }, q) {
     const docsHtml = docs.map(d => `<span class="lg-doc-chip">${resaltarDoc(d.txt, q)}</span>`).join('');
     if (fuente === 'visita') return `<div class="cd-item"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b><span class="chip p">🤝 Visita · ${esc(r.estado === 'visitado' ? 'Visitada' : r.estado === 'pendiente' ? 'Pendiente' : 'No visitada')}</span></div>
@@ -1311,9 +1312,8 @@ function pintarConsultaDoc() {
     const caja = $('cdResultados'); if (!caja) return;
     const q = consultaDoc.q.trim();
     if (consultaDoc.buscando) { caja.innerHTML = '<p class="ayuda">Buscando en los últimos 12 meses…</p>'; return; }
-    if (!q) { caja.innerHTML = '<p class="ayuda">Escribe el número (o parte del número) del documento.</p>'; return; }
-    const dig = q.replace(/\D/g, '');
-    if (dig.length < 3 && !/[a-zA-Z]/.test(q)) { caja.innerHTML = '<p class="ayuda">Escribe al menos 3 cifras.</p>'; return; }
+    if (!q) { caja.innerHTML = '<p class="ayuda">Escribe el número del documento (6 cifras; se completa con ceros).</p>'; return; }
+    if (!Number(seisCifras(q))) { caja.innerHTML = '<p class="ayuda">Escribe el número del documento (6 cifras).</p>'; return; }
     const res = buscarDocumento(q, consultaDoc.tipo);
     caja.innerHTML = `<p class="ayuda"><b>${res.length}</b> ${res.length === 1 ? 'resultado' : 'resultados'}</p>` + (res.length ? res.slice(0, 60).map(x => tarjetaConsulta(x, q)).join('') + (res.length > 60 ? '<p class="ayuda">Se muestran los 60 más recientes: afina el número.</p>' : '') : '<div class="no-results">No encontré ese documento en lo cargado.</div>');
 }
@@ -1332,8 +1332,8 @@ function abrirConsultaDoc() {
         <p class="sub">Pedido, factura, PQR/OUT, REA/OUT, devolución, aforo o radicación: encuentra dónde está, su estado y quién lo recibió.</p>
         <label for="cdTipo">Tipo de documento</label>
         <select id="cdTipo">${TIPOS_CONSULTA.map(([k, t]) => `<option value="${k}"${consultaDoc.tipo === k ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>
-        <label for="cdNum">Número</label>
-        <input id="cdNum" type="search" autocomplete="off" inputmode="search" placeholder="Ej: 005498" value="${esc(consultaDoc.q)}">
+        <label for="cdNum">Número <small>(6 cifras: 5498 se completa como 005498)</small></label>
+        <input id="cdNum" ${NUM6} value="${esc(consultaDoc.q)}">
         <div class="form-botones"><button type="button" class="btn-secundario" onclick="cerrarModal()">Cerrar</button><button class="btn-primario">Buscar</button></div>
         <div id="cdResultados"></div>
     </form>`);
