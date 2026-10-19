@@ -49,6 +49,7 @@ function doPost(e) {
     if (pedido.accion === 'guardarBase') return responder_(Object.assign({ ok: true }, guardarBase_(usuario, pedido.nombre, pedido.contenido, pedido.resumen)));
     if (pedido.accion === 'guardarBases') return responder_(Object.assign({ ok: true }, guardarBases_(usuario, pedido.bases, pedido.borrarPortafolios)));
     if (pedido.accion === 'leerVademecum') return responder_(Object.assign({ ok: true }, leerVademecum_(usuario)));
+    if (pedido.accion === 'consultarDocumento') return responder_(Object.assign({ ok: true }, consultarDocumento_(usuario, pedido.numero, pedido.tipo)));
     if (pedido.accion === 'firmarFormato') return responder_(Object.assign({ ok: true }, firmarFormato_(usuario, pedido)));
     return responder_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
@@ -405,4 +406,50 @@ function probarDrive() {
 
 function responder_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- CONSULTA POR DOCUMENTO: la puede hacer cualquier usuario ----------
+// Busca un número de 6 cifras (pedido de una visita, factura A o B, PQR/OUT, REA/OUT, devolución, aforo o radicación) en TODAS las paradas
+// de Logística y en los pedidos de las visitas, sin importar de quién sean. Devuelve solo un resumen: fecha, tipo, cliente o proveedor,
+// mensajero o comercial, estado, quién recibió y las devoluciones. No devuelve direcciones, teléfonos ni fotos.
+const NOMBRE_CLASE_DOC_ = { pt: 'Producto Terminado', mi: 'Magistral Individual', mini: 'Magistral Individual NI', mp: 'Magistral de Pedido' };
+const NOMBRE_INCLUYE_DOC_ = { pqr: 'PQR', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };
+function seisCifras_(v) { const d = String(v || '').replace(/\D/g, ''); return d ? ('000000' + d.slice(-6)).slice(-6) : ''; }
+function docsParada_(r) {
+  const docs = [], nom = c => NOMBRE_CLASE_DOC_[c] || 'Pedido';
+  (r.documentos || []).forEach(d => {
+    if (d.ovi) docs.push({ t: 'facA', txt: nom(d.clase) + ' · A ' + d.ovi, num: seisCifras_(d.ovi) });
+    if (d.ov) docs.push({ t: 'facB', txt: nom(d.clase) + ' · B ' + d.ov, num: seisCifras_(d.ov) });
+  });
+  (r.incluyeDocs || []).forEach(d => docs.push({ t: d.k === 'rea_out' ? 'rea' : d.k === 'devolucion' ? 'dev' : 'pqr', txt: (NOMBRE_INCLUYE_DOC_[d.k] || d.k) + ' ' + d.numero, num: seisCifras_(d.numero) }));
+  (r.facturasAforo || []).forEach(f => docs.push({ t: 'aforo', txt: 'Aforar · ' + (NOMBRE_CLASE_DOC_[f.clase] ? NOMBRE_CLASE_DOC_[f.clase] + ' · ' : '') + (f.serie || '') + ' ' + f.numero, num: seisCifras_(f.numero) }));
+  (r.radicacion || []).forEach(d => { if (d.numero) docs.push({ t: 'rad', txt: (d.doc === 'nc' ? 'Radicar nota crédito RNC ' : 'Radicar factura ' + (d.serie || '') + ' ') + d.numero, num: seisCifras_(d.numero) }); });
+  ((r.reporte || {}).devoluciones || []).forEach(d => docs.push({ t: 'dev', txt: (d.tipo === 'total' ? 'Devolución total: ' : 'Devolución parcial: ') + d.factura, num: seisCifras_(d.factura) }));
+  return docs;
+}
+function consultarDocumento_(usuario, numero, tipo) {
+  const n = seisCifras_(numero);
+  if (!n || n === '000000') throw new Error('Escribe el número del documento (6 cifras)');
+  const res = [];
+  hoja_().getDataRange().getValues().slice(1).forEach(f => {
+    if (!f[0] || f[5] || (f[1] !== 'logistica' && f[1] !== 'visita')) return;
+    const texto = String(f[6]);
+    if (texto.indexOf(n.slice(-4)) < 0) return;   // descarte rápido antes de leer el JSON
+    let r; try { r = JSON.parse(texto); } catch (e) { return; }
+    if (r.borrado || r.eliminada) return;
+    if (f[1] === 'logistica') {
+      if (r.tipo === 'novedad') return;
+      const docs = docsParada_(r).filter(d => d.num === n && (!tipo || d.t === tipo));
+      if (!docs.length) return;
+      const rp = r.reporte || {};
+      res.push({ fuente: 'log', id: r.id, fecha: r.fecha, tipo: r.tipo, estado: r.estado, titulo: r.contacto || r.proveedor || r.entidad || r.area || '', vendedor: r.vendedor,
+        docs: docs, registrada: r.registrada || '', recibio: rp.recibio || '', motivo: rp.motivo || '',
+        devoluciones: (rp.devoluciones || []).map(d => (d.tipo === 'total' ? 'Devolución total: ' : 'Devolución parcial: ') + d.factura + (d.detalle ? ' · ' + d.detalle : '')) });
+    } else if (!tipo || tipo === 'pedido') {
+      const docs = (r.pedidos || []).filter(p => p.num && seisCifras_(p.num) === n).map(p => ({ t: 'pedido', txt: p.cat + ' ' + p.num, num: n }));
+      if (docs.length) res.push({ fuente: 'visita', id: r.id, fecha: r.fecha, estado: r.estado, titulo: r.contacto || '', vendedor: r.vendedor, docs: docs });
+    }
+  });
+  res.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  return { resultados: res.slice(0, 60), total: res.length };
 }

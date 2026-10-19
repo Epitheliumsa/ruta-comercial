@@ -250,7 +250,7 @@
 - **Facturas con selector** (`filaDoc`, `OPC_FACTURA`): serie A (OVI) = Producto Terminado y Magistral Individual; serie B (OV) = Magistral Individual NI y Magistral de Pedido. Mismo selector en Aforar y en el pedido de Colocación de Comercial (`filaPedido` en `app.js`). El bloque "PQR - Reacondicionamientos - Devoluciones" usa PQR/OUT, REA/OUT y Devolución.
 - **Proveedor / contacto "Otros"**: no está en la Maestra → dirección y teléfono obligatorios y etiqueta Otros. Los leads salen en la lista de clientes.
 - **Foto obligatoria** al reportar; **segundo intento** (`intento`) y alerta de **reincidencia** (2 o más no efectivas en 30 días); **devolución** total o parcial de una factura (`reporte.devoluciones`).
-- **Consultar documento** (`abrirConsultaDoc`): busca un número en paradas de Logística y en los pedidos de las visitas; con conexión trae antes los últimos 12 meses.
+- **Consultar documento** (`abrirConsultaDoc`, botón en el inicio): la puede hacer cualquier usuario. Con conexión la hace el servidor (`consultarDocumento_` en `Codigo.gs`) sobre todas las paradas y pedidos, de todos, y devuelve solo un resumen (sin direcciones, teléfonos ni fotos); sin conexión, busca en lo que hay en el teléfono. Número exacto de 6 cifras.
 
 ## Visiplan: Reprogramar / Ignorar y Maestro Medico-Cliente
 - En la agenda, cada tarjeta "Planeada" del Visiplan (por confirmar o cerrada) tiene dos botones además de Confirmar: **Reprogramar**

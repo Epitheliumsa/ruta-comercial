@@ -1269,10 +1269,10 @@ function armarLibroLog(regs, mes, mens) {
 }
 
 // ---------- CONSULTAR POR DOCUMENTO ----------
-// Busca un número de documento (pedido de una visita, factura A o B, PQR/OUT, REA/OUT, devolución, aforo, radicación) en todo lo cargado:
-// paradas de Logística y pedidos de las visitas. Con conexión trae antes los últimos 12 meses.
+// Busca un número de documento (pedido de una visita, factura A o B, PQR/OUT, REA/OUT, devolución, aforo, radicación) en las paradas de
+// Logística y en los pedidos de las visitas. La puede hacer cualquier usuario: con conexión la hace el servidor sobre todo lo registrado.
 const TIPOS_CONSULTA = [['', 'Todos los documentos'], ['pedido', 'Pedido (visita comercial)'], ['facA', 'Factura A (OVI)'], ['facB', 'Factura B (OV)'], ['pqr', 'PQR/OUT'], ['rea', 'REA/OUT'], ['dev', 'Devolución'], ['aforo', 'Aforar'], ['rad', 'Radicación']];
-const consultaDoc = { q: '', tipo: '', cargado: false, buscando: false };
+const consultaDoc = { q: '', tipo: '', buscando: false, resultados: [], total: undefined };
 function documentosDeParada(r) {
     const nom = d => claseDoc(d.clase)?.t || 'Pedido';
     return [
@@ -1288,43 +1288,62 @@ function buscarDocumento(q, tipo) {
     const n6 = seisCifras(q);
     const coincide = d => !!n6 && seisCifras(d.num) === n6;
     const res = [];
-    logVisibles().forEach(r => { const docs = documentosDeParada(r).filter(d => (!tipo || d.t === tipo) && coincide(d)); if (docs.length) res.push({ fuente: 'log', r, docs, fecha: r.fecha }); });
-    // Pedidos de visitas: cada comercial, los suyos; jefes y administrador, los de todos (Logística no ve visitas)
-    if ((!tipo || tipo === 'pedido') && !esLogistica()) visibles().filter(v => v.clase === 'visita' && (v.pedidos || []).length && (esJefe() || esAdmin() || v.vendedor === sesion.id)).forEach(v => {
+    // Cualquier usuario puede consultar: se busca en todo lo que hay en el teléfono (el servidor, en todo lo registrado)
+    logRegs().forEach(r => { const docs = documentosDeParada(r).filter(d => (!tipo || d.t === tipo) && coincide(d)); if (docs.length) res.push(resumenConsulta('log', r, docs)); });
+    if (!tipo || tipo === 'pedido') visibles().filter(v => v.clase === 'visita' && (v.pedidos || []).length).forEach(v => {
         const docs = v.pedidos.filter(p => p.num).map(p => ({ t: 'pedido', txt: `${p.cat} ${p.num}`, num: p.num })).filter(coincide);
-        if (docs.length) res.push({ fuente: 'visita', r: v, docs, fecha: v.fecha });
+        if (docs.length) res.push(resumenConsulta('visita', v, docs));
     });
     return res.sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
+// Resumen de una parada o visita para la consulta (la misma forma que devuelve el servidor)
+function resumenConsulta(fuente, r, docs) {
+    if (fuente === 'visita') return { fuente, id: r.id, fecha: r.fecha, estado: r.estado, titulo: r.contacto || '', vendedor: r.vendedor, docs };
+    const rp = r.reporte || {};
+    return { fuente, id: r.id, fecha: r.fecha, tipo: r.tipo, estado: r.estado, titulo: tituloLog(r), vendedor: r.vendedor, docs, registrada: r.registrada || '', recibio: rp.recibio || '', motivo: rp.motivo || '',
+        devoluciones: (rp.devoluciones || []).map(textoDev), fotos: (r.fotos || []).slice(0, 3) };
+}
 const resaltarDoc = (txt, q) => { const n6 = seisCifras(q); const t = esc(txt); return n6 ? t.replace(n6, `<mark>${n6}</mark>`) : t; };
-function tarjetaConsulta({ fuente, r, docs }, q) {
-    const docsHtml = docs.map(d => `<span class="lg-doc-chip">${resaltarDoc(d.txt, q)}</span>`).join('');
-    if (fuente === 'visita') return `<div class="cd-item"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b><span class="chip p">🤝 Visita · ${esc(r.estado === 'visitado' ? 'Visitada' : r.estado === 'pendiente' ? 'Pendiente' : 'No visitada')}</span></div>
-        <p><b>${esc(r.contacto || '')}</b> · ${esc(nombreVendedor(r.vendedor))}</p><div class="lg-docs">${docsHtml}</div>
-        <button type="button" class="link-mini" onclick="irAVisita('${r.id}')">Ver la visita</button></div>`;
-    const rp = r.reporte || {}, fotos = (r.fotos || []).slice(0, 3).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
-    return `<div class="cd-item"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b>${chipEstadoLog(r)}</div>
-        <p><b>${esc(tituloLog(r))}</b> · ${esc(TIPOS_LOG[r.tipo]?.corto || '')} · ${esc(nombreVendedor(r.vendedor))}</p><div class="lg-docs">${docsHtml}</div>
-        ${r.estado === 'entregado' ? `<p class="meta">${esc(okTxt(r))}${r.registrada ? ' a las ' + esc(horaLog(r.registrada)) : ''}${rp.recibio ? ' · ' + esc(TIPOS_LOG[r.tipo]?.rec || 'Recibió') + ': ' + esc(rp.recibio) : ''}${(rp.devoluciones || []).length ? ' · ' + esc(rp.devoluciones.map(textoDev).join(' | ')) : ''}</p>`
-            : r.estado === 'no_entregado' ? `<p class="meta">${esc(noTxt(r))}${rp.motivo ? ' · ' + esc(rp.motivo) : ''}</p>` : ''}
-        ${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}<button type="button" class="link-mini" onclick="irADiaLog('${r.fecha}')">Ver ese día</button></div>`;
+function tarjetaConsulta(x, q) {
+    const docsHtml = x.docs.map(d => `<span class="lg-doc-chip">${resaltarDoc(d.txt, q)}</span>`).join('');
+    const local = !!registros[x.id];
+    if (x.fuente === 'visita') return `<div class="cd-item"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip p">🤝 Visita · ${esc(x.estado === 'visitado' ? 'Visitada' : x.estado === 'pendiente' ? 'Pendiente' : 'No visitada')}</span></div>
+        <p><b>${esc(x.titulo)}</b> · ${esc(nombreVendedor(x.vendedor))}</p><div class="lg-docs">${docsHtml}</div>
+        ${local ? `<button type="button" class="link-mini" onclick="irAVisita('${x.id}')">Ver la visita</button>` : ''}</div>`;
+    const tp = TIPOS_LOG[x.tipo] || {};
+    const chip = x.estado === 'entregado' ? `<span class="chip ok">${esc(tp.ok || 'Realizada')}</span>` : x.estado === 'no_entregado' ? `<span class="chip no">${esc(tp.no || 'No realizada')}</span>` : x.fecha < hoy() ? '<span class="chip sin-rep">Sin reporte a tiempo</span>' : '<span class="chip p">Pendiente</span>';
+    const fotos = (x.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
+    return `<div class="cd-item"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b>${chip}</div>
+        <p><b>${esc(x.titulo || tp.corto || '')}</b> · ${esc(tp.corto || '')} · ${esc(nombreVendedor(x.vendedor))}</p><div class="lg-docs">${docsHtml}</div>
+        ${x.estado === 'entregado' ? `<p class="meta">${esc(tp.ok || 'Realizada')}${x.registrada ? ' a las ' + esc(horaLog(x.registrada)) : ''}${x.recibio ? ' · ' + esc(tp.rec || 'Recibió') + ': ' + esc(x.recibio) : ''}${(x.devoluciones || []).length ? ' · ' + esc(x.devoluciones.join(' | ')) : ''}</p>`
+            : x.estado === 'no_entregado' ? `<p class="meta">${esc(tp.no || 'No realizada')}${x.motivo ? ' · ' + esc(x.motivo) : ''}</p>` : ''}
+        ${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}${local ? `<button type="button" class="link-mini" onclick="irADiaLog('${x.fecha}')">Ver ese día</button>` : ''}</div>`;
 }
 function pintarConsultaDoc() {
     const caja = $('cdResultados'); if (!caja) return;
     const q = consultaDoc.q.trim();
-    if (consultaDoc.buscando) { caja.innerHTML = '<p class="ayuda">Buscando en los últimos 12 meses…</p>'; return; }
+    if (consultaDoc.buscando) { caja.innerHTML = '<p class="ayuda">Buscando…</p>'; return; }
     if (!q) { caja.innerHTML = '<p class="ayuda">Escribe el número del documento (6 cifras; se completa con ceros).</p>'; return; }
     if (!Number(seisCifras(q))) { caja.innerHTML = '<p class="ayuda">Escribe el número del documento (6 cifras).</p>'; return; }
-    const res = buscarDocumento(q, consultaDoc.tipo);
-    caja.innerHTML = `<p class="ayuda"><b>${res.length}</b> ${res.length === 1 ? 'resultado' : 'resultados'}</p>` + (res.length ? res.slice(0, 60).map(x => tarjetaConsulta(x, q)).join('') + (res.length > 60 ? '<p class="ayuda">Se muestran los 60 más recientes: afina el número.</p>' : '') : '<div class="no-results">No encontré ese documento en lo cargado.</div>');
+    const res = consultaDoc.resultados || [], total = consultaDoc.total ?? res.length;
+    caja.innerHTML = `<p class="ayuda"><b>${total}</b> ${total === 1 ? 'resultado' : 'resultados'}</p>` + (res.length ? res.slice(0, 60).map(x => tarjetaConsulta(x, q)).join('') + (total > 60 ? '<p class="ayuda">Se muestran los 60 más recientes.</p>' : '') : '<div class="no-results">No encontré ese documento.</div>');
 }
+// Con conexión busca en el servidor, en todo lo registrado y de todos los usuarios (solo un resumen); sin conexión, en lo que hay en este teléfono
 async function buscarConsultaDoc() {
     consultaDoc.q = $('cdNum').value; consultaDoc.tipo = $('cdTipo').value;
-    if (API_URL && !consultaDoc.cargado) {
+    consultaDoc.resultados = []; consultaDoc.total = undefined;
+    if (!Number(seisCifras(consultaDoc.q))) return pintarConsultaDoc();
+    if (API_URL) {
         consultaDoc.buscando = true; pintarConsultaDoc();
-        try { const m = mesDe(hoy()); await sincronizar(m, { desde: sumarMes(m, -12) + '-01', hasta: finDeMes(sumarMes(m, 1)) }); consultaDoc.cargado = true; } catch (e) { /* se busca en lo que ya hay */ }
+        try {
+            const r = await llamarApi({ accion: 'consultarDocumento', numero: seisCifras(consultaDoc.q), tipo: consultaDoc.tipo }, 60000);
+            consultaDoc.resultados = r.resultados || []; consultaDoc.total = r.total;
+        } catch (e) {
+            toast('No se pudo consultar en el servidor: ' + e.message + '. Se busca en lo que hay en este teléfono');
+            consultaDoc.resultados = buscarDocumento(consultaDoc.q, consultaDoc.tipo);
+        }
         consultaDoc.buscando = false;
-    }
+    } else consultaDoc.resultados = buscarDocumento(consultaDoc.q, consultaDoc.tipo);
     pintarConsultaDoc();
 }
 function abrirConsultaDoc() {
