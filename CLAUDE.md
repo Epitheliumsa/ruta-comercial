@@ -148,6 +148,14 @@
 - PDF: el jefe lo sube a Google Drive y pega el enlace en la app (registro `circulares-pdf`, clase `mensual`).
 
 
+## Perfil Mercadeo (E.Rodriguez, Jefe de RRHH y Mercadeo)
+- Tipo `mercadeo` con `verEquipo` y `subeCirculares` (en `USUARIOS` de `app.js` y en `Codigo.gs`). Es de **solo lectura**: no programa ni reporta visitas.
+- Ve: Panel del equipo (visitas y actividades de todo el equipo, cuota y venta por vendedor, **por línea de negocio, del total y por zona**),
+  Actividades-Circulares (todas) y el Vademécum. No ve Logística, Leads, Maestro de Contactos, Consultar documento, Descargar informe ni Bases.
+- Escribe solo los enlaces PDF de las circulares (registro `circulares-pdf`); el servidor rechaza cualquier otro registro suyo.
+- `veEquipo()` = jefes o mercadeo (ven todo el equipo); `subeCirculares()` = jefes o quien tenga la marca.
+- La clave solo se entrega a la persona; en el repositorio solo va la huella. También tiene acceso en el Vademécum (`USUARIOS_INTERNOS`, solo el código de acceso).
+
 ## Ventas del mes (franja en el Plan de trabajo)
 - Registro `ventas-<vendedor>-<mes>` (clase `ventas`), leído del "Informe de Ventas Mensual" (Excel del sistema).
 - Corte = día en que se carga (Odoo no entrega días atrás), una foto por día: al mirar un día se ve el último corte hasta ese día.

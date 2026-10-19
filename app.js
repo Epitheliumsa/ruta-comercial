@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610182317';
+const APP_VERSION = '202610191347';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -20,7 +20,9 @@ const USUARIOS = [
     // Logística: coordinador y auxiliares de domicilios y mensajería (módulo Logística, Maestra Clientes y Vademécum)
     { usuario: 'J.Arjona',    huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', tipo: 'logistica', id: 'jarjona',  nombre: 'Javier Arjona',  cumple: '1995-07-02', cargo: 'Coordinador Logístico', coordLogistica: true },
     { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cumple: '1998-06-30', cargo: 'Auxiliar de Domicilios y Mensajería' },
-    { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cumple: '1996-12-17', cargo: 'Auxiliar de Domicilios y Mensajería' }
+    { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cumple: '1996-12-17', cargo: 'Auxiliar de Domicilios y Mensajería' },
+    // Mercadeo: ve el panel del equipo (visitas y cuota por línea, total y por zona) y las circulares, en solo lectura, y sube los PDF de las circulares
+    { usuario: 'E.Rodriguez', huella: '1810ebbb28c9a1f5b1b7d8f7612189070fcddbcc9a8b0a2e0d18c161506ecf08', tipo: 'mercadeo', id: 'erodriguez', nombre: 'Erika Elena Rodriguez', cumple: '1976-05-23', cargo: 'Jefe de RRHH y Mercadeo', verEquipo: true, subeCirculares: true }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
 // Quienes hacen paradas: los auxiliares y también el coordinador (que además programa a sus auxiliares); el coordinador va de último
@@ -39,7 +41,8 @@ const PERFIL_VADEMECUM = {
     hreyes: { tipo: 'equipo', zona: null },
     jarjona: { tipo: 'equipo', zona: null },   // logística: ve todos los portafolios
     eovalle: { tipo: 'equipo', zona: null },
-    dbarrero: { tipo: 'equipo', zona: null }
+    dbarrero: { tipo: 'equipo', zona: null },
+    erodriguez: { tipo: 'equipo', zona: null }   // mercadeo: ve todos los portafolios
 };
 
 // El enlace lleva además un código de acceso (SHA-256 de "vademecum:usuario:clave") que el Vademécum
@@ -289,6 +292,10 @@ const $ = id => document.getElementById(id);
 // que además tiene su propia agenda como vendedora
 const esJefe = () => !!(sesion && (sesion.tipo === 'jefe' || sesion.jefe));
 const esComercial = () => !!(sesion && sesion.tipo === 'comercial');
+// Mercadeo: ve a todo el equipo (panel, cuota y circulares) pero no programa ni reporta visitas
+const esMercadeo = () => !!(sesion && sesion.tipo === 'mercadeo');
+const veEquipo = () => esJefe() || esMercadeo();
+const subeCirculares = () => esJefe() || !!sesion?.subeCirculares;
 // El administrador (Hernán Reyes) es el único que autoriza eliminar visitas
 const esAdmin = () => !!(sesion && sesion.admin);
 const ADMIN = USUARIOS.find(u => u.admin);
@@ -697,7 +704,7 @@ async function cerrarSesion() {
     borrarDirectorio();
     borrarProveedores();
     sesion = null;
-    document.body.classList.remove('es-logistica');
+    document.body.classList.remove('es-logistica', 'es-mercadeo');
     $('accessUser').value = '';
     $('accessCode').value = '';
     mostrarPantalla('loginScreen');
@@ -706,7 +713,7 @@ async function cerrarSesion() {
 function entrarApp() {
     agenda.vendedor = esComercial() ? sesion.id : COMERCIALES[0].id;
     agenda.vendedores = [agenda.vendedor];
-    if (esJefe()) todoElEquipo();
+    if (veEquipo()) todoElEquipo();
     const intro = $('homeIntro');
     intro.innerHTML = '';
     const saludo = document.createElement('span');
@@ -718,7 +725,8 @@ function entrarApp() {
     intro.appendChild(saludo);
     // Logística: solo ve el módulo de Logística, la Maestra Clientes y el Vademécum
     document.body.classList.toggle('es-logistica', esLogistica());
-    $('btnPanel').style.display = esJefe() ? '' : 'none';
+    document.body.classList.toggle('es-mercadeo', esMercadeo());
+    $('btnPanel').style.display = veEquipo() ? '' : 'none';
     $('btnPanelZona').style.display = esComercial() && !esJefe() ? '' : 'none';   // cada zona ve solo lo suyo
     $('panelScreen').querySelector('h1').dataset.titulo = esComercial() && !esJefe() ? 'Panel Zona' : 'Panel del equipo';
     $('maestraTxt').textContent = veTodasZonas() ? (veProveedores() ? 'Clientes, médicos y proveedores' : 'Clientes y médicos por zona y vendedor') : 'Clientes y médicos de tu zona';
@@ -788,7 +796,7 @@ function todoElEquipo() {
 }
 // Al salir de una pantalla se borran sus filtros: al volver se ve todo
 function limpiarFiltros() {
-    if (esJefe()) todoElEquipo();
+    if (veEquipo()) todoElEquipo();
     Object.assign(periodoPanel, { t: 'mes', v: mesDe(hoy()) }); mesPanel = periodoPanel.v;
     if (typeof logi !== 'undefined') Object.assign(logi, { mensajero: '', filtro: '', busca: '' });   // Logística: todos los mensajeros
     Object.assign(visiplan, { busca: '', sel: { t: [], e: [], f: [] } });
@@ -3187,7 +3195,7 @@ function filaAcomp(v) {
 function solicitarAcompanamiento(id) {
     const v = registros[id];
     const ya = new Set(acompDeVisita(id).filter(a => a.visitaId === id && a.estado !== 'rechazada').map(a => a.vendedor));
-    const gente = USUARIOS.filter(u => u.id !== v.vendedor && !ya.has(u.id));
+    const gente = USUARIOS.filter(u => u.id !== v.vendedor && !ya.has(u.id) && u.tipo !== 'mercadeo');
     const jefes = gente.filter(u => u.tipo === 'jefe' || u.jefe), comp = gente.filter(u => !(u.tipo === 'jefe' || u.jefe));
     const opcion = u => `<label class="check"><input type="checkbox" value="${u.id}"><span>${esc(u.nombre)} <small>${esc(u.cargo || u.zona || '')}</small></span></label>`;
     if (!gente.length) return toast('Ya le pediste acompañamiento a todo el equipo');
@@ -4831,11 +4839,12 @@ function ventasSuma(vs, mes, hasta) {
     const extra = regs.reduce((a, r) => a + (r.extra?.venta || 0), 0);
     const corte = regs.map(r => r.corte).sort().pop(), dia = regs.map(diaCorte).sort().pop();
     // Los jefes ven en el total también la venta a empleados (sin cuota); los comerciales, solo su zona
-    const conExtra = esJefe() ? extra : 0;
+    const conExtra = veEquipo() ? extra : 0;
     return { regs, lineas, cuota, venta: venta + conExtra, extra, conExtra, corte, dia };
 }
 // Panel del equipo: cuota y venta del periodo elegido (suma de los meses que cubre, con el último corte de cada uno; un día = el corte hasta ese día).
 // Sigue el filtro de vendedor. Los comerciales ven solo lo suyo (el panel es de jefes: ven todo el equipo).
+const sumaLinea = (lin, l, c, v) => { const o = lin[l] = lin[l] || { cuota: 0, venta: 0 }; o.cuota += c; o.venta += v; };
 function ventasPanel() {
     const vs = filtroPanel.vendedor ? [filtroPanel.vendedor] : COMERCIALES.map(c => c.id);
     const meses = mesesDePeriodo(periodoPanel), porDia = periodoPanel.t === 'dia', hasta = porDia ? periodoPanel.v : undefined;
@@ -4847,22 +4856,38 @@ function ventasPanel() {
         vs.forEach(v => {
             const hoyR = ventasDe(v, m, periodoPanel.v); if (!hoyR || diaCorte(hoyR) !== periodoPanel.v) return;   // sin corte de ese día
             const antes = ventasDe(v, m, sumarDias(periodoPanel.v, -1));
-            const o = porVend[v] = { cuota: 0, venta: 0 };
-            Object.entries(hoyR.lineas).forEach(([l, x]) => { o.cuota += (x.cuota || 0) * cuotaDia; o.venta += (x.venta || 0) - (antes?.lineas?.[l]?.venta || 0); });
-            if (esJefe()) o.venta += (hoyR.extra?.venta || 0) - (antes?.extra?.venta || 0);
+            const o = porVend[v] = { cuota: 0, venta: 0, lin: {} };
+            Object.entries(hoyR.lineas).forEach(([l, x]) => { const c = (x.cuota || 0) * cuotaDia, vt = (x.venta || 0) - (antes?.lineas?.[l]?.venta || 0); o.cuota += c; o.venta += vt; sumaLinea(o.lin, l, c, vt); });
+            if (veEquipo()) o.venta += (hoyR.extra?.venta || 0) - (antes?.extra?.venta || 0);
             dia = periodoPanel.v; if (antes && (!previo || diaCorte(antes) < previo)) previo = diaCorte(antes);
         });
     } else
     meses.forEach(m => vs.forEach(v => {
         const r = ventasDe(v, m, hasta); if (!r) return;
-        const o = porVend[v] = porVend[v] || { cuota: 0, venta: 0 };
-        Object.values(r.lineas).forEach(x => { o.cuota += x.cuota || 0; o.venta += x.venta || 0; });
-        if (esJefe()) o.venta += r.extra?.venta || 0;
+        const o = porVend[v] = porVend[v] || { cuota: 0, venta: 0, lin: {} };
+        Object.entries(r.lineas).forEach(([l, x]) => { o.cuota += x.cuota || 0; o.venta += x.venta || 0; sumaLinea(o.lin, l, x.cuota || 0, x.venta || 0); });
+        if (veEquipo()) o.venta += r.extra?.venta || 0;
         if (diaCorte(r) > dia) dia = diaCorte(r);
     }));
     const filas = vs.filter(v => porVend[v]).map(v => ({ v, ...porVend[v] }));
     if (!filas.length) return null;
     return { filas, cuota: filas.reduce((a, f) => a + f.cuota, 0), venta: filas.reduce((a, f) => a + f.venta, 0), dia, previo, porDia, unMes: meses.length === 1 && !porDia ? meses[0] : '' };
+}
+// Cuota y venta por línea de negocio: del total y por zona (cada vendedor lleva su zona)
+function tablasLineasPanel(s, fila) {
+    const linea = (lin, l) => lin[l] || { cuota: 0, venta: 0 };
+    const total = Object.fromEntries(Object.keys(LINEAS_VENTA).map(l => [l, { cuota: s.filas.reduce((a, f) => a + linea(f.lin, l).cuota, 0), venta: s.filas.reduce((a, f) => a + linea(f.lin, l).venta, 0) }]));
+    const porLinea = `<h3>Por línea de negocio</h3><table class="vm-tabla"><thead><tr><th>Línea</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
+        <tbody>${Object.entries(LINEAS_VENTA).map(([l, t]) => fila(t, total[l].cuota, total[l].venta)).join('')}${fila('Total', s.cuota, s.venta, 'total')}</tbody></table>`;
+    const zonas = [...new Set(s.filas.map(f => comercial(f.v)?.zona || 'Sin zona'))];
+    const porZona = `<h3>Por zona y línea de negocio</h3><table class="vm-tabla"><thead><tr><th>Zona · línea</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead><tbody>${zonas.map(z => {
+        const fs = s.filas.filter(f => (comercial(f.v)?.zona || 'Sin zona') === z);
+        const sum = (l, k) => fs.reduce((a, f) => a + linea(f.lin, l)[k], 0);
+        return `<tr class="vm-zona"><th colspan="4">${esc(z)}${fs.length === 1 ? ' · ' + esc(nombreVendedor(fs[0].v)) : ''}</th></tr>`
+            + Object.entries(LINEAS_VENTA).map(([l, t]) => fila(t, sum(l, 'cuota'), sum(l, 'venta'))).join('')
+            + fila('Total ' + z, fs.reduce((a, f) => a + f.cuota, 0), fs.reduce((a, f) => a + f.venta, 0), 'total');
+    }).join('')}</tbody></table>`;
+    return porLinea + porZona;
 }
 function pintarVentasPanel() {
     const s = ventasPanel(), cont = $('panVentas');
@@ -4885,6 +4910,7 @@ function pintarVentasPanel() {
         </div>
         <table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
         <tbody>${s.filas.map(f => fila(nombreVendedor(f.v), f.cuota, f.venta)).join('')}${s.filas.length > 1 ? fila('Total', s.cuota, s.venta, 'total') : ''}</tbody></table>
+        ${veEquipo() ? tablasLineasPanel(s, fila) : ''}
     </div>`;
 }
 // Ritmo esperado: días hábiles corridos hasta el corte sobre los del mes
@@ -5005,7 +5031,7 @@ function gruposCircular(c) {
 }
 // ¿La circular aplica a ese cliente (sin mirar fechas)?
 const aplicaCliente = (c, cl) => !c.interna && !c.excluidos.includes(cl.n) && (c.todos || c.canales.includes(String(cl.cl || '')) || c.clientes.includes(cl.n));
-const clientesCirc = () => { const vistos = new Set(); return (esJefe() ? Object.values(contactos).flat() : contactos[sesion.zona] || contactos[comercial(sesion.id)?.zona] || [])
+const clientesCirc = () => { const vistos = new Set(); return (veEquipo() ? Object.values(contactos).flat() : contactos[sesion.zona] || contactos[comercial(sesion.id)?.zona] || [])
     .filter(c => !vistos.has(c.n) && vistos.add(c.n)); };
 function pasaFiltroCirc(c, sin) {
     const sel = circulares.sel, ning = k => sel[k].includes(NINGUNA);
@@ -5077,8 +5103,8 @@ function pintarCirculares() {
             ${c.objetivo ? `<p class="nota-plan"><b>Objetivo:</b> ${esc(c.objetivo)}</p>` : ''}
             ${c.resumen ? `<details class="circ-resumen"><summary>Resumen de la actividad</summary><p>${esc(c.resumen)}</p></details>` : ''}
             ${c.obs ? `<p class="ayuda">${esc(c.obs)}</p>` : ''}
-            <div class="acciones circ-pdfs">${pdfs.length ? pdfs.map((u, i) => `<span class="circ-pdf-item"><a class="bv ok circ-pdf" href="${esc(u)}" target="_blank" rel="noopener" onclick="return verPdf(event, this.href)">📄 ${pdfs.length > 1 ? 'PDF ' + (i + 1) : 'Ver PDF'}</a>${esJefe() ? `<button class="link-mini" title="Quitar este PDF" onclick="quitarPdfCircular('${esc(c.c)}', ${i})">✕</button>` : ''}</span>`).join('') : '<span class="nota-cierre">Sin PDF</span>'}
-                ${esJefe() && pdfs.length < MAX_PDF_CIRC ? `<button class="link-mini" onclick="pegarPdfCircular('${esc(c.c)}')">+ Agregar PDF${pdfs.length ? ` (${pdfs.length} de ${MAX_PDF_CIRC})` : ''}</button>` : ''}</div>
+            <div class="acciones circ-pdfs">${pdfs.length ? pdfs.map((u, i) => `<span class="circ-pdf-item"><a class="bv ok circ-pdf" href="${esc(u)}" target="_blank" rel="noopener" onclick="return verPdf(event, this.href)">📄 ${pdfs.length > 1 ? 'PDF ' + (i + 1) : 'Ver PDF'}</a>${subeCirculares() ? `<button class="link-mini" title="Quitar este PDF" onclick="quitarPdfCircular('${esc(c.c)}', ${i})">✕</button>` : ''}</span>`).join('') : '<span class="nota-cierre">Sin PDF</span>'}
+                ${subeCirculares() && pdfs.length < MAX_PDF_CIRC ? `<button class="link-mini" onclick="pegarPdfCircular('${esc(c.c)}')">+ Agregar PDF${pdfs.length ? ` (${pdfs.length} de ${MAX_PDF_CIRC})` : ''}</button>` : ''}</div>
         </div>`;
     };
     $('actLista').innerHTML = lista.length ? lista.map(tarjeta).join('') : `<div class="no-results">${CIRCULARES.length ? 'No hay circulares con este filtro.' : 'Todavía no se han cargado circulares.'}</div>`;
@@ -5109,12 +5135,12 @@ function guardarPdfsCircular(codigo, lista) {
 // El registro de enlaces viaja con los datos del mes: si es de un mes anterior, el jefe lo renueva al abrir
 function renovarPdfCirculares() {
     const r = registros[ID_PDF_CIRC];
-    if (esJefe() && r && !r.borrado && mesDe(r.fecha || '') !== mesDe(hoy())) guardarRegistro({ ...r, vendedor: sesion.id, fecha: hoy() });
+    if (subeCirculares() && r && !r.borrado && mesDe(r.fecha || '') !== mesDe(hoy())) guardarRegistro({ ...r, vendedor: sesion.id, fecha: hoy() });
 }
 
 function abrirActividades() {
     renovarPdfCirculares();
-    if (!esJefe()) $('actVendedor').value = sesion.id;
+    if (!veEquipo()) $('actVendedor').value = sesion.id;
     else if (esComercial() && !abrirActividades.yaAbrio) $('actVendedor').value = sesion.id;
     abrirActividades.yaAbrio = true;
     pintarActividades();
@@ -5128,7 +5154,7 @@ function moverMesAct(n) {
 }
 
 function vendedorActividades() {
-    return esJefe() ? $('actVendedor').value : sesion.id;
+    return veEquipo() ? $('actVendedor').value : sesion.id;
 }
 
 function pintarActividades() {
@@ -5138,7 +5164,7 @@ function pintarActividades() {
         .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || a.titulo.localeCompare(b.titulo));
     const hechas = lista.filter(a => a.hecha);
     $('actMesTxt').textContent = mayuscula(nombreMes(mesAct));
-    $('actMesSub').textContent = esJefe() ? (vend ? nombreVendedor(vend) : 'Todo el equipo') : sesion.zona;
+    $('actMesSub').textContent = veEquipo() ? (vend ? nombreVendedor(vend) : 'Todo el equipo') : sesion.zona;
     const pct = lista.length ? Math.round(hechas.length / lista.length * 100) : 0;
     $('actBarra').style.width = pct + '%';
     $('actPct').textContent = lista.length ? `${hechas.length} de ${lista.length} · ${pct}%` : 'Sin actividades';
@@ -5152,7 +5178,7 @@ function pintarActividades() {
         <button class="act-check" onclick="event.stopPropagation(); marcarActividad('${a.id}')" aria-label="${a.hecha ? 'Desmarcar' : 'Marcar como realizada'}">${a.hecha ? '✓' : ''}</button>
         <div class="act-cuerpo">
             <h3>${esc(a.titulo)}</h3>
-            <p class="meta">${esc(a.tipo)}${a.fecha ? ' · ' + esc(fechaCorta(a.fecha)) : ''}${esJefe() && !vend ? ' · ' + esc(nombreVendedor(a.vendedor)) : ''}</p>
+            <p class="meta">${esc(a.tipo)}${a.fecha ? ' · ' + esc(fechaCorta(a.fecha)) : ''}${veEquipo() && !vend ? ' · ' + esc(nombreVendedor(a.vendedor)) : ''}</p>
             ${a.detalle ? `<p>${esc(a.detalle)}</p>` : ''}
             ${a.hecha ? `<div class="reporte"><b>Realizada el ${esc(fechaCorta(a.fechaRealizada))}</b>${a.resultado ? '<br>' + esc(a.resultado) : ''}</div>` : ''}
         </div>

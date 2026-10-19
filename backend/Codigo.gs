@@ -22,7 +22,9 @@ const USUARIOS = {
   // Logística: solo ven y guardan registros de clase 'logistica' (el coordinador, los de todos; cada auxiliar, los suyos)
   'j.arjona':    { huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', id: 'jarjona',  tipo: 'logistica', area: 'logistica', coordLogistica: true },
   'e.ovalle':    { huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', id: 'eovalle',  tipo: 'logistica', area: 'logistica' },
-  'd.barrero':   { huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', id: 'dbarrero', tipo: 'logistica', area: 'logistica' }
+  'd.barrero':   { huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', id: 'dbarrero', tipo: 'logistica', area: 'logistica' },
+  // Mercadeo: lee visitas, ventas (cuota) y actividades de todo el equipo, sin escribirlas; solo guarda los PDF de las circulares
+  'e.rodriguez': { huella: '1810ebbb28c9a1f5b1b7d8f7612189070fcddbcc9a8b0a2e0d18c161506ecf08', id: 'erodriguez', tipo: 'mercadeo', verEquipo: true, subeCirculares: true }
 };
 
 const HOJA = 'Registros';
@@ -93,6 +95,8 @@ function listar_(usuario, desde, hasta) {
       // Logística: solo lo de logística (el coordinador, de todos los auxiliares; cada auxiliar, lo suyo)
       ? f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id)
       : (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'
+      // Mercadeo: ve visitas, ventas, novedades y actividades de todo el equipo (nada de logística, leads ni acompañamientos)
+      || (usuario.verEquipo && ['visita', 'ventas', 'novedad', 'actividad'].indexOf(f[1]) >= 0)
       || (f[1] === 'acompanamiento' && String(f[6]).indexOf('"solicitante":"' + usuario.id + '"') >= 0)
       // Cada comercial ve las entregas de logística de sus clientes
       || (f[1] === 'logistica' && String(f[6]).indexOf('"comercial":"' + usuario.id + '"') >= 0))))
@@ -125,6 +129,8 @@ function guardar_(usuario, registros) {
       if (usuario.area === 'logistica' && r.clase !== 'logistica') return;
       const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id) : usuario.admin);
       if (r.clase === 'logistica' && !logistica) return;
+      // Mercadeo solo escribe los enlaces PDF de las circulares (clase 'mensual', id circulares-pdf)
+      if (usuario.tipo === 'mercadeo' && !(usuario.subeCirculares && r.id === 'circulares-pdf' && r.clase === 'mensual')) return;
       if (!logistica && usuario.tipo !== 'jefe' && r.vendedor !== usuario.id && !esSolicitante && !subeVentas) return;
       // Para el rango de fechas, la actividad usa su fecha (o el primer día del mes)
       const fecha = r.fecha || (r.mes ? r.mes + '-01' : '');

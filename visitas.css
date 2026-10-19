@@ -1771,6 +1771,7 @@ details.ver-formato a { font-size: 12px; }
 .home-btn.home-btn-log .home-btn-text strong { color: #b45309; }
 /* Quien es de logística solo ve Logística, Maestra Clientes y el Vademécum */
 body.es-logistica .home-btn:not(.para-log), body.es-logistica .btn-avisos { display: none !important; }
+body.es-mercadeo .home-btn:not(.para-mer), body.es-mercadeo .btn-avisos { display: none !important; }
 body.es-logistica .mc-periodo-btn { display: none; }
 /* Tarjetas de paradas */
 .lg-tipo { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; border-radius: 5px; padding: 2px 7px; margin-right: 7px; vertical-align: 2px; background: #eef2f1; color: #3f524d; }
@@ -2052,3 +2053,6 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 /* Modo prueba */
 .banner-prueba { background: #b91c1c; color: #fff; text-align: center; font-weight: 800; font-size: 12.5px; padding: 6px 10px; letter-spacing: .02em; }
 .sello-prueba { position: fixed; bottom: 78px; right: 8px; z-index: 5000; background: #dc2626; color: #fff; font-weight: 800; font-size: 10px; letter-spacing: .12em; padding: 2px 9px; border-radius: 8px; pointer-events: none; opacity: .85; }
+
+.vm-tabla tr.vm-zona th { background: #f1ebfb; color: #4c1d95; text-align: left; font-size: .85rem; padding: 8px 10px; }
+.panel-ventas h3 { margin: 18px 0 6px; font-size: 1rem; color: #4c1d95; }
