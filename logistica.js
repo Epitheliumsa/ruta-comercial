@@ -759,15 +759,13 @@ const textoAccionLog = rp => rp?.accion === 'oficina' ? 'Se devuelve a la oficin
 // Paradas del mismo cliente (o proveedor) en un día; si ya hay, se confirma antes de programar otra
 const nombreParada = r => r.contacto || r.proveedor || '';
 // Reglas de la fecha al programar (nueva, editada o reprogramada): no a días pasados, no hoy después de las 6 p. m.,
-// no a un día ya cerrado del mensajero, y aviso con confirmación en domingos y festivos
+// y aviso con confirmación en domingos y festivos
 const HORA_CORTE_LOG = 18;
 const horaBogotaLog = () => +new Date().toLocaleString('en-US', { timeZone: 'America/Bogota', hour: 'numeric', hourCycle: 'h23' });
 function errorFechaLog(fecha, vendedor, idIgnorar = '', sinCambio = false) {
     if (sinCambio) return '';
     if (fecha < hoy()) return 'Ese día ya pasó: programa desde hoy';
     if (fecha === hoy() && horaBogotaLog() >= HORA_CORTE_LOG) return 'Después de las 6:00 p. m. ya no se programa para hoy: elige el siguiente día';
-    const dia = logRegs().filter(x => x.fecha === fecha && x.vendedor === vendedor && x.id !== idIgnorar);
-    if (dia.length && dia.every(x => x.estado !== 'pendiente')) return `El ${fechaLarga(fecha)} ya está cerrado para ${primerNombre(vendedor)}: todas sus paradas están reportadas. Elige otro día`;
     return '';
 }
 async function confirmarDiaLog(fecha, vendedor = '') {
