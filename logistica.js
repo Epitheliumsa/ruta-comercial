@@ -1271,7 +1271,6 @@ function armarLibroLog(regs, mes, mens) {
 // ---------- CONSULTAR POR DOCUMENTO ----------
 // Busca un número de documento (pedido de una visita, factura A o B, PQR/OUT, REA/OUT, devolución, aforo, radicación) en las paradas de
 // Logística y en los pedidos de las visitas. La puede hacer cualquier usuario: con conexión la hace el servidor sobre todo lo registrado.
-const TIPOS_CONSULTA = [['', 'Todos los documentos'], ['pedido', 'Pedido (visita comercial)'], ['facA', 'Factura A (OVI)'], ['facB', 'Factura B (OV)'], ['pqr', 'PQR/OUT'], ['rea', 'REA/OUT'], ['dev', 'Devolución'], ['aforo', 'Aforar'], ['rad', 'Radicación']];
 const consultaDoc = { q: '', tipo: '', buscando: false, resultados: [], total: undefined };
 function documentosDeParada(r) {
     const nom = d => claseDoc(d.clase)?.t || 'Pedido';
@@ -1330,7 +1329,7 @@ function pintarConsultaDoc() {
 }
 // Con conexión busca en el servidor, en todo lo registrado y de todos los usuarios (solo un resumen); sin conexión, en lo que hay en este teléfono
 async function buscarConsultaDoc() {
-    consultaDoc.q = $('cdNum').value; consultaDoc.tipo = $('cdTipo').value;
+    consultaDoc.q = $('cdNum').value; consultaDoc.tipo = '';
     consultaDoc.resultados = []; consultaDoc.total = undefined;
     if (!Number(seisCifras(consultaDoc.q))) return pintarConsultaDoc();
     if (API_URL) {
@@ -1350,8 +1349,6 @@ function abrirConsultaDoc() {
     abrirModal(`<form class="form-rc" onsubmit="event.preventDefault(); buscarConsultaDoc()">
         <h2>🔎 Consultar documento</h2>
         <p class="sub">Pedido, factura, PQR/OUT, REA/OUT, devolución, aforo o radicación: encuentra dónde está, su estado y quién lo recibió.</p>
-        <label for="cdTipo">Tipo de documento</label>
-        <select id="cdTipo">${TIPOS_CONSULTA.map(([k, t]) => `<option value="${k}"${consultaDoc.tipo === k ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>
         <label for="cdNum">Número <small>(6 cifras: 5498 se completa como 005498)</small></label>
         <input id="cdNum" ${NUM6} value="${esc(consultaDoc.q)}">
         <div class="form-botones"><button type="button" class="btn-secundario" onclick="cerrarModal()">Cerrar</button><button class="btn-primario">Buscar</button></div>
