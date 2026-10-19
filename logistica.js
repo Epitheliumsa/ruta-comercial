@@ -1346,6 +1346,8 @@ async function buscarConsultaDoc() {
     pintarConsultaDoc();
 }
 function abrirConsultaDoc() {
+    // Cada vez que se abre arranca en blanco: no queda la consulta anterior
+    Object.assign(consultaDoc, { q: '', tipo: '', buscando: false, resultados: [], total: undefined });
     abrirModal(`<form class="form-rc" onsubmit="event.preventDefault(); buscarConsultaDoc()">
         <h2>🔎 Consultar documento</h2>
         <p class="sub">Pedido, factura, PQR/OUT, REA/OUT, devolución, aforo o radicación: encuentra dónde está, su estado y quién lo recibió.</p>
