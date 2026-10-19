@@ -23,7 +23,8 @@ const TIPOS_LOG = {
 };
 // Oficina: lo que se hace allá. Aforar lleva cliente y una o varias facturas; las demás solo se marcan (Otro, con su texto)
 const OFICINA_LOG = [['aforar', 'Aforar'], ['alistamiento', 'Alistamiento'], ['etiquetas', 'Etiquetas'], ['otro', 'Otro']];
-const itemsOficina = r => (r.oficina || []).map(k => k === 'aforar' ? `Aforar${(r.facturasAforo || []).length ? ': ' + r.facturasAforo.join(' · ') : ''}`
+const textoFacAforo = f => `${f.serie || ''} ${f.numero || ''}`.trim();
+const itemsOficina = r => (r.oficina || []).map(k => k === 'aforar' ? `Aforar${(r.facturasAforo || []).length ? ': ' + r.facturasAforo.map(textoFacAforo).join(' · ') : ''}`
     : k === 'otro' ? `Otro: ${r.otroOficina || ''}`.trim() : OFICINA_LOG.find(x => x[0] === k)?.[1] || k);
 const BANCOS_LOG = ['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Banco de Occidente', 'Banco Popular', 'AV Villas', 'Scotiabank Colpatria', 'Itaú', 'Banco Caja Social'];
 // Campos de una parada que dejan huella cuando se editan (nombre con el que se muestra el cambio)
@@ -338,12 +339,6 @@ function abrirLogForm(id) {
         <div id="lgBOficina" hidden>
             <label>Qué se hace en la oficina ${REQ} <small>(marca lo que aplica)</small></label>
             <div class="lg-chips" id="lgOfChips">${OFICINA_LOG.map(([k, t]) => `<label class="lg-chip"><input type="checkbox" value="${k}"${(r?.oficina || []).includes(k) ? ' checked' : ''} onchange="logCampos()"><span>${t}</span></label>`).join('')}</div>
-            <div id="lgOfAforar" hidden>
-                <label>Facturas a aforar ${REQ} <small>(puede ser más de una)</small></label>
-                <div id="lgOfFacs">${((r?.facturasAforo || []).length ? r.facturasAforo : ['']).map(f => `<div class="lg-of-fila"><input class="lg-of-fac" ${NUM6} value="${esc(f)}"></div>`).join('')}</div>
-                <button type="button" class="btn-link" onclick="agregarOfFac()">+ Otra factura</button>
-            </div>
-            <div id="lgOfOtro" hidden><label for="lgOfOtroTxt">Otro: ¿qué se hace? ${REQ}</label><input id="lgOfOtroTxt" maxlength="100" autocomplete="off" value="${esc(r?.otroOficina || '')}"></div>
         </div>
         <div id="lgBVuelta">
             <label for="lgArea">Área ${REQ}</label>
@@ -363,6 +358,12 @@ function abrirLogForm(id) {
             ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}
             <p class="ayuda lg-otro-nota" id="lgOtroProv" hidden>🆕 <b>Otros:</b> este proveedor no está en la Maestra. Escribe su dirección y su teléfono; la parada queda marcada como "Otros".</p><datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
         </div>
+        <div id="lgOfAforar" hidden>
+            <label>Facturas a aforar ${REQ} <small>(puede ser más de una)</small></label>
+            <div id="lgOfFacs">${((r?.facturasAforo || []).length ? r.facturasAforo : [{}]).map(f => filaOfFac(f)).join('')}</div>
+            <button type="button" class="link-mini lg-mas" onclick="agregarOfFac()">+ Otra factura</button>
+        </div>
+        <div id="lgOfOtro" hidden><label for="lgOfOtroTxt">Otro: ¿qué se hace en la oficina? ${REQ}</label><input id="lgOfOtroTxt" maxlength="100" autocomplete="off" value="${esc(r?.otroOficina || '')}"></div>
         <div id="lgBDirTel"><label for="lgDir">Dirección <small>(sale sola con el <span id="lgQuienDir">cliente</span>; puedes cambiarla)</small></label>
         <input id="lgDir" autocomplete="off" maxlength="120" value="${esc(r?.direccion || '')}" oninput="this.dataset.auto = ''">
         <label for="lgTel">Teléfono <small>(sale solo con el <span id="lgQuienTel">cliente</span>; puedes cambiarlo)</small></label>
@@ -432,9 +433,10 @@ function abrirLogForm(id) {
 const radMarcada = () => !!$('lgRadChk')?.checked;
 // La radicación puede ser a un proveedor (salvo en entrega y envío, que siempre llevan cliente)
 const radAProv = () => radMarcada() && !['entrega', 'envio'].includes(tipoMarcado()) && document.querySelector('input[name=lgRadA]:checked')?.value === 'proveedor';
+// Cada factura a aforar lleva su serie (A = OVI o B = OV) y su número de 6 cifras, como en el resto de Logística
+const filaOfFac = (f = {}) => `<div class="lg-of-fila"><label class="lg-pc"><select class="lg-pref lg-serie lg-of-serie" aria-label="Serie de la factura">${Object.keys(SERIES_FACTURA).map(sr => `<option value="${sr}"${f.serie === sr ? ' selected' : ''}>${sr}</option>`).join('')}</select><input class="lg-of-fac" ${NUM6} value="${esc(f.numero || '')}"></label></div>`;
 function agregarOfFac() {
-    const d = document.createElement('div'); d.className = 'lg-of-fila';
-    d.innerHTML = `<input class="lg-of-fac" ${NUM6}>`; $('lgOfFacs').appendChild(d); d.querySelector('input').focus();
+    $('lgOfFacs').insertAdjacentHTML('beforeend', filaOfFac()); $('lgOfFacs').lastElementChild.querySelector('input').focus();
 }
 const tipoMarcado = () => document.querySelector('input[name=lgTipo]:checked')?.value || (radMarcada() ? 'radicacion' : '');
 // Tocar otra vez el tipo marcado lo desmarca (para dejar solo la radicación)
@@ -452,7 +454,7 @@ function logCampos() {
     $('lgFecha').min = nv ? '' : $('lgFecha').dataset.min;
     if (nv) {   // Novedad del mensajero: solo fechas, horas (cita y permiso) y el detalle
         $('lgRadChk').checked = false;
-        ['lgBRadA', 'lgBIncluyeEnvio', 'lgBCli', 'lgBProv', 'lgBDocs', 'lgBRad', 'lgBRecol', 'lgBVuelta', 'lgBOficina', 'lgBDirTel', 'lgBBanco'].forEach(id => { $(id).hidden = true; });
+        ['lgBRadA', 'lgBIncluyeEnvio', 'lgBCli', 'lgBProv', 'lgBDocs', 'lgBRad', 'lgBRecol', 'lgBVuelta', 'lgBOficina', 'lgOfAforar', 'lgOfOtro', 'lgBDirTel', 'lgBBanco'].forEach(id => { $(id).hidden = true; });
         document.querySelectorAll('.lg-of-fac').forEach(i => { i.required = false; }); $('lgOfOtroTxt').required = false;
         ['lgCliente', 'lgProv', 'lgBanco', 'lgDir', 'lgTel'].forEach(id => { $(id).required = false; });
         document.querySelectorAll('.lg-pcampos input').forEach(i => { i.required = false; });
@@ -617,10 +619,10 @@ async function guardarLog(e, id) {
     // Oficina: qué se hace (Aforar pide cliente y facturas; Otro, el texto)
     const oficina = tp.oficina ? [...document.querySelectorAll('#lgOfChips input:checked')].map(i => i.value) : [];
     if (tp.oficina && !oficina.length) return toast('Marca qué se hace en la oficina: Aforar, Alistamiento, Etiquetas u Otro');
-    const facturasAforo = oficina.includes('aforar') ? [...document.querySelectorAll('.lg-of-fac')].map(i => seisCifras(i.value)).filter(Boolean) : [];
+    const facturasAforo = oficina.includes('aforar') ? [...document.querySelectorAll('.lg-of-fila')].map(f => ({ serie: f.querySelector('.lg-of-serie').value, numero: seisCifras(f.querySelector('.lg-of-fac').value) })).filter(f => f.numero) : [];
     if (oficina.includes('aforar') && !$('lgCliente').value.trim()) return toast('Aforar: escoge el cliente');
     if (oficina.includes('aforar') && !facturasAforo.length) return toast('Aforar: escribe el número de la factura');
-    if (new Set(facturasAforo).size !== facturasAforo.length) return toast('Hay una factura repetida en Aforar: revisa los números');
+    if (new Set(facturasAforo.map(textoFacAforo)).size !== facturasAforo.length) return toast('Hay una factura repetida en Aforar: revisa los números');
     const otroOficina = oficina.includes('otro') ? $('lgOfOtroTxt').value.trim() : '';
     if (oficina.includes('otro') && !otroOficina) return toast('Otro: escribe qué se hace en la oficina');
     // El cliente de la Maestra se guarda con su nombre exacto; uno que no esté en la Maestra, con nombre propio
@@ -1178,7 +1180,7 @@ function armarLibroLog(regs, mes, mens) {
         const docs = [...(r.documentos || []).map(d => ({ doc: claseDoc(d.clase)?.t || '', ov: d.ov, ovi: d.ovi })),
             ...(r.radicacion || []).map(d => d.doc === 'factura' ? { doc: `Radicar factura ${d.serie}`, [d.serie === 'A' ? 'ovi' : 'ov']: d.numero }
                 : d.doc === 'nc' ? { doc: 'Radicar nota crédito RNC', otro: d.numero } : { doc: 'Radicar otros', otro: d.texto }),
-            ...(r.tipo === 'oficina' ? (r.oficina || []).flatMap(k => k === 'aforar' ? (r.facturasAforo || []).map(f => ({ doc: 'Aforar', otro: f })) : k === 'otro' ? [{ doc: 'Otro (oficina)', otro: r.otroOficina || '' }] : [{ doc: OFICINA_LOG.find(x => x[0] === k)?.[1] || k }]) : [])];
+            ...(r.tipo === 'oficina' ? (r.oficina || []).flatMap(k => k === 'aforar' ? (r.facturasAforo || []).map(f => ({ doc: 'Aforar', [f.serie === 'A' ? 'ovi' : 'ov']: f.numero })) : k === 'otro' ? [{ doc: 'Otro (oficina)', otro: r.otroOficina || '' }] : [{ doc: OFICINA_LOG.find(x => x[0] === k)?.[1] || k }]) : [])];
         if (!docs.length) docs.push({ doc: '' });
         const fotos = (r.fotos || []).map(f => f.url).filter(Boolean);
         docs.forEach((d, i) => filas.push([
