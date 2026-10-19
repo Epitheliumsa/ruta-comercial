@@ -32,8 +32,8 @@ const BANCOS_LOG = ['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Ba
 const CAMPOS_HUELLA_LOG = { fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
     proveedor: 'proveedor', oficina: 'lo que se hace en la oficina', facturasAforo: 'facturas a aforar', otroOficina: 'otro', entidad: 'banco', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
-const INCLUYE_ENVIO = { pqr_out: 'PQR', rea_out: 'Reacondicionamiento', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
-const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR', rea_out: 'Reacondicionamiento' };
+const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
+const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT' };
 // Radicación: factura (serie A = OVI o B = OV) con su número, nota crédito (RNC) con su número, u otros (texto)
 const DOCS_RADICACION = [{ k: 'factura', t: 'Factura' }, { k: 'nc', t: 'Nota crédito RNC' }, { k: 'otros', t: 'Otros' }];
 const SERIES_FACTURA = { A: 'OVI', B: 'OV' };   // en pantalla solo se ve la letra
