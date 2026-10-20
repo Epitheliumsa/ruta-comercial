@@ -151,7 +151,7 @@
 ## Perfil Mercadeo (E.Rodriguez, Jefe de RRHH y Mercadeo)
 - Tipo `mercadeo` con `verEquipo` y `subeCirculares` (en `USUARIOS` de `app.js` y en `Codigo.gs`). Es de **solo lectura**: no programa ni reporta visitas.
 - Ve: Panel del equipo (visitas y actividades de todo el equipo, cuota y venta por vendedor, **por línea de negocio, del total y por zona**),
-  Actividades-Circulares (todas) y el Vademécum. No ve Logística, Leads, Maestro de Contactos, Consultar documento, Descargar informe ni Bases.
+  Actividades-Circulares (todas), Maestro Contactos (todas las zonas) y el Vademécum. No ve Logística, Leads, Consultar documento, Descargar informe ni Bases.
 - Escribe solo los enlaces PDF de las circulares (registro `circulares-pdf`); el servidor rechaza cualquier otro registro suyo.
 - `veEquipo()` = jefes o mercadeo (ven todo el equipo); `subeCirculares()` = jefes o quien tenga la marca.
 - La clave solo se entrega a la persona; en el repositorio solo va la huella. También tiene acceso en el Vademécum (`USUARIOS_INTERNOS`, solo el código de acceso).

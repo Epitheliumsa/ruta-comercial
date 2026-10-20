@@ -8,7 +8,7 @@ const esLogistica = () => !!(sesion && sesion.tipo === 'logistica');
 const esCoordLog = () => !!(sesion && sesion.coordLogistica);
 const puedeOperarLog = () => esLogistica() || esAdmin();          // programa y reporta paradas
 const puedeCorregirLog = () => esCoordLog() || esAdmin();         // reabre un reporte para corregirlo
-const veTodasZonas = () => esJefe() || esLogistica();             // Maestra Clientes con todas las zonas
+const veTodasZonas = () => veEquipo() || esLogistica();             // Maestra Clientes con todas las zonas
 
 // Tipo de parada: se escoge uno; la radicación de documentos es la única que se puede sumar a otro tipo (o ir sola).
 // En la entrega en Bogotá y Área Metropolitana se marca además si se recoge devolución o PQR.
