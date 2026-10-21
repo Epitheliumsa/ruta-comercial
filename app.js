@@ -4823,6 +4823,7 @@ const ventasDe = (v, mes, dia = '9999-12-31') => Object.values(registros)
     .sort((a, b) => diaCorte(a).localeCompare(diaCorte(b)) || (a.corte || '').localeCompare(b.corte || '')).pop() || null;
 // Las ventas se muestran con la cifra completa en pesos: $6.403.120
 const cifra = n => '$' + Math.round(n).toLocaleString('es-CO');
+const vendZona = id => nombreVendedor(id) + (comercial(id)?.zona ? ' - ' + comercial(id).zona : '');   // en las tablas de cuota: "Lizeth Ramos - Zona Norte"
 const pctTxt = n => `${(n * 100).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
 function diasHabilesMes(mes) {
     const dias = [];
@@ -4909,7 +4910,7 @@ function pintarVentasPanel() {
             </div>
         </div>
         <table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead>
-        <tbody>${s.filas.map(f => fila(nombreVendedor(f.v), f.cuota, f.venta)).join('')}${s.filas.length > 1 ? fila('Total', s.cuota, s.venta, 'total') : ''}</tbody></table>
+        <tbody>${s.filas.map(f => fila(vendZona(f.v), f.cuota, f.venta)).join('')}${s.filas.length > 1 ? fila('Total', s.cuota, s.venta, 'total') : ''}</tbody></table>
         ${veEquipo() ? tablasLineasPanel(s, fila) : ''}
     </div>`;
 }
@@ -4949,7 +4950,7 @@ function verVentas() {
     const fila = (t, c, v, cl = '') => `<tr class="${cl}"><th scope="row">${esc(t)}</th><td>${cifra(c)}</td><td>${cifra(v)}</td><td>${c ? `<span class="vm-sem ${tonoVentas(v / c, esperado, c)}">${pctTxt(v / c)}</span>` : '—'}</td></tr>`;
     const porVend = s.regs.length > 1 ? `<h3>Por vendedor</h3><table class="vm-tabla"><thead><tr><th>Vendedor</th><th>Cuota</th><th>Venta</th><th>%</th></tr></thead><tbody>${s.regs.map(r => {
         const c = Object.values(r.lineas).reduce((a, x) => a + x.cuota, 0), v = Object.values(r.lineas).reduce((a, x) => a + x.venta, 0) + (s.conExtra ? r.extra?.venta || 0 : 0);
-        return fila(nombreVendedor(r.vendedor), c, v); }).join('')}</tbody></table>` : '';
+        return fila(vendZona(r.vendedor), c, v); }).join('')}</tbody></table>` : '';
     abrirModal(`<div class="form-rc ventas-detalle">
         <h2>Ventas de ${esc(nombreMes(mes))}</h2>
         <p class="ayuda">${esc(vs.length > 1 ? (vs.length === opcionesAgenda().length ? 'Todo el equipo' : vs.map(nombreVendedor).join(', ')) : nombreVendedor(vs[0]))} · Corte del ${esc(fechaCorta(s.dia))} · Ritmo esperado ${pctTxt(esperado)}</p>
