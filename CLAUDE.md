@@ -148,6 +148,12 @@
 - PDF: el jefe lo sube a Google Drive y pega el enlace en la app (registro `circulares-pdf`, clase `mensual`).
 
 
+## Maestra de Odoo (todo en uno) — `subirOdoo` en `bases.js`
+- Una sola carga: el administrador sube la Maestra de Contactos de Odoo tal como sale (con Calle, Teléfono y Móvil), uno o varios archivos con las mismas columnas.
+  La app reparte cada fila por su **Equipo de ventas**: una zona → Maestra de contactos y Direcciones; "Empleados" → Empleados; cualquier otro o vacío → Proveedores.
+- Empleados y Proveedores son privados (solo Logística y administrador). Cada base se reemplaza **solo si el archivo trae filas para ella** (menos de 50 filas de zonas = archivo parcial: no toca la Maestra ni Direcciones). Antes de subir, el diálogo muestra los conteos.
+- Las tarjetas por separado (Maestra de contactos, Direcciones, Proveedores, Empleados) siguen existiendo para cargar solo una base.
+
 ## Empleados (solo Logística y administrador)
 - Los empleados (clasificación 80, equipo de ventas "Empleados") **no** van en la Maestra de contactos ni en el Directorio (viajarían a todos los dispositivos).
   Tienen su propia base privada, igual que Proveedores: hoja "Empleados" del servidor (`empleados_` / `guardarEmpleados_` en `Codigo.gs`), que ven Logística y el administrador.

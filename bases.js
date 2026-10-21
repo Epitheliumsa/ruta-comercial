@@ -47,6 +47,7 @@ async function cargarBases(forzar = false) {
 
 // ---------- Pantalla ----------
 const TARJETAS_BASES = [
+    { k: 'odoo', t: 'Maestra de Odoo (todo en uno)', d: 'Sube la Maestra de Contactos de Odoo tal como sale (con Calle, Teléfono y Móvil), uno o varios archivos con las mismas columnas. La app reparte cada fila según su Equipo de ventas: zonas → Maestra de contactos y Direcciones; Empleados → Empleados; el resto → Proveedores. Empleados y Proveedores solo los ven Logística y tú.', a: 'subirOdoo()', n: 'odoo', sinDescarga: true },
     { k: 'contactos', t: 'Maestra de contactos', d: 'Clientes y médicos de cada zona (Maestra de Contactos de Odoo). Reemplaza la lista de la app.', a: 'subirContactos()', n: 'contactos' },
     { k: 'catalogo', t: 'Productos', d: 'Catálogo con etiquetas (Nuevo, Foco, Transición-Impulso…) para visitas y muestras. Sube Base_Productos (materias primas), Productos_Terminados (terminados) o los dos: cada archivo reemplaza solo lo suyo.', a: 'subirCatalogo()', n: 'productos' },
     { k: 'directorio', t: 'Direcciones y teléfonos', d: 'Calle, teléfono y móvil de los clientes (Maestra de Odoo). Los ven Logística, los jefes y tú; cada comercial, solo su zona.', a: 'subirDirectorio()', n: 'clientes' },
@@ -61,13 +62,14 @@ function textoEstadoBase(k) {
     const cuando = e?.actualizado || l?.v || (k === 'directorio' ? directorio.actualizado : k === 'proveedores' ? proveedoresMaestra.actualizado : k === 'empleados' ? empleadosMaestra.actualizado : '');
     const n = k === 'directorio' ? Object.keys(directorio.filas).length : k === 'proveedores' ? Object.keys(proveedoresMaestra.filas).length : k === 'empleados' ? Object.keys(empleadosMaestra.filas).length : 0;
     const resumen = e?.resumen || l?.resumen || (n ? `${n} registros` : '');
+    if (k === 'odoo') return 'Reemplaza de una sola vez la Maestra de contactos, Direcciones, Empleados y Proveedores (cada base solo si el archivo trae filas para ella).';
     return cuando ? `Última carga: <b>${esc(cuandoBase(cuando))}</b>${resumen ? ' · ' + esc(resumen) : ''}` : '<i>Aún no se ha subido: la app usa lo que trae publicado</i>';
 }
 function pintarBases() {
     $('basesLista').innerHTML = TARJETAS_BASES.map(x => `<div class="base-tarjeta">
         <div class="base-info"><h3>${esc(x.t)}</h3><p>${esc(x.d)}</p><p class="base-estado">${textoEstadoBase(x.k)}</p></div>
         <div class="base-botones"><button type="button" class="btn-nuevo" onclick="${x.a}">⬆ Subir</button>
-        <button type="button" class="btn-sec" onclick="descargarBase('${x.k}')">⬇ Descargar</button></div></div>`).join('');
+        ${x.sinDescarga ? '' : `<button type="button" class="btn-sec" onclick="descargarBase('${x.k}')">⬇ Descargar</button>`}</div></div>`).join('');
 }
 async function abrirBases() {
     if (!esAdmin()) return;
@@ -149,6 +151,86 @@ async function subirContactos() {
         await guardarBaseServidor('contactos', nuevo, resumen);
         toast(`Maestra de contactos actualizada: ${total}`);
     } catch (e) { toast('No se pudo subir la maestra de contactos: ' + e.message); }
+}
+
+
+// ---------- Maestra de Odoo (todo en uno): una sola carga que se reparte a cada base ----------
+// Una fila va según su "Equipo de ventas": una zona (Clientes Especiales, Zona Norte, Zona Sur, Zona Desarrollo) → Maestra de contactos y Direcciones;
+// "Empleados" → Empleados (privada); cualquier otro (o vacío) → Proveedores (privada). Cada base se reemplaza solo si el archivo trae filas para ella.
+const COLUMNAS_ODOO = { n: ['Nombre Público', 'Nombre'], ciudad: ['Ciudad'], prov: ['Provincia'], com: ['Comercial'], eq: ['Equipo de ventas'], etq: ['Etiquetas'],
+    tit: ['Título'], fac: ['Cliente para Facturar'], cl: ['Categoría de cliente/Clasificación'], ca: ['Categoría de cliente'],
+    pz: ['Plazos de Pago', 'Condiciones de pago de cliente'], calle: ['Calle'], tel: ['Teléfono'], mov: ['Móvil'], nit: ['Número de Identificación'] };
+function filasOdoo(libros) {
+    const filas = [];
+    libros.forEach(({ nombre, wb }) => {
+        const hoja = filasHoja(wb.worksheets[0]); if (!hoja.length) return;
+        const cab = Object.fromEntries(hoja[0].map((t, i) => [t.trim(), i]));
+        const col = k => COLUMNAS_ODOO[k].find(x => x in cab);
+        if (!col('n') || !col('ciudad') || !col('eq')) throw new Error(`"${nombre}" no parece la Maestra de Contactos de Odoo: faltan las columnas Nombre Público, Ciudad o Equipo de ventas`);
+        hoja.slice(1).forEach(f => {
+            if (!f.some(Boolean)) return;
+            const o = {}; Object.keys(COLUMNAS_ODOO).forEach(k => { const c = col(k); o[k] = c ? String(f[cab[c]] || '').trim() : ''; });
+            if (o.n) filas.push(o);
+        });
+    });
+    return filas;
+}
+const tipoFilaOdoo = o => ZONAS_BASE.includes(o.eq) ? 'zona' : /emplead/i.test(o.eq) ? 'empleado' : 'otro';
+async function subirOdoo() {
+    if (!esAdmin()) return;
+    const archivos = await elegirArchivos(true);
+    if (!archivos.length) return;
+    try {
+        const libros = []; for (const a of archivos) libros.push({ nombre: a.name, wb: await leerLibro(a) });
+        const todas = filasOdoo(libros), vistos = new Set();
+        const filas = todas.filter(o => { const k = normalizar(o.n); if (vistos.has(k)) return false; vistos.add(k); return true; });   // un nombre repetido: gana el primero
+        const clientes = filas.filter(o => tipoFilaOdoo(o) === 'zona'), empleados = filas.filter(o => tipoFilaOdoo(o) === 'empleado'), otros = filas.filter(o => tipoFilaOdoo(o) === 'otro');
+        const tel = o => [...new Set([o.mov, o.tel].filter(Boolean))].join(' / ');
+        const lineas = [];
+        let nuevo = null, resumenC = '';
+        // Maestra de contactos + Direcciones
+        if (clientes.length >= 50) {
+            const cab = ['Título', 'Nombre Público', 'Provincia', 'Ciudad', 'Comercial', 'Equipo de ventas', 'Cliente para Facturar', 'Categoría de cliente/Clasificación', 'Categoría de cliente', 'Plazos de Pago', 'Etiquetas'];
+            const res = contactosDeMaestra([cab, ...clientes.map(o => [o.tit, o.n, o.prov, o.ciudad, o.com, o.eq, o.fac, o.cl, o.ca, o.pz, o.etq])]);
+            nuevo = res.nuevo;
+            const total = Object.values(nuevo).reduce((a, l) => a + l.length, 0);
+            resumenC = `${total} contactos en ${ZONAS_BASE.length} zonas`;
+            const antes = new Set(Object.values(contactos).flat().map(x => x.n)), despues = new Set(Object.values(nuevo).flat().map(x => x.n));
+            lineas.push(`Clientes y médicos: ${total} (${ZONAS_BASE.map(z => `${z}: ${nuevo[z].length}`).join(' · ')}) · nuevos ${[...despues].filter(n => !antes.has(n)).length} · retirados ${[...antes].filter(n => !despues.has(n)).length}${res.sinZona.length ? ` · sin zona (no se suben) ${res.sinZona.length}` : ''}`);
+            lineas.push(`Direcciones: ${clientes.filter(o => o.calle).length} con dirección y ${clientes.filter(o => tel(o)).length} con teléfono`);
+        } else if (clientes.length) lineas.push(`Clientes y médicos: solo ${clientes.length} filas de zonas: no se reemplaza la Maestra ni Direcciones (parece un archivo parcial)`);
+        else lineas.push('Clientes y médicos: el archivo no trae filas de zonas: se conservan la Maestra y Direcciones');
+        // Empleados y Proveedores
+        const filasEmp = empleados.map(o => [o.n, o.ciudad, o.prov.replace(/\s*\(CO\)$/, ''), 'Empleado', o.calle, tel(o)]);
+        const nits = {}; otros.forEach(o => { nits[normalizar(o.n)] = o.nit; });
+        const filasProv = depurarProveedores(otros.map(o => [o.n, o.ciudad, o.prov.replace(/\s*\(CO\)$/, ''), o.etq, o.calle, tel(o)]), nits);
+        lineas.push(filasEmp.length ? `Empleados: ${filasEmp.length} (${filasEmp.filter(f => f[4]).length} con dirección) · solo Logística y tú` : 'Empleados: el archivo no trae: se conservan los actuales');
+        lineas.push(filasProv.length ? `Proveedores y otros: ${filasProv.length} (${filasProv.filter(f => f[4]).length} con dirección) · solo Logística y tú` : 'Proveedores: el archivo no trae: se conservan los actuales');
+        if (!nuevo && !filasEmp.length && !filasProv.length) return toast('No encontré filas para ninguna base: revisa que sea la Maestra de Contactos de Odoo');
+        if (!await dialogo({ titulo: 'Maestra de Odoo', aceptar: 'Subir todo', texto: `${filas.length} filas leídas${todas.length !== filas.length ? ` (${todas.length - filas.length} repetidas se ignoran)` : ''}.\n\n${lineas.join('\n')}\n\nCada base reemplaza a la anterior. Empleados y Proveedores no llegan a los comerciales.` })) return;
+        const hechos = [];
+        if (nuevo) {
+            await guardarBaseServidor('contactos', nuevo, resumenC);
+            const zonaDe = {}; Object.entries(nuevo).forEach(([z, l]) => l.forEach(x => { zonaDe[x.n] = z; }));
+            const dir = clientes.map(o => [o.n, o.ciudad, o.calle, tel(o), zonaDe[o.n] || o.eq]);
+            let cuando = new Date().toISOString();
+            if (API_URL) cuando = (await llamarApi({ accion: 'guardarDirectorio', filas: dir }, 90000)).actualizado || cuando;
+            ponerDirectorio(dir, cuando);
+            hechos.push('Maestra de contactos', 'Direcciones');
+        }
+        if (filasEmp.length) {
+            let cuando = new Date().toISOString();
+            if (API_URL) cuando = (await llamarApi({ accion: 'guardarEmpleados', filas: filasEmp }, 90000)).actualizado || cuando;
+            ponerEmpleados(filasEmp, cuando); hechos.push('Empleados');
+        }
+        if (filasProv.length) {
+            let cuando = new Date().toISOString();
+            if (API_URL) cuando = (await llamarApi({ accion: 'guardarProveedores', filas: filasProv }, 90000)).actualizado || cuando;
+            ponerProveedores(filasProv, cuando); hechos.push('Proveedores');
+        }
+        refrescarBases();
+        toast(`Listo: ${hechos.join(', ')}`);
+    } catch (e) { toast('No se pudo subir la maestra de Odoo: ' + e.message); }
 }
 
 // ---------- Productos (misma lógica que herramientas/productos.py) ----------
