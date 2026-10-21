@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610202100';
+const APP_VERSION = '202610211408';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -857,15 +857,17 @@ async function revisarVersion() {
         // Con un formulario abierto no se recarga sola (se perdería lo que se está escribiendo): queda el aviso
         if (yaIntentada !== publicada && !pendientes.size && !hayFormularioAbierto()) {
             try { sessionStorage.setItem('rc_recarga', publicada); } catch (e) {}
-            return location.replace(location.pathname + '?v=' + publicada);
+            return location.replace(location.pathname + '?v=' + publicada + enModoPrueba());
         }
         $('avisoVersion').classList.add('visible');
     } catch (e) { /* sin conexión: se revisa después */ }
 }
 
+// Al recargar por una versión nueva la dirección conserva ?prueba: si no, el equipo de pruebas pasaría a trabajar en producción sin avisar
+const enModoPrueba = () => window.MODO_PRUEBA ? '&prueba' : '';
 function actualizarApp() {
     if (pendientes.size && API_URL) sincronizar();
-    location.replace(location.pathname + '?v=' + Date.now());
+    location.replace(location.pathname + '?v=' + Date.now() + enModoPrueba());
 }
 
 document.addEventListener('DOMContentLoaded', revisarVersion);
