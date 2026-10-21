@@ -784,6 +784,7 @@ const HORA_CORTE_LOG = 18;
 const horaBogotaLog = () => +new Date().toLocaleString('en-US', { timeZone: 'America/Bogota', hour: 'numeric', hourCycle: 'h23' });
 function errorFechaLog(fecha, vendedor, idIgnorar = '', sinCambio = false) {
     if (sinCambio) return '';
+    if (window.MODO_PRUEBA || !API_URL) return '';   // pruebas: sin horario (se puede programar cualquier día y a cualquier hora para cargar datos)
     if (fecha < hoy()) return 'Ese día ya pasó: programa desde hoy';
     if (fecha === hoy() && horaBogotaLog() >= HORA_CORTE_LOG) return 'Después de las 6:00 p. m. ya no se programa para hoy: elige el siguiente día';
     return '';
