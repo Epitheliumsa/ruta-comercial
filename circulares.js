@@ -1932,5 +1932,52 @@ window.CIRCULARES = [
   "excluidos": [],
   "todos": false,
   "interna": false
+ },
+ {
+  "c": "2026-036",
+  "tipo": "Colocación",
+  "nombre": "Bonificación especial de lanzamiento",
+  "grupo": "Magistral de Pedido",
+  "dirigida": "Canales 10, 11, 13, 14, 30, 31, 50, 51, 52, 53, 70, 71, 90",
+  "producto": "[MP1098] Minobit Advance Loción x 100 ml; [MP1099] Minobit Advance Loción x 60 ml; [MP1100] BimaLash Serum x 4.2 ml",
+  "ini": "2026-10-26",
+  "fin": "2026-11-30",
+  "objetivo": "Impulsar la colocación, la codificación y la rotación de Minobit Advance Loción x 100 ml, Minobit Advance Loción x 60 ml y BimaLash Serum x 4.2 ml en los canales participantes, mediante una bonificación especial de lanzamiento 6 + 4, para aumentar su penetración y favorecer el abastecimiento inicial de los clientes.",
+  "resumen": "Por cada 6 unidades compradas de una misma referencia (y sus múltiplos), el cliente recibe 4 unidades adicionales sin costo (6 + 4): 10 unidades pagando 6, equivalente a un 40% de descuento sobre el valor de lista, adicional al descuento de tarifa del canal. Reemplaza la bonificación estándar del canal en estas referencias y no es acumulable con otras. Queda matriculada en Odoo y se asigna automáticamente en el pedido. Objetivo de codificación por zona: Sur 10, Norte 13, Desarrollo 6, Clientes Especiales 4 (total 33).",
+  "obs": "Bonificado 6+4 por referencia; reemplaza la bonificación estándar del canal; sin liquidación posterior.",
+  "pdf": "",
+  "productos": [
+   {
+    "c": "MP1098",
+    "n": "Minobit Advance Loción x 100 ml"
+   },
+   {
+    "c": "MP1099",
+    "n": "Minobit Advance Loción x 60 ml"
+   },
+   {
+    "c": "MP1100",
+    "n": "BimaLash Serum x 4.2 ml"
+   }
+  ],
+  "canales": [
+   "10",
+   "11",
+   "13",
+   "14",
+   "30",
+   "31",
+   "50",
+   "51",
+   "52",
+   "53",
+   "70",
+   "71",
+   "90"
+  ],
+  "clientes": [],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
  }
 ];
