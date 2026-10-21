@@ -2056,3 +2056,8 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 
 .vm-tabla tr.vm-zona th { background: #f1ebfb; color: #4c1d95; text-align: left; font-size: .85rem; padding: 8px 10px; }
 .panel-ventas h3 { margin: 18px 0 6px; font-size: 1rem; color: #4c1d95; }
+
+.dir-alternas { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #cbd5d1; }
+.dir-alternas > b { display: block; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+.dir-alternas .dir-cliente { margin: 4px 0 6px; }
+.dir-et { font-weight: 700; color: #334155; }

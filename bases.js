@@ -157,7 +157,7 @@ async function subirContactos() {
 // ---------- Maestra de Odoo (todo en uno): una sola carga que se reparte a cada base ----------
 // Una fila va según su "Equipo de ventas": una zona (Clientes Especiales, Zona Norte, Zona Sur, Zona Desarrollo) → Maestra de contactos y Direcciones;
 // "Empleados" → Empleados (privada); cualquier otro (o vacío) → Proveedores (privada). Cada base se reemplaza solo si el archivo trae filas para ella.
-const COLUMNAS_ODOO = { n: ['Nombre Público', 'Nombre'], ciudad: ['Ciudad'], prov: ['Provincia'], com: ['Comercial'], eq: ['Equipo de ventas'], etq: ['Etiquetas'],
+const COLUMNAS_ODOO = { n: ['Nombre Público', 'Nombre'], nom: ['Nombre'], ciudad: ['Ciudad'], prov: ['Provincia'], com: ['Comercial'], eq: ['Equipo de ventas'], etq: ['Etiquetas'],
     tit: ['Título'], fac: ['Cliente para Facturar'], cl: ['Categoría de cliente/Clasificación'], ca: ['Categoría de cliente'],
     pz: ['Plazos de Pago', 'Condiciones de pago de cliente'], calle: ['Calle'], tel: ['Teléfono'], mov: ['Móvil'], nit: ['Número de Identificación'] };
 function filasOdoo(libros) {
@@ -175,7 +175,15 @@ function filasOdoo(libros) {
     });
     return filas;
 }
-const tipoFilaOdoo = o => ZONAS_BASE.includes(o.eq) ? 'zona' : /emplead/i.test(o.eq) ? 'empleado' : 'otro';
+// Odoo trae cada dirección de entrega / personal de un cliente como una fila más (etiqueta "Direccion Entrega" o "Dirección Personal"): no es un contacto,
+// es una dirección alterna del cliente. Los empleados se reconocen por el equipo, la etiqueta o la clasificación 80.
+const claveOdoo = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const tipoDireccionOdoo = o => /direccion (entrega|personal)/.test(claveOdoo(o.etq)) ? (/direccion personal/.test(claveOdoo(o.etq)) ? 'Personal' : 'Entrega') : '';
+const tipoFilaOdoo = o => tipoDireccionOdoo(o) ? 'direccion'
+    : /emplead/i.test(o.eq) || /(^|[,;\s])empleado/.test(claveOdoo(o.etq)) || o.cl === '80' ? 'empleado'
+    : ZONAS_BASE.includes(o.eq) ? 'zona'
+    : o.eq || /usuario odoo/.test(claveOdoo(o.etq)) ? 'ignorada'   // Ventas Mostrador (consumidor final), usuarios de Odoo: no se suben
+    : 'otro';
 async function subirOdoo() {
     if (!esAdmin()) return;
     const archivos = await elegirArchivos(true);
@@ -184,7 +192,20 @@ async function subirOdoo() {
         const libros = []; for (const a of archivos) libros.push({ nombre: a.name, wb: await leerLibro(a) });
         const todas = filasOdoo(libros), vistos = new Set();
         const filas = todas.filter(o => { const k = normalizar(o.n); if (vistos.has(k)) return false; vistos.add(k); return true; });   // un nombre repetido: gana el primero
-        const clientes = filas.filter(o => tipoFilaOdoo(o) === 'zona'), empleados = filas.filter(o => tipoFilaOdoo(o) === 'empleado'), otros = filas.filter(o => tipoFilaOdoo(o) === 'otro');
+        let clientes = filas.filter(o => tipoFilaOdoo(o) === 'zona');
+        const empleados = filas.filter(o => tipoFilaOdoo(o) === 'empleado'), otros = filas.filter(o => tipoFilaOdoo(o) === 'otro'), ignoradas = filas.filter(o => tipoFilaOdoo(o) === 'ignorada');
+        // Direcciones alternas: se pegan al cliente (por el nombre "Cliente, Dirección" y, si no, por el NIT único); la que no tiene cliente y trae zona queda como contacto
+        const porNombre = {}, porNit = {};
+        clientes.forEach(o => { porNombre[normalizar(o.n)] = o; (porNit[o.nit] = porNit[o.nit] || []).push(o); });
+        const altas = [], sinCliente = [];
+        filas.filter(o => tipoFilaOdoo(o) === 'direccion').forEach(o => {
+            const etiqueta = o.nom && o.nom !== o.n ? o.nom : '';
+            let padre = etiqueta && o.n.endsWith(', ' + etiqueta) ? porNombre[normalizar(o.n.slice(0, -(etiqueta.length + 2)))] : null;
+            if (!padre && o.nit && (porNit[o.nit] || []).length) { const c = porNit[o.nit].filter(x => !o.com || x.com === o.com); padre = c.length === 1 ? c[0] : null; }
+            if (padre) altas.push({ o, padre, tipo: tipoDireccionOdoo(o), etiqueta: etiqueta || o.n });
+            else if (ZONAS_BASE.includes(o.eq)) { sinCliente.push(o.n); clientes.push(o); }
+            else sinCliente.push(o.n);
+        });
         const tel = o => [...new Set([o.mov, o.tel].filter(Boolean))].join(' / ');
         const lineas = [];
         let nuevo = null, resumenC = '';
@@ -198,6 +219,7 @@ async function subirOdoo() {
             const antes = new Set(Object.values(contactos).flat().map(x => x.n)), despues = new Set(Object.values(nuevo).flat().map(x => x.n));
             lineas.push(`Clientes y médicos: ${total} (${ZONAS_BASE.map(z => `${z}: ${nuevo[z].length}`).join(' · ')}) · nuevos ${[...despues].filter(n => !antes.has(n)).length} · retirados ${[...antes].filter(n => !despues.has(n)).length}${res.sinZona.length ? ` · sin zona (no se suben) ${res.sinZona.length}` : ''}`);
             lineas.push(`Direcciones: ${clientes.filter(o => o.calle).length} con dirección y ${clientes.filter(o => tel(o)).length} con teléfono`);
+            lineas.push(`Direcciones alternas: ${altas.length} pegadas a su cliente (${altas.filter(a => a.tipo === 'Entrega').length} de entrega · ${altas.filter(a => a.tipo === 'Personal').length} personales)${sinCliente.length ? ` · sin cliente: ${sinCliente.length} (${sinCliente.slice(0, 4).join(', ')}${sinCliente.length > 4 ? '…' : ''})` : ''}`);
         } else if (clientes.length) lineas.push(`Clientes y médicos: solo ${clientes.length} filas de zonas: no se reemplaza la Maestra ni Direcciones (parece un archivo parcial)`);
         else lineas.push('Clientes y médicos: el archivo no trae filas de zonas: se conservan la Maestra y Direcciones');
         // Empleados y Proveedores
@@ -206,13 +228,15 @@ async function subirOdoo() {
         const filasProv = depurarProveedores(otros.map(o => [o.n, o.ciudad, o.prov.replace(/\s*\(CO\)$/, ''), o.etq, o.calle, tel(o)]), nits);
         lineas.push(filasEmp.length ? `Empleados: ${filasEmp.length} (${filasEmp.filter(f => f[4]).length} con dirección) · solo Logística y tú` : 'Empleados: el archivo no trae: se conservan los actuales');
         lineas.push(filasProv.length ? `Proveedores y otros: ${filasProv.length} (${filasProv.filter(f => f[4]).length} con dirección) · solo Logística y tú` : 'Proveedores: el archivo no trae: se conservan los actuales');
+        if (ignoradas.length) lineas.push(`No se suben: ${ignoradas.length} (Ventas Mostrador y usuarios de Odoo)`);
         if (!nuevo && !filasEmp.length && !filasProv.length) return toast('No encontré filas para ninguna base: revisa que sea la Maestra de Contactos de Odoo');
         if (!await dialogo({ titulo: 'Maestra de Odoo', aceptar: 'Subir todo', texto: `${filas.length} filas leídas${todas.length !== filas.length ? ` (${todas.length - filas.length} repetidas se ignoran)` : ''}.\n\n${lineas.join('\n')}\n\nCada base reemplaza a la anterior. Empleados y Proveedores no llegan a los comerciales.` })) return;
         const hechos = [];
         if (nuevo) {
             await guardarBaseServidor('contactos', nuevo, resumenC);
             const zonaDe = {}; Object.entries(nuevo).forEach(([z, l]) => l.forEach(x => { zonaDe[x.n] = z; }));
-            const dir = clientes.map(o => [o.n, o.ciudad, o.calle, tel(o), zonaDe[o.n] || o.eq]);
+            const dir = clientes.map(o => [o.n, o.ciudad, o.calle, tel(o), zonaDe[o.n] || o.eq, '', ''])
+                .concat(altas.map(a => [a.etiqueta, a.o.ciudad, a.o.calle, tel(a.o), zonaDe[a.padre.n] || a.padre.eq, a.padre.n, a.tipo]));
             let cuando = new Date().toISOString();
             if (API_URL) cuando = (await llamarApi({ accion: 'guardarDirectorio', filas: dir }, 90000)).actualizado || cuando;
             ponerDirectorio(dir, cuando);

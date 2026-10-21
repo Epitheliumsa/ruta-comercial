@@ -154,6 +154,14 @@
 - Empleados y Proveedores son privados (solo Logística y administrador). Cada base se reemplaza **solo si el archivo trae filas para ella** (menos de 50 filas de zonas = archivo parcial: no toca la Maestra ni Direcciones). Antes de subir, el diálogo muestra los conteos.
 - Las tarjetas por separado (Maestra de contactos, Direcciones, Proveedores, Empleados) siguen existiendo para cargar solo una base.
 
+## Direcciones alternas (Entrega / Personal)
+- Odoo exporta cada dirección de entrega o personal como una fila más (etiqueta "Direccion Entrega" / "Dirección Personal"). **No son contactos**: `subirOdoo` las pega al cliente
+  (por el nombre "Cliente, Dirección" y, si no, por el NIT único con el mismo comercial) y las guarda en la hoja Directorio con las columnas `Principal` (el cliente) y `Tipo`.
+  Una sin cliente que trae zona queda como contacto; sin zona, no se sube. El diálogo de carga lo cuenta.
+- Logística: al escoger un cliente con varias direcciones sale el selector **Dirección de entrega** (Principal + alternas) y llena dirección y teléfono (`pintarDirSel`, `elegirDirEntrega`).
+- Comerciales y jefes: en la ficha del contacto salen como **Otras direcciones** (solo informativo; `htmlDirectorioCliente`). Las **personales** solo las reciben Logística, jefes y administrador (el servidor las filtra).
+- No se suben: filas con Equipo de ventas Ventas Mostrador (consumidor final) ni usuarios de Odoo. Empleados = equipo Empleados, etiqueta Empleado o clasificación 80.
+
 ## Empleados (solo Logística y administrador)
 - Los empleados (clasificación 80, equipo de ventas "Empleados") **no** van en la Maestra de contactos ni en el Directorio (viajarían a todos los dispositivos).
   Tienen su propia base privada, igual que Proveedores: hoja "Empleados" del servidor (`empleados_` / `guardarEmpleados_` en `Codigo.gs`), que ven Logística y el administrador.

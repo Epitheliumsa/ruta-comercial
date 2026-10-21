@@ -375,6 +375,7 @@ function abrirLogForm(id) {
         ${r?.contacto ? '<p class="ayuda lg-bloq-nota">🔒 El cliente no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}
         <datalist id="dlLogClientes">${clientes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
         <p class="ayuda" id="lgInfoCli"></p>
+        <div id="lgBDirSel" hidden><label for="lgDirSel">Dirección de entrega <small>(este cliente tiene varias)</small></label><select id="lgDirSel" onchange="elegirDirEntrega()"></select></div>
         <p class="ayuda lg-otro-nota" id="lgOtroCont" hidden>🆕 <b>Otros:</b> este contacto no está en la Maestra. Escribe su dirección y su teléfono; la parada queda marcada como "Otros".</p>
         </div>
         <div id="lgBProv">
@@ -550,16 +551,35 @@ function logInfoCliente(rellenar = true) {
     const otroCont = tipoMarcado() === 'vuelta' && !!nombre && !zonaDeContacto(nombre) && !leadPorNombre(nombre);
     $('lgOtroCont').hidden = !otroCont;
     obligDirTelLog();
-    if (!nombre) { $('lgInfoCli').textContent = ''; return; }
+    if (!nombre) { $('lgInfoCli').textContent = ''; pintarDirSel(''); return; }
     const d = datosClienteLog(nombre);
     $('lgInfoCli').innerHTML = d.lead ? `✓ Lead${d.zona ? ' · ' + esc(d.zona) : ''}${d.comercial ? ' · ' + esc(nombreVendedor(d.comercial)) + ' verá esta entrega en el historial del cliente' : ''}`
         : d.comercial ? `✓ ${esc(d.zona)} · ${esc(nombreVendedor(d.comercial))} verá esta entrega en el historial del cliente${d.ciudad ? ' · ' + esc(d.ciudad) : ''}`
         : 'No está en la Maestra: no se le avisará a ningún comercial.';
-    if (!rellenar) return;
+    if (!rellenar) { pintarDirSel(nombre); return; }
     const ultima = logRegs().filter(x => x.contacto && normalizar(x.contacto) === normalizar(nombre) && (x.direccion || x.telefono)).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
     const poner = (campo, valor) => { if (valor && (!campo.value || campo.dataset.auto === '1')) { campo.value = valor; campo.dataset.auto = '1'; } };
     poner($('lgDir'), d.dir || ultima?.direccion);
     poner($('lgTel'), d.tel || ultima?.telefono);
+    pintarDirSel(nombre);
+}
+// Un cliente con direcciones alternas: Logística escoge a cuál se entrega y se llenan dirección y teléfono
+function pintarDirSel(nombre) {
+    const alt = altDe(nombre), cont = $('lgBDirSel');
+    if (!cont) return;
+    cont.hidden = !alt.length;
+    if (!alt.length) { $('lgDirSel').innerHTML = ''; return; }
+    const d = dirDe(nombre), actual = $('lgDir').value.trim();
+    const opciones = [{ et: 'Principal', dir: d?.dir || '', tel: d?.tel || '' }, ...alt.map(a => ({ et: a.n + (a.tipo === 'Personal' ? ' (personal)' : ''), dir: a.dir, tel: a.tel }))];
+    const marcada = Math.max(0, opciones.findIndex(o => o.dir && o.dir === actual));
+    $('lgDirSel').innerHTML = opciones.map((o, i) => `<option value="${i}" ${i === marcada ? 'selected' : ''}>${esc(o.et)}${o.dir ? ' · ' + esc(o.dir.slice(0, 60)) : ''}</option>`).join('');
+    $('lgDirSel')._opciones = opciones;
+}
+function elegirDirEntrega() {
+    const o = $('lgDirSel')._opciones?.[Number($('lgDirSel').value)];
+    if (!o) return;
+    $('lgDir').value = o.dir; $('lgDir').dataset.auto = '1';
+    $('lgTel').value = o.tel || $('lgTel').value; $('lgTel').dataset.auto = '1';
 }
 
 async function guardarNovedadLog(e, id, nv) {
@@ -957,9 +977,14 @@ const DIR_LOCAL = 'rc_directorio';
 const veDirectorio = () => !!sesion;
 let directorio = (() => { try { return JSON.parse(localStorage.getItem(DIR_LOCAL)) || { filas: {} }; } catch (e) { return { filas: {} }; } })();
 function ponerDirectorio(filas, actualizado) {
-    const m = {};
-    filas.forEach(([n, c, dir, tel, z]) => { if (n) m[normalizar(n)] = { n, c, dir, tel, z }; });
-    directorio = { filas: m, actualizado: actualizado || '', traido: Date.now() };
+    const m = {}, alt = {};
+    // Fila con "Principal" = dirección alterna (Entrega o Personal) de ese cliente; sin Principal = la dirección del cliente
+    filas.forEach(([n, c, dir, tel, z, principal, tipo]) => {
+        if (!n) return;
+        if (principal) (alt[normalizar(principal)] = alt[normalizar(principal)] || []).push({ n, c, dir, tel, z, tipo: tipo || 'Entrega' });
+        else m[normalizar(n)] = { n, c, dir, tel, z };
+    });
+    directorio = { filas: m, alt, actualizado: actualizado || '', traido: Date.now() };
     try { localStorage.setItem(DIR_LOCAL, JSON.stringify(directorio)); } catch (e) { /* sin espacio: queda en memoria */ }
 }
 // Cada comercial solo ve los de su zona (el servidor ya filtra; esto cubre el módulo de pruebas)
@@ -969,6 +994,11 @@ const dirDe = nombre => {
     // Empleados: dirección y teléfono de la maestra privada (solo Logística y administrador)
     const e = nombre && veProveedores() ? empleadosMaestra.filas[normalizar(nombre)] : null;
     return e ? { n: e.n, c: e.c, dir: e.dir, tel: e.tel, z: '' } : null;
+};
+// Direcciones alternas del cliente (el servidor ya filtra por zona; las personales no llegan a los comerciales: esto cubre el módulo de pruebas)
+const altDe = nombre => {
+    const l = (nombre && directorio.alt?.[normalizar(nombre)]) || [];
+    return esLogistica() || esJefe() || esAdmin() ? l : l.filter(a => a.tipo !== 'Personal' && (!a.z || a.z === comercial(sesion?.id)?.zona));
 };
 function borrarDirectorio() {
     if (!API_URL) return;   // módulo de pruebas: el directorio viene con la página
@@ -1187,10 +1217,11 @@ function verProveedor(nombre) {
 
 // Dirección y teléfono en la tarjeta del cliente (Maestra)
 function htmlDirectorioCliente(nombre) {
-    const d = dirDe(nombre);
-    if (!d || !(d.dir || d.tel)) return '';
-    const tels = enlacesTel(d.tel);
-    return `<p class="dir-cliente">${d.dir ? `📍 ${enlaceDir(d.dir, d.c)}` : ''}${d.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>`;
+    const d = dirDe(nombre), alt = altDe(nombre);
+    if ((!d || !(d.dir || d.tel)) && !alt.length) return '';
+    const tels = d ? enlacesTel(d.tel) : '';
+    const otras = alt.length ? `<div class="dir-alternas"><b>Otras direcciones</b>${alt.map(a => `<p class="dir-cliente"><span class="dir-et">${esc(a.n)}${a.tipo === 'Personal' ? ' · personal' : ''}</span><br>${a.dir ? `📍 ${enlaceDir(a.dir, a.c)}` : ''}${a.dir && a.tel ? '<br>' : ''}${a.tel ? `📞 ${enlacesTel(a.tel)}` : ''}</p>`).join('')}</div>` : '';
+    return `${d && (d.dir || d.tel) ? `<p class="dir-cliente">${d.dir ? `📍 ${enlaceDir(d.dir, d.c)}` : ''}${d.dir && tels ? '<br>' : ''}${tels ? `📞 ${tels}` : ''}</p>` : ''}${otras}`;
 }
 
 // ---------- HISTORIAL DEL CLIENTE (Maestra) ----------

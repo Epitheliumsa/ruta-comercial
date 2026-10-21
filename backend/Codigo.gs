@@ -264,7 +264,8 @@ function firmarFormato_(usuario, pedido) {
 // Logística (para la ruta), los jefes y el administrador ven todos; cada comercial, solo los clientes de su zona
 // (columna Zona, que la app llena con la Maestra al subir). Solo el administrador los reemplaza.
 const HOJA_DIR = 'Directorio';
-const COLUMNAS_DIR = ['Nombre', 'Ciudad', 'Dirección', 'Teléfono', 'Zona'];
+// Principal y Tipo: solo en las direcciones alternas (Entrega, Personal) de un cliente; Principal = nombre del cliente al que pertenecen
+const COLUMNAS_DIR = ['Nombre', 'Ciudad', 'Dirección', 'Teléfono', 'Zona', 'Principal', 'Tipo'];
 function veTodoDirectorio_(u) { return u.area === 'logistica' || u.tipo === 'jefe' || !!u.admin; }
 function directorio_(usuario) {
   const todo = veTodoDirectorio_(usuario);
@@ -272,7 +273,8 @@ function directorio_(usuario) {
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_DIR);
   if (!h) return { filas: [], actualizado: '' };
   const valores = h.getDataRange().getValues();
-  const filas = valores.slice(1).filter(f => f[0] && (todo || String(f[4]) === usuario.zona)).map(f => f.slice(0, COLUMNAS_DIR.length).map(String));
+  // Cada comercial: solo su zona y sin las direcciones personales (esas las ven Logística, los jefes y el administrador)
+  const filas = valores.slice(1).filter(f => f[0] && (todo || (String(f[4]) === usuario.zona && String(f[6]) !== 'Personal'))).map(f => f.slice(0, COLUMNAS_DIR.length).map(String));
   return { filas: filas, actualizado: String(valores[0][COLUMNAS_DIR.length] || '') };
 }
 function guardarDirectorio_(usuario, filas) {
