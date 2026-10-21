@@ -87,6 +87,21 @@ function hoja_() {
   return h;
 }
 
+// Límite para editar una entrega cerrada: el que trae el registro (calculado con festivos) o, en los reportes viejos, las 8:00 a. m. (Colombia) del siguiente día de lunes a viernes
+function limiteEdicionLog_(r) {
+  if (r.limiteEdicion) return Date.parse(r.limiteEdicion);
+  if (!r.registrada) return 0;
+  const bogota = new Date(Date.parse(r.registrada) - 5 * 3600000);
+  const d = new Date(Date.UTC(bogota.getUTCFullYear(), bogota.getUTCMonth(), bogota.getUTCDate() + 1));
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 13, 0, 0);
+}
+
+// Entrega cerrada que todavía se puede editar: la ve todo Logística (no solo quien la reportó)
+function enVentanaFila_(f) {
+  try { const p = JSON.parse(f[6]); return p.estado === 'entregado' && Date.now() <= limiteEdicionLog_(p); } catch (e) { return false; }
+}
+
 // El comercial solo ve lo suyo; el jefe ve todo el equipo
 function listar_(usuario, desde, hasta) {
   const filas = hoja_().getDataRange().getValues().slice(1);
@@ -95,7 +110,7 @@ function listar_(usuario, desde, hasta) {
     // Acompañamientos: también los ve quien pidió el acompañamiento (dueño de la visita)
     .filter(f => f[0] && (usuario.area === 'logistica'
       // Logística: solo lo de logística (el coordinador, de todos los auxiliares; cada auxiliar, lo suyo)
-      ? f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id)
+      ? f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id || enVentanaFila_(f))
       : (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'
       // Mercadeo: ve visitas, ventas, novedades y actividades de todo el equipo (nada de logística, leads ni acompañamientos)
       || (usuario.verEquipo && ['visita', 'ventas', 'novedad', 'actividad'].indexOf(f[1]) >= 0)
@@ -129,7 +144,10 @@ function guardar_(usuario, registros) {
       const subeVentas = r.clase === 'ventas' && usuario.subeVentas;
       // Logística: solo logística escribe registros de logística (el coordinador, los de todos; el auxiliar, los suyos)
       if (usuario.area === 'logistica' && r.clase !== 'logistica') return;
-      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id) : usuario.admin);
+      // Una entrega cerrada se puede editar hasta las 8:00 a. m. del siguiente día hábil por cualquier persona de Logística (uno afora, otro envía y pone la guía)
+      const previoLog = r.clase === 'logistica' && filaDe[r.id] ? JSON.parse(valores[filaDe[r.id] - 1][6]) : null;
+      const enVentanaLog = !!previoLog && previoLog.estado === 'entregado' && usuario.area === 'logistica' && Date.now() <= limiteEdicionLog_(previoLog);
+      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id || enVentanaLog) : usuario.admin);
       if (r.clase === 'logistica' && !logistica) return;
       // Mercadeo solo escribe los enlaces PDF de las circulares (clase 'mensual', id circulares-pdf)
       if (usuario.tipo === 'mercadeo' && !(usuario.subeCirculares && r.id === 'circulares-pdf' && r.clase === 'mensual')) return;
@@ -164,10 +182,11 @@ function guardar_(usuario, registros) {
           return;
         }
       }
-      // Logística: un auxiliar no cambia lo ya reportado (solo puede agregar fotos); lo corrige el coordinador o el administrador
+      // Logística: un auxiliar no cambia lo ya reportado (solo puede agregar fotos); lo corrige el coordinador o el administrador.
+      // Dentro de la ventana de edición sí puede cambiar el reporte, pero no el estado, ni las facturas, ni borrar.
       if (r.clase === 'logistica' && actual && actual.estado && actual.estado !== 'pendiente' && !usuario.coordLogistica && !usuario.admin) {
-        if (r.borrado || r.estado !== actual.estado || JSON.stringify(r.reporte) !== JSON.stringify(actual.reporte)
-          || JSON.stringify(r.documentos) !== JSON.stringify(actual.documentos)) return;
+        if (r.borrado || r.estado !== actual.estado || JSON.stringify(r.documentos) !== JSON.stringify(actual.documentos)) return;
+        if (!enVentanaLog && JSON.stringify(r.reporte) !== JSON.stringify(actual.reporte)) return;
       }
       if (n) {
         if (String(valores[n - 1][4]) > String(r.actualizado || '')) return;

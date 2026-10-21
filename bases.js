@@ -228,7 +228,7 @@ async function subirOdoo() {
             const res = contactosDeMaestra([cab, ...clientes.map(o => [o.tit, o.n, o.prov, o.ciudad, o.com, o.eq, o.fac, o.cl, o.ca, o.pz, o.etq])]);
             nuevo = res.nuevo;
             const total = Object.values(nuevo).reduce((a, l) => a + l.length, 0);
-            resumenC = `${total} contactos en ${ZONAS_BASE.length} zonas`;
+            resumenC = `${total} contactos en ${ZONAS_BASE.length} zonas · ${altas.length} direcciones alternas`;
             const antes = new Set(Object.values(contactos).flat().map(x => x.n)), despues = new Set(Object.values(nuevo).flat().map(x => x.n));
             lineas.push(`Clientes y médicos: ${total} (${ZONAS_BASE.map(z => `${z}: ${nuevo[z].length}`).join(' · ')}) · nuevos ${[...despues].filter(n => !antes.has(n)).length} · retirados ${[...antes].filter(n => !despues.has(n)).length}${res.sinZona.length ? ` · sin zona (no se suben) ${res.sinZona.length}` : ''}`);
             lineas.push(`Direcciones: ${clientes.filter(o => o.calle).length} con dirección y ${clientes.filter(o => tel(o)).length} con teléfono`);

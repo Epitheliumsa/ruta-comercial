@@ -164,6 +164,13 @@
   **no se suben**: Equipo de ventas Ventas Mostrador (consumidor final) y usuarios de Odoo · todo lo demás (sin equipo; con etiqueta Proveedor, Entidad Gubernamental, Junta Directiva o sin etiqueta) → Proveedores.
 - Exportación de Odoo: la plantilla de columnas está en la hoja "Campos" de Plantilla_Maestra_Odoo.xlsx (se regenera con las columnas de `COLUMNAS_ODOO` en `bases.js`). Si un contacto no queda donde se espera, casi siempre es su Equipo de ventas, su etiqueta o un nombre escrito distinto (p. ej. un acento ´ en lugar de la comilla ').
 
+## Logística: editar la entrega cerrada y pegar fotos
+- Una entrega cerrada (`entregado`) se puede **editar** (quién recibió, transportadora, guía, detalle, novedades y más fotos) hasta las **8:00 a. m. del siguiente día hábil** por **cualquier persona de Logística**
+  (uno afora el pedido y otro lo envía y pone la guía). Botón "✏️ Editar entrega" en la tarjeta (`abrirLogEditar`, `guardarLogEditar`). Al reportar se guarda `limiteEdicion` (con festivos, `siguienteHabil`);
+  el servidor (`limiteEdicionLog_`, `enVentanaFila_` en `Codigo.gs`) lo respeta: dentro de la ventana deja cambiar el reporte (no el estado, ni las facturas, ni borrar) y todo Logística ve esas entregas; fuera, solo el coordinador o el administrador con "Corregir reporte".
+  La edición queda en la huella `ediciones` ("Editada por …"); quien reportó (`reportadoPor`) no cambia. En pruebas (`?prueba` o módulo) no hay límite de hora.
+- Fotos: además de "Tomar foto", en el computador se puede **arrastrar el archivo** o **pegar una captura** (Ctrl+V) en el reporte y en la edición; pasan por el mismo proceso (`agregarArchivosLog`, máx. 4). La zona de arrastre se oculta en pantallas táctiles.
+
 ## Empleados (solo Logística y administrador)
 - Los empleados (clasificación 80, equipo de ventas "Empleados") **no** van en la Maestra de contactos ni en el Directorio (viajarían a todos los dispositivos).
   Tienen su propia base privada, igual que Proveedores: hoja "Empleados" del servidor (`empleados_` / `guardarEmpleados_` en `Codigo.gs`), que ven Logística y el administrador.
