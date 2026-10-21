@@ -182,8 +182,8 @@ const tipoDireccionOdoo = o => /direccion (entrega|personal)/.test(claveOdoo(o.e
 const tipoFilaOdoo = o => tipoDireccionOdoo(o) ? 'direccion'
     : /emplead/i.test(o.eq) || /(^|[,;\s])empleado/.test(claveOdoo(o.etq)) || o.cl === '80' ? 'empleado'
     : ZONAS_BASE.includes(o.eq) ? 'zona'
-    : o.eq || /usuario odoo/.test(claveOdoo(o.etq)) ? 'ignorada'   // Ventas Mostrador (consumidor final), usuarios de Odoo: no se suben
-    : 'otro';
+    : o.eq || (o.etq && !/proveedor/.test(claveOdoo(o.etq))) ? 'ignorada'   // Ventas Mostrador (consumidor final), usuarios de Odoo, entidades, junta: no se suben
+    : 'otro';   // sin equipo y sin etiqueta, o con etiqueta Proveedor: Proveedores
 async function subirOdoo() {
     if (!esAdmin()) return;
     const archivos = await elegirArchivos(true);
@@ -228,7 +228,7 @@ async function subirOdoo() {
         const filasProv = depurarProveedores(otros.map(o => [o.n, o.ciudad, o.prov.replace(/\s*\(CO\)$/, ''), o.etq, o.calle, tel(o)]), nits);
         lineas.push(filasEmp.length ? `Empleados: ${filasEmp.length} (${filasEmp.filter(f => f[4]).length} con dirección) · solo Logística y tú` : 'Empleados: el archivo no trae: se conservan los actuales');
         lineas.push(filasProv.length ? `Proveedores y otros: ${filasProv.length} (${filasProv.filter(f => f[4]).length} con dirección) · solo Logística y tú` : 'Proveedores: el archivo no trae: se conservan los actuales');
-        if (ignoradas.length) lineas.push(`No se suben: ${ignoradas.length} (Ventas Mostrador y usuarios de Odoo)`);
+        if (ignoradas.length) lineas.push(`No se suben: ${ignoradas.length} (Ventas Mostrador y contactos que no son proveedores)`);
         if (!nuevo && !filasEmp.length && !filasProv.length) return toast('No encontré filas para ninguna base: revisa que sea la Maestra de Contactos de Odoo');
         if (!await dialogo({ titulo: 'Maestra de Odoo', aceptar: 'Subir todo', texto: `${filas.length} filas leídas${todas.length !== filas.length ? ` (${todas.length - filas.length} repetidas se ignoran)` : ''}.\n\n${lineas.join('\n')}\n\nCada base reemplaza a la anterior. Empleados y Proveedores no llegan a los comerciales.` })) return;
         const hechos = [];
