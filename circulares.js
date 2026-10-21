@@ -1979,5 +1979,119 @@ window.CIRCULARES = [
   "excluidos": [],
   "todos": false,
   "interna": false
+ },
+ {
+  "c": "2026-037",
+  "tipo": "Colocación",
+  "nombre": "Bonificación especial por codificación de productos Nuevos – Socios Epithelium",
+  "grupo": "Magistral de Pedido",
+  "dirigida": "Canales 20, 90",
+  "producto": "[MP0916] Ascorvit 20% Serum x 30 ml; [MP0734] Minobit N Espuma x 200 ml; [MP0611] Minobit TD Loción x 120 ml; [MP0586] Minobit TD Loción x 60 ml; [MP0941] Sensibath MP Syndet x 1000 ml; [MP0912] Sérum Reparador Cejas y Pestañas x 4.2 ml; [MP0750] Shampoo Anticaída con C.B.D x 250 ml; [MP0879] Syndet Niños x 220 ml",
+  "ini": "2026-10-26",
+  "fin": "2026-11-30",
+  "objetivo": "Impulsar la codificación, formulación y rotación inicial de los productos Nuevo en los clientes de los canales 20 (Socio Epithelium) y 90 (Accionista con tienda de piel o punto de venta), con una bonificación 6 + 3 por única vez por cliente y producto, sin descuento adicional.",
+  "resumen": "Por cada 6 unidades compradas de un producto Nuevo, el cliente recibe 3 adicionales sin costo (6 + 3): 9 unidades pagando 6, equivalente a un 33,3% de descuento sobre el valor de lista. Aplica solo en el primer pedido en que el cliente codifica cada producto y no es acumulable con otras promociones del mismo producto. Cuenta la fecha de inclusión del pedido, no la de entrega. Queda matriculada en Odoo y se asigna automáticamente en el pedido. La meta se mide solo en el canal 90 (75% de los clientes activos, redondeado hacia arriba).",
+  "obs": "Bonificación 6+3 única por cliente y producto. Cortes de control: 31 de octubre y 30 de noviembre.",
+  "pdf": "",
+  "productos": [
+   {
+    "c": "MP0916",
+    "n": "Ascorvit 20% Serum x 30 ml"
+   },
+   {
+    "c": "MP0734",
+    "n": "Minobit N Espuma x 200 ml"
+   },
+   {
+    "c": "MP0611",
+    "n": "Minobit TD Loción x 120 ml"
+   },
+   {
+    "c": "MP0586",
+    "n": "Minobit TD Loción x 60 ml"
+   },
+   {
+    "c": "MP0941",
+    "n": "Sensibath MP Syndet x 1000 ml"
+   },
+   {
+    "c": "MP0912",
+    "n": "Sérum Reparador Cejas y Pestañas x 4.2 ml"
+   },
+   {
+    "c": "MP0750",
+    "n": "Shampoo Anticaída con C.B.D x 250 ml"
+   },
+   {
+    "c": "MP0879",
+    "n": "Syndet Niños x 220 ml"
+   }
+  ],
+  "canales": [
+   "20",
+   "90"
+  ],
+  "clientes": [],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
+ },
+ {
+  "c": "2026-038",
+  "tipo": "Colocación",
+  "nombre": "Descuento especial por codificación de productos Nuevos",
+  "grupo": "Magistral de Pedido",
+  "dirigida": "Canales 10, 11, 13, 21",
+  "producto": "[MP0916] Ascorvit 20% Serum x 30 ml; [MP0734] Minobit N Espuma x 200 ml; [MP0611] Minobit TD Loción x 120 ml; [MP0586] Minobit TD Loción x 60 ml; [MP0941] Sensibath MP Syndet x 1000 ml; [MP0912] Sérum Reparador Cejas y Pestañas x 4.2 ml; [MP0750] Shampoo Anticaída con C.B.D x 250 ml; [MP0879] Syndet Niños x 220 ml",
+  "ini": "2026-10-26",
+  "fin": "2026-11-30",
+  "objetivo": "Impulsar la codificación, formulación y rotación inicial de los productos Nuevo en los clientes de los canales 10, 11, 13 y 21, con una bonificación 6 + 2 por única vez por cliente y producto, sin descuento adicional.",
+  "resumen": "Por cada 6 unidades compradas de un producto Nuevo, el cliente recibe 2 adicionales sin costo (6 + 2): 8 unidades pagando 6, equivalente a un 25% de descuento sobre el valor de lista. Aplica solo en el primer pedido en que el cliente codifica cada producto y no es acumulable con otras promociones del mismo producto. Cuenta la fecha de inclusión del pedido, no la de entrega. Queda matriculada en Odoo y se asigna automáticamente en el pedido. Meta: 24 clientes a codificar (Sur 10, Norte 9, Clientes Especiales 2, Desarrollo 3).",
+  "obs": "Bonificación 6+2 única por cliente y producto. Cortes de control: 31 de octubre y 30 de noviembre.",
+  "pdf": "",
+  "productos": [
+   {
+    "c": "MP0916",
+    "n": "Ascorvit 20% Serum x 30 ml"
+   },
+   {
+    "c": "MP0734",
+    "n": "Minobit N Espuma x 200 ml"
+   },
+   {
+    "c": "MP0611",
+    "n": "Minobit TD Loción x 120 ml"
+   },
+   {
+    "c": "MP0586",
+    "n": "Minobit TD Loción x 60 ml"
+   },
+   {
+    "c": "MP0941",
+    "n": "Sensibath MP Syndet x 1000 ml"
+   },
+   {
+    "c": "MP0912",
+    "n": "Sérum Reparador Cejas y Pestañas x 4.2 ml"
+   },
+   {
+    "c": "MP0750",
+    "n": "Shampoo Anticaída con C.B.D x 250 ml"
+   },
+   {
+    "c": "MP0879",
+    "n": "Syndet Niños x 220 ml"
+   }
+  ],
+  "canales": [
+   "10",
+   "11",
+   "13",
+   "21"
+  ],
+  "clientes": [],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
  }
 ];
