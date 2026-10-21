@@ -160,7 +160,9 @@
   Una sin cliente que trae zona queda como contacto; sin zona, no se sube. El diálogo de carga lo cuenta.
 - Logística: al escoger un cliente con varias direcciones sale el selector **Dirección de entrega** (Principal + alternas) y llena dirección y teléfono (`pintarDirSel`, `elegirDirEntrega`).
 - Comerciales y jefes: en la ficha del contacto salen como **Otras direcciones** (solo informativo; `htmlDirectorioCliente`). Las **personales** solo las reciben Logística, jefes y administrador (el servidor las filtra).
-- No se suben: filas con Equipo de ventas Ventas Mostrador (consumidor final) ni usuarios de Odoo. Empleados = equipo Empleados, etiqueta Empleado o clasificación 80.
+- Reglas de reparto de la carga única (`tipoFilaOdoo`): dirección alterna (etiqueta Direccion Entrega / Dirección Personal) → pegada a su cliente · Empleados = equipo Empleados, etiqueta Empleado o clasificación 80 · zona (Clientes Especiales, Zona Norte, Zona Sur, Zona Desarrollo) → Maestra y Direcciones ·
+  **no se suben**: Equipo de ventas Ventas Mostrador (consumidor final) y usuarios de Odoo · todo lo demás (sin equipo; con etiqueta Proveedor, Entidad Gubernamental, Junta Directiva o sin etiqueta) → Proveedores.
+- Exportación de Odoo: la plantilla de columnas está en la hoja "Campos" de Plantilla_Maestra_Odoo.xlsx (se regenera con las columnas de `COLUMNAS_ODOO` en `bases.js`). Si un contacto no queda donde se espera, casi siempre es su Equipo de ventas, su etiqueta o un nombre escrito distinto (p. ej. un acento ´ en lugar de la comilla ').
 
 ## Empleados (solo Logística y administrador)
 - Los empleados (clasificación 80, equipo de ventas "Empleados") **no** van en la Maestra de contactos ni en el Directorio (viajarían a todos los dispositivos).
