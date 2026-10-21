@@ -4823,7 +4823,7 @@ const ventasDe = (v, mes, dia = '9999-12-31') => Object.values(registros)
     .sort((a, b) => diaCorte(a).localeCompare(diaCorte(b)) || (a.corte || '').localeCompare(b.corte || '')).pop() || null;
 // Las ventas se muestran con la cifra completa en pesos: $6.403.120
 const cifra = n => '$' + Math.round(n).toLocaleString('es-CO');
-const pctTxt = n => `${(n * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })} %`;
+const pctTxt = n => `${(n * 100).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
 function diasHabilesMes(mes) {
     const dias = [];
     for (let d = mes + '-01'; mesDe(d) === mes; d = sumarDias(d, 1)) if (esHabil(d)) dias.push(d);
