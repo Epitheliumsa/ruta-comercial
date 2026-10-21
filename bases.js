@@ -184,8 +184,21 @@ const tipoFilaOdoo = o => tipoDireccionOdoo(o) ? 'direccion'
     : ZONAS_BASE.includes(o.eq) ? 'zona'
     : /usuario odoo/.test(claveOdoo(o.etq)) || (o.eq && !/junta directiva/.test(claveOdoo(o.etq))) ? 'ignorada'   // Ventas Mostrador (consumidor final) y usuarios de Odoo: no se suben
     : 'otro';   // lo demás (proveedores, entidades, junta directiva, sin etiqueta): Proveedores
+// Una carga hecha con una versión vieja de la app aplica reglas viejas: antes de subir se comprueba que esta sea la última publicada
+async function appAlDia() {
+    try {
+        const r = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) return true;
+        const v = (await r.text()).trim();
+        return !v || v === APP_VERSION;
+    } catch (e) { return true; }   // sin conexión a la versión: no se bloquea
+}
 async function subirOdoo() {
     if (!esAdmin()) return;
+    if (!await appAlDia()) {
+        if (await dialogo({ titulo: 'La app está desactualizada', texto: 'Hay una versión nueva y esta carga usaría reglas viejas (por ejemplo, no pegaría las direcciones de entrega a su cliente). Actualiza y vuelve a subir el archivo.', aceptar: 'Actualizar ahora' })) actualizarApp();
+        return;
+    }
     const archivos = await elegirArchivos(true);
     if (!archivos.length) return;
     try {
