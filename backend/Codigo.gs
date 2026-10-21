@@ -45,6 +45,8 @@ function doPost(e) {
     if (pedido.accion === 'guardarDirectorio') return responder_(Object.assign({ ok: true }, guardarDirectorio_(usuario, pedido.filas)));
     if (pedido.accion === 'proveedores') return responder_(Object.assign({ ok: true }, proveedores_(usuario)));
     if (pedido.accion === 'guardarProveedores') return responder_(Object.assign({ ok: true }, guardarProveedores_(usuario, pedido.filas)));
+    if (pedido.accion === 'empleados') return responder_(Object.assign({ ok: true }, empleados_(usuario)));
+    if (pedido.accion === 'guardarEmpleados') return responder_(Object.assign({ ok: true }, guardarEmpleados_(usuario, pedido.filas)));
     if (pedido.accion === 'estadoBases') return responder_(Object.assign({ ok: true }, estadoBases_(usuario)));
     if (pedido.accion === 'versionesBases') return responder_({ ok: true, versiones: versionesBases_(usuario) });
     if (pedido.accion === 'leerBase') return responder_(Object.assign({ ok: true }, leerBase_(usuario, pedido.nombre)));
@@ -316,6 +318,33 @@ function guardarProveedores_(usuario, filas) {
   return { guardados: datos.length, actualizado: cuando };
 }
 
+// ---------- MAESTRA DE EMPLEADOS: solo para Logística ----------
+// Hoja "Empleados" (mismas columnas que Proveedores). La ven Logística y el administrador; solo el administrador la reemplaza.
+// Nunca viaja a comerciales ni a los demás usuarios.
+const HOJA_EMP = 'Empleados';
+function empleados_(usuario) {
+  if (usuario.area !== 'logistica' && !usuario.admin) throw new Error('Sin permiso para ver los empleados');
+  const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_EMP);
+  if (!h) return { filas: [], actualizado: '' };
+  const valores = h.getDataRange().getValues();
+  return { filas: valores.slice(1).filter(f => f[0]).map(f => f.slice(0, COLUMNAS_PROV.length).map(String)),
+           actualizado: String(valores[0][COLUMNAS_PROV.length] || '') };
+}
+function guardarEmpleados_(usuario, filas) {
+  if (!usuario.admin) throw new Error('Solo el administrador sube los empleados');
+  if (!Array.isArray(filas) || !filas.length) throw new Error('La maestra de empleados llegó vacía');
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const h = libro.getSheetByName(HOJA_EMP) || libro.insertSheet(HOJA_EMP);
+  const datos = filas.map(f => COLUMNAS_PROV.map((_, i) => String((f || [])[i] || '').slice(0, 200)));
+  h.clear();
+  h.getRange(1, 1, datos.length + 1, COLUMNAS_PROV.length).setNumberFormat('@').setValues([COLUMNAS_PROV].concat(datos));
+  h.getRange(1, 1, 1, COLUMNAS_PROV.length).setFontWeight('bold');
+  h.setFrozenRows(1);
+  const cuando = new Date().toISOString();
+  h.getRange(1, COLUMNAS_PROV.length + 1).setNumberFormat('@').setValue(cuando);
+  return { guardados: datos.length, actualizado: cuando };
+}
+
 // ---------- BASES DE DATOS: lo que sube el administrador desde la pantalla "Bases de datos" ----------
 // "contactos" (la Maestra de Contactos por zona) y "catalogo" (productos): los ven todos los usuarios y reemplazan lo que
 // viene en la app publicada. Se guardan como texto JSON en la hoja "Bases", en partes (una celda aguanta unos 50.000 caracteres).
@@ -398,6 +427,7 @@ function estadoBases_(usuario) {
   };
   estado.directorio = hoja(HOJA_DIR, COLUMNAS_DIR.length + 1);
   estado.proveedores = hoja(HOJA_PROV, COLUMNAS_PROV.length + 1);
+  estado.empleados = hoja(HOJA_EMP, COLUMNAS_PROV.length + 1);
   filasBases_().forEach(f => { if (Number(f[1]) === 0 && !/^pf_/.test(f[0])) estado[f[0]] ={ actualizado: String(f[3]), resumen: String(f[4]) }; });
   return { estado: estado };
 }

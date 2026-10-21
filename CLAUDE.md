@@ -148,6 +148,13 @@
 - PDF: el jefe lo sube a Google Drive y pega el enlace en la app (registro `circulares-pdf`, clase `mensual`).
 
 
+## Empleados (solo Logística y administrador)
+- Los empleados (clasificación 80, equipo de ventas "Empleados") **no** van en la Maestra de contactos ni en el Directorio (viajarían a todos los dispositivos).
+  Tienen su propia base privada, igual que Proveedores: hoja "Empleados" del servidor (`empleados_` / `guardarEmpleados_` en `Codigo.gs`), que ven Logística y el administrador.
+- El administrador la sube en **Bases de datos → Empleados** (`subirEmpleados`) con la Maestra de Contactos de Odoo: toma solo las filas con Equipo de ventas = Empleados (con Calle, Teléfono y Móvil si el archivo los trae).
+- Salen en el Maestro Contactos como zona **Empleados** y en la lista de clientes del formulario de Logística, con dirección y teléfono (`empleadosMaestra`, `dirDe`). Comerciales y demás usuarios no la reciben (el servidor la rechaza).
+- Nunca se guardan nombres, direcciones ni teléfonos de empleados en el repositorio.
+
 ## Perfil Mercadeo (E.Rodriguez, Jefe de RRHH y Mercadeo)
 - Tipo `mercadeo` con `verEquipo` y `subeCirculares` (en `USUARIOS` de `app.js` y en `Codigo.gs`). Es de **solo lectura**: no programa ni reporta visitas.
 - Ve: Panel del equipo (visitas y actividades de todo el equipo, cuota y venta por vendedor, **por línea de negocio, del total y por zona**),

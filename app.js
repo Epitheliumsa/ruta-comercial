@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610202100';
+const APP_VERSION = '202610211429';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -635,6 +635,7 @@ async function sincronizar(mesCentro = mesDe(hoy()), rango = null) {
         subirFotosPend();
         cargarDirectorio();
         cargarProveedores();
+        cargarEmpleados();
         cargarBases();
         revisarAprobaciones();
     } catch (e) {
@@ -703,6 +704,7 @@ async function cerrarSesion() {
     localStorage.removeItem('rc_sesion');
     borrarDirectorio();
     borrarProveedores();
+    borrarEmpleados();
     sesion = null;
     document.body.classList.remove('es-logistica', 'es-mercadeo');
     $('accessUser').value = '';
@@ -1766,7 +1768,7 @@ const DIMS_MAESTRA = {
     vis: { t: 'Visitas', todos: 'Visitados y no visitados', valor: c => c.prov ? '' : maestra.visitados.has(normalizar(c.n)) ? 'si' : 'no',
         nombre: v => (v === 'si' ? 'Visitado en ' : 'No visitado en ') + nombrePeriodo(maestra.periodo).replace(/^el /, ''), orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
     f: { t: 'Facturar', todos: 'Facturar: todos', valor: c => c.prov ? '' : c.f ? 'si' : 'no', nombre: v => v === 'si' ? 'Cliente para facturar' : 'No factura', orden: (a, b) => a === 'si' ? -1 : b === 'si' ? 1 : 0 },
-    z: { t: 'Zona', todos: 'Todas las zonas', jefe: true, manual: true, orden: (a, b) => (a === ZONA_PROV) - (b === ZONA_PROV) || a.localeCompare(b, 'es'), valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
+    z: { t: 'Zona', todos: 'Todas las zonas', jefe: true, manual: true, orden: (a, b) => zonaPrivada(a) - zonaPrivada(b) || a.localeCompare(b, 'es'), valor: c => c.z, nombre: z => { const v = vendedorDeZona(z); return z + (v ? ' · ' + v.nombre : ''); } }
 };
 const MAX_BARRAS = 8;
 // Color por tipo de etiqueta (se unifican en Cliente, Médico y Punto de Venta) y por si es cliente para facturar
@@ -1776,7 +1778,8 @@ const GRUPOS_ETIQUETA = {
     ambos: { t: 'Médico y cliente', c: '#2563eb', c2: '#db2777', tinte: '#f1e6f6' },
     pv: { t: 'Punto de Venta', c: '#ca8a04', tinte: '#faf0d4' },
     lead: { t: 'Lead', c: '#0891b2', tinte: '#e0f4f8' },
-    prov: { t: 'Proveedor', c: '#7c3aed', tinte: '#ede9fe' }   // solo Logística y administrador
+    prov: { t: 'Proveedor', c: '#7c3aed', tinte: '#ede9fe' },   // solo Logística y administrador
+    emp: { t: 'Empleado', c: '#0f766e', tinte: '#d5f3ee' }   // solo Logística y administrador
 };
 // Un lead como si fuera un contacto de la Maestra (misma búsqueda y filtros); la ciudad viene "Municipio - Departamento"
 const leadComoContacto = (p, z) => { const [c, d] = String(p.ciudad || '').split(' - ');
@@ -1788,30 +1791,33 @@ const TODOS_MEDICOS = 'Todos los médicos (20-21-22)', TODOS_CLIENTES = 'Todos l
 function rolesContacto(c) {
     if (c.lead) return { lead: true };
     if (c.prov) return { prov: true };
+    if (c.emp) return { emp: true };
     const cl = String(c.cl || '');
     if (!cl) { const g = grupoEtiqueta(c.e); return { medico: g === 'medico' || g === 'ambos', cliente: g === 'cliente' || g === 'ambos', pv: g === 'pv' }; }
     return { medico: ['20', '21', '22'].includes(cl), cliente: !!c.f && !['12', '22', '80'].includes(cl), pv: cl === '12' };
 }
 function claseContacto(c) {
     const r = rolesContacto(c);
-    return r.lead ? 'lead' : r.prov ? 'prov' : r.medico && r.cliente ? 'ambos' : r.medico ? 'medico' : r.pv ? 'pv' : 'cliente';
+    return r.lead ? 'lead' : r.prov ? 'prov' : r.emp ? 'emp' : r.medico && r.cliente ? 'ambos' : r.medico ? 'medico' : r.pv ? 'pv' : 'cliente';
 }
 const esEmpleado = c => String(c.cl || '') === '80';
 // Contactos sin ningún rol (ni médico, ni cliente facturable, ni punto de venta; p. ej. un accionista liquidado que no factura) no salen en el Maestro Contactos
-const sinRolContacto = c => { const r = rolesContacto(c); return !c.lead && !c.prov && !r.medico && !r.cliente && !r.pv; };
+const sinRolContacto = c => { const r = rolesContacto(c); return !c.lead && !c.prov && !c.emp && !r.medico && !r.cliente && !r.pv; };
 const grupoEtiqueta = e => { const n = normalizar(e || ''); return n.startsWith('lead') ? 'lead' : n.includes('cliente') && n.includes('medico') ? 'ambos' : n.startsWith('medico') ? 'medico' : n.includes('punto de venta') ? 'pv' : 'cliente'; };
 // Proveedores (maestra privada de Logística): una "zona" más, que solo ven Logística y el administrador
-const ZONA_PROV = 'Proveedores';
+const ZONA_PROV = 'Proveedores', ZONA_EMP = 'Empleados';
+const zonaPrivada = z => z === ZONA_PROV || z === ZONA_EMP;   // maestras privadas de Logística: solo Logística y administrador
 const proveedoresComoContactos = () => !veProveedores() ? [] : Object.values(proveedoresMaestra.filas).sort((a, b) => a.n.localeCompare(b.n, 'es'))
     .map(p => ({ n: p.n, e: p.e || '', c: p.c || '', p: p.p || '', ca: 'Proveedor', f: false, z: ZONA_PROV, prov: true }));
 const zonasMaestra = () => [...new Set([...Object.keys(contactos), ...proyectos().filter(p => p.estado !== 'vinculado').map(p => p.zona)])].filter(z => z && ((contactos[z] || []).length || proyectosDeZona(z).length))
-    .concat(veProveedores() && proveedoresComoContactos().length ? [ZONA_PROV] : []);
+    .concat(veProveedores() && proveedoresComoContactos().length ? [ZONA_PROV] : []).concat(veProveedores() && empleadosComoContactos().length ? [ZONA_EMP] : []);
 const vendedorDeZona = z => COMERCIALES.find(c => c.zona === z);
 
 function abrirMaestra() {
     if (!maestra.zonas) maestra.zonas = veTodasZonas() ? zonasMaestra() : [comercial(sesion.id)?.zona].filter(Boolean);
     // Los proveedores llegan después de abrir la sesión: la primera vez que aparecen, se suman a lo elegido
     if (veProveedores() && !maestra.provVisto && zonasMaestra().includes(ZONA_PROV)) { maestra.provVisto = true; if (!maestra.zonas.includes(ZONA_PROV)) maestra.zonas.push(ZONA_PROV); }
+    if (veProveedores() && !maestra.empVisto && zonasMaestra().includes(ZONA_EMP)) { maestra.empVisto = true; if (!maestra.zonas.includes(ZONA_EMP)) maestra.zonas.push(ZONA_EMP); }
     $('mcZonas').hidden = !veTodasZonas() || esLogistica();
     pintarMaestra();
     mostrarPantalla('maestraScreen');
@@ -1948,7 +1954,7 @@ document.addEventListener('click', e => {
 });
 
 // Tipo en botones: Todos · Médicos (20-21-22) · Clientes (facturables) · Puntos de venta · Leads. Otro toque al activo lo quita.
-const BOTONES_TIPO = [['', 'Todos'], [TODOS_MEDICOS, 'Médicos'], [TODOS_CLIENTES, 'Clientes'], [GRUPOS_ETIQUETA.pv.t, 'Puntos de venta'], [GRUPOS_ETIQUETA.lead.t, 'Leads'], [GRUPOS_ETIQUETA.prov.t, 'Proveedores']];
+const BOTONES_TIPO = [['', 'Todos'], [TODOS_MEDICOS, 'Médicos'], [TODOS_CLIENTES, 'Clientes'], [GRUPOS_ETIQUETA.pv.t, 'Puntos de venta'], [GRUPOS_ETIQUETA.lead.t, 'Leads'], [GRUPOS_ETIQUETA.prov.t, 'Proveedores'], [GRUPOS_ETIQUETA.emp.t, 'Empleados']];
 function elegirTipoMaestra(v) { maestra.sel.g = v && !(maestra.sel.g.length === 1 && maestra.sel.g[0] === v) ? [v] : []; pintarMaestra(); }
 function pintarTiposMaestra(base) {
     const cont = filtrarMaestra(base, 'g'), sel = maestra.sel.g;
@@ -1978,10 +1984,10 @@ function pintarMaestra() {
         $('mcZonas').innerHTML = `<button type="button" class="vp-vend-btn todos${sel.length === todas.length ? ' activo' : ''}" onclick="elegirZonaMaestra('todas', event)">Todas las zonas</button>`
             + todas.map(z => {
                 const v = vendedorDeZona(z);
-                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${z === ZONA_PROV ? proveedoresComoContactos().length : (contactos[z] || []).length + proyectosDeZona(z).length}</small></button>`;
+                return `<button type="button" class="vp-vend-btn${sel.includes(z) ? ' activo' : ''}" onclick="elegirZonaMaestra('${esc(z)}', event)">${sel.includes(z) ? '✓ ' : ''}${esc(z)} <small>${esc(v ? v.nombre : '')} · ${z === ZONA_PROV ? proveedoresComoContactos().length : z === ZONA_EMP ? empleadosComoContactos().length : (contactos[z] || []).length + proyectosDeZona(z).length}</small></button>`;
             }).join('') + AYUDA_CHIPS;
     }
-    const base = sel.flatMap(z => z === ZONA_PROV ? proveedoresComoContactos() : [...(contactos[z] || []).filter(c => !esEmpleado(c) && !sinRolContacto(c)).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
+    const base = sel.flatMap(z => z === ZONA_PROV ? proveedoresComoContactos() : z === ZONA_EMP ? empleadosComoContactos() : [...(contactos[z] || []).filter(c => !esEmpleado(c) && !sinRolContacto(c)).map(c => ({ ...c, z })), ...proyectosDeZona(z).map(p => leadComoContacto(p, z))]);
     // Clientes con visita efectiva en el mes elegido (filtro Visitados / No visitados)
     maestra.visitados = new Set(visibles().filter(x => x.clase === 'visita' && !x.interno && x.estado === 'visitado' && !tiposDe(x).includes(ATENEO) && enPeriodoMaestra(x.fecha))
         .map(x => normalizar(x.contacto)));
@@ -2016,9 +2022,9 @@ function pintarMaestra() {
     const fila = c => {
         const v = vendedorDeZona(c.z), u = ultima[normalizar(c.n)];
         const g = GRUPOS_ETIQUETA[claseContacto(c)];
-        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead || c.prov ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)}${c.prov ? '' : ' · ' + (c.f ? 'Cliente para facturar' : 'No factura')}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="${c.prov ? 'verProveedor(this.dataset.c)' : 'verCliente(this.dataset.c, this.dataset.v)'}">
+        return `<button class="mc-fila" style="--g:${g.c}; --g2:${g.c2 || g.c}; --tinte:${g.tinte}; --fx:${c.lead || c.prov || c.emp ? g.c : COLOR_FACTURA[c.f ? 'si' : 'no']}" title="${esc(g.t)}${c.prov || c.emp ? '' : ' · ' + (c.f ? 'Cliente para facturar' : 'No factura')}" data-c="${esc(c.n)}" data-v="${v ? v.id : ''}" onclick="${c.prov ? 'verProveedor(this.dataset.c)' : 'verCliente(this.dataset.c, this.dataset.v)'}">
             <span class="mc-nombre"><b>${esc(c.n)}</b><small>${esc([c.t, c.e, esLogistica() && !c.prov && c.z ? c.z + (v ? ' · ' + v.nombre : '') : '', [c.c, c.p && !normalizar(c.p).startsWith(normalizar(c.c)) ? c.p.replace(/\s*\(CO\)$/, '') : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</small>
-                <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead || c.prov ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
+                <span class="mc-datos">${!c.lead && (c.cl || c.ca) ? `<span class="cat">${c.cl ? `<b>${esc(c.cl)}</b> · ` : ''}${esc(c.ca || '')}</span>` : ''}${c.pz !== undefined ? `<span>Plazo <b>${esc(textoPlazo(c.pz).toLowerCase())}</b></span>` : ''}${c.lead || c.prov || c.emp ? '' : `<span class="${c.f ? 'fact' : 'nofact'}">Facturar: <b>${c.f ? 'Sí' : 'No'}</b></span>`}</span>
                 ${esLogistica() || c.prov ? '' : (() => { const a = maestra.enPeriodo[normalizar(c.n)];
                     return a ? `<span class="mc-periodo-dato">📅 En el periodo: ${a.ok ? `<b class="ok">${a.ok} ${a.ok === 1 ? 'visita efectiva' : 'visitas efectivas'}</b>${a.ultima ? ' · última ' + esc(fechaCorta(a.ultima)) : ''}` : ''}${a.no ? `${a.ok ? ' · ' : ''}<b class="no">${a.no} no efectiva${a.no === 1 ? '' : 's'}</b>` : ''}</span>`
                         : '<span class="mc-periodo-dato vacio">📅 En el periodo: sin visitas</span>'; })()}
@@ -2032,7 +2038,7 @@ function pintarMaestra() {
             const deZona = lista.filter(c => c.z === z);
             if (!deZona.length) return '';
             const v = vendedorDeZona(z);
-            return (veTodasZonas() ? `<p class="grupo-titulo">${esc(z)}${z === ZONA_PROV ? '' : ' · ' + esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
+            return (veTodasZonas() ? `<p class="grupo-titulo">${esc(z)}${zonaPrivada(z) ? '' : ' · ' + esc(v ? v.nombre : 'Sin vendedor')} · ${deZona.length}</p>` : '') + deZona.map(fila).join('');
         }).join('');
 }
 
@@ -2090,7 +2096,7 @@ function pintarComposicion(lista) {
     // Cliente y Médico: rayas de los dos colores
     const colorEtiqueta = g => g.c2 ? `repeating-linear-gradient(135deg, ${g.c} 0 6px, ${g.c2} 6px 12px)` : g.c;
     const colorBarra = v => v === '__otros' ? '' : maestra.dim === 'e' ? `; background:${colorEtiqueta(GRUPOS_ETIQUETA[grupoEtiqueta(v)])}`
-        : maestra.dim === 'g' ? `; background:${{ [TODOS_MEDICOS]: GRUPOS_ETIQUETA.medico.c, [TODOS_CLIENTES]: GRUPOS_ETIQUETA.cliente.c, [GRUPOS_ETIQUETA.pv.t]: GRUPOS_ETIQUETA.pv.c, [GRUPOS_ETIQUETA.lead.t]: GRUPOS_ETIQUETA.lead.c, [GRUPOS_ETIQUETA.prov.t]: GRUPOS_ETIQUETA.prov.c }[v] || '#999'}` : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
+        : maestra.dim === 'g' ? `; background:${{ [TODOS_MEDICOS]: GRUPOS_ETIQUETA.medico.c, [TODOS_CLIENTES]: GRUPOS_ETIQUETA.cliente.c, [GRUPOS_ETIQUETA.pv.t]: GRUPOS_ETIQUETA.pv.c, [GRUPOS_ETIQUETA.lead.t]: GRUPOS_ETIQUETA.lead.c, [GRUPOS_ETIQUETA.prov.t]: GRUPOS_ETIQUETA.prov.c, [GRUPOS_ETIQUETA.emp.t]: GRUPOS_ETIQUETA.emp.c }[v] || '#999'}` : maestra.dim === 'f' ? `; background:${COLOR_FACTURA[v]}` : maestra.dim === 'vis' ? `; background:${v === 'si' ? '#16a34a' : '#a8b8b4'}` : '';
     const elegidos = maestra.dim === 'z' ? ((maestra.zonas || []).length < zonasMaestra().length ? maestra.zonas : []) : maestra.sel[maestra.dim];
     $('mcDims').innerHTML = dims.map(([k, x]) => `<button type="button" class="${k === maestra.dim ? 'activo' : ''}" onclick="maestra.dim='${k}'; maestra.verOtros=false; pintarMaestra()">${x.t}</button>`).join('');
     $('mcBarras').classList.toggle('con-sel', elegidos.length > 0);

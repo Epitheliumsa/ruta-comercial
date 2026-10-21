@@ -341,7 +341,7 @@ function abrirLogForm(id) {
     const r = id ? registros[id] : null;
     if (r && r.tipo !== 'novedad' && r.estado !== 'pendiente') return toast('Esta parada ya se reportó');
     const mens = esCoordLog() || esAdmin();
-    const clientes = [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre)])].sort((a, b) => a.localeCompare(b, 'es'));
+    const clientes = [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre), ...Object.values(empleadosMaestra.filas).map(e => e.n)])].sort((a, b) => a.localeCompare(b, 'es'));
     const provs = [...new Set([...Object.values(proveedoresMaestra.filas).map(p => p.n), ...logRegs().map(x => x.proveedor)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
     const docs = k => (r?.documentos || []).filter(d => d.clase === k);
     const rads = k => (r?.radicacion || []).filter(d => d.doc === k);
@@ -965,7 +965,10 @@ function ponerDirectorio(filas, actualizado) {
 // Cada comercial solo ve los de su zona (el servidor ya filtra; esto cubre el módulo de pruebas)
 const dirDe = nombre => {
     const d = nombre ? directorio.filas[normalizar(nombre)] : null;
-    return d && (esLogistica() || esJefe() || esAdmin() || !d.z || d.z === comercial(sesion?.id)?.zona) ? d : null;
+    if (d && (esLogistica() || esJefe() || esAdmin() || !d.z || d.z === comercial(sesion?.id)?.zona)) return d;
+    // Empleados: dirección y teléfono de la maestra privada (solo Logística y administrador)
+    const e = nombre && veProveedores() ? empleadosMaestra.filas[normalizar(nombre)] : null;
+    return e ? { n: e.n, c: e.c, dir: e.dir, tel: e.tel, z: '' } : null;
 };
 function borrarDirectorio() {
     if (!API_URL) return;   // módulo de pruebas: el directorio viene con la página
@@ -1088,6 +1091,72 @@ function subirProveedores() {
             toast(`Maestra de proveedores actualizada: ${filas.length}`);
         } catch (e) {
             toast('No se pudo subir la maestra de proveedores: ' + e.message);
+        }
+    };
+    inp.click();
+}
+
+// ---------- MAESTRA DE EMPLEADOS: solo para Logística ----------
+// Nombre, ciudad, provincia, dirección y teléfono de los empleados (hoja "Empleados" del servidor, no el repositorio público).
+// La ven Logística y el administrador; solo el administrador la sube. Salen en el Maestro Contactos (zona "Empleados") y en la lista
+// de clientes del formulario de Logística. Los demás usuarios nunca reciben estos datos.
+const EMP_LOCAL = 'rc_empleados';
+let empleadosMaestra = (() => { try { return JSON.parse(localStorage.getItem(EMP_LOCAL)) || { filas: {} }; } catch (e) { return { filas: {} }; } })();
+function ponerEmpleados(filas, actualizado) {
+    const m = {};
+    filas.forEach(([n, c, p, e, dir, tel]) => { if (n) m[normalizar(n)] = { n, c, p, e, dir: dir || '', tel: tel || '' }; });
+    empleadosMaestra = { filas: m, actualizado: actualizado || '', traido: Date.now() };
+    try { localStorage.setItem(EMP_LOCAL, JSON.stringify(empleadosMaestra)); } catch (e) { /* sin espacio: queda en memoria */ }
+}
+function borrarEmpleados() {
+    if (!API_URL) return;   // módulo de pruebas: la maestra viene con la página
+    empleadosMaestra = { filas: {} }; try { localStorage.removeItem(EMP_LOCAL); } catch (e) { /* nada */ } }
+const empleadosComoContactos = () => !veProveedores() ? [] : Object.values(empleadosMaestra.filas).sort((a, b) => a.n.localeCompare(b.n, 'es'))
+    .map(p => ({ n: p.n, e: '', c: p.c || '', p: p.p || '', ca: 'Empleado', f: false, z: ZONA_EMP, emp: true }));
+let trayendoEmp = false;
+async function cargarEmpleados(forzar = false) {
+    if (!API_URL || !veProveedores() || trayendoEmp) return;
+    if (!forzar && empleadosMaestra.traido && Date.now() - empleadosMaestra.traido < 6 * 3600e3) return;
+    trayendoEmp = true;
+    try { const r = await llamarApi({ accion: 'empleados' }); ponerEmpleados(r.filas || [], r.actualizado); }
+    catch (e) { console.warn('No se pudo traer la maestra de empleados:', e); }
+    finally { trayendoEmp = false; }
+}
+// El administrador sube la Maestra de Contactos de Odoo: solo se toman los de "Equipo de ventas" = Empleados (con Calle, Teléfono y Móvil si los trae)
+function subirEmpleados() {
+    if (!esAdmin()) return;
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.xlsx';
+    inp.onchange = async () => {
+        const archivo = inp.files[0];
+        if (!archivo) return;
+        try {
+            await cargarExcelJS();
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(await archivo.arrayBuffer());
+            const ws = wb.worksheets[0], cab = {};
+            ws.getRow(1).eachCell((c, i) => { cab[String(c.text).trim()] = i; });
+            const colN = cab['Nombre Público'] ? 'Nombre Público' : 'Nombre';
+            if (!cab[colN] || !cab['Ciudad']) return toast('No encontré las columnas "Nombre Público" y "Ciudad": sube la Maestra de Contactos de Odoo.');
+            const val = (fila, n) => cab[n] ? String(fila.getCell(cab[n]).text || '').trim() : '';
+            const filas = [], vistos = new Set();
+            ws.eachRow((fila, i) => {
+                const n = val(fila, colN);
+                if (i === 1 || !n || vistos.has(normalizar(n))) return;
+                if (cab['Equipo de ventas'] && !/emplead/i.test(val(fila, 'Equipo de ventas'))) return;   // solo los empleados
+                vistos.add(normalizar(n));
+                filas.push([n, val(fila, 'Ciudad'), val(fila, 'Provincia').replace(/\s*\(CO\)$/, ''), 'Empleado',
+                    val(fila, 'Calle'), [...new Set([val(fila, 'Móvil'), val(fila, 'Teléfono')].filter(Boolean))].join(' / ')]);
+            });
+            if (!filas.length) return toast('No encontré empleados: busco las filas con Equipo de ventas = Empleados');
+            if (!await dialogo({ titulo: 'Maestra de empleados', aceptar: 'Subir',
+                texto: `${filas.length} empleados: ${filas.filter(f => f[4]).length} con dirección y ${filas.filter(f => f[5]).length} con teléfono. Reemplaza la lista anterior. Solo la ven Logística y tú; no queda en la app publicada ni la reciben los demás usuarios.` })) return;
+            let cuando = new Date().toISOString();
+            if (API_URL) cuando = (await llamarApi({ accion: 'guardarEmpleados', filas }, 90000)).actualizado || cuando;
+            ponerEmpleados(filas, cuando);
+            toast(`Maestra de empleados actualizada: ${filas.length}`);
+        } catch (e) {
+            toast('No se pudo subir la maestra de empleados: ' + e.message);
         }
     };
     inp.click();

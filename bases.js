@@ -51,14 +51,15 @@ const TARJETAS_BASES = [
     { k: 'catalogo', t: 'Productos', d: 'Catálogo con etiquetas (Nuevo, Foco, Transición-Impulso…) para visitas y muestras. Sube Base_Productos (materias primas), Productos_Terminados (terminados) o los dos: cada archivo reemplaza solo lo suyo.', a: 'subirCatalogo()', n: 'productos' },
     { k: 'directorio', t: 'Direcciones y teléfonos', d: 'Calle, teléfono y móvil de los clientes (Maestra de Odoo). Los ven Logística, los jefes y tú; cada comercial, solo su zona.', a: 'subirDirectorio()', n: 'clientes' },
     { k: 'vademecum', t: 'Vademécum', d: 'Productos y portafolios por cliente del Vademécum. Sube Vademecum_Epithelium (productos), Vademecum_clientes (portafolios) o los dos: cada archivo reemplaza solo lo suyo. El Vademécum lo toma de aquí.', a: 'subirVademecum()', n: 'vademecum' },
-    { k: 'proveedores', t: 'Proveedores', d: 'Maestra de proveedores con dirección y teléfono. Solo la ven Logística y tú.', a: 'subirProveedores()', n: 'proveedores' }
+    { k: 'proveedores', t: 'Proveedores', d: 'Maestra de proveedores con dirección y teléfono. Solo la ven Logística y tú.', a: 'subirProveedores()', n: 'proveedores' },
+    { k: 'empleados', t: 'Empleados', d: 'Empleados con dirección y teléfono (Maestra de Contactos de Odoo: se toman los de Equipo de ventas = Empleados). Solo los ven Logística y tú.', a: 'subirEmpleados()', n: 'empleados' }
 ];
 const cuandoBase = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }) : ''; };
 let estadoBases = {};
 function textoEstadoBase(k) {
     const e = estadoBases[k], l = leerBaseLocal(k);
-    const cuando = e?.actualizado || l?.v || (k === 'directorio' ? directorio.actualizado : k === 'proveedores' ? proveedoresMaestra.actualizado : '');
-    const n = k === 'directorio' ? Object.keys(directorio.filas).length : k === 'proveedores' ? Object.keys(proveedoresMaestra.filas).length : 0;
+    const cuando = e?.actualizado || l?.v || (k === 'directorio' ? directorio.actualizado : k === 'proveedores' ? proveedoresMaestra.actualizado : k === 'empleados' ? empleadosMaestra.actualizado : '');
+    const n = k === 'directorio' ? Object.keys(directorio.filas).length : k === 'proveedores' ? Object.keys(proveedoresMaestra.filas).length : k === 'empleados' ? Object.keys(empleadosMaestra.filas).length : 0;
     const resumen = e?.resumen || l?.resumen || (n ? `${n} registros` : '');
     return cuando ? `Última carga: <b>${esc(cuandoBase(cuando))}</b>${resumen ? ' · ' + esc(resumen) : ''}` : '<i>Aún no se ha subido: la app usa lo que trae publicado</i>';
 }
@@ -249,6 +250,10 @@ async function descargarBase(k) {
             const filas = Object.values(proveedoresMaestra.filas).map(x => [x.n, x.n, x.p || '', x.c || '', x.dir || '', x.tel || '', x.e || '']);
             hojaTabla(wb, 'Proveedores', ['Nombre Público', 'Nombre', 'Provincia', 'Ciudad', 'Calle', 'Teléfono', 'Etiquetas'], filas, [40, 40, 18, 18, 40, 20, 30]);
             nombre = 'Proveedores'; cuenta = filas.length;
+        } else if (k === 'empleados') {
+            const filas = Object.values(empleadosMaestra.filas).map(x => [x.n, x.n, x.p || '', x.c || '', x.dir || '', x.tel || '', 'Empleados']);
+            hojaTabla(wb, 'Empleados', ['Nombre Público', 'Nombre', 'Provincia', 'Ciudad', 'Calle', 'Teléfono', 'Equipo de ventas'], filas, [40, 40, 18, 18, 40, 20, 18]);
+            nombre = 'Empleados'; cuenta = filas.length;
         } else if (k === 'directorio') {
             if (API_URL) { try { const r = await llamarApi({ accion: 'directorio' }); ponerDirectorio(r.filas || [], r.actualizado); } catch (e) { /* queda lo que hay en el teléfono */ } }
             const filas = Object.values(directorio.filas).map(x => [x.n || '', x.c || '', x.dir || '', x.tel || '', x.z || '']);
