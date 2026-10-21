@@ -1904,5 +1904,33 @@ window.CIRCULARES = [
   "excluidos": [],
   "todos": false,
   "interna": false
+ },
+ {
+  "c": "2026-039",
+  "tipo": "Colocación",
+  "nombre": "Bonificación Especial Queratrex Gel – Canales 20 y 90",
+  "grupo": "Magistral de Pedido",
+  "dirigida": "Canales 20, 90",
+  "producto": "[MP0731] Queratrex Gel x 30 g",
+  "ini": "2026-10-26",
+  "fin": "2026-11-30",
+  "objetivo": "Aumentar las unidades vendidas y la recompra de Queratrex Gel x 30 g en los clientes de los canales 20 y 90, entre el 26 de octubre y el 30 de noviembre de 2026.",
+  "resumen": "Bonificación escalonada por pedido: compra 5 unidades y recibe 2 adicionales (5+2); compra 10 y recibe 5 adicionales (10+5). Bono de recompra del 10% sobre el valor de la compra de Queratrex Gel para el cliente con mínimo 2 pedidos en el periodo, reconocido con nota crédito liquidada a más tardar el 15 de diciembre de 2026. La escala se aplica por pedido (no se suman pedidos) y cuenta la fecha de inclusión del pedido, no la de entrega. Meta: Sur 3, Norte 4, Desarrollo 0, Clientes Especiales 1 (total 8).",
+  "obs": "Escala 5+2 y 10+5 por pedido; bono de recompra 10% con 2 o más pedidos (NC a más tardar el 15/12/2026). Sin prórroga. Los bonificados no cuentan en el bono.",
+  "pdf": "",
+  "productos": [
+   {
+    "c": "MP0731",
+    "n": "Queratrex Gel x 30 g"
+   }
+  ],
+  "canales": [
+   "20",
+   "90"
+  ],
+  "clientes": [],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
  }
 ];
