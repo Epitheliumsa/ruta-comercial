@@ -86,20 +86,50 @@ if len(sys.argv) > 2:
         filas_x = list(ws.iter_rows(values_only=True))
         col = {str(n or '').strip(): i for i, n in enumerate(filas_x[0])}
         val = lambda f, n: str(f[col[n]]).strip() if n in col and f[col[n]] not in (None, False) else ''
-        dirs, vistos = [], set()
+        # Si el título de la primera columna (Etiquetas) fue cambiado, se usa igual cuando trae las direcciones de entrega
+        et = lambda f: str(f[col['Etiquetas']] if 'Etiquetas' in col else f[0] or '')
+        es_dir = lambda f: bool(re.search(r'direccion (entrega|personal)', norm(et(f))))
+        dirs, vistos, emps, alts = [], set(), {}, []
         for f in filas_x[1:]:
-            n = val(f, 'Nombre Público')
-            if not n or 'emplead' in val(f, 'Equipo de ventas').lower() or norm(n) in vistos:
+            n = val(f, 'Nombre Público') or val(f, 'Nombre')
+            if n and 'emplead' in val(f, 'Equipo de ventas').lower() and not es_dir(f):
+                tel = ' / '.join(dict.fromkeys(t for t in (val(f, 'Móvil'), val(f, 'Teléfono')) if t))
+                emps[norm(n)] = {'n': n, 'c': val(f, 'Ciudad'), 'p': re.sub(r'\s*\(CO\)$', '', val(f, 'Provincia')), 'e': 'Empleado', 'dir': val(f, 'Calle'), 'tel': tel}
+                continue
+            if n and es_dir(f):
+                alts.append(f)
+                continue
+            if not n or norm(n) in vistos:
                 continue
             vistos.add(norm(n))
             tel = ' / '.join(dict.fromkeys(t for t in (val(f, 'Móvil'), val(f, 'Teléfono')) if t))
             dirs.append([n, val(f, 'Ciudad'), val(f, 'Calle'), tel, zona_de.get(norm(n), '')])
         # Misma forma que ponerDirectorio() en logistica.js (llave = nombre normalizado)
         m = {norm(d[0]): {'n': d[0], 'c': d[1], 'dir': d[2], 'tel': d[3], 'z': d[4]} for d in dirs}
+        # Direcciones alternas: se pegan al cliente por el nombre ("Cliente, Dirección") o por el NIT único
+        por_nit = {}
+        for f in filas_x[1:]:
+            if val(f, 'Número de Identificación') and not es_dir(f) and norm(val(f, 'Nombre Público') or val(f, 'Nombre')) in m:
+                por_nit.setdefault(val(f, 'Número de Identificación'), []).append(norm(val(f, 'Nombre Público') or val(f, 'Nombre')))
+        alt = {}
+        for f in alts:
+            nm, nom = val(f, 'Nombre Público') or val(f, 'Nombre'), val(f, 'Nombre')
+            padre = None
+            if nom and nom != nm and nm.endswith(', ' + nom) and norm(nm[:-len(nom) - 2]) in m:
+                padre = norm(nm[:-len(nom) - 2])
+            if not padre:
+                c = por_nit.get(val(f, 'Número de Identificación'), [])
+                padre = c[0] if len(c) == 1 else None
+            if padre:
+                tel = ' / '.join(dict.fromkeys(t for t in (val(f, 'Móvil'), val(f, 'Teléfono')) if t))
+                alt.setdefault(padre, []).append({'n': nom if nom and nom != nm else nm, 'c': val(f, 'Ciudad'), 'dir': val(f, 'Calle'), 'tel': tel, 'z': m[padre]['z'],
+                                                 'tipo': 'Personal' if 'personal' in norm(et(f)) else 'Entrega'})
         with open(SALIDA / 'semilla.js', 'a', encoding='utf-8') as js:
             js.write("try { localStorage.setItem('rc_directorio', JSON.stringify(" + json.dumps(
-                {'filas': m, 'actualizado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'traido': 0}, ensure_ascii=False) + ")); } catch (e) {}\n")
-        print('Directorio de pruebas:', len(dirs), 'clientes')
+                {'filas': m, 'alt': alt, 'actualizado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'traido': 0}, ensure_ascii=False) + ")); } catch (e) {}\n")
+            js.write("try { localStorage.setItem('rc_empleados', JSON.stringify(" + json.dumps(
+                {'filas': emps, 'actualizado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'traido': 0}, ensure_ascii=False) + ")); } catch (e) {}\n")
+        print('Directorio de pruebas:', len(dirs), 'clientes ·', sum(len(v) for v in alt.values()), 'direcciones alternas ·', len(emps), 'empleados')
     if len(sys.argv) > 4:
         # Maestra de proveedores (opcional): misma forma que ponerProveedores() en logistica.js
         import json, time, unicodedata, openpyxl
