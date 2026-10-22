@@ -532,7 +532,8 @@ function logCampos() {
     $('lgBRad').hidden = !conRad || aProv;
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = conProv; logInfoProv();
     $('lgBVuelta').hidden = !tp.vuelta;
-    $('lgBDirTel').hidden = !!tp.banco || (!!tp.oficina && !(aforar && despachoSelLog()));
+    $('lgBDirTel').hidden = !!tp.banco || (!!tp.oficina && !aforar);   // Aforar muestra siempre dirección, teléfono y otras direcciones (se despache o no)
+    pintarDirSel(($('lgCliente')?.value || '').trim());
     $('lgQuienDir').textContent = $('lgQuienTel').textContent = conProv ? 'proveedor' : k === 'vuelta' ? 'contacto' : 'cliente';
     $('lgBBanco').hidden = !tp.banco; $('lgBanco').required = !!tp.banco;
     $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : aProv ? `Qué se radica ${REQ}` : 'Indicaciones <small>(opcional)</small>';
@@ -596,7 +597,7 @@ function logInfoCliente(rellenar = true) {
 function pintarDirSel(nombre) {
     const alt = altDe(nombre), cont = $('lgBDirSel');
     if (!cont) return;
-    cont.hidden = !alt.length;
+    cont.hidden = !alt.length || $('lgBDirTel').hidden;
     if (!alt.length) { $('lgDirSel').innerHTML = ''; return; }
     const d = dirDe(nombre), actual = $('lgDir').value.trim();
     const opciones = [{ et: 'Principal', dir: d?.dir || '', tel: d?.tel || '' }, ...alt.map(a => ({ et: a.n + (a.tipo === 'Personal' ? ' (personal)' : ''), dir: a.dir, tel: a.tel }))];
@@ -695,7 +696,7 @@ async function guardarLog(e, id) {
         ...base, ...(tp.oficina ? { oficina, facturasAforo, otroOficina } : {}), despacho: tp.oficina && oficina.includes('aforar') ? despachoSelLog() : '', tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
         proveedor: tp.recoleccion || aProv ? $('lgProv').value.trim() : '', contactoOtro: tp.vuelta && !!contacto && !zonaC && !lead, proveedorOtro: (tp.recoleccion || aProv) && !!$('lgProv').value.trim() && !proveedoresMaestra.filas[normalizar($('lgProv').value)], materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
-        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco || (tp.oficina && !(oficina.includes('aforar') && despachoSelLog())) ? '' : $('lgDir').value.trim(), telefono: tp.banco || (tp.oficina && !(oficina.includes('aforar') && despachoSelLog())) ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
+        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco || (tp.oficina && !oficina.includes('aforar')) ? '' : $('lgDir').value.trim(), telefono: tp.banco || (tp.oficina && !oficina.includes('aforar')) ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
     if (antes) {
