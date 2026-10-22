@@ -333,7 +333,7 @@ function tarjetaLog(r, n, total) {
                 : pasosLog(r) && !puedeDespacharLog(r) ? (porAsignarLog(r) ? `<button class="bv ok" onclick="tomarDespachoLog('${r.id}')">🙋 Yo lo ${esc(YO_DESP[r.despacho] || 'hago')}</button>` : `<span class="nota-cierre">Lo ${esc(VERBO_DESP[r.despacho] || 'hace')} ${esc(nombreVendedor(r.asignado?.a))}</span>`)
                 : `<button class="bv ok" onclick="abrirLogReporte('${r.id}', true)">✓ ${esc(ok)}</button>`}
             ${pasosLog(r) && r.aforo && !puedeDespacharLog(r) ? '' : `<button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>`}
-            ${porAsignarLog(r) ? botonAsignarLog(r) : ''}
+            ${enPasosLog(r) && r.aforo ? botonAsignarLog(r) : ''}${pasosLog(r) && r.aforo && r.asignado?.a === sesion?.id && !(esCoordLog() || esAdmin()) && enPasosLog(r) ? `<button class="link-mini" onclick="soltarDespachoLog('${r.id}')">↩ Ya no puedo</button>` : ''}
             <button class="link-mini" onclick="abrirLogForm('${r.id}')">Editar</button>
             <button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button></div>`;
     } else {
@@ -771,7 +771,7 @@ function abrirLogAforo(id) {
 }
 const VERBO_DESP = { envio: 'envía', entrega: 'entrega' };
 const YO_DESP = { envio: 'envío', entrega: 'entrego' };
-const botonAsignarLog = r => esCoordLog() || esAdmin() ? `<button class="bv" onclick="abrirAsignarDespacho('${r.id}')">👤 Asignar…</button>` : '';
+const botonAsignarLog = r => esCoordLog() || esAdmin() ? `<button class="bv" onclick="abrirAsignarDespacho('${r.id}')">👤 ${r.asignado ? 'Cambiar…' : 'Asignar…'}</button>` : '';
 // Quien lo toma se lo asigna a sí mismo (hoy, o el mismo día si aún no pasa)
 function tomarDespachoLog(id) {
     const r = registros[id];
@@ -780,17 +780,19 @@ function tomarDespachoLog(id) {
     pintarLog(); abrirLogReporte(id, true);   // si lo cierra sin reportar, la parada queda asignada a quien la tomó
 }
 function asignarDespachoLog(r, quien, fecha, hora) {
+    const antes = r.asignado?.a;
     const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === quien && x.id !== r.id);
     const orden = r.vendedor === quien && r.fecha === fecha ? r.orden : Math.max(0, ...mismo.map(x => x.orden || 0)) + 1;
     guardarRegistro({ ...r, vendedor: quien, fecha, hora, orden, asignado: { a: quien, por: sesion.id, cuando: new Date().toISOString() },
-        ediciones: [...(r.ediciones || []), { por: sesion.id, cuando: new Date().toISOString(), campos: [`asignó el despacho a ${nombreVendedor(quien)}`] }] });
+        ediciones: [...(r.ediciones || []), { por: sesion.id, cuando: new Date().toISOString(), campos: [antes && antes !== quien ? `cambió el despacho de ${nombreVendedor(antes)} a ${nombreVendedor(quien)}` : `asignó el despacho a ${nombreVendedor(quien)}`] }] });
 }
 function abrirAsignarDespacho(id) {
     const r = registros[id];
-    if (!r || !porAsignarLog(r) || !(esCoordLog() || esAdmin())) return;
-    const f = r.fecha < hoy() ? hoy() : r.fecha;
+    if (!r || !enPasosLog(r) || !r.aforo || !(esCoordLog() || esAdmin())) return;
+    // Si ya pasó el día (o son más de las 6:00 p. m. de hoy), se propone el día siguiente
+    const f = r.fecha < hoy() || (r.fecha === hoy() && horaBogotaLog() >= HORA_CORTE_LOG && !window.MODO_PRUEBA && API_URL) ? sumarDias(hoy(), 1) : r.fecha;
     abrirModal(`<form class="form-rc" onsubmit="guardarAsignarDespacho(event, '${id}')">
-        <h2>Asignar el despacho</h2>
+        <h2>${r.asignado ? 'Cambiar la asignación' : 'Asignar el despacho'}</h2>
         <p class="sub">${esc(tituloLog(r))} · aforado por ${esc(nombreVendedor(r.aforo?.por))}</p>
         <label for="lgAsQuien">Quién lo ${esc(VERBO_DESP[r.despacho] || 'hace')} ${REQ}</label>
         <select id="lgAsQuien" required>${MENSAJEROS.map(m => `<option value="${m.id}"${m.id === r.vendedor ? ' selected' : ''}>${esc(m.nombre)}</option>`).join('')}</select>
@@ -799,20 +801,34 @@ function abrirAsignarDespacho(id) {
             <div><label for="lgAsHora">Hora <small>(si es fija)</small></label><input type="time" id="lgAsHora" value="${esc(r.hora || '')}"></div>
         </div>
         <div class="form-botones">
+            ${r.asignado ? `<button type="button" class="btn-secundario" onclick="dejarPorAsignarLog('${r.id}')">Dejar por asignar</button>` : ''}
             <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
-            <button class="btn-primario">Asignar</button>
+            <button class="btn-primario">${r.asignado ? 'Guardar' : 'Asignar'}</button>
         </div>
     </form>`);
 }
 async function guardarAsignarDespacho(e, id) {
     e.preventDefault();
     const r = registros[id], quien = $('lgAsQuien').value, fecha = $('lgAsFecha').value, hora = $('lgAsHora').value;
-    if (!r || !porAsignarLog(r)) { cerrarModal(); return toast('Esta parada ya cambió: actualiza'); }
+    if (!r || !enPasosLog(r) || !r.aforo) { cerrarModal(); return toast('Esta parada ya cambió: actualiza'); }
     const err = errorFechaLog(fecha, quien, r.id);
     if (err) return toast(err);
     if (!await confirmarDiaLog(fecha, quien)) return;
     asignarDespachoLog(r, quien, fecha, hora);
     cerrarModal(); toast(`Asignado a ${nombreVendedor(quien)}`); pintarLog();
+}
+// Volver a "por asignar": el coordinador (si se equivocó) o quien la tenía y ya no puede
+function dejarPorAsignarLog(id) {
+    const r = registros[id];
+    if (!r || !enPasosLog(r) || !r.aforo || !r.asignado) return;
+    const antes = r.asignado.a;
+    guardarRegistro({ ...r, asignado: null, ediciones: [...(r.ediciones || []), { por: sesion.id, cuando: new Date().toISOString(), campos: [`dejó el despacho por asignar (lo tenía ${nombreVendedor(antes)})`] }] });
+    cerrarModal(); toast('Quedó por asignar'); pintarLog();
+}
+function soltarDespachoLog(id) {
+    const r = registros[id];
+    if (!r || r.asignado?.a !== sesion.id) return;
+    dejarPorAsignarLog(id);
 }
 async function guardarLogAforo(e, id) {
     e.preventDefault();

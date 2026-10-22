@@ -173,6 +173,7 @@
   La tarjeta muestra el recorrido (`htmlPasosLog`); quien despacha queda como `reportadoPor` y el aforo conserva su autor y hora. "Corregir reporte" conserva el aforo y sus fotos.
 - **Quién despacha se asigna:** tras el aforo la ficha queda **"Por asignar"** (`porAsignarLog`). El coordinador o el administrador la asignan con **👤 Asignar…** (mensajero, fecha y hora; la ficha pasa a su día y su lista, `asignado: {a, por, cuando}`),
   o cualquiera de Logística la toma con **🙋 Yo lo envío / entrego** (queda asignada a esa persona y se abre el reporte). Solo quien la tiene reporta (`puedeDespacharLog`); los demás ven "Lo envía X".
+  El coordinador y el administrador pueden **cambiar la asignación** (botón "👤 Cambiar…": otra persona o fecha) o **dejarla por asignar**; quien la tiene puede soltarla con "↩ Ya no puedo". Todo queda en la huella `ediciones` ("cambió el despacho de X a Y").
   El coordinador y el administrador pueden reportar el despacho directo aunque no esté asignado (queda asignado a quien lo cierra, en su lista y con fecha de ese día). El coordinador ve el aviso "N aforos por asignar".
 - Las fotos pendientes de subir llevan su etapa (`{ d, e }` en la cola `rc_fotos_pend`); las antiguas (texto) siguen valiendo.
 
