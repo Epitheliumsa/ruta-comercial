@@ -783,7 +783,7 @@ function asignarDespachoLog(r, quien, fecha, hora) {
 function abrirAsignarDespacho(id) {
     const r = registros[id];
     if (!r || !enPasosLog(r) || !r.aforo || !(esCoordLog() || esAdmin())) return;
-    // Si ya pasó el día (o son más de las 6:00 p. m. de hoy), se propone el día siguiente
+    // Si ya pasó el día (o son más de las 7:00 p. m. de hoy), se propone el día siguiente
     const f = r.fecha < hoy() || (r.fecha === hoy() && horaBogotaLog() >= HORA_CORTE_LOG && !window.MODO_PRUEBA && API_URL) ? sumarDias(hoy(), 1) : r.fecha;
     abrirModal(`<form class="form-rc" onsubmit="guardarAsignarDespacho(event, '${id}')">
         <h2>${r.asignado ? 'Cambiar la asignación' : 'Asignar el despacho'}</h2>
@@ -922,15 +922,15 @@ const textoAccionLog = rp => rp?.accion === 'oficina' ? 'Se devuelve a la oficin
     : rp?.reprogramadaPara ? `Reprogramada para el ${fechaCorta(rp.reprogramadaPara)}${rp.horaRepro ? ' a las ' + horaBonita(rp.horaRepro) : ''}` : '';
 // Paradas del mismo cliente (o proveedor) en un día; si ya hay, se confirma antes de programar otra
 const nombreParada = r => r.contacto || r.proveedor || '';
-// Reglas de la fecha al programar (nueva, editada o reprogramada): no a días pasados, no hoy después de las 6 p. m.,
+// Reglas de la fecha al programar (nueva, editada o reprogramada): no a días pasados, no hoy después de las 7 p. m.,
 // y aviso con confirmación en domingos y festivos
-const HORA_CORTE_LOG = 18;
+const HORA_CORTE_LOG = 19;   // cierre del día de Logística: 7:00 p. m. (hora de Bogotá)
 const horaBogotaLog = () => +new Date().toLocaleString('en-US', { timeZone: 'America/Bogota', hour: 'numeric', hourCycle: 'h23' });
 function errorFechaLog(fecha, vendedor, idIgnorar = '', sinCambio = false) {
     if (sinCambio) return '';
     if (window.MODO_PRUEBA || !API_URL) return '';   // pruebas: sin horario (se puede programar cualquier día y a cualquier hora para cargar datos)
     if (fecha < hoy()) return 'Ese día ya pasó: programa desde hoy';
-    if (fecha === hoy() && horaBogotaLog() >= HORA_CORTE_LOG) return 'Después de las 6:00 p. m. ya no se programa para hoy: elige el siguiente día';
+    if (fecha === hoy() && horaBogotaLog() >= HORA_CORTE_LOG) return 'Después de las 7:00 p. m. ya no se programa para hoy: elige el siguiente día';
     return '';
 }
 async function confirmarDiaLog(fecha, vendedor = '') {

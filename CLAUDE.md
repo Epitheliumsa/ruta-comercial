@@ -298,7 +298,7 @@
   por mensajero y por tipo. Sin líneas de cuadrícula.
 
 ### Logística: novedades, Oficina, facturas con selector, devoluciones y consulta por documento
-- **Reglas de fecha** (`errorFechaLog`, `confirmarDiaLog`): no a días pasados, no hoy después de las 6 p. m. (hora de Bogotá), aviso con confirmación en domingos, festivos y cuando el mensajero tiene una novedad ese día.
+- **Reglas de fecha** (`errorFechaLog`, `confirmarDiaLog`): no a días pasados, no hoy después de las 7 p. m. (hora de Bogotá; `HORA_CORTE_LOG`), aviso con confirmación en domingos, festivos y cuando el mensajero tiene una novedad ese día.
 - **Novedades** del mensajero (Cita médica, Incapacidad, Permiso, Vacaciones): se guardan como registros `clase: 'logistica'` con `tipo: 'novedad'` (así el servidor no cambia); `logRegs()` las excluye de anillos, gráfico y Excel; `novLogRegs()` las trae. Salen en un panel que se esconde.
 - **Oficina** (`tipo: 'oficina'`): Aforar (cliente + facturas con tipo y serie), Alistamiento, Etiquetas, Otro (texto). Sin dirección ni teléfono.
 - **Facturas con selector** (`filaDoc`, `OPC_FACTURA`): serie A (OVI) = Producto Terminado y Magistral Individual; serie B (OV) = Magistral Individual NI y Magistral de Pedido. Mismo selector en Aforar y en el pedido de Colocación de Comercial (`filaPedido` en `app.js`). El bloque "PQR - Reacondicionamientos - Devoluciones" usa PQR/OUT, REA/OUT y Devolución.
