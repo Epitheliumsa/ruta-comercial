@@ -21,7 +21,8 @@ const repTipoLog = r => pasosLog(r) && r.aforo ? r.despacho : r.tipo;
 const enPasosLog = r => pasosLog(r) && r.estado === 'pendiente';
 // Después del aforo, el despacho queda "por asignar": el coordinador escoge quién (y qué día) o cualquiera de Logística lo toma; solo quien lo tiene (o el coordinador) lo reporta
 const porAsignarLog = r => enPasosLog(r) && !!r.aforo && !r.asignado;
-const puedeDespacharLog = r => !!r.asignado && (r.asignado.a === sesion?.id || esCoordLog() || esAdmin());
+// Reporta el despacho quien lo tiene asignado; el coordinador y el administrador también, aunque aún no esté asignado (p. ej. si lo despacha el mismo coordinador)
+const puedeDespacharLog = r => pasosLog(r) && !!r.aforo && (esCoordLog() || esAdmin() || r.asignado?.a === sesion?.id);
 const compartidaLog = r => enPasosLog(r) || enVentanaEdicionLog(r);
 const puedeEditarEntregaLog = r => !!r && r.estado === 'entregado' && puedeOperarLog() && (window.MODO_PRUEBA || !API_URL || enVentanaEdicionLog(r));
 const textoLimiteEdicion = r => `${fechaCorta(diaBogota(new Date(limiteEdicionLog(r) || Date.now()).toISOString()))} ${HORA_EDICION_LOG.replace(/^0/, '')} a. m.`;
@@ -329,10 +330,10 @@ function tarjetaLog(r, n, total) {
     } else if (!cerrada) {
         acciones = `<div class="acciones">
             ${pasosLog(r) && !r.aforo ? `<button class="bv ok" onclick="abrirLogAforo('${r.id}')">✓ Aforado</button>`
-                : porAsignarLog(r) ? `<button class="bv ok" onclick="tomarDespachoLog('${r.id}')">🙋 Yo lo ${esc(YO_DESP[r.despacho] || 'hago')}</button>${botonAsignarLog(r)}`
-                : pasosLog(r) && !puedeDespacharLog(r) ? `<span class="nota-cierre">Lo ${esc(VERBO_DESP[r.despacho] || 'hace')} ${esc(nombreVendedor(r.asignado?.a))}</span>`
+                : pasosLog(r) && !puedeDespacharLog(r) ? (porAsignarLog(r) ? `<button class="bv ok" onclick="tomarDespachoLog('${r.id}')">🙋 Yo lo ${esc(YO_DESP[r.despacho] || 'hago')}</button>` : `<span class="nota-cierre">Lo ${esc(VERBO_DESP[r.despacho] || 'hace')} ${esc(nombreVendedor(r.asignado?.a))}</span>`)
                 : `<button class="bv ok" onclick="abrirLogReporte('${r.id}', true)">✓ ${esc(ok)}</button>`}
-            ${porAsignarLog(r) || (pasosLog(r) && !puedeDespacharLog(r) && r.aforo) ? '' : `<button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>`}
+            ${pasosLog(r) && r.aforo && !puedeDespacharLog(r) ? '' : `<button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>`}
+            ${porAsignarLog(r) ? botonAsignarLog(r) : ''}
             <button class="link-mini" onclick="abrirLogForm('${r.id}')">Editar</button>
             <button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button></div>`;
     } else {
@@ -776,7 +777,7 @@ function tomarDespachoLog(id) {
     const r = registros[id];
     if (!r || !porAsignarLog(r) || !puedeOperarLog()) return toast('Esta parada ya cambió: actualiza');
     asignarDespachoLog(r, sesion.id, r.fecha < hoy() ? hoy() : r.fecha, r.hora || '');
-    toast('Quedó para ti'); pintarLog();
+    pintarLog(); abrirLogReporte(id, true);   // si lo cierra sin reportar, la parada queda asignada a quien la tomó
 }
 function asignarDespachoLog(r, quien, fecha, hora) {
     const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === quien && x.id !== r.id);
@@ -1101,7 +1102,7 @@ async function guardarLogReporte(e, id, ok) {
         }
         if (reporte.reprogramadaPara && !await confirmarDobleParada(nombreParada(r), reporte.reprogramadaPara, r.id)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
-        guardarRegistro({ ...r, ...envio, estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
+        guardarRegistro({ ...r, ...envio, ...(pasosLog(r) ? { asignado: r.asignado || { a: sesion.id, por: sesion.id, cuando: new Date().toISOString() }, vendedor: r.asignado?.a || sesion.id, fecha: r.fecha < hoy() ? hoy() : r.fecha } : {}), estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
             limiteEdicion: new Date(Date.parse(`${siguienteHabil(diaBogota(new Date().toISOString()))}T${HORA_EDICION_LOG}:00-05:00`)).toISOString(),
             fotos: [...(r.fotos || []), ...(API_URL && !MODO_PRUEBA ? [] : fotos.map(d => ({ data: d })))] });
         if (API_URL && !MODO_PRUEBA && fotos.length) { const p = leerFotosPend(); p[id] = [...(p[id] || []), ...fotos]; guardarFotosPend(p); subirFotosPend(); }
@@ -1109,7 +1110,7 @@ async function guardarLogReporte(e, id, ok) {
         if (reporte.reprogramadaPara) {
             const f = reporte.reprogramadaPara, mismo = logRegs().filter(x => x.fecha === f && x.vendedor === r.vendedor);
             const { reporte: _r, fotos: _f, correcciones: _c, registrada: _g, reportadoPor: _p, ...datos } = r;
-            guardarRegistro({ ...datos, id: nuevoId(), estado: 'pendiente', fecha: f, hora: reporte.horaRepro || '', orden: Math.max(0, ...mismo.map(x => x.orden || 0)) + 1,
+            guardarRegistro({ ...datos, ...(pasosLog(r) ? { fotos: fotosDe(r, true) } : {}), id: nuevoId(), estado: 'pendiente', fecha: f, hora: reporte.horaRepro || '', orden: Math.max(0, ...mismo.map(x => x.orden || 0)) + 1,
                 vieneDe: r.vieneDe || r.fecha, origen: 'reprogramada', intento: intentoLog(r) + 1, creado: new Date().toISOString(), creadoPor: sesion.id });
         }
         cerrarModal();
