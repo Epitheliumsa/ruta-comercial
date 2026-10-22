@@ -97,9 +97,14 @@ function limiteEdicionLog_(r) {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 13, 0, 0);
 }
 
-// Entrega cerrada que todavía se puede editar: la ve todo Logística (no solo quien la reportó)
+// Parada en pasos (aforo → despacho) todavía abierta, o entrega cerrada que todavía se puede editar: la ve todo Logística (no solo quien la reportó)
 function enVentanaFila_(f) {
-  try { const p = JSON.parse(f[6]); return p.estado === 'entregado' && Date.now() <= limiteEdicionLog_(p); } catch (e) { return false; }
+  try {
+    const p = JSON.parse(f[6]);
+    // Aforo y despacho en pasos: mientras esté abierta, todo Logística la ve y la puede avanzar
+    if (p.conAforo && p.estado === 'pendiente') return true;
+    return p.estado === 'entregado' && Date.now() <= limiteEdicionLog_(p);
+  } catch (e) { return false; }
 }
 
 // El comercial solo ve lo suyo; el jefe ve todo el equipo
@@ -147,7 +152,8 @@ function guardar_(usuario, registros) {
       // Una entrega cerrada se puede editar hasta las 8:00 a. m. del siguiente día hábil por cualquier persona de Logística (uno afora, otro envía y pone la guía)
       const previoLog = r.clase === 'logistica' && filaDe[r.id] ? JSON.parse(valores[filaDe[r.id] - 1][6]) : null;
       const enVentanaLog = !!previoLog && previoLog.estado === 'entregado' && usuario.area === 'logistica' && Date.now() <= limiteEdicionLog_(previoLog);
-      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id || enVentanaLog) : usuario.admin);
+      const enPasosLog = !!previoLog && previoLog.conAforo === true && previoLog.estado === 'pendiente' && usuario.area === 'logistica';
+      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id || enVentanaLog || enPasosLog) : usuario.admin);
       if (r.clase === 'logistica' && !logistica) return;
       // Mercadeo solo escribe los enlaces PDF de las circulares (clase 'mensual', id circulares-pdf)
       if (usuario.tipo === 'mercadeo' && !(usuario.subeCirculares && r.id === 'circulares-pdf' && r.clase === 'mensual')) return;

@@ -164,6 +164,13 @@
   **no se suben**: Equipo de ventas Ventas Mostrador (consumidor final) y usuarios de Odoo · todo lo demás (sin equipo; con etiqueta Proveedor, Entidad Gubernamental, Junta Directiva o sin etiqueta) → Proveedores.
 - Exportación de Odoo: la plantilla de columnas está en la hoja "Campos" de Plantilla_Maestra_Odoo.xlsx (se regenera con las columnas de `COLUMNAS_ODOO` en `bases.js`). Si un contacto no queda donde se espera, casi siempre es su Equipo de ventas, su etiqueta o un nombre escrito distinto (p. ej. un acento ´ en lugar de la comilla ').
 
+## Logística: aforo y despacho en pasos (misma ficha)
+- Una parada de **Envío** o **Entrega** puede llevar la casilla "Se afora primero en la oficina y después se despacha" (`conAforo`). Tiene dos pasos que hacen personas distintas:
+  ① **Aforado** (botón "✓ Aforado", con **foto obligatoria**; guarda `aforo: {por, cuando, detalle}` y sus fotos con `e: 'aforo'`) y ② **Enviado/Entregado** (el reporte de siempre, con su propia foto: las del aforo no cuentan).
+- El aforo **no cierra** la parada: queda "Aforado · falta despachar" y **todo Logística la ve y la puede avanzar** mientras esté abierta (`enPasosLog`, `compartidaLog` en `logistica.js`; `enVentanaFila_` y `enPasosLog` en `Codigo.gs`).
+  La tarjeta muestra el recorrido (`htmlPasosLog`); quien despacha queda como `reportadoPor` y el aforo conserva su autor y hora. "Corregir reporte" conserva el aforo y sus fotos.
+- Las fotos pendientes de subir llevan su etapa (`{ d, e }` en la cola `rc_fotos_pend`); las antiguas (texto) siguen valiendo.
+
 ## Logística: editar la entrega cerrada y pegar fotos
 - Una entrega cerrada (`entregado`) se puede **editar** (quién recibió, transportadora, guía, detalle, novedades y más fotos) hasta las **8:00 a. m. del siguiente día hábil** por **cualquier persona de Logística**
   (uno afora el pedido y otro lo envía y pone la guía). Botón "✏️ Editar entrega" en la tarjeta (`abrirLogEditar`, `guardarLogEditar`). Al reportar se guarda `limiteEdicion` (con festivos, `siguienteHabil`);

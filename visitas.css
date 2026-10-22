@@ -2065,3 +2065,8 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .form-rc .lg-drop { margin-top: 8px; padding: 14px 10px; border: 2px dashed #cbd5d1; border-radius: 12px; text-align: center; font-size: 13px; color: #64748b; background: #f8fbfa; }
 .form-rc .lg-drop.sobre { border-color: #0f766e; background: #e6f6f2; color: #0f766e; }
 @media (hover: none), (pointer: coarse) { .form-rc .lg-drop { display: none; } }
+
+.lg-pasos { display: grid; gap: 6px; margin: 8px 0; padding: 8px 10px; border-radius: 12px; background: #f1f7f5; border: 1px solid #d5e5df; font-size: 13.5px; }
+.lg-paso.ok { color: #0f6b4a; } .lg-paso.p { color: #b45309; } .lg-paso.no { color: #b91c1c; } .lg-paso.espera { color: #94a3b8; }
+.lg-paso .lg-fotos { margin-top: 4px; }
+.form-rc .lg-chip-aforo { display: flex; margin-top: 6px; }
