@@ -87,23 +87,13 @@ function hoja_() {
   return h;
 }
 
-// Límite para editar una entrega cerrada: el que trae el registro (calculado con festivos) o, en los reportes viejos, las 8:00 a. m. (Colombia) del siguiente día de lunes a viernes
-function limiteEdicionLog_(r) {
-  if (r.limiteEdicion) return Date.parse(r.limiteEdicion);
-  if (!r.registrada) return 0;
-  const bogota = new Date(Date.parse(r.registrada) - 5 * 3600000);
-  const d = new Date(Date.UTC(bogota.getUTCFullYear(), bogota.getUTCMonth(), bogota.getUTCDate() + 1));
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 13, 0, 0);
-}
-
-// Parada en pasos (aforo → despacho) todavía abierta, o entrega cerrada que todavía se puede editar: la ve todo Logística (no solo quien la reportó)
+// Parada en pasos (aforo → despacho) todavía abierta: la ve todo Logística (no solo quien la reportó)
 function enVentanaFila_(f) {
   try {
     const p = JSON.parse(f[6]);
     // Aforo y despacho en pasos: mientras esté abierta, todo Logística la ve y la puede avanzar
     if (p.despacho && p.tipo === 'oficina' && p.estado === 'pendiente') return true;
-    return p.estado === 'entregado' && Date.now() <= limiteEdicionLog_(p);
+    return false;
   } catch (e) { return false; }
 }
 
@@ -150,11 +140,9 @@ function guardar_(usuario, registros) {
       // Logística: solo logística escribe registros de logística (el coordinador, los de todos; el auxiliar, los suyos)
       // (excepto la lista de transportadoras, que Logística llena y comparte)
       if (usuario.area === 'logistica' && r.clase !== 'logistica' && !(r.id === 'lista-transportadoras' && r.clase === 'lista')) return;
-      // Una entrega cerrada se puede editar hasta las 8:00 a. m. del siguiente día hábil por cualquier persona de Logística (uno afora, otro envía y pone la guía)
       const previoLog = r.clase === 'logistica' && filaDe[r.id] ? JSON.parse(valores[filaDe[r.id] - 1][6]) : null;
-      const enVentanaLog = !!previoLog && previoLog.estado === 'entregado' && usuario.area === 'logistica' && Date.now() <= limiteEdicionLog_(previoLog);
       const enPasosLog = !!previoLog && previoLog.tipo === 'oficina' && !!previoLog.despacho && previoLog.estado === 'pendiente' && usuario.area === 'logistica';
-      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id || enVentanaLog || enPasosLog) : usuario.admin);
+      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id || enPasosLog) : usuario.admin);
       if (r.clase === 'logistica' && !logistica) return;
       // Mercadeo solo escribe los enlaces PDF de las circulares (clase 'mensual', id circulares-pdf)
       if (usuario.tipo === 'mercadeo' && !(usuario.subeCirculares && r.id === 'circulares-pdf' && r.clase === 'mensual')) return;
@@ -190,10 +178,9 @@ function guardar_(usuario, registros) {
         }
       }
       // Logística: un auxiliar no cambia lo ya reportado (solo puede agregar fotos); lo corrige el coordinador o el administrador.
-      // Dentro de la ventana de edición sí puede cambiar el reporte, pero no el estado, ni las facturas, ni borrar.
       if (r.clase === 'logistica' && actual && actual.estado && actual.estado !== 'pendiente' && !usuario.coordLogistica && !usuario.admin) {
         if (r.borrado || r.estado !== actual.estado || JSON.stringify(r.documentos) !== JSON.stringify(actual.documentos)) return;
-        if (!enVentanaLog && JSON.stringify(r.reporte) !== JSON.stringify(actual.reporte)) return;
+        if (JSON.stringify(r.reporte) !== JSON.stringify(actual.reporte)) return;
       }
       if (n) {
         if (String(valores[n - 1][4]) > String(r.actualizado || '')) return;

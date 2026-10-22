@@ -8,11 +8,6 @@ const esLogistica = () => !!(sesion && sesion.tipo === 'logistica');
 const esCoordLog = () => !!(sesion && sesion.coordLogistica);
 const puedeOperarLog = () => esLogistica() || esAdmin();          // programa y reporta paradas
 const puedeCorregirLog = () => esCoordLog() || esAdmin();         // reabre un reporte para corregirlo
-// Una entrega ya cerrada se puede editar (guía, quién recibió, novedades, fotos) hasta las 8:00 a. m. del siguiente día hábil, por cualquier persona de
-// Logística (p. ej. uno afora el pedido y otro lo envía y pone la guía). Después, solo el coordinador o el administrador con "Corregir reporte".
-const HORA_EDICION_LOG = '08:00';
-const limiteEdicionLog = r => r.limiteEdicion ? Date.parse(r.limiteEdicion) : r.registrada ? Date.parse(`${siguienteHabil(diaBogota(r.registrada))}T${HORA_EDICION_LOG}:00-05:00`) : 0;
-const enVentanaEdicionLog = r => !!r && r.estado === 'entregado' && Date.now() <= limiteEdicionLog(r);
 // Aforo y despacho en pasos: la parada la ve y la puede avanzar todo Logística mientras esté abierta (uno afora y otro despacha)
 // Oficina → Aforar con despacho posterior (envío fuera de Bogotá o entrega en Bogotá): una sola ficha con dos pasos; el aforo sigue siendo trabajo de oficina
 const pasosLog = r => !!r && r.tipo === 'oficina' && !!r.despacho && (r.oficina || []).includes('aforar');
@@ -23,9 +18,7 @@ const enPasosLog = r => pasosLog(r) && r.estado === 'pendiente';
 const porAsignarLog = r => enPasosLog(r) && !!r.aforo && !r.asignado;
 // Reporta el despacho quien lo tiene asignado; el coordinador y el administrador también, aunque aún no esté asignado (p. ej. si lo despacha el mismo coordinador)
 const puedeDespacharLog = r => pasosLog(r) && !!r.aforo && (esCoordLog() || esAdmin() || r.asignado?.a === sesion?.id);
-const compartidaLog = r => enPasosLog(r) || enVentanaEdicionLog(r);
-const puedeEditarEntregaLog = r => !!r && r.estado === 'entregado' && puedeOperarLog() && (window.MODO_PRUEBA || !API_URL || enVentanaEdicionLog(r));
-const textoLimiteEdicion = r => `${fechaCorta(diaBogota(new Date(limiteEdicionLog(r) || Date.now()).toISOString()))} ${HORA_EDICION_LOG.replace(/^0/, '')} a. m.`;
+const compartidaLog = r => enPasosLog(r);
 const veTodasZonas = () => veEquipo() || esLogistica();             // Maestra Clientes con todas las zonas
 
 // Tipo de parada: se escoge uno; la radicación de documentos es la única que se puede sumar a otro tipo (o ir sola).
@@ -338,7 +331,6 @@ function tarjetaLog(r, n, total) {
             <button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button></div>`;
     } else {
         acciones = `<div class="acciones cerrada"><span class="nota-cierre">🔒 Reportado el ${esc(fechaHora(r.registrada))} por ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}${r.correcciones?.length ? ` · corregido ${r.correcciones.length} ${r.correcciones.length === 1 ? 'vez' : 'veces'}` : ''}</span>
-            ${puedeEditarEntregaLog(r) ? `<button class="link-mini" onclick="abrirLogEditar('${r.id}')">✏️ Editar entrega <small>(hasta ${esc(textoLimiteEdicion(r))})</small></button>` : ''}
             ${puedeCorregirLog() ? `<button class="link-mini" onclick="reabrirLog('${r.id}')">✏️ Corregir reporte</button>` : ''}</div>`;
     }
     // Las de hora fija van por hora; las demás se ordenan con Subir / Bajar
@@ -1061,64 +1053,6 @@ document.addEventListener('paste', e => {
     agregarArchivosLog(files);
 });
 const etiquetaDetalleLog = r => repTipoLog(r) === 'recoleccion' ? 'Qué se recogió' : repTipoLog(r) === 'vuelta' || repTipoLog(r) === 'banco' || repTipoLog(r) === 'oficina' ? 'Resultado' : repTipoLog(r) === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
-// Editar una entrega ya cerrada (hasta las 8:00 a. m. del siguiente día hábil): quién recibió, transportadora, guía, detalle, novedades y más fotos
-function abrirLogEditar(id) {
-    const r = registros[id];
-    if (!r || !puedeEditarEntregaLog(r)) return toast('Esta entrega ya no se puede editar');
-    const tp = TIPOS_LOG[repTipoLog(r)] || {}, rp = r.reporte || {}, envio = repTipoLog(r) === 'envio', detalle = etiquetaDetalleLog(r);
-    fotosLogSel = [];
-    abrirModal(`<form class="form-rc" onsubmit="guardarLogEditar(event, '${id}')">
-        <h2>Editar: ${esc(okTxt(r).toLowerCase())}</h2>
-        <p class="sub">${esc(tituloLog(r))} · se puede editar hasta el ${esc(textoLimiteEdicion(r))}</p>
-        ${tp.quien ? `<label for="lgERecibio">${esc(tp.quien)} <small>(opcional)</small></label>
-        <input id="lgERecibio" autocomplete="off" maxlength="80" value="${esc(rp.recibio || '')}" onblur="this.value = nombrePropio(this.value)">` : ''}
-        <div class="fila-fecha iguales">
-            <div><label for="lgETransp">Transportadora ${envio ? REQ : '<small>(opcional)</small>'}</label><input id="lgETransp" list="dlETransp" autocomplete="off" maxlength="60" value="${esc(r.transportadora || '')}" oninput="mostrarQuitarT(this)">
-            <datalist id="dlETransp">${transportadoras().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
-            <div><label for="lgEGuia">Número de guía ${envio ? REQ : '<small>(opcional)</small>'}</label><input id="lgEGuia" autocomplete="off" maxlength="40" value="${esc(rp.guia || '')}"></div>
-        </div>
-        ${detalle ? `<label for="lgEDetalle">${esc(detalle)} <small>(opcional)</small></label><textarea id="lgEDetalle" rows="2" maxlength="200">${esc(rp.detalle || '')}</textarea>` : ''}
-        <label for="lgENovedad">Novedades <small>(opcional)</small></label>
-        <textarea id="lgENovedad" rows="2" maxlength="200">${esc(rp.novedad || '')}</textarea>
-        <label>Agregar fotos <small>(opcional; ya tiene ${(r.fotos || []).length})</small></label>
-        ${htmlBotonesFotoLog()}
-        <p class="ayuda" id="lgFotosTxt"></p>
-        <div class="form-botones">
-            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
-            <button class="btn-primario" id="lgBtnEd">Guardar cambios</button>
-        </div>
-    </form>`);
-}
-async function guardarLogEditar(e, id) {
-    e.preventDefault();
-    const r = registros[id], btn = $('lgBtnEd');
-    if (!r || !puedeEditarEntregaLog(r)) { cerrarModal(); return toast('Esta entrega ya no se puede editar'); }
-    const val = k => $(k)?.value.trim() || '', tp = TIPOS_LOG[repTipoLog(r)] || {}, rp = r.reporte || {}, envio = repTipoLog(r) === 'envio', detalle = etiquetaDetalleLog(r);
-    if (envio && (!val('lgETransp') || !val('lgEGuia'))) return toast('En el envío van la transportadora y el número de guía');
-    btn.disabled = true; btn.textContent = 'Guardando…';
-    try {
-        const fotos = [];
-        for (const f of fotosLogSel.slice(0, 4)) fotos.push(await comprimirFoto(f, API_URL && !MODO_PRUEBA ? 1280 : 480, API_URL && !MODO_PRUEBA ? 0.72 : 0.6));
-        const nuevoRep = { ...rp, ...(tp.quien ? { recibio: nombrePropio(val('lgERecibio')) } : {}), guia: val('lgEGuia'), ...(detalle ? { detalle: val('lgEDetalle') } : {}), novedad: val('lgENovedad') };
-        const cambios = [];
-        if (tp.quien && (rp.recibio || '') !== nuevoRep.recibio) cambios.push('quién recibió');
-        if ((r.transportadora || '') !== val('lgETransp')) cambios.push('transportadora');
-        if ((rp.guia || '') !== nuevoRep.guia) cambios.push('guía');
-        if (detalle && (rp.detalle || '') !== nuevoRep.detalle) cambios.push('detalle');
-        if ((rp.novedad || '') !== nuevoRep.novedad) cambios.push('novedades');
-        if (fotos.length) cambios.push('fotos');
-        if (!cambios.length) { cerrarModal(); return toast('No hay cambios'); }
-        if (val('lgETransp')) recordarTransportadora(val('lgETransp'));
-        guardarRegistro({ ...r, reporte: nuevoRep, ...(val('lgETransp') || r.transportadora ? { transportadora: val('lgETransp') } : {}),
-            ediciones: [...(r.ediciones || []), { por: sesion.id, cuando: new Date().toISOString(), campos: cambios }],
-            fotos: [...(r.fotos || []), ...(API_URL && !MODO_PRUEBA ? [] : fotos.map(d => ({ data: d })))] });
-        if (API_URL && !MODO_PRUEBA && fotos.length) { const p = leerFotosPend(); p[id] = [...(p[id] || []), ...fotos]; guardarFotosPend(p); subirFotosPend(); }
-        cerrarModal(); toast('Entrega actualizada'); pintarLog();
-    } catch (err) {
-        btn.disabled = false; btn.textContent = 'Guardar cambios';
-        toast('No se pudo guardar: ' + err.message);
-    }
-}
 async function guardarLogReporte(e, id, ok) {
     e.preventDefault();
     const r = registros[id], btn = $('lgBtnRep');
@@ -1157,7 +1091,6 @@ async function guardarLogReporte(e, id, ok) {
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
         if (ok && repTipoLog(r) === 'envio' && val('lgTransp')) recordarTransportadora(val('lgTransp'));
         guardarRegistro({ ...r, ...envio, ...(pasosLog(r) ? { asignado: r.asignado || { a: sesion.id, por: sesion.id, cuando: new Date().toISOString() }, vendedor: r.asignado?.a || sesion.id, fecha: r.fecha < hoy() ? hoy() : r.fecha } : {}), estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
-            limiteEdicion: new Date(Date.parse(`${siguienteHabil(diaBogota(new Date().toISOString()))}T${HORA_EDICION_LOG}:00-05:00`)).toISOString(),
             fotos: [...(r.fotos || []), ...(API_URL && !MODO_PRUEBA ? [] : fotos.map(d => ({ data: d })))] });
         if (API_URL && !MODO_PRUEBA && fotos.length) { const p = leerFotosPend(); p[id] = [...(p[id] || []), ...fotos]; guardarFotosPend(p); subirFotosPend(); }
         // Reprogramada: queda una parada nueva, pendiente, con lo mismo (cliente, tipo, facturas, indicaciones) en la nueva fecha

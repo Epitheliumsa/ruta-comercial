@@ -183,12 +183,9 @@
 - La primera vez se alimenta con las transportadoras de las paradas ya guardadas; además salen siempre las de `TRANSPORTADORAS_BASE` (472, Coordinadora, Deprisa, Envía, Interrapidísimo, Saferbo, Servientrega, TCC). Se evitan duplicados sin importar mayúsculas ni tildes ("servientrega" → "Servientrega"; "TCC" se respeta).
 - El coordinador y el administrador ven **"🗑 Quitar «X» de la lista"** al escribir una guardada por error (`quitarTransportadora`).
 
-## Logística: editar la entrega cerrada y pegar fotos
-- Una entrega cerrada (`entregado`) se puede **editar** (quién recibió, transportadora, guía, detalle, novedades y más fotos) hasta las **8:00 a. m. del siguiente día hábil** por **cualquier persona de Logística**
-  (uno afora el pedido y otro lo envía y pone la guía). Botón "✏️ Editar entrega" en la tarjeta (`abrirLogEditar`, `guardarLogEditar`). Al reportar se guarda `limiteEdicion` (con festivos, `siguienteHabil`);
-  el servidor (`limiteEdicionLog_`, `enVentanaFila_` en `Codigo.gs`) lo respeta: dentro de la ventana deja cambiar el reporte (no el estado, ni las facturas, ni borrar) y todo Logística ve esas entregas; fuera, solo el coordinador o el administrador con "Corregir reporte".
-  La edición queda en la huella `ediciones` ("Editada por …"); quien reportó (`reportadoPor`) no cambia. En pruebas (`?prueba` o módulo) no hay límite de hora.
-- Fotos: además de "Tomar foto", en el computador se puede **arrastrar el archivo** o **pegar una captura** (Ctrl+V) en el reporte y en la edición; pasan por el mismo proceso (`agregarArchivosLog`, máx. 4). La zona de arrastre se oculta en pantallas táctiles.
+## Logística: pegar fotos (ya no hay edición de la entrega cerrada)
+- Una entrega cerrada **no se edita**: solo el coordinador o el administrador la corrigen con "Corregir reporte". La ventana de edición hasta las 8:00 a. m. (botón "Editar entrega", `limiteEdicion`) se retiró: se creó para aforos y ese caso lo cubre Oficina → Aforar con despacho.
+- Fotos: además de "Tomar foto", en el computador se puede **arrastrar el archivo** o **pegar una captura** (Ctrl+V) en el reporte; pasan por el mismo proceso (`agregarArchivosLog`, máx. 4). La zona de arrastre se oculta en pantallas táctiles.
 
 ## Empleados (solo Logística y administrador)
 - Los empleados (clasificación 80, equipo de ventas "Empleados") **no** van en la Maestra de contactos ni en el Directorio (viajarían a todos los dispositivos).
