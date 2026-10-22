@@ -211,6 +211,13 @@ async function subirOdoo() {
         const porNombre = {}, porNit = {};
         clientes.forEach(o => { porNombre[normalizar(o.n)] = o; (porNit[o.nit] = porNit[o.nit] || []).push(o); });
         const altas = [], sinCliente = [];
+        // Odoo a veces trae la dirección alterna con la etiqueta del cliente ("Cliente, Oficina Central"): si lo que va antes de la coma es otro cliente con el mismo NIT, es su dirección, no un contacto
+        clientes = clientes.filter(o => {
+            const i = o.n.lastIndexOf(', '); if (i < 3) return true;
+            const padre = porNombre[normalizar(o.n.slice(0, i))];
+            if (!padre || padre === o || (o.nit && padre.nit && o.nit !== padre.nit)) return true;
+            altas.push({ o, padre, tipo: 'Entrega', etiqueta: o.n.slice(i + 2) }); return false;
+        });
         filas.filter(o => tipoFilaOdoo(o) === 'direccion').forEach(o => {
             const etiqueta = o.nom && o.nom !== o.n ? o.nom : '';
             let padre = etiqueta && o.n.endsWith(', ' + etiqueta) ? porNombre[normalizar(o.n.slice(0, -(etiqueta.length + 2)))] : null;
