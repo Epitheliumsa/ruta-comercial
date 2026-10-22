@@ -14,7 +14,11 @@ const HORA_EDICION_LOG = '08:00';
 const limiteEdicionLog = r => r.limiteEdicion ? Date.parse(r.limiteEdicion) : r.registrada ? Date.parse(`${siguienteHabil(diaBogota(r.registrada))}T${HORA_EDICION_LOG}:00-05:00`) : 0;
 const enVentanaEdicionLog = r => !!r && r.estado === 'entregado' && Date.now() <= limiteEdicionLog(r);
 // Aforo y despacho en pasos: la parada la ve y la puede avanzar todo Logística mientras esté abierta (uno afora y otro despacha)
-const enPasosLog = r => !!r && !!r.conAforo && r.estado === 'pendiente';
+// Oficina → Aforar con despacho posterior (envío fuera de Bogotá o entrega en Bogotá): una sola ficha con dos pasos; el aforo sigue siendo trabajo de oficina
+const pasosLog = r => !!r && r.tipo === 'oficina' && !!r.despacho && (r.oficina || []).includes('aforar');
+// Tipo con el que se reporta: el de la oficina hasta que se afora; después, el del despacho (Envío o Entrega)
+const repTipoLog = r => pasosLog(r) && r.aforo ? r.despacho : r.tipo;
+const enPasosLog = r => pasosLog(r) && r.estado === 'pendiente';
 const compartidaLog = r => enPasosLog(r) || enVentanaEdicionLog(r);
 const puedeEditarEntregaLog = r => !!r && r.estado === 'entregado' && puedeOperarLog() && (window.MODO_PRUEBA || !API_URL || enVentanaEdicionLog(r));
 const textoLimiteEdicion = r => `${fechaCorta(diaBogota(new Date(limiteEdicionLog(r) || Date.now()).toISOString()))} ${HORA_EDICION_LOG.replace(/^0/, '')} a. m.`;
@@ -39,7 +43,7 @@ const itemsOficina = r => (r.oficina || []).map(k => k === 'aforar' ? `Aforar${(
     : k === 'otro' ? `Otro: ${r.otroOficina || ''}`.trim() : OFICINA_LOG.find(x => x[0] === k)?.[1] || k);
 const BANCOS_LOG = ['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Banco de Occidente', 'Banco Popular', 'AV Villas', 'Scotiabank Colpatria', 'Itaú', 'Banco Caja Social'];
 // Campos de una parada que dejan huella cuando se editan (nombre con el que se muestra el cambio)
-const CAMPOS_HUELLA_LOG = { conAforo: 'aforo previo', fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
+const CAMPOS_HUELLA_LOG = { despacho: 'despacho posterior', fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
     proveedor: 'proveedor', oficina: 'lo que se hace en la oficina', facturasAforo: 'facturas a aforar', otroOficina: 'otro', entidad: 'banco', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
 const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
@@ -74,10 +78,10 @@ const leadPorNombre = nombre => nombre ? leadsLog().find(p => normalizar(p.nombr
 const tiposLog = r => (r.tipos?.length ? r.tipos : [r.tipo]).filter(k => TIPOS_LOG[k]);
 const hayTipo = (r, campo) => tiposLog(r).some(k => TIPOS_LOG[k][campo]);
 const conRadicacion = r => hayTipo(r, 'radicacion');
-const okTxt = r => TIPOS_LOG[r.tipo]?.ok || 'Realizada';
-const noTxt = r => TIPOS_LOG[r.tipo]?.no || 'No realizada';
+const okTxt = r => TIPOS_LOG[repTipoLog(r)]?.ok || 'Realizada';
+const noTxt = r => TIPOS_LOG[repTipoLog(r)]?.no || 'No realizada';
 const incluyeTxt = r => (r.incluye || []).map(k => k === 'devolucion' ? 'devolución' : NOMBRE_INCLUYE[k] || k).join(' y ');
-const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (r.incluye?.length ? ` + incluye ${incluyeTxt(r)}` : '') + (r.tipo !== 'radicacion' && conRadicacion(r) ? ' + radicación' : '');
+const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (pasosLog(r) ? ` → ${TIPOS_LOG[r.despacho]?.corto.toLowerCase()}` : '') + (r.incluye?.length ? ` + incluye ${incluyeTxt(r)}` : '') + (r.tipo !== 'radicacion' && conRadicacion(r) ? ' + radicación' : '');
 const tituloLog = r => r.contacto || r.proveedor || (r.entidad ? `Banco · ${r.entidad}` : r.area ? `Trámite · ${r.area}` : r.tipo === 'oficina' ? 'Oficina' : 'Parada');
 // Paradas con hora fija primero (por hora) y después el resto en el orden de la ruta
 const ordenLog = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '').localeCompare(b.hora || '') || (a.orden ?? 1e9) - (b.orden ?? 1e9) || (a.creado || '').localeCompare(b.creado || '');
@@ -111,7 +115,7 @@ const VERBO_LOG = { entrega: 'entregaste', envio: 'enviaste', radicacion: 'radic
 function itemsProgramados(r) {
     const nom = d => claseDoc(d.clase)?.t || 'Pedido';
     return [...(r.documentos || []).flatMap(d => [d.ovi && `${nom(d)} · A ${d.ovi}`, d.ov && `${nom(d)} · B ${d.ov}`]),
-        ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'recoleccion' ? (r.materiales || []) : []), ...(r.tipo === 'oficina' ? itemsOficina(r) : [])].filter(Boolean);
+        ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'recoleccion' ? (r.materiales || []) : []), ...(r.tipo === 'oficina' && !r.aforo ? itemsOficina(r) : [])].filter(Boolean);
 }
 // Devoluciones al entregar: una factura puede volver total o parcialmente (se registra como novedad del reporte)
 const textoDev = d => `${d.tipo === 'total' ? 'Devolución total' : 'Devolución parcial'}: ${d.factura}${d.detalle ? ' · ' + d.detalle : ''}`;
@@ -289,14 +293,14 @@ function anilloLog(lista, etiqueta, titulo, periodo) {
 }
 
 function tarjetaLog(r, n, total) {
-    const tp = TIPOS_LOG[r.tipo] || TIPOS_LOG.entrega, cerrada = r.estado !== 'pendiente', rp = r.reporte || {}, ok = okTxt(r), no = noTxt(r);
+    const tp = TIPOS_LOG[repTipoLog(r)] || TIPOS_LOG.entrega, cerrada = r.estado !== 'pendiente', rp = r.reporte || {}, ok = okTxt(r), no = noTxt(r);
     const clase = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : '';
     const titulo = r.contacto ? `<h3 class="cliente-link" data-c="${esc(r.contacto)}" onclick="verCliente(this.dataset.c, '${esc(r.comercial || '')}')" title="Ver historial del cliente">${esc(r.contacto)}</h3>` : `<h3>${esc(tituloLog(r))}</h3>`;
     const docs = (r.documentos || []).map(d => `<span class="lg-doc-chip">${esc(claseDoc(d.clase)?.t || 'Pedido')}${d.ovi ? ` · A <b>${esc(d.ovi)}</b>` : ''}${d.ov ? ` · B <b>${esc(d.ov)}</b>` : ''}</span>`).join('')
         + (r.incluyeDocs || []).map(d => `<span class="lg-doc-chip">${esc(NOMBRE_INCLUYE[d.k] || d.k)} · <b>${esc(d.numero)}</b></span>`).join('')
         + (r.radicacion || []).map(d => `<span class="lg-doc-chip rad">${esc(textoRad(d))}</span>`).join('');
     const lineas = [
-        r.destino ? `<b>${r.tipo === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${enlaceDir(r.dirDestino, r.destino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
+        r.destino ? `<b>${repTipoLog(r) === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${enlaceDir(r.dirDestino, r.destino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
         r.proveedor && (r.contacto || r.materiales?.length) ? `<b>Proveedor:</b> ${esc(r.proveedor)}` : '',
         r.materiales?.length ? `<b>Recoger:</b> ${esc(r.materiales.join(', '))}` : '',
         r.tipo === 'oficina' ? itemsOficina(r).map(x => `<b>${esc(x.split(':')[0])}</b>${x.includes(':') ? ':' + esc(x.split(':').slice(1).join(':')) : ''}`).join(' · ') : '',
@@ -319,7 +323,7 @@ function tarjetaLog(r, n, total) {
         acciones = cerrada ? `<div class="acciones cerrada"><span class="nota-cierre">Reportado el ${esc(fechaHora(r.registrada))} por ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}</span></div>` : '';
     } else if (!cerrada) {
         acciones = `<div class="acciones">
-            ${r.conAforo && !r.aforo ? `<button class="bv ok" onclick="abrirLogAforo('${r.id}')">✓ Aforado</button>` : `<button class="bv ok" onclick="abrirLogReporte('${r.id}', true)">✓ ${esc(ok)}</button>`}
+            ${pasosLog(r) && !r.aforo ? `<button class="bv ok" onclick="abrirLogAforo('${r.id}')">✓ Aforado</button>` : `<button class="bv ok" onclick="abrirLogReporte('${r.id}', true)">✓ ${esc(ok)}</button>`}
             <button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>
             <button class="link-mini" onclick="abrirLogForm('${r.id}')">Editar</button>
             <button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button></div>`;
@@ -401,6 +405,15 @@ function abrirLogForm(id) {
             <div id="lgFilas_aforo">${((r?.facturasAforo || []).length ? r.facturasAforo.map(f => ({ k: f.clase, numero: f.numero })) : [{}]).map(f => filaDoc('aforo', f)).join('')}</div>
             <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('aforo')">+ Otra factura</button>
         </div>
+        <div id="lgBDespacho" hidden>
+            <label>Después del aforo <small>(¿se despacha?)</small></label>
+            <div class="lg-chips" id="lgDespachoChips">
+                <label class="lg-chip"><input type="radio" name="lgDespacho" value="" onchange="logCampos()" ${!r?.despacho ? 'checked' : ''}><span>No: termina en la oficina</span></label>
+                <label class="lg-chip"><input type="radio" name="lgDespacho" value="envio" onchange="logCampos()" ${r?.despacho === 'envio' ? 'checked' : ''}><span>📦 Se despacha: envío fuera de Bogotá</span></label>
+                <label class="lg-chip"><input type="radio" name="lgDespacho" value="entrega" onchange="logCampos()" ${r?.despacho === 'entrega' ? 'checked' : ''}><span>🚚 Se despacha: entrega en Bogotá</span></label>
+            </div>
+            <p class="ayuda">Con despacho, la misma ficha sigue después del aforo: queda "Aforado" y cualquier persona de Logística la despacha (guía o recibido y foto).</p>
+        </div>
         <div id="lgOfOtro" hidden><label for="lgOfOtroTxt">Otro: ¿qué se hace en la oficina? ${REQ}</label><input id="lgOfOtroTxt" maxlength="100" autocomplete="off" value="${esc(r?.otroOficina || '')}"></div>
         <div id="lgBDirTel"><label for="lgDir">Dirección <small>(sale sola con el <span id="lgQuienDir">cliente</span>; puedes cambiarla)</small></label>
         <input id="lgDir" autocomplete="off" maxlength="120" value="${esc(r?.direccion || '')}" oninput="this.dataset.auto = ''">
@@ -411,7 +424,6 @@ function abrirLogForm(id) {
             <div id="lgFilas_docs">${(filasDeDocumentos(r?.documentos).length ? filasDeDocumentos(r.documentos) : [{}]).map(f => filaDoc('docs', f)).join('')}</div>
             <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('docs')">+ Otra factura</button>
         </div>
-        <div id="lgBConAforo" hidden><label class="lg-chip lg-chip-aforo"><input type="checkbox" id="lgConAforo" ${r?.conAforo ? 'checked' : ''}><span>📦 Se afora primero en la oficina y después se despacha (dos pasos en la misma ficha)</span></label></div>
         <div id="lgBIncluyeEnvio">
             <label><span id="lgTitInc">PQR - Reacondicionamientos - Devoluciones</span> <small>(opcional: escoge el tipo y escribe el número del documento; puedes agregar varios)</small></label>
             <div id="lgFilas_inc">${((r?.incluyeDocs || []).length ? r.incluyeDocs : [{}]).map(f => filaDoc('inc', f)).join('')}</div>
@@ -471,6 +483,7 @@ function tipoClick(el) {
 }
 const incluyeMarcado = () => [...new Set(filasDoc('inc').map(x => x.k))];
 // Muestra solo los campos del tipo de parada escogido
+const despachoSelLog = () => document.querySelector('input[name=lgDespacho]:checked')?.value || '';
 function logCampos() {
     document.querySelectorAll('input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
     const k = tipoMarcado(), nv = k.startsWith('nov:') ? k.slice(4) : '';
@@ -478,7 +491,7 @@ function logCampos() {
     $('lgFecha').min = nv ? '' : $('lgFecha').dataset.min;
     if (nv) {   // Novedad del mensajero: solo fechas, horas (cita y permiso) y el detalle
         $('lgRadChk').checked = false;
-        ['lgBRadA', 'lgBIncluyeEnvio', 'lgBConAforo', 'lgBCli', 'lgBProv', 'lgBDocs', 'lgBRad', 'lgBRecol', 'lgBVuelta', 'lgBOficina', 'lgOfAforar', 'lgOfOtro', 'lgBDirTel', 'lgBBanco'].forEach(id => { $(id).hidden = true; });
+        ['lgBRadA', 'lgBIncluyeEnvio', 'lgBDespacho', 'lgBCli', 'lgBProv', 'lgBDocs', 'lgBRad', 'lgBRecol', 'lgBVuelta', 'lgBOficina', 'lgOfAforar', 'lgOfOtro', 'lgBDirTel', 'lgBBanco'].forEach(id => { $(id).hidden = true; });
         document.querySelectorAll('.lg-doc-num').forEach(i => { i.required = false; }); $('lgOfOtroTxt').required = false;
         ['lgCliente', 'lgProv', 'lgBanco', 'lgDir', 'lgTel'].forEach(id => { $(id).required = false; });
         document.querySelectorAll('.lg-pcampos input').forEach(i => { i.required = false; });
@@ -501,7 +514,7 @@ function logCampos() {
     $('lgBRadA').hidden = !conRad || k === 'entrega' || k === 'envio';
     $('lgCliente').required = (!!(tp.cliente || conRad) || aforar) && !aProv;
     $('lgBIncluyeEnvio').hidden = k !== 'entrega' && k !== 'envio';
-    $('lgBConAforo').hidden = k !== 'entrega' && k !== 'envio';
+    $('lgBDespacho').hidden = !aforar;
     // Proveedor: en vez del cliente va el proveedor; Trámite área: el cliente se llama contacto
     $('lgBCli').hidden = aProv || ((!!tp.recoleccion || !!tp.banco) && !conRad) || (!!tp.oficina && !aforar && !conRad);
     $('lgBProv').hidden = !conProv;
@@ -517,7 +530,7 @@ function logCampos() {
     $('lgBRad').hidden = !conRad || aProv;
     $('lgBRecol').hidden = !tp.recoleccion; $('lgProv').required = conProv; logInfoProv();
     $('lgBVuelta').hidden = !tp.vuelta;
-    $('lgBDirTel').hidden = !!tp.banco || !!tp.oficina;
+    $('lgBDirTel').hidden = !!tp.banco || (!!tp.oficina && !(aforar && despachoSelLog()));
     $('lgQuienDir').textContent = $('lgQuienTel').textContent = conProv ? 'proveedor' : k === 'vuelta' ? 'contacto' : 'cliente';
     $('lgBBanco').hidden = !tp.banco; $('lgBanco').required = !!tp.banco;
     $('lgLblDet').innerHTML = tp.vuelta || tp.banco ? `Qué hay que hacer ${REQ}` : aProv ? `Qué se radica ${REQ}` : 'Indicaciones <small>(opcional)</small>';
@@ -677,10 +690,10 @@ async function guardarLog(e, id) {
     const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === vendedor && x.id !== base.id);
     const orden = antes && antes.fecha === fecha && antes.vendedor === vendedor ? antes.orden : Math.max(0, ...mismo.map(x => x.orden || 0)) + 1;
     const nuevo = {
-        ...base, ...(tp.oficina ? { oficina, facturasAforo, otroOficina } : {}), conAforo: (tipo === 'entrega' || tipo === 'envio') && !!$('lgConAforo')?.checked, tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
+        ...base, ...(tp.oficina ? { oficina, facturasAforo, otroOficina } : {}), despacho: tp.oficina && oficina.includes('aforar') ? despachoSelLog() : '', tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
         proveedor: tp.recoleccion || aProv ? $('lgProv').value.trim() : '', contactoOtro: tp.vuelta && !!contacto && !zonaC && !lead, proveedorOtro: (tp.recoleccion || aProv) && !!$('lgProv').value.trim() && !proveedoresMaestra.filas[normalizar($('lgProv').value)], materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
-        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco || tp.oficina ? '' : $('lgDir').value.trim(), telefono: tp.banco || tp.oficina ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
+        area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco || (tp.oficina && !(oficina.includes('aforar') && despachoSelLog())) ? '' : $('lgDir').value.trim(), telefono: tp.banco || (tp.oficina && !(oficina.includes('aforar') && despachoSelLog())) ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
     if (antes) {
@@ -718,18 +731,18 @@ function moverLog(id, d) {
 const fotosDe = (r, aforo) => (r.fotos || []).filter(f => (f.e === 'aforo') === !!aforo);
 const miniaturasLog = lista => lista.map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener" title="Foto ${i + 1}"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
 function htmlPasosLog(r) {
-    if (!r.conAforo) return '';
+    if (!pasosLog(r)) return '';
     const af = r.aforo, pend = (leerFotosPend()[r.id] || []).filter(x => typeof x !== 'string' && x.e === 'aforo').length;
     const fotosAf = miniaturasLog(fotosDe(r, true));
     const paso2 = r.estado === 'entregado' ? `✓ <b>${esc(okTxt(r))}</b> — ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : ''}`
-        : r.estado === 'no_entregado' ? `✕ <b>${esc(noTxt(r))}</b>` : af ? `⏳ <b>Falta: ${esc(okTxt(r).toLowerCase())}</b>` : `② ${esc(okTxt(r))} <small>(después del aforo)</small>`;
+        : r.estado === 'no_entregado' ? `✕ <b>${esc(noTxt(r))}</b>` : af ? `⏳ <b>Falta: ${esc(okTxt(r).toLowerCase())}</b>` : `② ${esc(TIPOS_LOG[r.despacho]?.ok || okTxt(r))} <small>(después del aforo)</small>`;
     return `<div class="lg-pasos"><div class="lg-paso ${af ? 'ok' : 'p'}">${af ? `✓ <b>Aforado</b> — ${esc(nombreVendedor(af.por))} · ${esc(horaLog(af.cuando))}${af.detalle ? ' · ' + esc(af.detalle) : ''}` : '① <b>Falta aforar</b>'}
         ${fotosAf || pend ? `<div class="lg-fotos fija">${fotosAf}${pend ? `<span class="chip np">${pend} subiendo…</span>` : ''}</div>` : ''}</div>
         <div class="lg-paso ${r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : af ? 'p' : 'espera'}">${paso2}</div></div>`;
 }
 function abrirLogAforo(id) {
     const r = registros[id];
-    if (!r || r.estado !== 'pendiente' || !r.conAforo || !puedeOperarLog()) return;
+    if (!r || r.estado !== 'pendiente' || !pasosLog(r) || !puedeOperarLog()) return;
     fotosLogSel = [];
     abrirModal(`<form class="form-rc" onsubmit="guardarLogAforo(event, '${id}')">
         <h2>Aforado</h2>
@@ -750,7 +763,7 @@ function abrirLogAforo(id) {
 async function guardarLogAforo(e, id) {
     e.preventDefault();
     const r = registros[id], btn = $('lgBtnAf');
-    if (!r || r.estado !== 'pendiente' || !r.conAforo) { cerrarModal(); return toast('Esta parada ya cambió: actualiza'); }
+    if (!r || r.estado !== 'pendiente' || !pasosLog(r)) { cerrarModal(); return toast('Esta parada ya cambió: actualiza'); }
     if (!fotosLogSel.length) return toast('Falta la foto del aforo');
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
@@ -770,10 +783,10 @@ async function guardarLogAforo(e, id) {
 function abrirLogReporte(id, ok) {
     const r = registros[id];
     if (!r || r.estado !== 'pendiente' || !puedeOperarLog()) return;
-    const tp = TIPOS_LOG[r.tipo], tieneEnvio = r.tipo === 'envio';
+    const tp = TIPOS_LOG[repTipoLog(r)], tieneEnvio = repTipoLog(r) === 'envio';
     const req = !!tp.cliente;   // entregas y radicaciones piden quién recibió (en el envío no: van transportadora y guía)
     const ciudadCli = ciudadCliente(r.contacto), ant = antesCliente(r.contacto);
-    const detalle = r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' || r.tipo === 'banco' || r.tipo === 'oficina' ? 'Resultado' : r.tipo === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
+    const detalle = etiquetaDetalleLog(r);
     fotosLogSel = [];
     abrirModal(`<form class="form-rc" onsubmit="guardarLogReporte(event, '${id}', ${ok})">
         <h2>${ok ? esc(okTxt(r)) : esc(noTxt(r))}</h2>
@@ -940,12 +953,12 @@ document.addEventListener('paste', e => {
     e.preventDefault();
     agregarArchivosLog(files);
 });
-const etiquetaDetalleLog = r => r.tipo === 'recoleccion' ? 'Qué se recogió' : r.tipo === 'vuelta' || r.tipo === 'banco' || r.tipo === 'oficina' ? 'Resultado' : r.tipo === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
+const etiquetaDetalleLog = r => repTipoLog(r) === 'recoleccion' ? 'Qué se recogió' : repTipoLog(r) === 'vuelta' || repTipoLog(r) === 'banco' || repTipoLog(r) === 'oficina' ? 'Resultado' : repTipoLog(r) === 'entrega' && (r.incluye || []).some(k => k === 'devolucion' || k === 'pqr') ? `Qué se recogió (${incluyeTxt({ incluye: r.incluye.filter(k => k === 'devolucion' || k === 'pqr') })})` : '';
 // Editar una entrega ya cerrada (hasta las 8:00 a. m. del siguiente día hábil): quién recibió, transportadora, guía, detalle, novedades y más fotos
 function abrirLogEditar(id) {
     const r = registros[id];
     if (!r || !puedeEditarEntregaLog(r)) return toast('Esta entrega ya no se puede editar');
-    const tp = TIPOS_LOG[r.tipo] || {}, rp = r.reporte || {}, envio = r.tipo === 'envio', detalle = etiquetaDetalleLog(r);
+    const tp = TIPOS_LOG[repTipoLog(r)] || {}, rp = r.reporte || {}, envio = repTipoLog(r) === 'envio', detalle = etiquetaDetalleLog(r);
     fotosLogSel = [];
     abrirModal(`<form class="form-rc" onsubmit="guardarLogEditar(event, '${id}')">
         <h2>Editar: ${esc(okTxt(r).toLowerCase())}</h2>
@@ -973,7 +986,7 @@ async function guardarLogEditar(e, id) {
     e.preventDefault();
     const r = registros[id], btn = $('lgBtnEd');
     if (!r || !puedeEditarEntregaLog(r)) { cerrarModal(); return toast('Esta entrega ya no se puede editar'); }
-    const val = k => $(k)?.value.trim() || '', tp = TIPOS_LOG[r.tipo] || {}, rp = r.reporte || {}, envio = r.tipo === 'envio', detalle = etiquetaDetalleLog(r);
+    const val = k => $(k)?.value.trim() || '', tp = TIPOS_LOG[repTipoLog(r)] || {}, rp = r.reporte || {}, envio = repTipoLog(r) === 'envio', detalle = etiquetaDetalleLog(r);
     if (envio && (!val('lgETransp') || !val('lgEGuia'))) return toast('En el envío van la transportadora y el número de guía');
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
@@ -1025,7 +1038,7 @@ async function guardarLogReporte(e, id, ok) {
                 ...(accion === 'reprogramar' ? { reprogramadaPara: val('lgReproFecha'), horaRepro: val('lgReproHora') } : {}) };
         // Dirección cambiada al entregar y, en el envío, destino (la ciudad del cliente si no se cambió), transportadora y guía
         const envio = { ...(cambio ? { destino: val('lgDestino'), dirDestino: val('lgDirDest'), telDestino: val('lgTelDest') } : {}),
-            ...(ok && r.tipo === 'envio' ? { transportadora: val('lgTransp'), ...(cambio ? {} : { destino: ciudadCliente(r.contacto), dirDestino: '', telDestino: '' }) } : {}) };
+            ...(ok && repTipoLog(r) === 'envio' ? { transportadora: val('lgTransp'), ...(cambio ? {} : { destino: ciudadCliente(r.contacto), dirDestino: '', telDestino: '' }) } : {}) };
         // Si se reprograma para un día en que el cliente ya tiene parada, primero se confirma (el reporte aún no se guardó)
         if (reporte.reprogramadaPara) {
             const err = errorFechaLog(reporte.reprogramadaPara, r.vendedor, r.id);

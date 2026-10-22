@@ -164,9 +164,11 @@
   **no se suben**: Equipo de ventas Ventas Mostrador (consumidor final) y usuarios de Odoo · todo lo demás (sin equipo; con etiqueta Proveedor, Entidad Gubernamental, Junta Directiva o sin etiqueta) → Proveedores.
 - Exportación de Odoo: la plantilla de columnas está en la hoja "Campos" de Plantilla_Maestra_Odoo.xlsx (se regenera con las columnas de `COLUMNAS_ODOO` en `bases.js`). Si un contacto no queda donde se espera, casi siempre es su Equipo de ventas, su etiqueta o un nombre escrito distinto (p. ej. un acento ´ en lugar de la comilla ').
 
-## Logística: aforo y despacho en pasos (misma ficha)
-- Una parada de **Envío** o **Entrega** puede llevar la casilla "Se afora primero en la oficina y después se despacha" (`conAforo`). Tiene dos pasos que hacen personas distintas:
-  ① **Aforado** (botón "✓ Aforado", con **foto obligatoria**; guarda `aforo: {por, cuando, detalle}` y sus fotos con `e: 'aforo'`) y ② **Enviado/Entregado** (el reporte de siempre, con su propia foto: las del aforo no cuentan).
+## Logística: Oficina → Aforar con despacho en pasos (misma ficha)
+- **Aforar sigue siendo trabajo de oficina** (tipo Oficina, con cliente y facturas). Al programarlo, si se marca Aforar aparece "Después del aforo: No / Envío fuera de Bogotá / Entrega en Bogotá" (`despacho`, `pasosLog`).
+  Sin despacho, todo es como antes. Con despacho, la misma ficha tiene dos pasos que pueden hacer personas distintas:
+  ① **Aforado** (botón "✓ Aforado", **foto obligatoria**; guarda `aforo: {por, cuando, detalle}` y sus fotos con `e: 'aforo'`) y ② **Enviado/Entregado** (el reporte de siempre del tipo de despacho: transportadora y guía, o quién recibió; con su propia foto: las del aforo no cuentan).
+  `repTipoLog(r)` da el tipo con el que se reporta (oficina hasta aforar; después, el del despacho).
 - El aforo **no cierra** la parada: queda "Aforado · falta despachar" y **todo Logística la ve y la puede avanzar** mientras esté abierta (`enPasosLog`, `compartidaLog` en `logistica.js`; `enVentanaFila_` y `enPasosLog` en `Codigo.gs`).
   La tarjeta muestra el recorrido (`htmlPasosLog`); quien despacha queda como `reportadoPor` y el aforo conserva su autor y hora. "Corregir reporte" conserva el aforo y sus fotos.
 - Las fotos pendientes de subir llevan su etapa (`{ d, e }` en la cola `rc_fotos_pend`); las antiguas (texto) siguen valiendo.
