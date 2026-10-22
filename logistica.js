@@ -880,7 +880,7 @@ function abrirLogReporte(id, ok) {
             ${ant.recibio.length ? `<div class="lg-chips lg-recibio">${ant.recibio.slice(0, 4).map(x => `<button type="button" class="lg-chip-btn" data-v="${esc(x)}" onclick="$('lgRecibio').value = this.dataset.v">${esc(x)}</button>`).join('')}</div>` : ''}`}
             ${tieneEnvio ? `
             <div class="fila-fecha iguales">
-                <div><label for="lgTransp">Transportadora ${REQ}</label><input id="lgTransp" list="dlTransp" autocomplete="off" maxlength="60" required value="${esc(r.transportadora || '')}">
+                <div><label for="lgTransp">Transportadora ${REQ}</label><input id="lgTransp" list="dlTransp" autocomplete="off" maxlength="60" required value="${esc(r.transportadora || '')}" oninput="mostrarQuitarT(this)">
                 <datalist id="dlTransp">${transportadoras().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
                 <div><label for="lgGuia">Número de guía ${REQ}</label><input id="lgGuia" autocomplete="off" maxlength="40" required></div>
             </div>` : ''}
@@ -998,7 +998,43 @@ function antesCliente(nombre) {
         .sort((a, b) => (b.registrada || '').localeCompare(a.registrada || '')) : [];
     return { recibio: [...new Set(regs.map(x => x.reporte.recibio))] };
 }
-const transportadoras = () => [...new Set(logRegs().map(x => x.transportadora).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+// Transportadoras: lista que se va llenando sola con lo que digitan en el reporte. Vive aparte (un registro 'lista-transportadoras' que se sincroniza), no en las bases de datos.
+// La primera vez se alimenta con las de las paradas ya guardadas; después solo con lo que se digita (y se puede quitar un error).
+const ID_LISTA_TRANSP = 'lista-transportadoras';
+const TRANSPORTADORAS_BASE = ['472', 'Coordinadora', 'Deprisa', 'Envía', 'Interrapidísimo', 'Saferbo', 'Servientrega', 'TCC'];
+const transportadorasGuardadas = () => registros[ID_LISTA_TRANSP] && !registros[ID_LISTA_TRANSP].borrado ? registros[ID_LISTA_TRANSP].items || [] : null;
+const quitarDuplicadosT = l => { const vistos = new Set(); return l.filter(x => { const k = normalizar(x); if (!k || vistos.has(k)) return false; vistos.add(k); return true; }); };
+const transportadoras = () => {
+    const g = transportadorasGuardadas();
+    return quitarDuplicadosT([...(g || logRegs().map(x => x.transportadora).filter(Boolean)), ...TRANSPORTADORAS_BASE]).sort((a, b) => a.localeCompare(b, 'es'));
+};
+const ordenarT = t => /[A-ZÁÉÍÓÚÑ0-9]/.test(t) ? t : t.replace(/(^|\s)(\p{L})/gu, (m, e, c) => e + c.toUpperCase());   // "servientrega" → "Servientrega"; "TCC" se respeta
+// Lo que se digita en el reporte queda en la lista (para que la próxima vez salga sola)
+function recordarTransportadora(texto) {
+    const t = ordenarT(String(texto || '').trim().replace(/\s+/g, ' '));
+    if (!t || t.length > 60) return;
+    const actual = transportadorasGuardadas(), base = actual || logRegs().map(x => x.transportadora).filter(Boolean);
+    if (actual && actual.some(x => normalizar(x) === normalizar(t))) return;
+    guardarLista([...base, t]);
+}
+function guardarLista(items) {
+    const r = registros[ID_LISTA_TRANSP] || { id: ID_LISTA_TRANSP, clase: 'lista', creado: new Date().toISOString() };
+    guardarRegistro({ ...r, vendedor: sesion.id, fecha: hoy(), items: quitarDuplicadosT(items).sort((a, b) => a.localeCompare(b, 'es')) });
+}
+// El coordinador o el administrador quitan una escrita por error
+function mostrarQuitarT(inp) {
+    const cont = inp.parentElement, v = inp.value.trim();
+    let l = cont.querySelector('.lg-quitar-t');
+    const puede = (esCoordLog() || esAdmin()) && v && transportadoras().some(x => normalizar(x) === normalizar(v)) && !TRANSPORTADORAS_BASE.some(x => normalizar(x) === normalizar(v));
+    if (!puede) { l?.remove(); return; }
+    if (!l) { l = document.createElement('p'); l.className = 'ayuda lg-quitar-t'; cont.appendChild(l); }
+    l.innerHTML = `<a href="#" data-n="${esc(v)}" onclick="quitarTransportadora(this.dataset.n); document.getElementById('${inp.id}').value = ''; this.closest('.lg-quitar-t').remove(); return false">🗑 Quitar «${esc(v)}» de la lista</a>`;
+}
+function quitarTransportadora(nombre) {
+    const g = transportadorasGuardadas() || transportadoras();
+    guardarLista(g.filter(x => normalizar(x) !== normalizar(nombre)));
+    toast(`Quité "${nombre}" de la lista`);
+}
 
 // Fotos elegidas para el reporte (de la cámara y de la galería, hasta 4)
 let fotosLogSel = [];
@@ -1037,7 +1073,7 @@ function abrirLogEditar(id) {
         ${tp.quien ? `<label for="lgERecibio">${esc(tp.quien)} <small>(opcional)</small></label>
         <input id="lgERecibio" autocomplete="off" maxlength="80" value="${esc(rp.recibio || '')}" onblur="this.value = nombrePropio(this.value)">` : ''}
         <div class="fila-fecha iguales">
-            <div><label for="lgETransp">Transportadora ${envio ? REQ : '<small>(opcional)</small>'}</label><input id="lgETransp" list="dlETransp" autocomplete="off" maxlength="60" value="${esc(r.transportadora || '')}">
+            <div><label for="lgETransp">Transportadora ${envio ? REQ : '<small>(opcional)</small>'}</label><input id="lgETransp" list="dlETransp" autocomplete="off" maxlength="60" value="${esc(r.transportadora || '')}" oninput="mostrarQuitarT(this)">
             <datalist id="dlETransp">${transportadoras().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
             <div><label for="lgEGuia">Número de guía ${envio ? REQ : '<small>(opcional)</small>'}</label><input id="lgEGuia" autocomplete="off" maxlength="40" value="${esc(rp.guia || '')}"></div>
         </div>
@@ -1072,6 +1108,7 @@ async function guardarLogEditar(e, id) {
         if ((rp.novedad || '') !== nuevoRep.novedad) cambios.push('novedades');
         if (fotos.length) cambios.push('fotos');
         if (!cambios.length) { cerrarModal(); return toast('No hay cambios'); }
+        if (val('lgETransp')) recordarTransportadora(val('lgETransp'));
         guardarRegistro({ ...r, reporte: nuevoRep, ...(val('lgETransp') || r.transportadora ? { transportadora: val('lgETransp') } : {}),
             ediciones: [...(r.ediciones || []), { por: sesion.id, cuando: new Date().toISOString(), campos: cambios }],
             fotos: [...(r.fotos || []), ...(API_URL && !MODO_PRUEBA ? [] : fotos.map(d => ({ data: d })))] });
@@ -1118,6 +1155,7 @@ async function guardarLogReporte(e, id, ok) {
         }
         if (reporte.reprogramadaPara && !await confirmarDobleParada(nombreParada(r), reporte.reprogramadaPara, r.id)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
+        if (ok && repTipoLog(r) === 'envio' && val('lgTransp')) recordarTransportadora(val('lgTransp'));
         guardarRegistro({ ...r, ...envio, ...(pasosLog(r) ? { asignado: r.asignado || { a: sesion.id, por: sesion.id, cuando: new Date().toISOString() }, vendedor: r.asignado?.a || sesion.id, fecha: r.fecha < hoy() ? hoy() : r.fecha } : {}), estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
             limiteEdicion: new Date(Date.parse(`${siguienteHabil(diaBogota(new Date().toISOString()))}T${HORA_EDICION_LOG}:00-05:00`)).toISOString(),
             fotos: [...(r.fotos || []), ...(API_URL && !MODO_PRUEBA ? [] : fotos.map(d => ({ data: d })))] });

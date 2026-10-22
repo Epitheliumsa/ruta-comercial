@@ -115,7 +115,7 @@ function listar_(usuario, desde, hasta) {
     // Acompañamientos: también los ve quien pidió el acompañamiento (dueño de la visita)
     .filter(f => f[0] && (usuario.area === 'logistica'
       // Logística: solo lo de logística (el coordinador, de todos los auxiliares; cada auxiliar, lo suyo)
-      ? f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id || enVentanaFila_(f))
+      ? (f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id || enVentanaFila_(f))) || f[0] === 'lista-transportadoras'
       : (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'
       // Mercadeo: ve visitas, ventas, novedades y actividades de todo el equipo (nada de logística, leads ni acompañamientos)
       || (usuario.verEquipo && ['visita', 'ventas', 'novedad', 'actividad'].indexOf(f[1]) >= 0)
@@ -123,7 +123,7 @@ function listar_(usuario, desde, hasta) {
       // Cada comercial ve las entregas de logística de sus clientes
       || (f[1] === 'logistica' && String(f[6]).indexOf('"comercial":"' + usuario.id + '"') >= 0))))
     // Los contactos proyecto y los PDF de las circulares se envían siempre, sin importar la fecha
-    .filter(f => f[1] === 'proyecto' || f[0] === 'circulares-pdf' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
+    .filter(f => f[1] === 'proyecto' || f[0] === 'circulares-pdf' || f[0] === 'lista-transportadoras' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
     .map(f => JSON.parse(f[6]));
 }
 
@@ -148,7 +148,8 @@ function guardar_(usuario, registros) {
       if (r.clase === 'ventas' && !usuario.subeVentas && !usuario.admin) return;
       const subeVentas = r.clase === 'ventas' && usuario.subeVentas;
       // Logística: solo logística escribe registros de logística (el coordinador, los de todos; el auxiliar, los suyos)
-      if (usuario.area === 'logistica' && r.clase !== 'logistica') return;
+      // (excepto la lista de transportadoras, que Logística llena y comparte)
+      if (usuario.area === 'logistica' && r.clase !== 'logistica' && !(r.id === 'lista-transportadoras' && r.clase === 'lista')) return;
       // Una entrega cerrada se puede editar hasta las 8:00 a. m. del siguiente día hábil por cualquier persona de Logística (uno afora, otro envía y pone la guía)
       const previoLog = r.clase === 'logistica' && filaDe[r.id] ? JSON.parse(valores[filaDe[r.id] - 1][6]) : null;
       const enVentanaLog = !!previoLog && previoLog.estado === 'entregado' && usuario.area === 'logistica' && Date.now() <= limiteEdicionLog_(previoLog);

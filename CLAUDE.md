@@ -177,6 +177,12 @@
   El coordinador y el administrador pueden reportar el despacho directo aunque no esté asignado (queda asignado a quien lo cierra, en su lista y con fecha de ese día). El coordinador ve el aviso "N aforos por asignar".
 - Las fotos pendientes de subir llevan su etapa (`{ d, e }` en la cola `rc_fotos_pend`); las antiguas (texto) siguen valiendo.
 
+## Logística: lista de transportadoras que aprende
+- El campo **Transportadora** (reporte y edición del envío) sugiere una lista que se va llenando con lo que digitan: al guardar, la transportadora nueva queda en la lista (`recordarTransportadora`) y la próxima vez sale sola.
+  Vive **aparte de las bases de datos**: un registro `lista-transportadoras` (clase `lista`, campo `items`) que se sincroniza y comparte todo Logística (`listar_` lo envía siempre; `guardar_` deja escribirlo a Logística).
+- La primera vez se alimenta con las transportadoras de las paradas ya guardadas; además salen siempre las de `TRANSPORTADORAS_BASE` (472, Coordinadora, Deprisa, Envía, Interrapidísimo, Saferbo, Servientrega, TCC). Se evitan duplicados sin importar mayúsculas ni tildes ("servientrega" → "Servientrega"; "TCC" se respeta).
+- El coordinador y el administrador ven **"🗑 Quitar «X» de la lista"** al escribir una guardada por error (`quitarTransportadora`).
+
 ## Logística: editar la entrega cerrada y pegar fotos
 - Una entrega cerrada (`entregado`) se puede **editar** (quién recibió, transportadora, guía, detalle, novedades y más fotos) hasta las **8:00 a. m. del siguiente día hábil** por **cualquier persona de Logística**
   (uno afora el pedido y otro lo envía y pone la guía). Botón "✏️ Editar entrega" en la tarjeta (`abrirLogEditar`, `guardarLogEditar`). Al reportar se guarda `limiteEdicion` (con festivos, `siguienteHabil`);
