@@ -223,7 +223,7 @@ async function subirOdoo() {
         filas.filter(o => tipoFilaOdoo(o) === 'direccion').forEach(o => {
             const etiqueta = o.nom && o.nom !== o.n ? o.nom : '';
             let padre = etiqueta && o.n.endsWith(', ' + etiqueta) ? porNombre[normalizar(o.n.slice(0, -(etiqueta.length + 2)))] : null;
-            if (!padre && o.nit && (porNit[o.nit] || []).length) { const c = porNit[o.nit].filter(x => !o.com || x.com === o.com); padre = c.length === 1 ? c[0] : null; }
+            if (!padre && o.nit && (porNit[o.nit] || []).length) { const c = porNit[o.nit].filter(x => !o.com || x.com === o.com), t = c.length ? c : porNit[o.nit]; padre = t.length === 1 ? t[0] : null; /* sin coincidir el comercial, vale el NIT de un solo cliente */ }
             if (padre) altas.push({ o, padre, tipo: tipoDireccionOdoo(o), etiqueta: etiqueta || o.n });
             else if (ZONAS_BASE.includes(o.eq)) { sinCliente.push(o.n); clientes.push(o); }
             else sinCliente.push(o.n);
