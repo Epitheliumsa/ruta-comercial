@@ -294,13 +294,14 @@ function anilloLog(lista, etiqueta, titulo, periodo) {
 function tarjetaLog(r, n, total) {
     const tp = TIPOS_LOG[repTipoLog(r)] || TIPOS_LOG.entrega, cerrada = r.estado !== 'pendiente', rp = r.reporte || {}, ok = okTxt(r), no = noTxt(r);
     const clase = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : '';
-    const titulo = r.contacto ? `<h3 class="cliente-link" data-c="${esc(r.contacto)}" onclick="verCliente(this.dataset.c, '${esc(r.comercial || '')}')" title="Ver historial del cliente">${esc(r.contacto)}</h3>` : `<h3>${esc(tituloLog(r))}</h3>`;
+    const titulo = r.contacto ? `<h3 class="cliente-link" data-c="${esc(r.contacto)}" onclick="verCliente(this.dataset.c, '${esc(r.comercial || '')}')" title="Ver historial del cliente">${esc(r.contacto)}</h3>`
+        : r.proveedor ? `<h3 class="cliente-link" data-c="${esc(r.proveedor)}" onclick="verProveedor(this.dataset.c)" title="Ver la ficha del proveedor">${esc(tituloLog(r))}</h3>` : `<h3>${esc(tituloLog(r))}</h3>`;
     const docs = (r.documentos || []).map(d => `<span class="lg-doc-chip">${esc(claseDoc(d.clase)?.t || 'Pedido')}${d.ovi ? ` · A <b>${esc(d.ovi)}</b>` : ''}${d.ov ? ` · B <b>${esc(d.ov)}</b>` : ''}</span>`).join('')
         + (r.incluyeDocs || []).map(d => `<span class="lg-doc-chip">${esc(NOMBRE_INCLUYE[d.k] || d.k)} · <b>${esc(d.numero)}</b></span>`).join('')
         + (r.radicacion || []).map(d => `<span class="lg-doc-chip rad">${esc(textoRad(d))}</span>`).join('');
     const lineas = [
         r.destino ? `<b>${repTipoLog(r) === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${enlaceDir(r.dirDestino, r.destino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
-        r.proveedor && (r.contacto || r.materiales?.length) ? `<b>Proveedor:</b> ${esc(r.proveedor)}` : '',
+        r.proveedor && (r.contacto || r.materiales?.length) ? `<b>Proveedor:</b> <a href="#" class="cliente-link" data-c="${esc(r.proveedor)}" onclick="verProveedor(this.dataset.c); return false">${esc(r.proveedor)}</a>` : '',
         r.materiales?.length ? `<b>Recoger:</b> ${esc(r.materiales.join(', '))}` : '',
         r.tipo === 'oficina' ? itemsOficina(r).map(x => `<b>${esc(x.split(':')[0])}</b>${x.includes(':') ? ':' + esc(x.split(':').slice(1).join(':')) : ''}`).join(' · ') : '',
         r.direccion ? `<b>Dirección:</b> ${enlaceDir(r.direccion, r.ciudad)}` : '',
@@ -1396,7 +1397,7 @@ function subirEmpleados() {
 // Ficha del proveedor (desde el Maestro): datos básicos, dirección y teléfono si la maestra los trae, y sus paradas de Logística
 function verProveedor(nombre) {
     const p = proveedoresMaestra.filas[normalizar(nombre)];
-    if (!p) return;
+    if (!p) return toast('Este proveedor no está en la maestra de proveedores');
     const paradas = logVisibles().filter(r => r.proveedor && normalizar(r.proveedor) === normalizar(nombre)).sort((a, b) => b.fecha.localeCompare(a.fecha));
     const tels = enlacesTel(p.tel);
     abrirModal(`<div class="form-rc ficha historial">
