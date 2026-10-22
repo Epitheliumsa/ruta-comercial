@@ -19,6 +19,9 @@ const pasosLog = r => !!r && r.tipo === 'oficina' && !!r.despacho && (r.oficina 
 // Tipo con el que se reporta: el de la oficina hasta que se afora; después, el del despacho (Envío o Entrega)
 const repTipoLog = r => pasosLog(r) && r.aforo ? r.despacho : r.tipo;
 const enPasosLog = r => pasosLog(r) && r.estado === 'pendiente';
+// Después del aforo, el despacho queda "por asignar": el coordinador escoge quién (y qué día) o cualquiera de Logística lo toma; solo quien lo tiene (o el coordinador) lo reporta
+const porAsignarLog = r => enPasosLog(r) && !!r.aforo && !r.asignado;
+const puedeDespacharLog = r => !!r.asignado && (r.asignado.a === sesion?.id || esCoordLog() || esAdmin());
 const compartidaLog = r => enPasosLog(r) || enVentanaEdicionLog(r);
 const puedeEditarEntregaLog = r => !!r && r.estado === 'entregado' && puedeOperarLog() && (window.MODO_PRUEBA || !API_URL || enVentanaEdicionLog(r));
 const textoLimiteEdicion = r => `${fechaCorta(diaBogota(new Date(limiteEdicionLog(r) || Date.now()).toISOString()))} ${HORA_EDICION_LOG.replace(/^0/, '')} a. m.`;
@@ -224,6 +227,8 @@ function pintarLog() {
     const reinc = {};
     if (esCoordLog() || esAdmin() || esJefe()) todos.filter(r => r.estado === 'pendiente' && r.fecha >= t && delMens(r) && fallosParada(r) >= 2).sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach(r => { reinc[normalizar(nombreParada(r))] ||= r; });
     $('logResumen').innerHTML += Object.values(reinc).map(r => `<div class="lg-banner-reincide">⚠ <b>Reincidencia:</b> ${esc(nombreParada(r))} · ${fallosParada(r)} no efectivas en 30 días · ${intentoLog(r)}.º intento el ${esc(fechaCorta(r.fecha))}</div>`).join('');
+    // Coordinación y administrador: aforos terminados que todavía no tienen quién los despache
+    if (esCoordLog() || esAdmin()) { const pa = todos.filter(porAsignarLog); if (pa.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🟠 <b>${pa.length} ${pa.length === 1 ? 'aforo por asignar' : 'aforos por asignar'}</b> para despacho: ${esc(pa.slice(0, 4).map(nombreParada).join(', '))}${pa.length > 4 ? '…' : ''}</div>`; }
     const base = fp && fp !== 'dia' ? deP[fp] : dia;
     const lista = base.filter(r => (!parte || claseLog(r) === parte.f)
         && (!q || normalizar([tituloLog(r), r.proveedor, r.direccion, r.telefono, r.destino, ...(r.documentos || []).flatMap(d => [d.ov, d.ovi]), ...(r.incluyeDocs || []).map(d => d.numero), ...(r.radicacion || []).map(textoRad)].join(' ')).includes(q)));
@@ -323,8 +328,11 @@ function tarjetaLog(r, n, total) {
         acciones = cerrada ? `<div class="acciones cerrada"><span class="nota-cierre">Reportado el ${esc(fechaHora(r.registrada))} por ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}</span></div>` : '';
     } else if (!cerrada) {
         acciones = `<div class="acciones">
-            ${pasosLog(r) && !r.aforo ? `<button class="bv ok" onclick="abrirLogAforo('${r.id}')">✓ Aforado</button>` : `<button class="bv ok" onclick="abrirLogReporte('${r.id}', true)">✓ ${esc(ok)}</button>`}
-            <button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>
+            ${pasosLog(r) && !r.aforo ? `<button class="bv ok" onclick="abrirLogAforo('${r.id}')">✓ Aforado</button>`
+                : porAsignarLog(r) ? `<button class="bv ok" onclick="tomarDespachoLog('${r.id}')">🙋 Yo lo ${esc(YO_DESP[r.despacho] || 'hago')}</button>${botonAsignarLog(r)}`
+                : pasosLog(r) && !puedeDespacharLog(r) ? `<span class="nota-cierre">Lo ${esc(VERBO_DESP[r.despacho] || 'hace')} ${esc(nombreVendedor(r.asignado?.a))}</span>`
+                : `<button class="bv ok" onclick="abrirLogReporte('${r.id}', true)">✓ ${esc(ok)}</button>`}
+            ${porAsignarLog(r) || (pasosLog(r) && !puedeDespacharLog(r) && r.aforo) ? '' : `<button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>`}
             <button class="link-mini" onclick="abrirLogForm('${r.id}')">Editar</button>
             <button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button></div>`;
     } else {
@@ -735,7 +743,7 @@ function htmlPasosLog(r) {
     const af = r.aforo, pend = (leerFotosPend()[r.id] || []).filter(x => typeof x !== 'string' && x.e === 'aforo').length;
     const fotosAf = miniaturasLog(fotosDe(r, true));
     const paso2 = r.estado === 'entregado' ? `✓ <b>${esc(okTxt(r))}</b> — ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : ''}`
-        : r.estado === 'no_entregado' ? `✕ <b>${esc(noTxt(r))}</b>` : af ? `⏳ <b>Falta: ${esc(okTxt(r).toLowerCase())}</b>` : `② ${esc(TIPOS_LOG[r.despacho]?.ok || okTxt(r))} <small>(después del aforo)</small>`;
+        : r.estado === 'no_entregado' ? `✕ <b>${esc(noTxt(r))}</b>` : af ? (r.asignado ? `⏳ <b>Falta: ${esc(okTxt(r).toLowerCase())}</b> — ${esc(nombreVendedor(r.asignado.a))}${r.fecha ? ' · ' + esc(fechaCorta(r.fecha)) : ''}${r.hora ? ' ' + esc(horaBonita(r.hora)) : ''}` : `🟠 <b>Por asignar</b>: quién lo ${esc(VERBO_DESP[r.despacho] || 'hace')}`) : `② ${esc(TIPOS_LOG[r.despacho]?.ok || okTxt(r))} <small>(después del aforo)</small>`;
     return `<div class="lg-pasos"><div class="lg-paso ${af ? 'ok' : 'p'}">${af ? `✓ <b>Aforado</b> — ${esc(nombreVendedor(af.por))} · ${esc(horaLog(af.cuando))}${af.detalle ? ' · ' + esc(af.detalle) : ''}` : '① <b>Falta aforar</b>'}
         ${fotosAf || pend ? `<div class="lg-fotos fija">${fotosAf}${pend ? `<span class="chip np">${pend} subiendo…</span>` : ''}</div>` : ''}</div>
         <div class="lg-paso ${r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : af ? 'p' : 'espera'}">${paso2}</div></div>`;
@@ -760,6 +768,51 @@ function abrirLogAforo(id) {
         </div>
     </form>`);
 }
+const VERBO_DESP = { envio: 'envía', entrega: 'entrega' };
+const YO_DESP = { envio: 'envío', entrega: 'entrego' };
+const botonAsignarLog = r => esCoordLog() || esAdmin() ? `<button class="bv" onclick="abrirAsignarDespacho('${r.id}')">👤 Asignar…</button>` : '';
+// Quien lo toma se lo asigna a sí mismo (hoy, o el mismo día si aún no pasa)
+function tomarDespachoLog(id) {
+    const r = registros[id];
+    if (!r || !porAsignarLog(r) || !puedeOperarLog()) return toast('Esta parada ya cambió: actualiza');
+    asignarDespachoLog(r, sesion.id, r.fecha < hoy() ? hoy() : r.fecha, r.hora || '');
+    toast('Quedó para ti'); pintarLog();
+}
+function asignarDespachoLog(r, quien, fecha, hora) {
+    const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === quien && x.id !== r.id);
+    const orden = r.vendedor === quien && r.fecha === fecha ? r.orden : Math.max(0, ...mismo.map(x => x.orden || 0)) + 1;
+    guardarRegistro({ ...r, vendedor: quien, fecha, hora, orden, asignado: { a: quien, por: sesion.id, cuando: new Date().toISOString() },
+        ediciones: [...(r.ediciones || []), { por: sesion.id, cuando: new Date().toISOString(), campos: [`asignó el despacho a ${nombreVendedor(quien)}`] }] });
+}
+function abrirAsignarDespacho(id) {
+    const r = registros[id];
+    if (!r || !porAsignarLog(r) || !(esCoordLog() || esAdmin())) return;
+    const f = r.fecha < hoy() ? hoy() : r.fecha;
+    abrirModal(`<form class="form-rc" onsubmit="guardarAsignarDespacho(event, '${id}')">
+        <h2>Asignar el despacho</h2>
+        <p class="sub">${esc(tituloLog(r))} · aforado por ${esc(nombreVendedor(r.aforo?.por))}</p>
+        <label for="lgAsQuien">Quién lo ${esc(VERBO_DESP[r.despacho] || 'hace')} ${REQ}</label>
+        <select id="lgAsQuien" required>${MENSAJEROS.map(m => `<option value="${m.id}"${m.id === r.vendedor ? ' selected' : ''}>${esc(m.nombre)}</option>`).join('')}</select>
+        <div class="fila-fecha">
+            <div><label for="lgAsFecha">Fecha ${REQ}</label><input type="date" id="lgAsFecha" required min="${hoy()}" value="${esc(f)}"></div>
+            <div><label for="lgAsHora">Hora <small>(si es fija)</small></label><input type="time" id="lgAsHora" value="${esc(r.hora || '')}"></div>
+        </div>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario">Asignar</button>
+        </div>
+    </form>`);
+}
+async function guardarAsignarDespacho(e, id) {
+    e.preventDefault();
+    const r = registros[id], quien = $('lgAsQuien').value, fecha = $('lgAsFecha').value, hora = $('lgAsHora').value;
+    if (!r || !porAsignarLog(r)) { cerrarModal(); return toast('Esta parada ya cambió: actualiza'); }
+    const err = errorFechaLog(fecha, quien, r.id);
+    if (err) return toast(err);
+    if (!await confirmarDiaLog(fecha, quien)) return;
+    asignarDespachoLog(r, quien, fecha, hora);
+    cerrarModal(); toast(`Asignado a ${nombreVendedor(quien)}`); pintarLog();
+}
 async function guardarLogAforo(e, id) {
     e.preventDefault();
     const r = registros[id], btn = $('lgBtnAf');
@@ -783,6 +836,7 @@ async function guardarLogAforo(e, id) {
 function abrirLogReporte(id, ok) {
     const r = registros[id];
     if (!r || r.estado !== 'pendiente' || !puedeOperarLog()) return;
+    if (pasosLog(r) && ((ok && !r.aforo) || (r.aforo && !puedeDespacharLog(r)))) return toast(r.aforo ? 'Esta parada la tiene otra persona o aún no está asignada' : 'Primero va el aforo');
     const tp = TIPOS_LOG[repTipoLog(r)], tieneEnvio = repTipoLog(r) === 'envio';
     const req = !!tp.cliente;   // entregas y radicaciones piden quién recibió (en el envío no: van transportadora y guía)
     const ciudadCli = ciudadCliente(r.contacto), ant = antesCliente(r.contacto);

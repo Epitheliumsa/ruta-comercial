@@ -2070,3 +2070,5 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-paso.ok { color: #0f6b4a; } .lg-paso.p { color: #b45309; } .lg-paso.no { color: #b91c1c; } .lg-paso.espera { color: #94a3b8; }
 .lg-paso .lg-fotos { margin-top: 4px; }
 .form-rc .lg-chip-aforo { display: flex; margin-top: 6px; }
+
+.lg-banner-asignar { margin: 8px 0; padding: 8px 12px; border-radius: 12px; background: #fff4e5; border: 1px solid #f5c98a; color: #9a5b00; font-size: 14px; }

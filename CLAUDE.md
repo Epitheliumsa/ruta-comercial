@@ -171,6 +171,8 @@
   `repTipoLog(r)` da el tipo con el que se reporta (oficina hasta aforar; después, el del despacho).
 - El aforo **no cierra** la parada: queda "Aforado · falta despachar" y **todo Logística la ve y la puede avanzar** mientras esté abierta (`enPasosLog`, `compartidaLog` en `logistica.js`; `enVentanaFila_` y `enPasosLog` en `Codigo.gs`).
   La tarjeta muestra el recorrido (`htmlPasosLog`); quien despacha queda como `reportadoPor` y el aforo conserva su autor y hora. "Corregir reporte" conserva el aforo y sus fotos.
+- **Quién despacha se asigna:** tras el aforo la ficha queda **"Por asignar"** (`porAsignarLog`). El coordinador o el administrador la asignan con **👤 Asignar…** (mensajero, fecha y hora; la ficha pasa a su día y su lista, `asignado: {a, por, cuando}`),
+  o cualquiera de Logística la toma con **🙋 Yo lo envío / entrego**. Solo quien la tiene (o el coordinador/administrador) la reporta (`puedeDespacharLog`); los demás ven "Lo envía X". El coordinador ve el aviso "N aforos por asignar".
 - Las fotos pendientes de subir llevan su etapa (`{ d, e }` en la cola `rc_fotos_pend`); las antiguas (texto) siguen valiendo.
 
 ## Logística: editar la entrega cerrada y pegar fotos
