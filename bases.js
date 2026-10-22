@@ -165,6 +165,8 @@ function filasOdoo(libros) {
     libros.forEach(({ nombre, wb }) => {
         const hoja = filasHoja(wb.worksheets[0]); if (!hoja.length) return;
         const cab = Object.fromEntries(hoja[0].map((t, i) => [t.trim(), i]));
+        // Si alguien escribió sobre el título de la primera columna ("Etiquetas"), pero la columna sí trae las etiquetas, se usa igual: sin ella las direcciones de entrega entrarían como clientes
+        if (!('Etiquetas' in cab) && /direcci[oó]n (entrega|personal)/i.test(hoja.slice(1, 400).map(f => f[0]).join('|'))) cab['Etiquetas'] = 0;
         const col = k => COLUMNAS_ODOO[k].find(x => x in cab);
         if (!col('n') || !col('ciudad') || !col('eq')) throw new Error(`"${nombre}" no parece la Maestra de Contactos de Odoo: faltan las columnas Nombre Público, Ciudad o Equipo de ventas`);
         hoja.slice(1).forEach(f => {
