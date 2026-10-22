@@ -79,7 +79,7 @@ const zonaDeContacto = nombre => Object.keys(contactos).find(z => buscarMaestra(
 // Los leads (contactos nuevos en seguimiento) también salen en la lista de clientes de Logística
 const leadsLog = () => proyectos().filter(p => p.estado !== 'vinculado' && p.estado !== 'perdido');
 const leadPorNombre = nombre => nombre ? leadsLog().find(p => normalizar(p.nombre) === normalizar(nombre)) : null;
-const tiposLog = r => (r.tipos?.length ? r.tipos : [r.tipo]).filter(k => TIPOS_LOG[k]);
+const tiposLog = r => [...(r.tipos?.length ? r.tipos : [r.tipo]), ...(pasosLog(r) ? [r.despacho] : [])].filter(k => TIPOS_LOG[k]);
 const hayTipo = (r, campo) => tiposLog(r).some(k => TIPOS_LOG[k][campo]);
 const conRadicacion = r => hayTipo(r, 'radicacion');
 const okTxt = r => TIPOS_LOG[repTipoLog(r)]?.ok || 'Realizada';
@@ -1496,13 +1496,13 @@ function htmlEntregasCliente(nombre, dia = '') {
     const lista = entregasCliente(nombre).filter(r => !dia || r.fecha === dia);
     if (!lista.length) return esLogistica() && !dia ? '<div class="no-results">Todavía no hay entregas registradas para este cliente.</div>' : '';
     return `<p class="grupo-titulo hist-sec l">🚚 Entregas y recolecciones · ${lista.length}</p>` + lista.map(r => {
-        const tp = TIPOS_LOG[r.tipo], rp = r.reporte || {}, cls = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p';
+        const tp = TIPOS_LOG[repTipoLog(r)], rp = r.reporte || {}, cls = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p';
         const docs = [...(r.documentos || []).map(textoDoc), ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'oficina' ? itemsOficina(r) : [])].filter(Boolean).map(esc).join('<br>');
         const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, ...(rp.devoluciones || []).map(textoDev), rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : r.hora ? ' · hora fija ' + esc(horaBonita(r.hora)) : ''}</b>${chipEstadoLog(r)}</div>
-            <p class="meta"><span class="hist-tag l">${esc(TIPOS_LOG[r.tipo]?.corto || 'Entrega')}</span>${esc([nombreTipos(r), nombreVendedor(r.vendedor)].join(' · '))}</p>
+            <p class="meta"><span class="hist-tag l">${esc(TIPOS_LOG[repTipoLog(r)]?.corto || 'Entrega')}</span>${esc([nombreTipos(r), nombreVendedor(r.vendedor)].join(' · '))}</p>
             <div class="reporte">${[docs, ...det.filter(Boolean).map(esc)].filter(Boolean).join('<br>')}${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}</div>
         </div>`;
     }).join('');
@@ -1554,7 +1554,7 @@ function armarLibroLog(regs, mes, mens) {
     const horaXl = iso => new Date(new Date(iso).getTime() - 5 * 3600e3);
     const filas = [];
     regs.forEach(r => {
-        const tp = TIPOS_LOG[r.tipo], rp = r.reporte || {};
+        const tp = TIPOS_LOG[repTipoLog(r)], rp = r.reporte || {};
         // Una fila por clase de pedido y por documento radicado (la factura A va en OVI y la B en OV)
         const docs = [...(r.documentos || []).map(d => ({ doc: claseDoc(d.clase)?.t || '', ov: d.ov, ovi: d.ovi })),
             ...(r.radicacion || []).map(d => d.doc === 'factura' ? { doc: `Radicar factura ${d.serie}`, [d.serie === 'A' ? 'ovi' : 'ov']: d.numero }
