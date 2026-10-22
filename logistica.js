@@ -1206,7 +1206,8 @@ function borrarDirectorio() {
 let trayendoDir = false;
 async function cargarDirectorio(forzar = false) {
     if (!API_URL || !veDirectorio() || trayendoDir) return;
-    if (!forzar && directorio.traido && Date.now() - directorio.traido < 6 * 3600e3) return;
+    // Una copia vacía (p. ej. traída antes de subir la maestra) no vale: se vuelve a pedir en vez de esperar 6 horas
+    if (!forzar && directorio.traido && Object.keys(directorio.filas).length && Date.now() - directorio.traido < 6 * 3600e3) return;
     trayendoDir = true;
     try { const r = await llamarApi({ accion: 'directorio' }); ponerDirectorio(r.filas || [], r.actualizado); }
     catch (e) { console.warn('No se pudo traer el directorio:', e); }
@@ -1268,7 +1269,7 @@ function borrarProveedores() {
 let trayendoProv = false;
 async function cargarProveedores(forzar = false) {
     if (!API_URL || !veProveedores() || trayendoProv) return;
-    if (!forzar && proveedoresMaestra.traido && Date.now() - proveedoresMaestra.traido < 6 * 3600e3) return;
+    if (!forzar && proveedoresMaestra.traido && Object.keys(proveedoresMaestra.filas).length && Date.now() - proveedoresMaestra.traido < 6 * 3600e3) return;
     trayendoProv = true;
     try { const r = await llamarApi({ accion: 'proveedores' }); ponerProveedores(r.filas || [], r.actualizado); }
     catch (e) { console.warn('No se pudo traer la maestra de proveedores:', e); }
@@ -1349,7 +1350,7 @@ const empleadosComoContactos = () => !veProveedores() ? [] : Object.values(emple
 let trayendoEmp = false;
 async function cargarEmpleados(forzar = false) {
     if (!API_URL || !veProveedores() || trayendoEmp) return;
-    if (!forzar && empleadosMaestra.traido && Date.now() - empleadosMaestra.traido < 6 * 3600e3) return;
+    if (!forzar && empleadosMaestra.traido && Object.keys(empleadosMaestra.filas).length && Date.now() - empleadosMaestra.traido < 6 * 3600e3) return;
     trayendoEmp = true;
     try { const r = await llamarApi({ accion: 'empleados' }); ponerEmpleados(r.filas || [], r.actualizado); }
     catch (e) { console.warn('No se pudo traer la maestra de empleados:', e); }
