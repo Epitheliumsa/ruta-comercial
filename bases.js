@@ -48,12 +48,8 @@ async function cargarBases(forzar = false) {
 // ---------- Pantalla ----------
 const TARJETAS_BASES = [
     { k: 'odoo', t: 'Maestra de Odoo (todo en uno)', d: 'Sube la Maestra de Contactos de Odoo tal como sale (con Calle, Teléfono y Móvil), uno o varios archivos con las mismas columnas. La app reparte cada fila según su Equipo de ventas: zonas → Maestra de contactos y Direcciones; Empleados → Empleados; el resto → Proveedores. Empleados y Proveedores solo los ven Logística y tú.', a: 'subirOdoo()', n: 'odoo' },
-    { k: 'contactos', t: 'Maestra de contactos', d: 'Clientes y médicos de cada zona (Maestra de Contactos de Odoo). Reemplaza la lista de la app.', a: 'subirContactos()', n: 'contactos' },
     { k: 'catalogo', t: 'Productos', d: 'Catálogo con etiquetas (Nuevo, Foco, Transición-Impulso…) para visitas y muestras. Sube Base_Productos (materias primas), Productos_Terminados (terminados) o los dos: cada archivo reemplaza solo lo suyo.', a: 'subirCatalogo()', n: 'productos' },
-    { k: 'directorio', t: 'Direcciones y teléfonos', d: 'Calle, teléfono y móvil de los clientes (Maestra de Odoo). Los ven Logística, los jefes y tú; cada comercial, solo su zona.', a: 'subirDirectorio()', n: 'clientes' },
-    { k: 'vademecum', t: 'Vademécum', d: 'Productos y portafolios por cliente del Vademécum. Sube Vademecum_Epithelium (productos), Vademecum_clientes (portafolios) o los dos: cada archivo reemplaza solo lo suyo. El Vademécum lo toma de aquí.', a: 'subirVademecum()', n: 'vademecum' },
-    { k: 'proveedores', t: 'Proveedores', d: 'Maestra de proveedores con dirección y teléfono. Solo la ven Logística y tú.', a: 'subirProveedores()', n: 'proveedores' },
-    { k: 'empleados', t: 'Empleados', d: 'Empleados con dirección y teléfono (Maestra de Contactos de Odoo: se toman los de Equipo de ventas = Empleados). Solo los ven Logística y tú.', a: 'subirEmpleados()', n: 'empleados' }
+    { k: 'vademecum', t: 'Vademécum', d: 'Productos y portafolios por cliente del Vademécum. Sube Vademecum_Epithelium (productos), Vademecum_clientes (portafolios) o los dos: cada archivo reemplaza solo lo suyo. El Vademécum lo toma de aquí.', a: 'subirVademecum()', n: 'vademecum' }
 ];
 const cuandoBase = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }) : ''; };
 let estadoBases = {};
@@ -217,13 +213,6 @@ async function subirOdoo() {
         const porNombre = {}, porNit = {};
         clientes.forEach(o => { porNombre[normalizar(o.n)] = o; (porNit[o.nit] = porNit[o.nit] || []).push(o); });
         const altas = [], sinCliente = [];
-        // Odoo a veces trae la dirección alterna con la etiqueta del cliente ("Cliente, Oficina Central"): si lo que va antes de la coma es otro cliente con el mismo NIT, es su dirección, no un contacto
-        clientes = clientes.filter(o => {
-            const i = o.n.lastIndexOf(', '); if (i < 3) return true;
-            const padre = porNombre[normalizar(o.n.slice(0, i))];
-            if (!padre || padre === o || (o.nit && padre.nit && o.nit !== padre.nit)) return true;
-            altas.push({ o, padre, tipo: 'Entrega', etiqueta: o.n.slice(i + 2) }); return false;
-        });
         filas.filter(o => tipoFilaOdoo(o) === 'direccion').forEach(o => {
             const etiqueta = o.nom && o.nom !== o.n ? o.nom : '';
             let padre = etiqueta && o.n.endsWith(', ' + etiqueta) ? porNombre[normalizar(o.n.slice(0, -(etiqueta.length + 2)))] : null;

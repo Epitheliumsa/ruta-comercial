@@ -389,3 +389,7 @@
 - Panel, cuota y ventas por **día**: como los cortes son acumulados del mes, lo vendido en el día es el corte de ese día menos el corte anterior (el último disponible; el día 1 usa el corte completo), y la cuota del día es la cuota del mes entre los días hábiles (cero en días no hábiles). Mes, trimestre, semestre y año suman las cuotas y lo vendido de los meses que cubren.
 - Panel del equipo: los textos siguen al periodo (Por vendedor · día/mes/trimestre/semestre/año, "Sin visitas fallidas en este …"), y con el filtro de día el "Indicador del día" es el de ese día.
 - **Panel Zona** (comerciales): en el inicio, botón "Panel Zona" con el mismo panel pero solo de su zona (visitas, actividades, cuota y ventas, con filtros de periodo, tipo y estado); sin filtro de vendedor. Los jefes siguen con "Panel del equipo".
+
+## Bases de datos: solo la Maestra de Odoo
+- En **Bases de datos** quedan solo Maestra de Odoo (todo en uno), Productos y Vademécum. Contactos, Direcciones, Proveedores y Empleados ya no tienen tarjeta propia: se cargan y se descargan desde la Maestra de Odoo.
+- No inferir direcciones alternas por "Nombre, Algo" + mismo NIT: los médicos de una clínica llevan ese mismo patrón y NIT y se perderían como contactos (se probó y quitó). Solo son direcciones alternas las filas con etiqueta Dirección Entrega / Personal.
