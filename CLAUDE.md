@@ -401,3 +401,6 @@
   Al asignar a otra persona, la parada guarda `previos: [id de quienes la tuvieron]`; a ellos el servidor les manda solo una marca mínima (`traspasada: true`: id, tipo, fecha, estado, vendedor nuevo, sin cliente ni dirección) para que su teléfono la deje de mostrar.
   `logRegs()` en `logistica.js` también filtra por `vendedor` en el teléfono de un auxiliar. Pegar `Codigo.gs` y crear Nueva versión.
 - La huella "Editada por …" ya no antepone "cambió" a las acciones (asignó / dejó / cambió el despacho).
+
+## Logística: remisiones
+- En la parada de Entrega / Envío, el bloque "PQR - Reacondicionamientos - Devoluciones - Remisiones" (`INCLUYE_ENVIO`) tiene también el tipo **Remisión** (`remision`, número de 6 cifras, sin serie). Va en `incluyeDocs`; con una remisión sola la factura deja de ser obligatoria. Sale como chip, en la consulta por documento y en el Excel como el resto de lo que incluye. Pegar `Codigo.gs` (consulta por documento).

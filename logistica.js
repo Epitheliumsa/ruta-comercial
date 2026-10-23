@@ -42,8 +42,8 @@ const BANCOS_LOG = ['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Ba
 const CAMPOS_HUELLA_LOG = { despacho: 'despacho posterior', fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
     proveedor: 'proveedor', oficina: 'lo que se hace en la oficina', facturasAforo: 'facturas a aforar', otroOficina: 'otro', entidad: 'banco', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
-const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá
-const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT' };
+const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución', remision: 'Remisión' };   // lo que también va en un envío fuera de Bogotá
+const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', remision: 'Remisión' };
 // Radicación: factura (serie A = OVI o B = OV) con su número, nota crédito (RNC) con su número, u otros (texto)
 const DOCS_RADICACION = [{ k: 'factura', t: 'Factura' }, { k: 'nc', t: 'Nota crédito RNC' }, { k: 'otros', t: 'Otros' }];
 const SERIES_FACTURA = { A: 'OVI', B: 'OV' };   // en pantalla solo se ve la letra
@@ -428,7 +428,7 @@ function abrirLogForm(id) {
             <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('docs')">+ Otra factura</button>
         </div>
         <div id="lgBIncluyeEnvio">
-            <label><span id="lgTitInc">PQR - Reacondicionamientos - Devoluciones</span> <small>(opcional: escoge el tipo y escribe el número del documento; puedes agregar varios)</small></label>
+            <label><span id="lgTitInc">PQR - Reacondicionamientos - Devoluciones - Remisiones</span> <small>(opcional: escoge el tipo y escribe el número del documento; puedes agregar varios)</small></label>
             <div id="lgFilas_inc">${((r?.incluyeDocs || []).length ? r.incluyeDocs : [{}]).map(f => filaDoc('inc', f)).join('')}</div>
             <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('inc')">+ Otro documento</button>
         </div>
@@ -1581,7 +1581,7 @@ function documentosDeParada(r) {
     const nom = d => claseDoc(d.clase)?.t || 'Pedido';
     return [
         ...(r.documentos || []).flatMap(d => [d.ovi && { t: 'facA', txt: `${nom(d)} · A ${d.ovi}`, num: d.ovi }, d.ov && { t: 'facB', txt: `${nom(d)} · B ${d.ov}`, num: d.ov }]),
-        ...(r.incluyeDocs || []).map(d => ({ t: d.k === 'pqr_out' || d.k === 'pqr' ? 'pqr' : d.k === 'rea_out' ? 'rea' : 'dev', txt: textoInc(d), num: d.numero })),
+        ...(r.incluyeDocs || []).map(d => ({ t: d.k === 'pqr_out' || d.k === 'pqr' ? 'pqr' : d.k === 'rea_out' ? 'rea' : d.k === 'remision' ? 'rem' : 'dev', txt: textoInc(d), num: d.numero })),
         ...(r.facturasAforo || []).map(f => ({ t: 'aforo', txt: `Aforar · ${textoFacAforoLargo(f)}`, num: f.numero })),
         ...(r.radicacion || []).map(d => ({ t: 'rad', txt: textoRad(d), num: d.numero || '', texto: d.texto || '' })),
         ...(r.reporte?.devoluciones || []).map(d => ({ t: 'dev', txt: textoDev(d), num: String(d.factura || '').replace(/\D/g, '').slice(-6) }))
@@ -1655,7 +1655,7 @@ function abrirConsultaDoc() {
     Object.assign(consultaDoc, { q: '', tipo: '', buscando: false, resultados: [], total: undefined });
     abrirModal(`<form class="form-rc" onsubmit="event.preventDefault(); buscarConsultaDoc()">
         <h2>🔎 Consultar documento</h2>
-        <p class="sub">Pedido, factura, PQR/OUT, REA/OUT, devolución, aforo o radicación: encuentra dónde está, su estado y quién lo recibió.</p>
+        <p class="sub">Pedido, factura, remisión, PQR/OUT, REA/OUT, devolución, aforo o radicación: encuentra dónde está, su estado y quién lo recibió.</p>
         <label for="cdNum">Número <small>(6 cifras: 5498 se completa como 005498)</small></label>
         <input id="cdNum" ${NUM6} value="${esc(consultaDoc.q)}">
         <div class="form-botones"><button type="button" class="btn-secundario" onclick="cerrarModal()">Cerrar</button><button class="btn-primario">Buscar</button></div>
