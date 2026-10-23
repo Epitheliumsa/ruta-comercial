@@ -413,6 +413,6 @@
 - El enlace `?prueba` de la app oficial sigue siendo la app publicada en modo prueba; no muestra ramas.
 
 ## Eliminar solo el administrador y base cerrada de clientes
-- **Eliminar** visitas (también las futuras) y paradas de Logística: **solo el administrador**. El resto ve "Solicitar eliminación" en las visitas y nada en las paradas. El servidor lo exige
-  (`guardar_`: `borrado` en visitas y paradas no-novedad, y `eliminada` en visitas futuras, solo con `usuario.admin`). Las novedades del mensajero y las actividades siguen como estaban.
-- **Base cerrada en Logística**: no se crean proveedores ni contactos de Trámite área "Otros": hay que escogerlos de la Maestra (`guardarLog`; una parada vieja conserva el suyo). El cliente escrito a mano que no está en la Maestra todavía se acepta (pendiente de decidir).
+- **Eliminar paradas de Logística**: **solo el administrador** (el botón no sale para los demás y el servidor lo exige: `guardar_` rechaza `borrado` en paradas que no son novedad si no es `usuario.admin`).
+  En la agenda comercial **no cambió**: quien programó una visita futura la elimina directo (queda la huella en rojo); las visitas ya vencidas o reportadas piden autorización al administrador.
+- **Base cerrada en Logística**: no se crean clientes, contactos ni proveedores nuevos (`guardarLog`): hay que escogerlos de la Maestra (también valen los leads y los empleados). Una parada vieja conserva el suyo.

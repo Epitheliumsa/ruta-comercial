@@ -612,7 +612,7 @@ function logInfoCliente(rellenar = true) {
     const d = datosClienteLog(nombre);
     $('lgInfoCli').innerHTML = d.lead ? `✓ Lead${d.zona ? ' · ' + esc(d.zona) : ''}${d.comercial ? ' · ' + esc(nombreVendedor(d.comercial)) + ' verá esta entrega en el historial del cliente' : ''}`
         : d.comercial ? `✓ ${esc(d.zona)} · ${esc(nombreVendedor(d.comercial))} verá esta entrega en el historial del cliente${d.ciudad ? ' · ' + esc(d.ciudad) : ''}`
-        : 'No está en la Maestra: no se le avisará a ningún comercial.';
+        : empleadosMaestra.filas[normalizar(nombre)] ? '✓ Empleado' : '🚫 No está en la Maestra: la base está cerrada, escoge un cliente de la lista.';
     if (!rellenar) { pintarDirSel(nombre); return; }
     const ultima = logRegs().filter(x => x.contacto && normalizar(x.contacto) === normalizar(nombre) && (x.direccion || x.telefono)).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
     const poner = (campo, valor) => { if (valor && (!campo.value || campo.dataset.auto === '1')) { campo.value = valor; campo.dataset.auto = '1'; } };
@@ -713,8 +713,8 @@ async function guardarLog(e, id) {
     const escrito = tp.oficina && !oficina.includes('aforar') ? '' : $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
     const lead = !zonaC && escrito ? leadPorNombre(escrito) : null;
     const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : lead ? lead.nombre : escrito ? nombrePropio(escrito) : '';
-    // Base cerrada: no se crean proveedores ni contactos nuevos desde Logística (solo los de la Maestra; una parada vieja conserva el suyo)
-    if (tp.vuelta && escrito && !zonaC && !lead && escrito !== (antes?.contacto || '')) return toast('Escoge el contacto de la lista: la base está cerrada y no se crean contactos nuevos');
+    // Base cerrada: no se crean clientes, contactos ni proveedores nuevos desde Logística (solo los de la Maestra, los leads y los empleados; una parada vieja conserva el suyo)
+    if (escrito && !zonaC && !lead && !empleadosMaestra.filas[normalizar(escrito)] && escrito !== (antes?.contacto || '')) return toast('Escoge el cliente o contacto de la lista: la base está cerrada y no se crean nuevos');
     const provEscrito = (tp.recoleccion || aProv) ? $('lgProv').value.trim() : '';
     if (provEscrito && Object.keys(proveedoresMaestra.filas).length && !proveedoresMaestra.filas[normalizar(provEscrito)] && provEscrito !== (antes?.proveedor || '')) return toast('Escoge el proveedor de la lista: la base está cerrada y no se crean proveedores nuevos');
     const cl = datosClienteLog(contacto);

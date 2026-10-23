@@ -3158,7 +3158,7 @@ function accionesVisita(v, txtOk, txtNo) {
     if (v.fecha > hoy()) {
         const puede = sesion.id === v.vendedor || esAdmin();
         // Visita futura: quien la programó la elimina directo (queda la huella en rojo al final del día)
-        const quitar = esAdmin() ? `<button type="button" class="link-mini peligro" onclick="eliminarFutura('${v.id}')">🗑 Eliminar</button>` : eliminar;   // solo el administrador elimina; los demás piden autorización
+        const quitar = puede ? `<button type="button" class="link-mini peligro" onclick="eliminarFutura('${v.id}')">🗑 Eliminar</button>` : eliminar;
         return `<div class="acciones">${puede ? `<button class="bv adelantar" onclick="adelantarVisita('${v.id}')">⏩ Adelantar a hoy</button><button class="bv reprogramar" onclick="abrirReprogramar('${v.id}')">📅 Reprogramar</button>` : ''}<span class="nota-cierre">Se reporta desde el ${esc(fechaCorta(v.fecha))} hasta el ${esc(textoCierre(v))}</span>${editar}${quitar}</div>`;
     }
     return `<div class="acciones">
@@ -3357,7 +3357,6 @@ function htmlAcompHist(x) {
 // Visita futura eliminada por quien la programó: no cuenta en nada, pero queda la huella (tarjeta pequeña en rojo)
 async function eliminarFutura(id) {
     const v = registros[id];
-    if (!esAdmin()) return toast('Solo el administrador elimina visitas: pide la eliminación');
     if (!v || v.estado !== 'pendiente' || v.fecha <= hoy()) return toast('Solo se eliminan así las visitas de días futuros');
     if (!await dialogo({ tono: 'aviso', icono: '🗑', titulo: `¿Eliminar la visita a ${v.contacto}?`, texto: `Es del ${fechaLarga(v.fecha)}. Queda una huella en rojo de que se eliminó.`, aceptar: 'Sí, eliminar', cancelar: 'No' })) return;
     guardarRegistro({ ...v, eliminada: { por: sesion.id, fecha: new Date().toISOString() } });

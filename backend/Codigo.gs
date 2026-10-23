@@ -157,8 +157,6 @@ function guardar_(usuario, registros) {
       if (r.clase === 'visita') {
         // Solo el administrador elimina visitas
         if (r.borrado && !(actual && actual.borrado) && !usuario.admin) return;
-        // La visita futura que se elimina (queda la huella en rojo) también solo la elimina el administrador
-        if (r.eliminada && !(actual && actual.eliminada) && !usuario.admin) return;
         // Una visita eliminada no se devuelve (p. ej. un cierre automático hecho desde un dispositivo que no había traído la eliminación)
         if (actual && (actual.borrado || actual.eliminada) && !r.borrado && !r.eliminada && r.actualizadoPor === 'sistema') return;
         // Un cierre automático nunca tapa una visita que ya se reportó (aunque lo suba el administrador desde un dispositivo con datos viejos)
