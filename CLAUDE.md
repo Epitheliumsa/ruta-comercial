@@ -393,3 +393,9 @@
 ## Bases de datos: solo la Maestra de Odoo
 - En **Bases de datos** quedan solo Maestra de Odoo (todo en uno), Productos y Vademécum. Contactos, Direcciones, Proveedores y Empleados ya no tienen tarjeta propia: se cargan y se descargan desde la Maestra de Odoo.
 - No inferir direcciones alternas por "Nombre, Algo" + mismo NIT: los médicos de una clínica llevan ese mismo patrón y NIT y se perderían como contactos (se probó y quitó). Solo son direcciones alternas las filas con etiqueta Dirección Entrega / Personal.
+
+## Logística: quién ve qué (visual)
+- El coordinador (Javier) y el administrador ven **todas** las paradas, incluido si ya se aforó o no y a quién se asignó. Eric y Deelan ven **solo las suyas**: las que se les programaron o se les asignaron
+  (al asignar, la parada pasa a su nombre: `vendedor`) — `logVisibles` en `logistica.js`. Ya no hay "Yo lo envío / entrego": el despacho lo asigna el coordinador (el auxiliar ve "Por asignar: lo asigna Javier Arjona").
+- Pendiente (a pedido): que el servidor (`listar_`, `enVentanaFila_` en `Codigo.gs`) tampoco envíe a los auxiliares las paradas de otros; hoy solo se filtra en la pantalla.
+- La huella "Editada por …" ya no antepone "cambió" a las acciones (asignó / dejó / cambió el despacho).

@@ -18,7 +18,6 @@ const enPasosLog = r => pasosLog(r) && r.estado === 'pendiente';
 const porAsignarLog = r => enPasosLog(r) && !!r.aforo && !r.asignado;
 // Reporta el despacho quien lo tiene asignado; el coordinador y el administrador también, aunque aún no esté asignado (p. ej. si lo despacha el mismo coordinador)
 const puedeDespacharLog = r => pasosLog(r) && !!r.aforo && (esCoordLog() || esAdmin() || r.asignado?.a === sesion?.id);
-const compartidaLog = r => enPasosLog(r);
 const veTodasZonas = () => veEquipo() || esLogistica();             // Maestra Clientes con todas las zonas
 
 // Tipo de parada: se escoge uno; la radicación de documentos es la única que se puede sumar a otro tipo (o ir sola).
@@ -66,7 +65,8 @@ const rangoNovLog = n => novPorHoras(n) ? `${fechaCorta(n.fecha)}, de ${horaBoni
     : n.hasta && n.hasta !== n.fecha ? `${fechaCorta(n.fecha)} al ${fechaCorta(n.hasta)}` : fechaCorta(n.fecha);
 // Cada uno ve lo suyo: el coordinador y los jefes, todo; el auxiliar, sus paradas; el comercial, las entregas a sus clientes
 // (el administrador ve todo; la jefe comercial, todo lo de clientes; el comercial, lo de sus clientes)
-const logVisibles = () => logRegs().filter(r => esLogistica() ? (esCoordLog() || r.vendedor === sesion.id || compartidaLog(r)) : esAdmin() ? true : esJefe() ? hayTipo(r, 'cliente') : r.comercial === sesion.id);
+// Logística: el coordinador ve todo (quién afora y a quién se asigna); cada auxiliar solo lo que se le programó o le asignaron (al asignar, la parada pasa a su nombre)
+const logVisibles = () => logRegs().filter(r => esLogistica() ? (esCoordLog() || r.vendedor === sesion.id) : esAdmin() ? true : esJefe() ? hayTipo(r, 'cliente') : r.comercial === sesion.id);
 const tituloModuloLog = () => esLogistica() || esAdmin() ? 'Logística' : esJefe() ? 'Entregas a clientes' : 'Entregas a tus clientes';
 const zonaDeContacto = nombre => Object.keys(contactos).find(z => buscarMaestra(z, nombre));
 // Los leads (contactos nuevos en seguimiento) también salen en la lista de clientes de Logística
@@ -324,7 +324,7 @@ function tarjetaLog(r, n, total) {
     } else if (!cerrada) {
         acciones = `<div class="acciones">
             ${pasosLog(r) && !r.aforo ? `<button class="bv ok" onclick="abrirLogAforo('${r.id}')">✓ Aforado</button>`
-                : pasosLog(r) && !puedeDespacharLog(r) ? (porAsignarLog(r) ? `<button class="bv ok" onclick="tomarDespachoLog('${r.id}')">🙋 Yo lo ${esc(YO_DESP[r.despacho] || 'hago')}</button>` : `<span class="nota-cierre">Lo ${esc(VERBO_DESP[r.despacho] || 'hace')} ${esc(nombreVendedor(r.asignado?.a))}</span>`)
+                : pasosLog(r) && !puedeDespacharLog(r) ? (porAsignarLog(r) ? `<span class="nota-cierre">⏳ Por asignar: lo asigna ${esc(nombreVendedor('jarjona'))}</span>` : `<span class="nota-cierre">Lo ${esc(VERBO_DESP[r.despacho] || 'hace')} ${esc(nombreVendedor(r.asignado?.a))}</span>`)
                 : `<button class="bv ok" onclick="abrirLogReporte('${r.id}', true)">✓ ${esc(ok)}</button>`}
             ${pasosLog(r) && r.aforo && !puedeDespacharLog(r) ? '' : `<button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>`}
             ${enPasosLog(r) && r.aforo ? botonAsignarLog(r) : ''}${pasosLog(r) && r.aforo && r.asignado?.a === sesion?.id && !(esCoordLog() || esAdmin()) && enPasosLog(r) ? `<button class="link-mini" onclick="soltarDespachoLog('${r.id}')">↩ Ya no puedo</button>` : ''}
@@ -343,7 +343,7 @@ function tarjetaLog(r, n, total) {
         <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${r.tipo === 'oficina' ? (r.oficina || []).map(k => `<span class="lg-tipo oficina">${esc(OFICINA_LOG.find(x => x[0] === k)?.[1] || k)}</span>`).join('') : ''}${chipDevLog(r)}${r.proveedorOtro || r.contactoOtro ? '<span class="lg-otro" title="No está en la Maestra">Otros</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
         ${mover}
         <p class="meta">${esc(meta)}</p>
-        ${(r.ediciones || []).length ? (e => `<p class="lg-huella" title="${esc(r.ediciones.map(x => `${nombreVendedor(x.por)} · ${fechaHora(x.cuando)}: ${x.campos.join(', ')}`).join('\n'))}">✏️ Editada por ${esc(nombreVendedor(e.por))} · ${esc(fechaHora(e.cuando))} · cambió ${esc(e.campos.join(', '))}${r.ediciones.length > 1 ? ` · ${r.ediciones.length} ediciones` : ''}</p>`)(r.ediciones[r.ediciones.length - 1]) : ''}
+        ${(r.ediciones || []).length ? (e => `<p class="lg-huella" title="${esc(r.ediciones.map(x => `${nombreVendedor(x.por)} · ${fechaHora(x.cuando)}: ${x.campos.join(', ')}`).join('\n'))}">✏️ Editada por ${esc(nombreVendedor(e.por))} · ${esc(fechaHora(e.cuando))} · ${esc(e.campos.map(c => /^(asignó|dejó|cambió)/.test(c) ? c : 'cambió ' + c).join(', '))}${r.ediciones.length > 1 ? ` · ${r.ediciones.length} ediciones` : ''}</p>`)(r.ediciones[r.ediciones.length - 1]) : ''}
         ${docs ? `<div class="lg-docs">${docs}</div>` : ''}
         ${lineas}
         ${htmlPasosLog(r)}
