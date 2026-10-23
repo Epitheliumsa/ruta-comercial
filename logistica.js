@@ -416,7 +416,7 @@ function abrirLogForm(id) {
         </div>
         <div id="lgBCli">
         <label for="lgCliente"><span id="lgTxtCli">Cliente</span> <small>(Maestra de clientes)</small> <span id="lgReqCli"></span></label>
-        <input id="lgCliente" list="dlLogClientes" autocomplete="off" placeholder="Busca el cliente" value="${esc(r?.contacto || '')}" oninput="logInfoCliente()" onchange="logInfoCliente()"${r?.contacto ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
+        <input id="lgCliente" list="dlLogClientes" autocomplete="off" placeholder="Busca el cliente" value="${esc(r?.contacto || '')}" oninput="logInfoCliente()" onchange="completarClienteLog(); logInfoCliente()"${r?.contacto ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
         ${r?.contacto ? '<p class="ayuda lg-bloq-nota">🔒 El cliente no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}
         <datalist id="dlLogClientes">${clientes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
         <p class="ayuda" id="lgInfoCli"></p>
@@ -712,6 +712,7 @@ async function guardarLog(e, id) {
     const otroOficina = oficina.includes('otro') ? $('lgOfOtroTxt').value.trim() : '';
     if (oficina.includes('otro') && !otroOficina) return toast('Otro: escribe qué se hace en la oficina');
     // El cliente de la Maestra se guarda con su nombre exacto; uno que no esté en la Maestra, con nombre propio
+    if (!tp.vuelta && !(tp.oficina && !oficina.includes('aforar'))) { const rr = resolverClienteLog($('lgCliente').value); if (rr) $('lgCliente').value = rr; }
     const escrito = tp.oficina && !oficina.includes('aforar') ? '' : $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
     const lead = !zonaC && escrito ? leadPorNombre(escrito) : null;
     const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : lead ? lead.nombre : escrito ? nombrePropio(escrito) : '';
@@ -1032,6 +1033,23 @@ function antesCliente(nombre) {
 }
 // Lista de clientes del formulario: Maestra, leads y empleados (en Trámite área también los contactos guardados)
 const listaClientesLog = conContactos => [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre), ...Object.values(empleadosMaestra.filas).map(e => e.n), ...(conContactos ? otrosGuardados('cont').map(x => x.n) : [])])].sort((a, b) => a.localeCompare(b, 'es'));
+// El cliente se puede escribir a medias o sin puntos ("Bella Piel C.C Centro Mayor (Cm)"): si todas sus palabras llevan a UN solo cliente de la lista, se completa con su nombre exacto
+const palabrasLog = t => normalizar(t).replace(/[^a-z0-9]+/g, ' ').trim();
+function resolverClienteLog(texto) {
+    const t = String(texto || '').trim();
+    if (!t) return '';
+    const lista = listaClientesLog(false), exacto = lista.find(c => normalizar(c) === normalizar(t));
+    if (exacto) return exacto;
+    const toks = palabrasLog(t).split(' ').filter(Boolean);
+    const cand = toks.length ? lista.filter(c => { const k = ' ' + palabrasLog(c) + ' '; return toks.every(w => k.includes(' ' + w + ' ')); }) : [];
+    return cand.length === 1 ? cand[0] : '';
+}
+function completarClienteLog() {
+    const i = $('lgCliente'), v = i?.value.trim();
+    if (!v || tipoMarcado() === 'vuelta') return;
+    const r = resolverClienteLog(v);
+    if (r && r !== v) { i.value = r; toast('Cliente completado: ' + r); }
+}
 // Proveedores y contactos que NO son clientes ("Otros"): lo que se escribe a mano (con nombre propio) queda en una lista aparte, con su dirección y teléfono, para volver a escogerlo.
 // Vive aparte de las bases de datos (un registro 'lista-otros-log' que se sincroniza y comparte todo Logística). Los CLIENTES no se crean: solo salen de la Maestra.
 const ID_LISTA_OTROS = 'lista-otros-log';
