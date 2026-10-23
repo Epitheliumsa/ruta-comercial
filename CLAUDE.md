@@ -403,4 +403,4 @@
 - La huella "Editada por …" ya no antepone "cambió" a las acciones (asignó / dejó / cambió el despacho).
 
 ## Logística: remisiones
-- En la parada de Entrega / Envío, el bloque "PQR - Reacondicionamientos - Devoluciones - Remisiones" (`INCLUYE_ENVIO`) tiene también el tipo **Remisión** (`remision`, número de 6 cifras, sin serie; el número es opcional). Va en `incluyeDocs`; con una remisión sola la factura deja de ser obligatoria. Sale como chip, en la consulta por documento y en el Excel como el resto de lo que incluye. Pegar `Codigo.gs` (consulta por documento).
+- En la parada de Entrega / Envío, el bloque "PQR - Reacondicionamientos - Devoluciones - Remisiones" (`INCLUYE_ENVIO`) tiene también el tipo **Remisión** (`remision`, número de 6 cifras, sin serie; el número es opcional y libre: letras siempre en mayúscula, números y símbolos, sin límite de caracteres; solo se busca en «Consultar documento» si es solo de dígitos). Va en `incluyeDocs`; con una remisión sola la factura deja de ser obligatoria. Sale como chip, en la consulta por documento y en el Excel como el resto de lo que incluye. Pegar `Codigo.gs` (consulta por documento).

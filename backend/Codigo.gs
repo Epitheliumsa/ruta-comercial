@@ -472,7 +472,7 @@ function docsParada_(r) {
     if (d.ovi) docs.push({ t: 'facA', txt: nom(d.clase) + ' · A ' + d.ovi, num: seisCifras_(d.ovi) });
     if (d.ov) docs.push({ t: 'facB', txt: nom(d.clase) + ' · B ' + d.ov, num: seisCifras_(d.ov) });
   });
-  (r.incluyeDocs || []).forEach(d => docs.push({ t: d.k === 'rea_out' ? 'rea' : d.k === 'devolucion' ? 'dev' : d.k === 'remision' ? 'rem' : 'pqr', txt: (NOMBRE_INCLUYE_DOC_[d.k] || d.k) + ' ' + d.numero, num: seisCifras_(d.numero) }));
+  (r.incluyeDocs || []).forEach(d => docs.push({ t: d.k === 'rea_out' ? 'rea' : d.k === 'devolucion' ? 'dev' : d.k === 'remision' ? 'rem' : 'pqr', txt: (NOMBRE_INCLUYE_DOC_[d.k] || d.k) + ' ' + d.numero, num: d.k === 'remision' && !/^\d+$/.test(d.numero || '') ? '' : seisCifras_(d.numero) }));
   (r.facturasAforo || []).forEach(f => docs.push({ t: 'aforo', txt: 'Aforar · ' + (NOMBRE_CLASE_DOC_[f.clase] ? NOMBRE_CLASE_DOC_[f.clase] + ' · ' : '') + (f.serie || '') + ' ' + f.numero, num: seisCifras_(f.numero) }));
   (r.radicacion || []).forEach(d => { if (d.numero) docs.push({ t: 'rad', txt: (d.doc === 'nc' ? 'Radicar nota crédito RNC ' : 'Radicar factura ' + (d.serie || '') + ' ') + d.numero, num: seisCifras_(d.numero) }); });
   ((r.reporte || {}).devoluciones || []).forEach(d => docs.push({ t: 'dev', txt: (d.tipo === 'total' ? 'Devolución total: ' : 'Devolución parcial: ') + d.factura, num: seisCifras_(d.factura) }));

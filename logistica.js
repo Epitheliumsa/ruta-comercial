@@ -97,15 +97,21 @@ const OPC_INCLUYE = Object.entries(INCLUYE_ENVIO).map(([k, t]) => [k, t, '']);
 // Fila de documento: [tipo ▾] [serie] [número]. g = grupo (docs: facturas; aforo: facturas a aforar; inc: PQR, Reacondicionamientos, Devoluciones)
 const filaDoc = (g, f = {}) => {
     const opc = g === 'inc' ? OPC_INCLUYE : OPC_FACTURA, sel = opc.find(o => o[0] === f.k) || opc[0];
-    return `<div class="lg-fila-doc" data-g="${g}"><label class="lg-pc"><select class="lg-pref lg-serie lg-doc-sel" aria-label="Tipo de documento" onchange="cambiaFilaDoc(this)">${opc.map(([k, t, sr]) => `<option value="${k}" data-s="${sr}"${k === sel[0] ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><span class="lg-pref lg-doc-serie">${sel[2] || 'Nº'}</span><input class="lg-doc-num" ${NUM6} value="${esc(f.numero || '')}"></label><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarFilaDoc(this)" hidden>×</button></div>`;
+    return `<div class="lg-fila-doc" data-g="${g}"><label class="lg-pc"><select class="lg-pref lg-serie lg-doc-sel" aria-label="Tipo de documento" onchange="cambiaFilaDoc(this)">${opc.map(([k, t, sr]) => `<option value="${k}" data-s="${sr}"${k === sel[0] ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><span class="lg-pref lg-doc-serie">${sel[2] || 'Nº'}</span><input class="lg-doc-num" ${NUMDOC} value="${esc(f.numero || '')}"></label><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarFilaDoc(this)" hidden>×</button></div>`;
 };
 const contFilasDoc = g => $('lgFilas_' + g);
 function refrescarFilasDoc(g) { const filas = contFilasDoc(g).querySelectorAll('.lg-fila-doc'); filas.forEach(f => { f.querySelector('.lg-quitar').hidden = filas.length < 2; }); }
 function masFilaDoc(g) { contFilasDoc(g).insertAdjacentHTML('beforeend', filaDoc(g)); refrescarFilasDoc(g); contFilasDoc(g).lastElementChild.querySelector('input').focus(); logCampos(); }
 function quitarFilaDoc(btn) { const f = btn.closest('.lg-fila-doc'), g = f.dataset.g; f.remove(); refrescarFilasDoc(g); logCampos(); }
-function cambiaFilaDoc(sel) { const f = sel.closest('.lg-fila-doc'); f.querySelector('.lg-doc-serie').textContent = sel.selectedOptions[0].dataset.s || 'Nº'; f.querySelector('.lg-doc-num').placeholder = sel.value === 'remision' ? 'Nº (opcional)' : '000000'; }
+function cambiaFilaDoc(sel) {
+    const f = sel.closest('.lg-fila-doc'), n = f.querySelector('.lg-doc-num'), rem = sel.value === 'remision';
+    f.querySelector('.lg-doc-serie').textContent = sel.selectedOptions[0].dataset.s || 'Nº';
+    n.placeholder = rem ? 'Nº (opcional, letras y números)' : '000000'; n.inputMode = rem ? 'text' : 'numeric';
+    n.title = rem ? 'Libre: letras (en mayúscula), números y símbolos; puede ir vacío' : '6 cifras: se completa con ceros';
+    entradaNumDoc(n);
+}
 // Filas con número: [{ k, serie, numero }]
-const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: seisCifras(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero || x.k === 'remision');   // la remisión puede ir sin número
+const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: o.value === 'remision' ? f.querySelector('.lg-doc-num').value.trim().toUpperCase() : seisCifras(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero || x.k === 'remision');   // la remisión puede ir sin número
 // Lo ya guardado (A = OVI, B = OV) pasa a filas; una factura "Magistral Individual" con B se muestra como Magistral Individual NI
 const filasDeDocumentos = docs => (docs || []).flatMap(d => [d.ovi && { k: d.clase === 'mp' ? 'mi' : d.clase, numero: d.ovi }, d.ov && { k: d.clase === 'mi' ? 'mini' : d.clase, numero: d.ov }]).filter(Boolean);
 // Lo que se programó en la parada, uno por uno (cada factura A o B, cada documento que incluye, lo que se radica o se recoge): se marca en el reporte
@@ -125,6 +131,14 @@ const textoInc = d => [NOMBRE_INCLUYE[d.k] || d.k, d.numero].filter(Boolean).joi
 const textoDoc = d => [claseDoc(d.clase)?.t, d.ovi && `A ${d.ovi}`, d.ov && `B ${d.ov}`].filter(Boolean).join(' · ');
 // Números de factura y nota crédito: 6 cifras, se completan con ceros a la izquierda (58 → 000058)
 const seisCifras = v => { v = String(v || '').replace(/\D/g, ''); return v ? v.slice(-6).padStart(6, '0') : ''; };
+// Número de documento de la fila de facturas/PQR/etc.: 6 cifras (se completa con ceros); la remisión es libre: letras (siempre en mayúscula), números y símbolos, sin límite
+const NUMDOC = `placeholder="000000" inputmode="numeric" autocomplete="off" title="6 cifras: se completa con ceros" oninput="entradaNumDoc(this)" onblur="entradaNumDoc(this, true)"`;
+function entradaNumDoc(i, fin) {
+    const rem = i.closest('.lg-fila-doc')?.querySelector('.lg-doc-sel')?.value === 'remision';
+    if (rem) { i.value = i.value.toUpperCase(); return; }
+    i.value = i.value.replace(/\D/g, '').slice(0, 6);
+    if (fin) i.value = seisCifras(i.value);
+}
 const NUM6 = `placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="6" title="6 cifras: se completa con ceros" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="this.value = seisCifras(this.value)"`;
 const textoRad = d => d.doc === 'factura' ? `Radicar factura ${d.serie} ${d.numero || ''}`.trim()
     : d.doc === 'nc' ? `Radicar nota crédito RNC ${d.numero || ''}`.trim() : `Radicar: ${d.texto || ''}`;
@@ -1581,7 +1595,7 @@ function documentosDeParada(r) {
     const nom = d => claseDoc(d.clase)?.t || 'Pedido';
     return [
         ...(r.documentos || []).flatMap(d => [d.ovi && { t: 'facA', txt: `${nom(d)} · A ${d.ovi}`, num: d.ovi }, d.ov && { t: 'facB', txt: `${nom(d)} · B ${d.ov}`, num: d.ov }]),
-        ...(r.incluyeDocs || []).map(d => ({ t: d.k === 'pqr_out' || d.k === 'pqr' ? 'pqr' : d.k === 'rea_out' ? 'rea' : d.k === 'remision' ? 'rem' : 'dev', txt: textoInc(d), num: d.numero })),
+        ...(r.incluyeDocs || []).map(d => ({ t: d.k === 'pqr_out' || d.k === 'pqr' ? 'pqr' : d.k === 'rea_out' ? 'rea' : d.k === 'remision' ? 'rem' : 'dev', txt: textoInc(d), num: d.k === 'remision' && !/^\d+$/.test(d.numero || '') ? '' : d.numero })),
         ...(r.facturasAforo || []).map(f => ({ t: 'aforo', txt: `Aforar · ${textoFacAforoLargo(f)}`, num: f.numero })),
         ...(r.radicacion || []).map(d => ({ t: 'rad', txt: textoRad(d), num: d.numero || '', texto: d.texto || '' })),
         ...(r.reporte?.devoluciones || []).map(d => ({ t: 'dev', txt: textoDev(d), num: String(d.factura || '').replace(/\D/g, '').slice(-6) }))

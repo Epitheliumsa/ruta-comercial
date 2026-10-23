@@ -1783,7 +1783,7 @@ body.es-logistica .mc-periodo-btn { display: none; }
 .lg-tipo.pqr { background: #fae8ff; color: #86198f; }
 .lg-card .visita-cab h3 { display: inline; }
 .lg-docs { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
-.lg-doc-chip { background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d05; border-radius: 8px; padding: 3px 9px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.lg-doc-chip { background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d05; border-radius: 8px; padding: 3px 9px; font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; max-width: 100%; }
 .lg-doc { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: center; margin-bottom: 6px; }
 .lg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .form-rc .lg-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d5dfdc; border-radius: 99px; padding: 5px 12px; font-size: 13px; text-transform: none; letter-spacing: 0; font-weight: 600; color: #334155; cursor: pointer; margin: 0; background: #fff; }
