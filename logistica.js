@@ -386,8 +386,8 @@ function abrirLogForm(id) {
     const r = id ? registros[id] : null;
     if (r && r.tipo !== 'novedad' && r.estado !== 'pendiente') return toast('Esta parada ya se reportó');
     const mens = esCoordLog() || esAdmin();
-    const clientes = [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre), ...Object.values(empleadosMaestra.filas).map(e => e.n)])].sort((a, b) => a.localeCompare(b, 'es'));
-    const provs = [...new Set([...Object.values(proveedoresMaestra.filas).map(p => p.n), ...logRegs().map(x => x.proveedor)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    const clientes = listaClientesLog(false);
+    const provs = [...new Set([...Object.values(proveedoresMaestra.filas).map(p => p.n), ...otrosGuardados('prov').map(x => x.n), ...logRegs().map(x => x.proveedor)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
     const docs = k => (r?.documentos || []).filter(d => d.clase === k);
     const rads = k => (r?.radicacion || []).filter(d => d.doc === k);
     const rad = k => rads(k)[0];
@@ -421,13 +421,13 @@ function abrirLogForm(id) {
         <datalist id="dlLogClientes">${clientes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
         <p class="ayuda" id="lgInfoCli"></p>
         <div id="lgBDirSel" hidden><label for="lgDirSel">Dirección de entrega <small>(este cliente tiene varias)</small></label><select id="lgDirSel" onchange="elegirDirEntrega()"></select></div>
-        <p class="ayuda lg-otro-nota" id="lgOtroCont" hidden>🚫 Este contacto no está en la Maestra: la base está cerrada, escoge uno de la lista.</p>
+        <p class="ayuda lg-otro-nota" id="lgOtroCont" hidden>🆕 <b>Otros:</b> este contacto no está en la Maestra. Escribe su dirección y su teléfono; queda guardado para la próxima vez.</p>
         </div>
         <div id="lgBProv">
             <label for="lgProv">Proveedor ${REQ}</label>
             <input id="lgProv" list="dlLogProv" autocomplete="off" placeholder="Busca proveedor" oninput="logInfoProv()" onchange="logInfoProv()" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
             ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}
-            <p class="ayuda lg-otro-nota" id="lgOtroProv" hidden>🚫 Este proveedor no está en la Maestra: la base está cerrada, escoge uno de la lista.</p><datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+            <p class="ayuda lg-otro-nota" id="lgOtroProv" hidden>🆕 <b>Otros:</b> este proveedor no está en la Maestra. Escribe su dirección y su teléfono; queda guardado para la próxima vez.</p><datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
         </div>
         <div id="lgOfAforar" hidden>
             <label>Facturas a aforar ${REQ} <small>(escoge el tipo; puede ser más de una)</small></label>
@@ -548,6 +548,7 @@ function logCampos() {
     $('lgBCli').hidden = aProv || ((!!tp.recoleccion || !!tp.banco) && !conRad) || (!!tp.oficina && !aforar && !conRad);
     $('lgBProv').hidden = !conProv;
     $('lgTxtCli').textContent = k === 'vuelta' ? 'Contacto' : 'Cliente';
+    if ($('dlLogClientes').dataset.v !== String(k === 'vuelta')) { $('dlLogClientes').dataset.v = String(k === 'vuelta'); $('dlLogClientes').innerHTML = listaClientesLog(k === 'vuelta').map(c => `<option value="${esc(c)}">`).join(''); }
     logInfoCliente(false);
     $('lgCliente').placeholder = k === 'vuelta' ? 'Busca el contacto' : 'Busca el cliente';
     $('lgBDocs').hidden = !tp.docs;
@@ -584,7 +585,7 @@ function obligDirTelLog() {
 }
 // Dirección y teléfono del proveedor, de la maestra (si los trae); no pisa lo que escribe logística
 function logInfoProv() {
-    const nombre = ($('lgProv')?.value || '').trim(), p = proveedoresMaestra.filas[normalizar(nombre)];
+    const nombre = ($('lgProv')?.value || '').trim(), p = proveedoresMaestra.filas[normalizar(nombre)] || otroPorNombre('prov', nombre);
     // Un proveedor que no está en la Maestra es "Otros": dirección y teléfono a mano
     const otro = !!nombre && !p && !$('lgBProv').hidden;
     $('lgOtroProv').hidden = !otro;
@@ -605,19 +606,20 @@ function logInfoCliente(rellenar = true) {
     const nombre = $('lgCliente')?.value.trim();
     if (!$('lgInfoCli')) return;
     // Trámite área: un contacto que no está en la Maestra ni es lead es "Otros": dirección y teléfono a mano
-    const otroCont = tipoMarcado() === 'vuelta' && !!nombre && !zonaDeContacto(nombre) && !leadPorNombre(nombre);
+    const guardado = tipoMarcado() === 'vuelta' && otroPorNombre('cont', nombre);
+    const otroCont = tipoMarcado() === 'vuelta' && !!nombre && !zonaDeContacto(nombre) && !leadPorNombre(nombre) && !guardado;
     $('lgOtroCont').hidden = !otroCont;
     obligDirTelLog();
     if (!nombre) { $('lgInfoCli').textContent = ''; pintarDirSel(''); return; }
     const d = datosClienteLog(nombre);
     $('lgInfoCli').innerHTML = d.lead ? `✓ Lead${d.zona ? ' · ' + esc(d.zona) : ''}${d.comercial ? ' · ' + esc(nombreVendedor(d.comercial)) + ' verá esta entrega en el historial del cliente' : ''}`
         : d.comercial ? `✓ ${esc(d.zona)} · ${esc(nombreVendedor(d.comercial))} verá esta entrega en el historial del cliente${d.ciudad ? ' · ' + esc(d.ciudad) : ''}`
-        : empleadosMaestra.filas[normalizar(nombre)] ? '✓ Empleado' : '🚫 No está en la Maestra: la base está cerrada, escoge un cliente de la lista.';
+        : empleadosMaestra.filas[normalizar(nombre)] ? '✓ Empleado' : guardado ? '✓ Contacto guardado de otras veces' : tipoMarcado() === 'vuelta' ? 'Contacto fuera de la Maestra (Otros): no se le avisará a ningún comercial.' : '🚫 No está en la Maestra: la base está cerrada, escoge un cliente de la lista.';
     if (!rellenar) { pintarDirSel(nombre); return; }
     const ultima = logRegs().filter(x => x.contacto && normalizar(x.contacto) === normalizar(nombre) && (x.direccion || x.telefono)).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
     const poner = (campo, valor) => { if (valor && (!campo.value || campo.dataset.auto === '1')) { campo.value = valor; campo.dataset.auto = '1'; } };
-    poner($('lgDir'), d.dir || ultima?.direccion);
-    poner($('lgTel'), d.tel || ultima?.telefono);
+    poner($('lgDir'), d.dir || guardado?.dir || ultima?.direccion);
+    poner($('lgTel'), d.tel || guardado?.tel || ultima?.telefono);
     pintarDirSel(nombre);
 }
 // Un cliente con direcciones alternas: Logística escoge a cuál se entrega y se llenan dirección y teléfono
@@ -713,10 +715,11 @@ async function guardarLog(e, id) {
     const escrito = tp.oficina && !oficina.includes('aforar') ? '' : $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
     const lead = !zonaC && escrito ? leadPorNombre(escrito) : null;
     const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : lead ? lead.nombre : escrito ? nombrePropio(escrito) : '';
-    // Base cerrada: no se crean clientes, contactos ni proveedores nuevos desde Logística (solo los de la Maestra, los leads y los empleados; una parada vieja conserva el suyo)
-    if (escrito && !zonaC && !lead && !empleadosMaestra.filas[normalizar(escrito)] && escrito !== (antes?.contacto || '')) return toast('Escoge el cliente o contacto de la lista: la base está cerrada y no se crean nuevos');
+    // Base cerrada de CLIENTES: no se crean desde Logística (solo los de la Maestra, los leads y los empleados; una parada vieja conserva el suyo).
+    // Un proveedor o un contacto de Trámite área que no es cliente sí se escribe a mano (queda con nombre propio y guardado para la próxima vez)
+    if (!tp.vuelta && escrito && !zonaC && !lead && !empleadosMaestra.filas[normalizar(escrito)] && escrito !== (antes?.contacto || '')) return toast('Escoge el cliente de la lista: la base está cerrada y no se crean clientes nuevos');
     const provEscrito = (tp.recoleccion || aProv) ? $('lgProv').value.trim() : '';
-    if (provEscrito && Object.keys(proveedoresMaestra.filas).length && !proveedoresMaestra.filas[normalizar(provEscrito)] && provEscrito !== (antes?.proveedor || '')) return toast('Escoge el proveedor de la lista: la base está cerrada y no se crean proveedores nuevos');
+    const provNombre = provEscrito ? (proveedoresMaestra.filas[normalizar(provEscrito)]?.n || otroPorNombre('prov', provEscrito)?.n || nombrePropio(provEscrito)) : '';
     const cl = datosClienteLog(contacto);
     const base = antes || { id: nuevoId(), clase: 'logistica', estado: 'pendiente', creado: new Date().toISOString(), creadoPor: sesion.id };
     // El mismo cliente (o proveedor) ya tiene parada ese día: se pregunta si de verdad se va dos veces
@@ -726,7 +729,7 @@ async function guardarLog(e, id) {
     const nuevo = {
         ...base, ...(tp.oficina ? { oficina, facturasAforo, otroOficina } : {}), despacho: tp.oficina && oficina.includes('aforar') ? despachoSelLog() : '', tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
-        proveedor: tp.recoleccion || aProv ? $('lgProv').value.trim() : '', contactoOtro: tp.vuelta && !!contacto && !zonaC && !lead, proveedorOtro: (tp.recoleccion || aProv) && !!$('lgProv').value.trim() && !proveedoresMaestra.filas[normalizar($('lgProv').value)], materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
+        proveedor: tp.recoleccion || aProv ? provNombre : '', contactoOtro: tp.vuelta && !!contacto && !zonaC && !lead, proveedorOtro: (tp.recoleccion || aProv) && !!$('lgProv').value.trim() && !proveedoresMaestra.filas[normalizar($('lgProv').value)], materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
         area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco || (tp.oficina && !oficina.includes('aforar')) ? '' : $('lgDir').value.trim(), telefono: tp.banco || (tp.oficina && !oficina.includes('aforar')) ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
@@ -735,6 +738,9 @@ async function guardarLog(e, id) {
         if (cambios.length) nuevo.ediciones = [...(antes.ediciones || []), { por: sesion.id, cuando: new Date().toISOString(), campos: cambios }];
     }
     guardarRegistro(nuevo);
+    // Lo que no es cliente ni está en la Maestra queda guardado para la próxima vez
+    if (nuevo.proveedor && !proveedoresMaestra.filas[normalizar(nuevo.proveedor)]) recordarOtro('prov', nuevo.proveedor, nuevo.direccion, nuevo.telefono);
+    if (tp.vuelta && nuevo.contacto && !zonaC && !lead && !empleadosMaestra.filas[normalizar(nuevo.contacto)]) recordarOtro('cont', nuevo.contacto, nuevo.direccion, nuevo.telefono);
     cerrarModal();
     toast(antes ? 'Parada actualizada' : `Parada programada para el ${fechaCorta(fecha)}`);
     logi.fecha = fecha;
@@ -1023,6 +1029,24 @@ function antesCliente(nombre) {
     const regs = nombre ? logRegs().filter(x => x.contacto && normalizar(x.contacto) === normalizar(nombre) && x.reporte?.recibio)
         .sort((a, b) => (b.registrada || '').localeCompare(a.registrada || '')) : [];
     return { recibio: [...new Set(regs.map(x => x.reporte.recibio))] };
+}
+// Lista de clientes del formulario: Maestra, leads y empleados (en Trámite área también los contactos guardados)
+const listaClientesLog = conContactos => [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre), ...Object.values(empleadosMaestra.filas).map(e => e.n), ...(conContactos ? otrosGuardados('cont').map(x => x.n) : [])])].sort((a, b) => a.localeCompare(b, 'es'));
+// Proveedores y contactos que NO son clientes ("Otros"): lo que se escribe a mano (con nombre propio) queda en una lista aparte, con su dirección y teléfono, para volver a escogerlo.
+// Vive aparte de las bases de datos (un registro 'lista-otros-log' que se sincroniza y comparte todo Logística). Los CLIENTES no se crean: solo salen de la Maestra.
+const ID_LISTA_OTROS = 'lista-otros-log';
+const otrosGuardados = t => (registros[ID_LISTA_OTROS] && !registros[ID_LISTA_OTROS].borrado ? registros[ID_LISTA_OTROS].items || [] : []).filter(x => !t || x.t === t);
+const otroPorNombre = (t, nombre) => nombre ? otrosGuardados(t).find(x => normalizar(x.n) === normalizar(nombre)) : null;
+function recordarOtro(t, n, dir, tel) {
+    n = String(n || '').trim();
+    if (!n) return;
+    const todos = registros[ID_LISTA_OTROS] && !registros[ID_LISTA_OTROS].borrado ? [...(registros[ID_LISTA_OTROS].items || [])] : [];
+    const i = todos.findIndex(x => x.t === t && normalizar(x.n) === normalizar(n));
+    const item = { t, n, dir: String(dir || '').trim() || todos[i]?.dir || '', tel: String(tel || '').trim() || todos[i]?.tel || '' };
+    if (i >= 0 && todos[i].dir === item.dir && todos[i].tel === item.tel) return;
+    if (i >= 0) todos[i] = item; else todos.push(item);
+    const r = registros[ID_LISTA_OTROS] || { id: ID_LISTA_OTROS, clase: 'lista', creado: new Date().toISOString() };
+    guardarRegistro({ ...r, vendedor: sesion.id, fecha: hoy(), items: todos.sort((a, b) => a.n.localeCompare(b.n, 'es')) });
 }
 // Transportadoras: lista que se va llenando sola con lo que digitan en el reporte. Vive aparte (un registro 'lista-transportadoras' que se sincroniza), no en las bases de datos.
 // La primera vez se alimenta con las de las paradas ya guardadas; después solo con lo que se digita (y se puede quitar un error).

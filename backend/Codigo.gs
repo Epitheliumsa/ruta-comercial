@@ -95,7 +95,7 @@ function listar_(usuario, desde, hasta) {
     // Acompañamientos: también los ve quien pidió el acompañamiento (dueño de la visita)
     .filter(f => f[0] && (usuario.area === 'logistica'
       // Logística: solo lo de logística (el coordinador, de todos los auxiliares; cada auxiliar, solo lo que se le programó o asignó: al asignar, la parada pasa a su nombre)
-      ? (f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id || String(f[6]).indexOf('"previos":[') >= 0 && String(f[6]).indexOf('"' + usuario.id + '"') >= 0 && datosPrevios_(f, usuario.id))) || f[0] === 'lista-transportadoras'
+      ? (f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id || String(f[6]).indexOf('"previos":[') >= 0 && String(f[6]).indexOf('"' + usuario.id + '"') >= 0 && datosPrevios_(f, usuario.id))) || f[0] === 'lista-transportadoras' || f[0] === 'lista-otros-log'
       : (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'
       // Mercadeo: ve visitas, ventas, novedades y actividades de todo el equipo (nada de logística, leads ni acompañamientos)
       || (usuario.verEquipo && ['visita', 'ventas', 'novedad', 'actividad'].indexOf(f[1]) >= 0)
@@ -103,7 +103,7 @@ function listar_(usuario, desde, hasta) {
       // Cada comercial ve las entregas de logística de sus clientes
       || (f[1] === 'logistica' && String(f[6]).indexOf('"comercial":"' + usuario.id + '"') >= 0))))
     // Los contactos proyecto y los PDF de las circulares se envían siempre, sin importar la fecha
-    .filter(f => f[1] === 'proyecto' || f[0] === 'circulares-pdf' || f[0] === 'lista-transportadoras' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
+    .filter(f => f[1] === 'proyecto' || f[0] === 'circulares-pdf' || f[0] === 'lista-transportadoras' || f[0] === 'lista-otros-log' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
     .map(f => {
       const p = JSON.parse(f[6]);
       // Una parada que se pasó a otra persona: a quien la tenía solo le llega una marca mínima (sin cliente, dirección ni detalle) para que su teléfono deje de mostrarla
@@ -140,7 +140,7 @@ function guardar_(usuario, registros) {
       const subeVentas = r.clase === 'ventas' && usuario.subeVentas;
       // Logística: solo logística escribe registros de logística (el coordinador, los de todos; el auxiliar, los suyos)
       // (excepto la lista de transportadoras, que Logística llena y comparte)
-      if (usuario.area === 'logistica' && r.clase !== 'logistica' && !(r.id === 'lista-transportadoras' && r.clase === 'lista')) return;
+      if (usuario.area === 'logistica' && r.clase !== 'logistica' && !((r.id === 'lista-transportadoras' || r.id === 'lista-otros-log') && r.clase === 'lista')) return;
       const previoLog = r.clase === 'logistica' && filaDe[r.id] ? JSON.parse(valores[filaDe[r.id] - 1][6]) : null;
       const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || (previoLog ? previoLog.vendedor === usuario.id : r.vendedor === usuario.id)) : usuario.admin);
       if (r.clase === 'logistica' && !logistica) return;

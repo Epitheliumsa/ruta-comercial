@@ -415,4 +415,6 @@
 ## Eliminar solo el administrador y base cerrada de clientes
 - **Eliminar paradas de Logística**: **solo el administrador** (el botón no sale para los demás y el servidor lo exige: `guardar_` rechaza `borrado` en paradas que no son novedad si no es `usuario.admin`).
   En la agenda comercial **no cambió**: quien programó una visita futura la elimina directo (queda la huella en rojo); las visitas ya vencidas o reportadas piden autorización al administrador.
-- **Base cerrada en Logística**: no se crean clientes, contactos ni proveedores nuevos (`guardarLog`): hay que escogerlos de la Maestra (también valen los leads y los empleados). Una parada vieja conserva el suyo.
+- **Base cerrada de CLIENTES en Logística**: no se crean clientes nuevos (`guardarLog`): hay que escogerlos de la Maestra (también valen los leads y los empleados); una parada vieja conserva el suyo.
+  Un **proveedor** o un **contacto de Trámite área** que no es cliente sí se escribe a mano: queda con nombre propio (`nombrePropio`) y **guardado en memoria** para la próxima vez, con su dirección y teléfono
+  (registro `lista-otros-log`, clase `lista`, `items: [{t: 'prov'|'cont', n, dir, tel}]`; se sincroniza y lo ven todos en Logística; no es una base de datos; `recordarOtro`, `otrosGuardados`). Los contactos guardados solo salen en la lista de Trámite área, no en la de clientes.
