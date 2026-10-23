@@ -397,5 +397,7 @@
 ## Logística: quién ve qué (visual)
 - El coordinador (Javier) y el administrador ven **todas** las paradas, incluido si ya se aforó o no y a quién se asignó. Eric y Deelan ven **solo las suyas**: las que se les programaron o se les asignaron
   (al asignar, la parada pasa a su nombre: `vendedor`) — `logVisibles` en `logistica.js`. Ya no hay "Yo lo envío / entrego": el despacho lo asigna el coordinador (el auxiliar ve "Por asignar: lo asigna Javier Arjona").
-- Pendiente (a pedido): que el servidor (`listar_`, `enVentanaFila_` en `Codigo.gs`) tampoco envíe a los auxiliares las paradas de otros; hoy solo se filtra en la pantalla.
+- El servidor también lo aplica (`listar_` y `guardar_` en `Codigo.gs`): un auxiliar solo recibe y solo escribe las paradas cuyo `vendedor` es él. `enVentanaFila_` (parada compartida) se retiró.
+  Al asignar a otra persona, la parada guarda `previos: [id de quienes la tuvieron]`; a ellos el servidor les manda solo una marca mínima (`traspasada: true`: id, tipo, fecha, estado, vendedor nuevo, sin cliente ni dirección) para que su teléfono la deje de mostrar.
+  `logRegs()` en `logistica.js` también filtra por `vendedor` en el teléfono de un auxiliar. Pegar `Codigo.gs` y crear Nueva versión.
 - La huella "Editada por …" ya no antepone "cambió" a las acciones (asignó / dejó / cambió el despacho).

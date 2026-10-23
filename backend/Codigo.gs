@@ -87,16 +87,6 @@ function hoja_() {
   return h;
 }
 
-// Parada en pasos (aforo → despacho) todavía abierta: la ve todo Logística (no solo quien la reportó)
-function enVentanaFila_(f) {
-  try {
-    const p = JSON.parse(f[6]);
-    // Aforo y despacho en pasos: mientras esté abierta, todo Logística la ve y la puede avanzar
-    if (p.despacho && p.tipo === 'oficina' && p.estado === 'pendiente') return true;
-    return false;
-  } catch (e) { return false; }
-}
-
 // El comercial solo ve lo suyo; el jefe ve todo el equipo
 function listar_(usuario, desde, hasta) {
   const filas = hoja_().getDataRange().getValues().slice(1);
@@ -104,8 +94,8 @@ function listar_(usuario, desde, hasta) {
     // La parrilla, las actividades del mes y los PDF de las circulares (clase 'mensual') los ve todo el equipo
     // Acompañamientos: también los ve quien pidió el acompañamiento (dueño de la visita)
     .filter(f => f[0] && (usuario.area === 'logistica'
-      // Logística: solo lo de logística (el coordinador, de todos los auxiliares; cada auxiliar, lo suyo)
-      ? (f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id || enVentanaFila_(f))) || f[0] === 'lista-transportadoras'
+      // Logística: solo lo de logística (el coordinador, de todos los auxiliares; cada auxiliar, solo lo que se le programó o asignó: al asignar, la parada pasa a su nombre)
+      ? (f[1] === 'logistica' && (usuario.coordLogistica || f[2] === usuario.id || String(f[6]).indexOf('"previos":[') >= 0 && String(f[6]).indexOf('"' + usuario.id + '"') >= 0 && datosPrevios_(f, usuario.id))) || f[0] === 'lista-transportadoras'
       : (usuario.tipo === 'jefe' || f[2] === usuario.id || f[1] === 'mensual'
       // Mercadeo: ve visitas, ventas, novedades y actividades de todo el equipo (nada de logística, leads ni acompañamientos)
       || (usuario.verEquipo && ['visita', 'ventas', 'novedad', 'actividad'].indexOf(f[1]) >= 0)
@@ -114,7 +104,18 @@ function listar_(usuario, desde, hasta) {
       || (f[1] === 'logistica' && String(f[6]).indexOf('"comercial":"' + usuario.id + '"') >= 0))))
     // Los contactos proyecto y los PDF de las circulares se envían siempre, sin importar la fecha
     .filter(f => f[1] === 'proyecto' || f[0] === 'circulares-pdf' || f[0] === 'lista-transportadoras' || ((!desde || String(f[3]) >= desde) && (!hasta || String(f[3]) <= hasta)))
-    .map(f => JSON.parse(f[6]));
+    .map(f => {
+      const p = JSON.parse(f[6]);
+      // Una parada que se pasó a otra persona: a quien la tenía solo le llega una marca mínima (sin cliente, dirección ni detalle) para que su teléfono deje de mostrarla
+      if (usuario.area === 'logistica' && !usuario.coordLogistica && p.clase === 'logistica' && p.vendedor !== usuario.id)
+        return { id: p.id, clase: 'logistica', etapa: p.etapa, tipo: p.tipo, vendedor: p.vendedor, fecha: p.fecha, estado: p.estado, actualizado: p.actualizado, traspasada: true };
+      return p;
+    });
+}
+
+// Parada que antes tuvo esta persona (campo "previos") y que hoy tiene otra
+function datosPrevios_(f, id) {
+  try { const p = JSON.parse(f[6]); return (p.previos || []).indexOf(id) >= 0 && p.vendedor !== id; } catch (e) { return false; }
 }
 
 // Guarda o reemplaza cada registro; gana la versión más reciente
@@ -141,8 +142,7 @@ function guardar_(usuario, registros) {
       // (excepto la lista de transportadoras, que Logística llena y comparte)
       if (usuario.area === 'logistica' && r.clase !== 'logistica' && !(r.id === 'lista-transportadoras' && r.clase === 'lista')) return;
       const previoLog = r.clase === 'logistica' && filaDe[r.id] ? JSON.parse(valores[filaDe[r.id] - 1][6]) : null;
-      const enPasosLog = !!previoLog && previoLog.tipo === 'oficina' && !!previoLog.despacho && previoLog.estado === 'pendiente' && usuario.area === 'logistica';
-      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || r.vendedor === usuario.id || enPasosLog) : usuario.admin);
+      const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || (previoLog ? previoLog.vendedor === usuario.id : r.vendedor === usuario.id)) : usuario.admin);
       if (r.clase === 'logistica' && !logistica) return;
       // Mercadeo solo escribe los enlaces PDF de las circulares (clase 'mensual', id circulares-pdf)
       if (usuario.tipo === 'mercadeo' && !(usuario.subeCirculares && r.id === 'circulares-pdf' && r.clase === 'mensual')) return;

@@ -53,7 +53,8 @@ const MOTIVOS_LOG = ['No estaba quien recibe', 'Lugar cerrado', 'Dirección inco
 const logi = { fecha: '', mensajero: '', filtro: '', busca: '', soloLectura: false };
 
 // ---------- DATOS ----------
-const logRegs = () => visibles().filter(r => r.clase === 'logistica' && r.tipo !== 'novedad');
+// Un auxiliar de Logística solo maneja lo suyo (también descarta lo que un equipo tenga guardado de antes de que el servidor dejara de enviarlo)
+const logRegs = () => visibles().filter(r => r.clase === 'logistica' && r.tipo !== 'novedad' && (!esLogistica() || esCoordLog() || r.vendedor === sesion.id));
 // Novedades del equipo de Logística (cita médica, incapacidad, permiso, vacaciones): se guardan como registros de logística de tipo 'novedad'
 const NOVEDADES_LOG = ['Cita médica', 'Incapacidad', 'Permiso', 'Vacaciones'];
 const ICONO_NOV = { 'Cita médica': '🩺', Incapacidad: '🤒', Permiso: '📝', Vacaciones: '🌴' };
@@ -777,7 +778,7 @@ function asignarDespachoLog(r, quien, fecha, hora) {
     const antes = r.asignado?.a;
     const mismo = logRegs().filter(x => x.fecha === fecha && x.vendedor === quien && x.id !== r.id);
     const orden = r.vendedor === quien && r.fecha === fecha ? r.orden : Math.max(0, ...mismo.map(x => x.orden || 0)) + 1;
-    guardarRegistro({ ...r, vendedor: quien, fecha, hora, orden, asignado: { a: quien, por: sesion.id, cuando: new Date().toISOString() },
+    guardarRegistro({ ...r, previos: quien !== r.vendedor ? [...new Set([...(r.previos || []), r.vendedor])] : (r.previos || []), vendedor: quien, fecha, hora, orden, asignado: { a: quien, por: sesion.id, cuando: new Date().toISOString() },
         ediciones: [...(r.ediciones || []), { por: sesion.id, cuando: new Date().toISOString(), campos: [antes && antes !== quien ? `cambió el despacho de ${nombreVendedor(antes)} a ${nombreVendedor(quien)}` : `asignó el despacho a ${nombreVendedor(quien)}`] }] });
 }
 function abrirAsignarDespacho(id) {
