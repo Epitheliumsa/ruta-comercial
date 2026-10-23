@@ -103,9 +103,9 @@ const contFilasDoc = g => $('lgFilas_' + g);
 function refrescarFilasDoc(g) { const filas = contFilasDoc(g).querySelectorAll('.lg-fila-doc'); filas.forEach(f => { f.querySelector('.lg-quitar').hidden = filas.length < 2; }); }
 function masFilaDoc(g) { contFilasDoc(g).insertAdjacentHTML('beforeend', filaDoc(g)); refrescarFilasDoc(g); contFilasDoc(g).lastElementChild.querySelector('input').focus(); logCampos(); }
 function quitarFilaDoc(btn) { const f = btn.closest('.lg-fila-doc'), g = f.dataset.g; f.remove(); refrescarFilasDoc(g); logCampos(); }
-function cambiaFilaDoc(sel) { sel.closest('.lg-fila-doc').querySelector('.lg-doc-serie').textContent = sel.selectedOptions[0].dataset.s || 'Nº'; }
+function cambiaFilaDoc(sel) { const f = sel.closest('.lg-fila-doc'); f.querySelector('.lg-doc-serie').textContent = sel.selectedOptions[0].dataset.s || 'Nº'; f.querySelector('.lg-doc-num').placeholder = sel.value === 'remision' ? 'Nº (opcional)' : '000000'; }
 // Filas con número: [{ k, serie, numero }]
-const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: seisCifras(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero);
+const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: seisCifras(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero || x.k === 'remision');   // la remisión puede ir sin número
 // Lo ya guardado (A = OVI, B = OV) pasa a filas; una factura "Magistral Individual" con B se muestra como Magistral Individual NI
 const filasDeDocumentos = docs => (docs || []).flatMap(d => [d.ovi && { k: d.clase === 'mp' ? 'mi' : d.clase, numero: d.ovi }, d.ov && { k: d.clase === 'mi' ? 'mini' : d.clase, numero: d.ov }]).filter(Boolean);
 // Lo que se programó en la parada, uno por uno (cada factura A o B, cada documento que incluye, lo que se radica o se recoge): se marca en el reporte
@@ -121,7 +121,7 @@ const chipDevLog = r => { const l = r.reporte?.devoluciones || []; return l.leng
 const facturasDeParada = r => (r.documentos || []).flatMap(d => [d.ovi && `${claseDoc(d.clase)?.t || 'Pedido'} · A ${d.ovi}`, d.ov && `${claseDoc(d.clase)?.t || 'Pedido'} · B ${d.ov}`]).filter(Boolean);
 const filaDev = r => `<div class="lg-dev-fila"><select class="lg-dev-fac" aria-label="Factura devuelta">${facturasDeParada(r).map(f => `<option>${esc(f)}</option>`).join('')}</select><select class="lg-dev-tipo" aria-label="Total o parcial"><option value="total">Total</option><option value="parcial">Parcial</option></select><input class="lg-dev-det" maxlength="100" autocomplete="off" placeholder="Motivo y qué devolvieron (productos, unidades)"><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="this.closest('.lg-dev-fila').remove()">×</button></div>`;
 function masDev(id) { $('lgDevLista').insertAdjacentHTML('beforeend', filaDev(registros[id])); $('lgDevLista').lastElementChild.querySelector('input').focus(); }
-const textoInc = d => `${NOMBRE_INCLUYE[d.k] || d.k} ${d.numero}`;
+const textoInc = d => [NOMBRE_INCLUYE[d.k] || d.k, d.numero].filter(Boolean).join(' ');
 const textoDoc = d => [claseDoc(d.clase)?.t, d.ovi && `A ${d.ovi}`, d.ov && `B ${d.ov}`].filter(Boolean).join(' · ');
 // Números de factura y nota crédito: 6 cifras, se completan con ceros a la izquierda (58 → 000058)
 const seisCifras = v => { v = String(v || '').replace(/\D/g, ''); return v ? v.slice(-6).padStart(6, '0') : ''; };
@@ -298,7 +298,7 @@ function tarjetaLog(r, n, total) {
     const titulo = r.contacto ? `<h3 class="cliente-link" data-c="${esc(r.contacto)}" onclick="verCliente(this.dataset.c, '${esc(r.comercial || '')}')" title="Ver historial del cliente">${esc(r.contacto)}</h3>`
         : r.proveedor ? `<h3 class="cliente-link" data-c="${esc(r.proveedor)}" onclick="verProveedor(this.dataset.c)" title="Ver la ficha del proveedor">${esc(tituloLog(r))}</h3>` : `<h3>${esc(tituloLog(r))}</h3>`;
     const docs = (r.documentos || []).map(d => `<span class="lg-doc-chip">${esc(claseDoc(d.clase)?.t || 'Pedido')}${d.ovi ? ` · A <b>${esc(d.ovi)}</b>` : ''}${d.ov ? ` · B <b>${esc(d.ov)}</b>` : ''}</span>`).join('')
-        + (r.incluyeDocs || []).map(d => `<span class="lg-doc-chip">${esc(NOMBRE_INCLUYE[d.k] || d.k)} · <b>${esc(d.numero)}</b></span>`).join('')
+        + (r.incluyeDocs || []).map(d => `<span class="lg-doc-chip">${esc(NOMBRE_INCLUYE[d.k] || d.k)}${d.numero ? ` · <b>${esc(d.numero)}</b>` : ''}</span>`).join('')
         + (r.radicacion || []).map(d => `<span class="lg-doc-chip rad">${esc(textoRad(d))}</span>`).join('');
     const lineas = [
         r.destino ? `<b>${repTipoLog(r) === 'envio' ? 'Destino' : 'Entregado en'}:</b> ${esc(r.destino)}${r.dirDestino ? ` · ${enlaceDir(r.dirDestino, r.destino)}` : ''}${r.telDestino ? ` · ${enlacesTel(r.telDestino)}` : ''}${r.transportadora ? ` · <b>Transportadora:</b> ${esc(r.transportadora)}` : ''}` : '',
@@ -668,7 +668,7 @@ async function guardarLog(e, id) {
     const incluyeDocs = tipo === 'entrega' || tipo === 'envio' ? filasDoc('inc').map(x => ({ k: x.k, numero: x.numero })) : [];
     const incluye = [...new Set(incluyeDocs.map(d => d.k))];
     // Una misma factura no se repite dentro de la parada
-    const claves = [...documentos.flatMap(d => [d.ov && `B ${d.ov}`, d.ovi && `A ${d.ovi}`]), ...incluyeDocs.map(d => `${d.k} ${d.numero}`), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
+    const claves = [...documentos.flatMap(d => [d.ov && `B ${d.ov}`, d.ovi && `A ${d.ovi}`]), ...incluyeDocs.filter(d => d.numero).map(d => `${d.k} ${d.numero}`), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
     const repetida = claves.find((x, i) => claves.indexOf(x) !== i);
     if (repetida) return toast('Hay una factura repetida en la parada: revisa los números');
     if ((tipo === 'envio' || tipo === 'entrega') && !incluye.length && !documentos.length) return toast('Marca qué pedido llevas y escribe sus números');
