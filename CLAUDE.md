@@ -401,3 +401,10 @@
   Al asignar a otra persona, la parada guarda `previos: [id de quienes la tuvieron]`; a ellos el servidor les manda solo una marca mínima (`traspasada: true`: id, tipo, fecha, estado, vendedor nuevo, sin cliente ni dirección) para que su teléfono la deje de mostrar.
   `logRegs()` en `logistica.js` también filtra por `vendedor` en el teléfono de un auxiliar. Pegar `Codigo.gs` y crear Nueva versión.
 - La huella "Editada por …" ya no antepone "cambió" a las acciones (asignó / dejó / cambió el despacho).
+
+## Vista previa antes de publicar (carpeta `pruebas/`)
+- Para que el administrador vea un cambio con datos reales **antes** de publicarlo: `python3 herramientas/vista_previa.py <rama>` copia esa rama a `pruebas/` y se sube a `main`
+  **tocando solo `pruebas/` y la herramienta** (nunca los archivos de la raíz), con la confirmación del administrador. Se ve en https://epitheliumsa.github.io/ruta-comercial/pruebas/ — modo prueba permanente (franja "VISTA PREVIA", nada se guarda en el servidor, sin service worker).
+- Flujo: trabajar en una rama → `vista_previa.py` → (con su confirmación) subir **solo** `pruebas/` → el administrador revisa → ajustes (se repite) → con su "sí, publica" se publica la rama a la raíz y se avisa si hay que pegar `Codigo.gs`.
+- Subir `pruebas/` a `main` y publicar la raíz siguen necesitando la confirmación del administrador (regla de arriba: nunca publicar sin confirmación). Los cambios de `Codigo.gs` no se ven en la vista previa (el servidor es uno solo).
+- El enlace `?prueba` de la app oficial sigue siendo la app publicada en modo prueba; no muestra ramas.

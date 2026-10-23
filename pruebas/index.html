@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="only light">
+    <meta name="theme-color" content="#006b4f">
+    <title>Visita Comercial</title>
+    <script>
+        // MODO PRUEBA (dirección con ?prueba): trabaja con los datos reales pero NO guarda nada en el servidor, y lo que se haga
+        // en este teléfono queda aparte de los datos reales (otro espacio de almacenamiento).
+        (function () {
+            /* vista previa: siempre en modo prueba */
+            window.MODO_PRUEBA = true;
+            const real = window.localStorage, P = 'prueba_', propias = () => Object.keys(real).filter(k => k.indexOf(P) === 0);
+            const aparte = { getItem: k => real.getItem(P + k), setItem: (k, v) => real.setItem(P + k, String(v)), removeItem: k => real.removeItem(P + k),
+                clear: () => propias().forEach(k => real.removeItem(k)), key: i => (propias()[i] || '').slice(P.length) || null, get length() { return propias().length; } };
+            try { Object.defineProperty(window, 'localStorage', { value: aparte, configurable: true }); if (window.localStorage !== aparte) throw 0; }
+            catch (e) {   // navegadores que no dejan reemplazar localStorage: se desvían sus métodos
+                const sp = Storage.prototype, g = sp.getItem, s = sp.setItem, r = sp.removeItem;
+                sp.getItem = function (k) { return this === real ? g.call(this, P + k) : g.call(this, k); };
+                sp.setItem = function (k, v) { return this === real ? s.call(this, P + k, v) : s.call(this, k, v); };
+                sp.removeItem = function (k) { return this === real ? r.call(this, P + k) : r.call(this, k); };
+            }
+            document.title = 'VISTA PREVIA · Visita Comercial';
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.insertAdjacentHTML('afterbegin', '<div class="banner-prueba">🧪 VISTA PREVIA · datos reales · nada de lo que hagas queda guardado · aún no está publicado</div><div class="sello-prueba">VISTA PREVIA</div>');
+            });
+        })();
+    </script>
+    <link rel="stylesheet" href="styles.css?v=202610231234">
+    <link rel="stylesheet" href="visitas.css?v=202610231234">
+
+    <!-- Ícono y ajustes para instalar la app en la pantalla de inicio -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Visita Comercial">
+</head>
+<body>
+    <div id="app">
+        <!-- LOGIN -->
+        <div id="loginScreen" class="screen active">
+            <div class="login-container">
+                <div class="logo-login">
+                    <img src="logo.png" alt="Epithelium Logo">
+                </div>
+                <h1>Visita Comercial</h1>
+                <p>Ingresa tu usuario y clave</p>
+                <input type="text" id="accessUser" placeholder="Usuario" maxlength="40" autocapitalize="none" autocomplete="username" onkeydown="if(event.key==='Enter')ingresar()">
+                <input type="password" id="accessCode" placeholder="Clave" maxlength="30" autocomplete="current-password" onkeydown="if(event.key==='Enter')ingresar()">
+                <button onclick="ingresar()">Acceder</button>
+                <p id="errorMsg" class="error"></p>
+            </div>
+        </div>
+
+        <!-- INICIO -->
+        <div id="homeScreen" class="screen app-screen">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Visita Comercial</h1>
+                </div>
+                <button class="logout-btn" onclick="cerrarSesion()">Salir</button>
+            </div>
+
+            <div class="home-menu">
+                <p class="home-intro" id="homeIntro"></p>
+                <button class="home-btn home-btn-plan" onclick="abrirAgenda()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="10" width="34" height="31" rx="3"/><path d="M7 19h34M16 6v8M32 6v8"/><path d="M16 28l4 4 8-8"/></svg>
+                    <span class="home-btn-text"><strong>Plan de Trabajo</strong><small id="homeAgendaTxt">Programa y registra tus visitas del día</small></span>
+                </button>
+                <button class="home-btn home-btn-visiplan" onclick="abrirVisiplan()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="32" rx="3"/><path d="M6 18h36M15 5v8M33 5v8M18 18v23M30 18v23M6 29.5h36"/><path d="M21.5 22.5l5 5M26.5 22.5l-5 5"/></svg>
+                    <span class="home-btn-text"><strong>Visiplan del mes</strong><small id="homeVisiplanTxt">Marca con X qué días visitas a cada cliente</small></span>
+                </button>
+                <button class="home-btn home-btn-panel para-mer" id="btnPanel" onclick="abrirPanel()" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 41h34"/><rect x="10" y="24" width="7" height="13" rx="1.5"/><rect x="21" y="14" width="7" height="23" rx="1.5"/><rect x="32" y="19" width="7" height="18" rx="1.5"/></svg>
+                    <span class="home-btn-text"><strong>Panel del equipo</strong><small>Cumplimiento de visitas y actividades por vendedor</small></span>
+                </button>
+                <button class="home-btn home-btn-panel" id="btnPanelZona" onclick="abrirPanel()" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 41h34"/><rect x="10" y="24" width="7" height="13" rx="1.5"/><rect x="21" y="14" width="7" height="23" rx="1.5"/><rect x="32" y="6" width="7" height="31" rx="1.5"/></svg>
+                    <span class="home-btn-text"><strong>Panel Zona</strong><small>Cumplimiento de visitas, actividades y cuota de tu zona</small></span>
+                </button>
+                <button class="home-btn home-btn-act para-mer" onclick="abrirActividades()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 12h22M17 24h22M17 36h22"/><path d="M6 11l3 3 5-5M6 23l3 3 5-5"/><rect x="6" y="33" width="7" height="7" rx="1.5"/></svg>
+                    <span class="home-btn-text"><strong>Actividades-Circulares</strong><small id="homeActTxt">Circulares vigentes y tareas del mes</small></span>
+                </button>
+                <button class="home-btn home-btn-maestra para-log para-mer" onclick="abrirMaestra()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="6" width="32" height="36" rx="3"/><circle cx="24" cy="18" r="5"/><path d="M15 32c1.5-5 5-7 9-7s7.5 2 9 7"/><path d="M15 37h18"/></svg>
+                    <span class="home-btn-text"><strong>Maestro Contactos</strong><small id="maestraTxt">Clientes y médicos de tu zona</small></span>
+                </button>
+                <a class="home-btn home-btn-vade para-log para-mer" href="https://epitheliumsa.github.io/vademecum-epithelium/" target="_blank" rel="noopener" onclick="abrirVademecum(event)">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 6h16v6H16zM13 12h22a3 3 0 0 1 3 3v24a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3V15a3 3 0 0 1 3-3z"/><path d="M10 22h28M10 34h28"/><path d="M24 25.5c-2 2.6-2 4.5 0 4.5s2-1.9 0-4.5z"/></svg>
+                    <span class="home-btn-text"><strong>Vademécum Epithelium</strong><small>Productos, materias primas y portafolios de clientes</small></span>
+                </a>
+                <button class="home-btn home-btn-proy" onclick="Object.assign(filtroLeads, { busca: '', vendedor: '', estado: 'activas', tipo: '' }); abrirProyectos()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="20" cy="16" r="7"/><path d="M7 40v-2a12 12 0 0 1 12-12h2a12 12 0 0 1 8 3"/><path d="M36 28v12M30 34h12"/></svg>
+                    <span class="home-btn-text"><strong>Leads</strong><small id="proyectosTxt">Contactos nuevos y su seguimiento</small></span>
+                </button>
+                <button class="home-btn home-btn-log para-log" id="btnLogistica" onclick="abrirLogistica()" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 12h26v22H4zM30 20h9l5 6v8H30z"/><circle cx="13" cy="36" r="4"/><circle cx="36" cy="36" r="4"/></svg>
+                    <span class="home-btn-text"><strong>Logística</strong><small id="homeLogTxt">Programa la ruta y reporta entregas, envíos y recolecciones</small></span>
+                </button>
+                <button class="home-btn home-btn-crea" id="btnCreacion" onclick="abrirProyectos('solicitud')" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 6h17l9 9v27H12z"/><path d="M29 6v9h9"/><path d="M19 29l4 4 8-9"/></svg>
+                    <span class="home-btn-text"><strong>Solicitudes de creación</strong><small id="creacionTxt"></small></span>
+                </button>
+                <button class="home-btn home-btn-sol" id="btnSolicitudes" onclick="abrirSolicitudes()" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 14h28M19 14V9h10v5M14 14l2 26h16l2-26"/><path d="M21 21v12M27 21v12"/></svg>
+                    <span class="home-btn-text"><strong>Solicitudes de eliminación y corrección</strong><small id="solicitudesTxt"></small></span>
+                </button>
+                <button class="home-btn home-btn-desc" onclick="abrirDescarga()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 6h17l9 9v27H12z"/><path d="M29 6v9h9"/><path d="M25 21v13M19.5 28.5L25 34l5.5-5.5"/></svg>
+                    <span class="home-btn-text"><strong>Descargar informe <span class="en-pruebas">- en pruebas</span></strong><small>Excel con visitas y actividades del mes</small></span>
+                </button>
+                <button class="home-btn home-btn-doc para-log" id="btnConsultaDoc" onclick="abrirConsultaDoc()">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="21" cy="21" r="11"/><path d="M29.5 29.5L40 40"/><path d="M16 21h10M16 25h6"/></svg>
+                    <span class="home-btn-text"><strong>Consultar documento</strong><small>Pedido, factura, PQR/OUT, REA/OUT, devolución, aforo: busca por número de 6 cifras</small></span>
+                </button>
+                <button class="home-btn home-btn-bases" id="btnBases" onclick="abrirBases()" style="display:none">
+                    <svg viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="12" rx="14" ry="6"/><path d="M10 12v12c0 3.3 6.3 6 14 6s14-2.7 14-6V12"/><path d="M10 24v12c0 3.3 6.3 6 14 6s14-2.7 14-6V24"/></svg>
+                    <span class="home-btn-text"><strong>Bases de datos</strong><small>Sube las maestras: contactos, productos, direcciones y proveedores</small></span>
+                </button>
+                                <button class="btn-avisos" id="btnAvisos" onclick="activarAvisos()" hidden>Activar avisos en este celular</button>
+                <p class="estado-sync" id="estadoSync"></p>
+                <p class="version-app">Versión 23/10/2026 12:34</p>
+            </div>
+        </div>
+
+        <!-- AGENDA -->
+        <div id="agendaScreen" class="screen app-screen tema-teal">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Plan de Trabajo</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+
+            <div class="filters filtros-rc">
+                <div id="agVendedores" class="vp-vends solo-jefe" aria-label="Vendedores"></div>
+                <div class="nav-fecha">
+                    <button class="btn-nav" onclick="moverDia(-1)" aria-label="Día anterior">&lsaquo;</button>
+                    <div class="nav-titulo"><strong id="agFechaTxt"></strong><small id="agFechaSub"></small></div>
+                    <button class="btn-nav" onclick="moverDia(1)" aria-label="Día siguiente">&rsaquo;</button>
+                </div>
+                <div class="semana" id="agSemana"></div>
+                <div class="fila-botones">
+                    <button class="btn-nuevo" onclick="irHoy()">Hoy</button>
+                    <input type="date" id="agFechaPick" onchange="elegirFecha(this.value)" aria-label="Elegir fecha">
+                    <input type="search" id="agBuscar" class="ag-buscar-in" placeholder="Buscar cliente en este día..." aria-label="Buscar cliente" oninput="agenda.busca=this.value; pintarAgenda()">
+                    <button class="btn-nuevo" onclick="abrirCalendario()" aria-label="Ver el mes">Mes</button>
+                    <button class="btn-nuevo active btn-programar" onclick="abrirProgramar()">+ Programar</button>
+                </div>
+            </div>
+
+            <p class="aviso-festivo" id="agFestivo" hidden></p>
+            <p class="aviso-zona" id="agAvisoZona" hidden>Zona por asignar: todavía no hay contactos de la Maestra para este vendedor. Programa sus visitas marcando "Contacto nuevo".</p>
+            <div id="agAnillo"></div>
+            <div class="resumen-dia" id="agResumen"></div>
+            <div class="ag-novedades" id="agNovedades" hidden></div>
+            <div id="agLista" class="resultados"></div>
+        </div>
+
+        <!-- LOGÍSTICA: plan de trabajo de mensajería -->
+        <div id="logScreen" class="screen app-screen tema-naranja">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1 id="logTitulo">Logística</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+
+            <div class="filters filtros-rc">
+                <div id="logMensajeros" class="vp-vends" aria-label="Mensajeros" hidden></div>
+                <div class="nav-fecha">
+                    <button class="btn-nav" onclick="logMover(-1)" aria-label="Día anterior">&lsaquo;</button>
+                    <div class="nav-titulo"><strong id="logFechaTxt"></strong></div>
+                    <button class="btn-nav" onclick="logMover(1)" aria-label="Día siguiente">&rsaquo;</button>
+                </div>
+                <div class="semana" id="logSemana"></div>
+                <div class="fila-botones">
+                    <button class="btn-nuevo" onclick="logElegir(hoy())">Hoy</button>
+                    <input type="date" id="logFechaPick" onchange="logElegir(this.value)" aria-label="Elegir fecha">
+                    <input type="search" id="logBuscar" class="ag-buscar-in" placeholder="Buscar cliente o número de factura..." aria-label="Buscar" oninput="logi.busca=this.value; pintarLog()">
+                    <button class="btn-nuevo" id="logDescargar" onclick="abrirLogInforme()" hidden>⬇ Excel</button>
+                    <button class="btn-nuevo active btn-programar" id="logProgramar" onclick="abrirLogForm()">+ Programar</button>
+                </div>
+            </div>
+            <div id="logAnillo"></div>
+            <div id="logGrafico"></div>
+            <div class="resumen-dia" id="logResumen"></div>
+            <div id="logLista" class="resultados"></div>
+        </div>
+
+        <!-- ACTIVIDADES DEL MES -->
+        <div id="actScreen" class="screen app-screen tema-azul">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Actividades-Circulares</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+
+            <div class="filters filtros-rc">
+                <div class="act-vistas" role="tablist">
+                    <button type="button" data-v="circulares" class="activo" onclick="verActividades('circulares')">Circulares</button>
+                    <button type="button" data-v="tareas" onclick="verActividades('tareas')">Tareas del mes</button>
+                </div>
+                <div id="actCircCtrl" class="circ-ctrl">
+                    <div class="vp-vends" id="circFiltro"></div>
+                    <input type="search" id="circBuscar" class="ag-buscar-in" placeholder="Buscar circular, producto o cliente..." aria-label="Buscar circular" oninput="circulares.busca=this.value; pintarCirculares()">
+                    <select id="circOrden" class="ag-orden" aria-label="Ordenar circulares" onchange="circulares.orden=this.value; pintarCirculares()">
+                        <option value="circular">Ordenar: circular</option>
+                        <option value="ini">Ordenar: fecha de inicio</option>
+                        <option value="fin">Ordenar: fecha final</option>
+                    </select>
+                    <div class="mc-multis circ-multis" id="circMultis"></div>
+                </div>
+                <div id="actTareasCtrl" hidden>
+                <select id="actVendedor" class="solo-jefe" onchange="pintarActividades()"></select>
+                <div class="nav-fecha">
+                    <button class="btn-nav" onclick="moverMesAct(-1)" aria-label="Mes anterior">&lsaquo;</button>
+                    <div class="nav-titulo"><strong id="actMesTxt"></strong><small id="actMesSub"></small></div>
+                    <button class="btn-nav" onclick="moverMesAct(1)" aria-label="Mes siguiente">&rsaquo;</button>
+                </div>
+                <div class="progreso"><span class="barra"><i id="actBarra"></i></span><b id="actPct"></b></div>
+                <div class="fila-botones">
+                    <button class="btn-nuevo active" onclick="abrirActividad()">+ Nueva actividad</button>
+                </div>
+                </div>
+            </div>
+
+            <div id="actLista" class="resultados"></div>
+        </div>
+
+        <!-- VISIPLAN -->
+        <div id="visiplanScreen" class="screen app-screen tema-teal">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Visiplan del mes</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+            <div class="filters filtros-rc vp-banner">
+                <div class="vp-banner-izq">
+                    <div class="vp-vends" id="vpVendedores" role="group" aria-label="Vendedores"></div>
+                    <div class="nav-fecha">
+                        <button class="btn-nav" onclick="moverMesPlan(-1)" aria-label="Mes anterior">&lsaquo;</button>
+                        <div class="nav-titulo"><strong id="vpMesTxt"></strong><small id="vpMesSub"></small></div>
+                        <button class="btn-nav" onclick="moverMesPlan(1)" aria-label="Mes siguiente">&rsaquo;</button>
+                    </div>
+                    <div class="vp-periodo" id="vpPeriodo" role="group" aria-label="Periodo">
+                        <button data-p="hoy" onclick="periodoPlan('hoy')">Hoy</button>
+                        <button data-p="semana" onclick="periodoPlan('semana')">Semana</button>
+                        <button data-p="mes" class="activo" onclick="periodoPlan('mes')">Mes</button>
+                        <label class="vp-cal" title="Ir a un día">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                            <input type="date" id="vpFechaPick" aria-label="Ir a un día" onchange="verDiaPlan(this.value)">
+                        </label>
+                    </div>
+                    <div class="vp-filtros">
+                        <input id="vpBusca" placeholder="Buscar cliente..." autocomplete="off" oninput="visiplan.busca=this.value; pintarVisiplan()">
+                        <div class="mc-multis" id="vpMultis"></div>
+                    </div>
+                </div>
+                <div class="vp-lado">
+                    <div class="vp-conv" aria-label="Convenciones">
+                        <strong>Convenciones</strong>
+                        <span><i class="vp-muestra plan"></i> Programada (Obj)</span>
+                        <span><i class="vp-muestra real"></i> Visita real · efectiva</span>
+                        <span><i class="vp-muestra prox"></i> Reprogramada · pasa a verde al visitarla</span>
+                        <span><i class="vp-muestra planeacion"></i> Día de Planeación Mes</span>
+                        <span><i class="vp-muestra fest"></i> Festivo / domingo</span><span><i class="vp-muestra sab"></i> Sábado</span><span><i class="vp-muestra cumple"></i> Cumpleaños del vendedor</span>
+                    </div>
+                    <button class="btn-secundario vp-excel" onclick="descargarVisiplan(this)">⬇ Descargar Excel</button>
+                </div>
+            </div>
+            <div class="vp-barra">
+                <div class="vp-kpis" id="vpKpis"></div>
+                <div class="resumen-dia" id="vpResumen"></div>
+                <p class="ayuda vp-ayuda">Toca una casilla <b>P</b> para poner o quitar la X (se guarda sola). La <b>R</b> se marca sola al reportar la visita. Toca un cliente para ver su historial. Toca un indicador para filtrar.</p>
+            </div>
+            <div class="vp-envoltura"><table class="vp-tabla" id="vpTabla" onclick="const c=event.target.closest('.vp-x'); if(c) return marcarPlan(c); const at=event.target.closest('tbody [data-ateneo]'); if(at) return verAteneo(at.dataset.ateneo); const cl=event.target.closest('tbody [data-cliente]'); if(cl) verCliente(cl.dataset.cliente, cl.dataset.v)"></table></div>
+        </div>
+
+        <!-- MAESTRA CLIENTES -->
+        <div id="basesScreen" class="screen app-screen tema-teal">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Bases de datos</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+            <div class="bases-cuerpo">
+                <p class="ayuda">Aquí subes las maestras. Al subirlas reemplazan a las anteriores y todos los usuarios las ven al actualizar la app. Esta pantalla es solo tuya.</p>
+                <div id="basesLista"></div>
+                <p class="ayuda">Portafolios por cliente, circulares y matrices de objetivos siguen actualizándose desde el repositorio: necesitan el Vademécum.</p>
+            </div>
+        </div>
+
+        <div id="maestraScreen" class="screen app-screen tema-teal">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Maestro Contactos</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+            <div class="filters filtros-rc mc-cab">
+                <button type="button" class="mc-periodo-btn" onclick="abrirPeriodoMaestra()" title="Periodo de las visitas: día, mes, trimestre, semestre o año"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span id="mcPeriodoTxt"></span></button>
+                <div class="vp-vends" id="mcZonas" role="group" aria-label="Zona y vendedor"></div>
+                <div class="mc-filtros">
+                    <input id="mcBusca" placeholder="Buscar contacto..." autocomplete="off" oninput="maestra.busca=this.value; pintarMaestra()">
+<div class="mc-tipos" id="mcTipos"></div>
+<div class="mc-multis" id="mcFiltrosMulti"></div>
+                </div>
+            </div>
+            <p class="ayuda mc-ayuda" id="mcResumen"></p>
+            <section class="mc-grafica" aria-label="Composición de clientes">
+                <div class="mc-grafica-cab"><h2 id="mcTituloComp">Composición de clientes</h2><div class="mc-dims" id="mcDims" role="group" aria-label="Agrupar por"></div></div>
+                <div id="mcBarras" class="mc-barras"></div>
+                <p class="mc-grafica-nota">Toca una o varias barras para filtrar la lista; tócala otra vez para quitar el filtro.</p>
+                <p class="mc-grafica-nota" id="mcNotaPct" hidden>Dos porcentajes: el primero es sobre los contactos; el segundo (en gris) es sobre el total de las barras, porque un contacto puede ser médico y cliente a la vez.</p>
+                <p class="mc-leyenda"><span><i style="background:#2563eb"></i>Solo cliente</span><span><i style="background:#db2777"></i>Solo médico (22)</span><span><i style="background:repeating-linear-gradient(135deg, #2563eb 0 3px, #db2777 3px 6px)"></i>Médico y cliente (20-21)</span><span><i style="background:#ca8a04"></i>Punto de Venta</span><span><i style="background:#0891b2"></i>Lead</span>
+                    <span id="mcLeyProv" hidden><i style="background:#7c3aed"></i>Proveedor</span>
+                    <span class="sep">Final de la barra de la tarjeta:</span><span><i style="background:#16a34a"></i>Facturable</span><span><i style="background:#dc2626"></i>No facturable</span></p>
+            </section>
+            <div id="mcLista" class="mc-lista"></div>
+        </div>
+
+        <!-- PANEL DEL EQUIPO -->
+        <div id="panelScreen" class="screen app-screen tema-violeta">
+            <div class="header">
+                <div class="header-logo">
+                    <img src="logo-blanco.png" alt="Epithelium" class="header-logo-img">
+                    <h1>Panel del equipo</h1>
+                </div>
+                <button class="logout-btn" onclick="irInicio()">&larr; Inicio</button>
+            </div>
+
+            <div class="filters filtros-rc">
+                <div class="periodo-tabs panel-periodo-tabs" id="panTabs" role="group" aria-label="Periodo"></div>
+                <div class="nav-fecha">
+                    <button class="btn-nav" onclick="moverPeriodoPanel(-1)" aria-label="Periodo anterior">&lsaquo;</button>
+                    <div class="nav-titulo clic" onclick="abrirPeriodoMaestra(periodoPanel.t, true)" title="Elegir periodo"><strong id="panMesTxt"></strong><small id="panMesSub"></small></div>
+                    <button class="btn-nav" onclick="moverPeriodoPanel(1)" aria-label="Periodo siguiente">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="filters filtros-panel">
+                <label class="fp-campo"><span>Vendedor</span><select id="panVend" onchange="filtrarPanel()" aria-label="Vendedor"></select></label>
+                <label class="fp-campo"><span>Tipo de visita</span><select id="panTipo" onchange="filtrarPanel()" aria-label="Tipo de visita"></select></label>
+                <label class="fp-campo"><span>Estado</span><select id="panEstado" onchange="filtrarPanel()" aria-label="Estado">
+                    <option value="">Todos los estados</option>
+                    <option value="visitado">Visita Efectiva / realizadas</option>
+                    <option value="no_visitado">Visita No Efectiva / no realizadas</option>
+                    <option value="sin">Sin reporte a tiempo</option>
+                    <option value="pendiente">Pendientes</option>
+                </select></label>
+            </div>
+
+            <div class="panel-cuerpo">
+                <div class="kpis" id="panKpis"></div>
+                <div id="panVentas"></div>
+                <div class="panel-bloque">
+                    <h2 id="panGrafTit">Visitas por día</h2>
+                    <div class="leyenda"><span><i style="background:#0a6647"></i>Visita Efectiva</span><span><i style="background:#f472b6"></i>Visita No Efectiva</span><span><i style="background:#b91c1c"></i>Sin reporte a tiempo</span><span><i style="background:#b9c4bf"></i>Pendientes</span></div>
+                    <div class="grafica" id="grafDias"></div>
+                </div>
+                <div class="panel-dos">
+                    <div class="panel-bloque">
+                        <h2>Por tipo de visita</h2>
+                        <p class="g-sub">Visitas programadas en el periodo</p>
+                        <div class="grafica" id="grafTipos"></div>
+                    </div>
+                    <div class="panel-bloque">
+                        <h2>Objetivos de las visitas</h2>
+                        <div class="leyenda"><span><i style="background:#0a6647"></i>Cumplidos</span><span><i style="background:#9fd3bd"></i>Programados</span></div>
+                        <div class="grafica" id="grafObjetivos"></div>
+                    </div>
+                </div>
+                <div class="panel-bloque">
+                    <h2>Indicador del día · <span id="panHoyTxt"></span></h2>
+                    <div class="tabla-w"><table id="panHoy"></table></div>
+                </div>
+                <div class="panel-bloque">
+                    <h2>Por vendedor · <span id="panPorVendP">mes</span></h2>
+                    <div class="tabla-w"><table id="panTabla"></table></div>
+                </div>
+                <div class="panel-bloque">
+                    <h2>Motivos de no visita</h2>
+                    <div id="panMotivos"></div>
+                </div>
+                <div class="panel-bloque">
+                    <h2>Detalle de visitas <small id="panDetTxt"></small></h2>
+                    <div class="lista-det" id="panDetalle"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL (formularios) -->
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="cerrarModal()">&times;</span>
+                <div id="modalContenido"></div>
+            </div>
+        </div>
+        <!-- PROTECCIÓN DE DATOS: fija en la parte inferior de todas las pantallas (menos el login) -->
+        <p id="avisoLegal" class="aviso-legal" hidden><strong>&copy; <span id="anioLegal">2026</span> Epithelium S.A. Todos los derechos reservados.</strong> La presente aplicación, sus contenidos, bases de datos, código fuente y material gráfico son propiedad exclusiva de Epithelium S.A. Queda estrictamente prohibida su reproducción, adaptación, distribución, comercialización, transmisión o divulgación, total o parcial, por cualquier medio, sin la autorización previa, expresa y por escrito de Epithelium S.A. Información confidencial y de uso exclusivo para usuarios autorizados.</p>
+
+        <div id="avisoVersion" class="aviso-version"><span>Hay una versión nueva de la app</span><button onclick="actualizarApp()">Actualizar</button></div>
+        <div id="toast" class="toast"></div>
+        <div id="dialogo" class="dialogo"></div>
+        <div id="tooltip" class="tooltip" role="status"></div>
+        <div id="avisoAprob" class="aviso-cita aviso-aprob" role="alert">
+            <div><strong id="avisoAprobTit">Aprobaciones por revisar</strong><span id="avisoAprobTxt"></span></div>
+            <button onclick="verAprobaciones()">Ver</button>
+            <button class="cerrar" onclick="cerrarAvisoAprob()" aria-label="Cerrar aviso">&times;</button>
+        </div>
+        <div id="avisoCita" class="aviso-cita" role="alert">
+            <div><strong>Cita en 15 minutos</strong><span id="avisoCitaTxt"></span></div>
+            <button onclick="verCitaAvisada()">Ver</button>
+            <button class="cerrar" onclick="cerrarAvisoCita()" aria-label="Cerrar aviso">&times;</button>
+        </div>
+    </div>
+
+    <script src="ciudades.js?v=202610231234"></script>
+    <script src="objetivos.js?v=202610231234"></script>
+    <script src="circulares.js?v=202610231234"></script>
+    <script src="productos.js?v=202610231234"></script>
+    <script src="portafolios.js?v=202610231234"></script>
+    <script src="app.js?v=202610231234"></script>
+    <script src="logistica.js?v=202610231234"></script>
+    <script src="bases.js?v=202610231234"></script>
+</body>
+</html>
