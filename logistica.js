@@ -42,8 +42,10 @@ const BANCOS_LOG = ['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Ba
 const CAMPOS_HUELLA_LOG = { despacho: 'despacho posterior', fecha: 'fecha', hora: 'hora', vendedor: 'mensajero', tipo: 'tipo de parada', tipos: 'radicación', incluye: 'lo que incluye', documentos: 'facturas', incluyeDocs: 'documentos que incluye', radicacion: 'documentos a radicar',
     proveedor: 'proveedor', oficina: 'lo que se hace en la oficina', facturasAforo: 'facturas a aforar', otroOficina: 'otro', entidad: 'banco', materiales: 'qué se recoge', area: 'área', direccion: 'dirección', telefono: 'teléfono', detalle: 'indicaciones' };
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
-const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución', remision: 'Remisión' };   // lo que también va en un envío fuera de Bogotá
-const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', remision: 'Remisión' };
+// Las remisiones (de producto terminado, magistral individual o magistral de pedido): número libre y opcional
+const esRemisionLog = k => String(k || '').startsWith('remision');
+const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución', remision_pt: 'Remisión Producto Terminado', remision_mi: 'Remisión Magistral Individual', remision_mp: 'Remisión Magistral de Pedido' };   // lo que también va en un envío fuera de Bogotá
+const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', remision_pt: 'Remisión Producto Terminado', remision_mi: 'Remisión Magistral Individual', remision_mp: 'Remisión Magistral de Pedido' };
 // Radicación: factura (serie A = OVI o B = OV) con su número, nota crédito (RNC) con su número, u otros (texto)
 const DOCS_RADICACION = [{ k: 'factura', t: 'Factura' }, { k: 'nc', t: 'Nota crédito RNC' }, { k: 'otros', t: 'Otros' }];
 const SERIES_FACTURA = { A: 'OVI', B: 'OV' };   // en pantalla solo se ve la letra
@@ -104,14 +106,14 @@ function refrescarFilasDoc(g) { const filas = contFilasDoc(g).querySelectorAll('
 function masFilaDoc(g) { contFilasDoc(g).insertAdjacentHTML('beforeend', filaDoc(g)); refrescarFilasDoc(g); contFilasDoc(g).lastElementChild.querySelector('input').focus(); logCampos(); }
 function quitarFilaDoc(btn) { const f = btn.closest('.lg-fila-doc'), g = f.dataset.g; f.remove(); refrescarFilasDoc(g); logCampos(); }
 function cambiaFilaDoc(sel) {
-    const f = sel.closest('.lg-fila-doc'), n = f.querySelector('.lg-doc-num'), rem = sel.value === 'remision';
+    const f = sel.closest('.lg-fila-doc'), n = f.querySelector('.lg-doc-num'), rem = esRemisionLog(sel.value);
     f.querySelector('.lg-doc-serie').textContent = sel.selectedOptions[0].dataset.s || 'Nº';
     n.placeholder = rem ? 'Nº (opcional, letras y números)' : '000000'; n.inputMode = rem ? 'text' : 'numeric';
     n.title = rem ? 'Libre: letras (en mayúscula), números y símbolos; puede ir vacío' : '6 cifras: se completa con ceros';
     entradaNumDoc(n);
 }
 // Filas con número: [{ k, serie, numero }]
-const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: o.value === 'remision' ? f.querySelector('.lg-doc-num').value.trim().toUpperCase() : seisCifras(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero || x.k === 'remision');   // la remisión puede ir sin número
+const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: esRemisionLog(o.value) ? f.querySelector('.lg-doc-num').value.trim().toUpperCase() : seisCifras(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero || esRemisionLog(x.k));   // la remisión puede ir sin número
 // Lo ya guardado (A = OVI, B = OV) pasa a filas; una factura "Magistral Individual" con B se muestra como Magistral Individual NI
 const filasDeDocumentos = docs => (docs || []).flatMap(d => [d.ovi && { k: d.clase === 'mp' ? 'mi' : d.clase, numero: d.ovi }, d.ov && { k: d.clase === 'mi' ? 'mini' : d.clase, numero: d.ov }]).filter(Boolean);
 // Lo que se programó en la parada, uno por uno (cada factura A o B, cada documento que incluye, lo que se radica o se recoge): se marca en el reporte
@@ -134,7 +136,7 @@ const seisCifras = v => { v = String(v || '').replace(/\D/g, ''); return v ? v.s
 // Número de documento de la fila de facturas/PQR/etc.: 6 cifras (se completa con ceros); la remisión es libre: letras (siempre en mayúscula), números y símbolos, sin límite
 const NUMDOC = `placeholder="000000" inputmode="numeric" autocomplete="off" title="6 cifras: se completa con ceros" oninput="entradaNumDoc(this)" onblur="entradaNumDoc(this, true)"`;
 function entradaNumDoc(i, fin) {
-    const rem = i.closest('.lg-fila-doc')?.querySelector('.lg-doc-sel')?.value === 'remision';
+    const rem = esRemisionLog(i.closest('.lg-fila-doc')?.querySelector('.lg-doc-sel')?.value);
     if (rem) { i.value = i.value.toUpperCase(); return; }
     i.value = i.value.replace(/\D/g, '').slice(0, 6);
     if (fin) i.value = seisCifras(i.value);
@@ -1595,7 +1597,7 @@ function documentosDeParada(r) {
     const nom = d => claseDoc(d.clase)?.t || 'Pedido';
     return [
         ...(r.documentos || []).flatMap(d => [d.ovi && { t: 'facA', txt: `${nom(d)} · A ${d.ovi}`, num: d.ovi }, d.ov && { t: 'facB', txt: `${nom(d)} · B ${d.ov}`, num: d.ov }]),
-        ...(r.incluyeDocs || []).map(d => ({ t: d.k === 'pqr_out' || d.k === 'pqr' ? 'pqr' : d.k === 'rea_out' ? 'rea' : d.k === 'remision' ? 'rem' : 'dev', txt: textoInc(d), num: d.k === 'remision' && !/^\d+$/.test(d.numero || '') ? '' : d.numero })),
+        ...(r.incluyeDocs || []).map(d => ({ t: d.k === 'pqr_out' || d.k === 'pqr' ? 'pqr' : d.k === 'rea_out' ? 'rea' : esRemisionLog(d.k) ? 'rem' : 'dev', txt: textoInc(d), num: esRemisionLog(d.k) && !/^\d+$/.test(d.numero || '') ? '' : d.numero })),
         ...(r.facturasAforo || []).map(f => ({ t: 'aforo', txt: `Aforar · ${textoFacAforoLargo(f)}`, num: f.numero })),
         ...(r.radicacion || []).map(d => ({ t: 'rad', txt: textoRad(d), num: d.numero || '', texto: d.texto || '' })),
         ...(r.reporte?.devoluciones || []).map(d => ({ t: 'dev', txt: textoDev(d), num: String(d.factura || '').replace(/\D/g, '').slice(-6) }))
