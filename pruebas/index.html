@@ -39,7 +39,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Visita Comercial">
-</head>
+<style>
+.entrar-como { display: grid; gap: 8px; width: 100%; margin-top: 10px; }
+.entrar-como p { margin: 4px 0 0; font-size: 13px; color: #475569; }
+.entrar-como button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 14px; }
+.entrar-como button small { font-weight: 500; opacity: .85; font-size: 12px; }
+</style></head>
 <body>
     <div id="app">
         <!-- LOGIN -->
@@ -53,6 +58,7 @@
                 <input type="text" id="accessUser" placeholder="Usuario" maxlength="40" autocapitalize="none" autocomplete="username" onkeydown="if(event.key==='Enter')ingresar()">
                 <input type="password" id="accessCode" placeholder="Clave" maxlength="30" autocomplete="current-password" onkeydown="if(event.key==='Enter')ingresar()">
                 <button onclick="ingresar()">Acceder</button>
+                <div id="entrarComo" class="entrar-como" hidden></div>
                 <p id="errorMsg" class="error"></p>
             </div>
         </div>

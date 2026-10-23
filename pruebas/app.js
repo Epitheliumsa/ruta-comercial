@@ -693,6 +693,7 @@ async function ingresar() {
         return;
     }
     sesion = { ...u, clave };
+    if (u.admin) localStorage.setItem('vp_admin', JSON.stringify({ usuario: u.usuario, clave }));
     localStorage.setItem('rc_sesion', JSON.stringify(sesion));
     error.textContent = '';
     entrarApp();
@@ -705,7 +706,7 @@ async function cerrarSesion() {
     borrarDirectorio();
     borrarProveedores();
     borrarEmpleados();
-    sesion = null;
+    sesion = null; vpPintar();
     document.body.classList.remove('es-logistica', 'es-mercadeo');
     $('accessUser').value = '';
     $('accessCode').value = '';
@@ -6074,3 +6075,21 @@ window.addEventListener('popstate', () => {
     trampaAtras();
 });
 trampaAtras();
+
+// VISTA PREVIA: entrar como cualquier usuario (sin clave) una vez que el administrador entró en este navegador
+function vpAdmin() { try { return JSON.parse(localStorage.getItem('vp_admin') || 'null'); } catch (e) { return null; } }
+function vpEntrarComo(id) {
+    const a = vpAdmin(), u = USUARIOS.find(x => x.id === id);
+    if (!a || !u) return;
+    sesion = { ...u, usuario: a.usuario, clave: a.clave, vistaComo: u.usuario };
+    try { localStorage.setItem('rc_sesion', JSON.stringify(sesion)); } catch (e) { /* nada */ }
+    entrarApp();
+}
+function vpPintar() {
+    const caja = document.getElementById('entrarComo');
+    if (!caja) return;
+    const a = vpAdmin();
+    caja.hidden = !a;
+    caja.innerHTML = a ? '<p>Vista previa: toca el usuario con el que quieres ver la app (no pide clave)</p>' + USUARIOS.map(u => `<button type="button" onclick="vpEntrarComo('${u.id}')">${esc(u.nombre)}<small>${esc(u.cargo || 'Visitador Médico Comercial')}${u.zona ? ' · ' + esc(u.zona) : ''}</small></button>`).join('') : '';
+}
+vpPintar();
