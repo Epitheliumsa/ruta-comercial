@@ -356,7 +356,7 @@ function tarjetaLog(r, n, total) {
             ${pasosLog(r) && r.aforo && !puedeDespacharLog(r) ? '' : `<button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>`}
             ${enPasosLog(r) && r.aforo ? botonAsignarLog(r) : ''}${pasosLog(r) && r.aforo && r.asignado?.a === sesion?.id && !(esCoordLog() || esAdmin()) && enPasosLog(r) ? `<button class="link-mini" onclick="soltarDespachoLog('${r.id}')">↩ Ya no puedo</button>` : ''}
             <button class="link-mini" onclick="abrirLogForm('${r.id}')">Editar</button>
-            <button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button></div>`;
+            ${esAdmin() ? `<button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button>` : ''}</div>`;   // solo el administrador elimina paradas
     } else {
         acciones = `<div class="acciones cerrada"><span class="nota-cierre">🔒 Reportado el ${esc(fechaHora(r.registrada))} por ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}${r.correcciones?.length ? ` · corregido ${r.correcciones.length} ${r.correcciones.length === 1 ? 'vez' : 'veces'}` : ''}</span>
             ${puedeCorregirLog() ? `<button class="link-mini" onclick="reabrirLog('${r.id}')">✏️ Corregir reporte</button>` : ''}</div>`;
@@ -421,13 +421,13 @@ function abrirLogForm(id) {
         <datalist id="dlLogClientes">${clientes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
         <p class="ayuda" id="lgInfoCli"></p>
         <div id="lgBDirSel" hidden><label for="lgDirSel">Dirección de entrega <small>(este cliente tiene varias)</small></label><select id="lgDirSel" onchange="elegirDirEntrega()"></select></div>
-        <p class="ayuda lg-otro-nota" id="lgOtroCont" hidden>🆕 <b>Otros:</b> este contacto no está en la Maestra. Escribe su dirección y su teléfono; la parada queda marcada como "Otros".</p>
+        <p class="ayuda lg-otro-nota" id="lgOtroCont" hidden>🚫 Este contacto no está en la Maestra: la base está cerrada, escoge uno de la lista.</p>
         </div>
         <div id="lgBProv">
             <label for="lgProv">Proveedor ${REQ}</label>
             <input id="lgProv" list="dlLogProv" autocomplete="off" placeholder="Busca proveedor" oninput="logInfoProv()" onchange="logInfoProv()" value="${esc(r?.proveedor || '')}"${r?.proveedor ? ' readonly class="lg-bloq" title="No se cambia al editar"' : ''}>
             ${r?.proveedor ? '<p class="ayuda lg-bloq-nota">🔒 El proveedor no se cambia al editar. Si es otro, elimina la parada y programa una nueva.</p>' : ''}
-            <p class="ayuda lg-otro-nota" id="lgOtroProv" hidden>🆕 <b>Otros:</b> este proveedor no está en la Maestra. Escribe su dirección y su teléfono; la parada queda marcada como "Otros".</p><datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+            <p class="ayuda lg-otro-nota" id="lgOtroProv" hidden>🚫 Este proveedor no está en la Maestra: la base está cerrada, escoge uno de la lista.</p><datalist id="dlLogProv">${provs.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
         </div>
         <div id="lgOfAforar" hidden>
             <label>Facturas a aforar ${REQ} <small>(escoge el tipo; puede ser más de una)</small></label>
@@ -713,6 +713,10 @@ async function guardarLog(e, id) {
     const escrito = tp.oficina && !oficina.includes('aforar') ? '' : $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
     const lead = !zonaC && escrito ? leadPorNombre(escrito) : null;
     const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : lead ? lead.nombre : escrito ? nombrePropio(escrito) : '';
+    // Base cerrada: no se crean proveedores ni contactos nuevos desde Logística (solo los de la Maestra; una parada vieja conserva el suyo)
+    if (tp.vuelta && escrito && !zonaC && !lead && escrito !== (antes?.contacto || '')) return toast('Escoge el contacto de la lista: la base está cerrada y no se crean contactos nuevos');
+    const provEscrito = (tp.recoleccion || aProv) ? $('lgProv').value.trim() : '';
+    if (provEscrito && Object.keys(proveedoresMaestra.filas).length && !proveedoresMaestra.filas[normalizar(provEscrito)] && provEscrito !== (antes?.proveedor || '')) return toast('Escoge el proveedor de la lista: la base está cerrada y no se crean proveedores nuevos');
     const cl = datosClienteLog(contacto);
     const base = antes || { id: nuevoId(), clase: 'logistica', estado: 'pendiente', creado: new Date().toISOString(), creadoPor: sesion.id };
     // El mismo cliente (o proveedor) ya tiene parada ese día: se pregunta si de verdad se va dos veces
@@ -740,6 +744,7 @@ async function guardarLog(e, id) {
 async function eliminarLog(id) {
     const r = registros[id];
     if (!r || r.estado !== 'pendiente') return;
+    if (!esAdmin()) return toast('Solo el administrador elimina paradas');
     if (!await dialogo({ titulo: '¿Eliminar esta parada?', texto: `${tituloLog(r)} sale de la ruta del ${fechaCorta(r.fecha)}.`, aceptar: 'Eliminar', tono: 'aviso', icono: '🗑' })) return;
     borrarRegistro(r);
     pintarLog();

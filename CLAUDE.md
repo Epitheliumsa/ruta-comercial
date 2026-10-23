@@ -411,3 +411,8 @@
 - Flujo: trabajar en una rama → `vista_previa.py` → (con su confirmación) subir **solo** `pruebas/` → el administrador revisa → ajustes (se repite) → con su "sí, publica" se publica la rama a la raíz y se avisa si hay que pegar `Codigo.gs`.
 - Subir `pruebas/` a `main` y publicar la raíz siguen necesitando la confirmación del administrador (regla de arriba: nunca publicar sin confirmación). Los cambios de `Codigo.gs` no se ven en la vista previa (el servidor es uno solo).
 - El enlace `?prueba` de la app oficial sigue siendo la app publicada en modo prueba; no muestra ramas.
+
+## Eliminar solo el administrador y base cerrada de clientes
+- **Eliminar** visitas (también las futuras) y paradas de Logística: **solo el administrador**. El resto ve "Solicitar eliminación" en las visitas y nada en las paradas. El servidor lo exige
+  (`guardar_`: `borrado` en visitas y paradas no-novedad, y `eliminada` en visitas futuras, solo con `usuario.admin`). Las novedades del mensajero y las actividades siguen como estaban.
+- **Base cerrada en Logística**: no se crean proveedores ni contactos de Trámite área "Otros": hay que escogerlos de la Maestra (`guardarLog`; una parada vieja conserva el suyo). El cliente escrito a mano que no está en la Maestra todavía se acepta (pendiente de decidir).

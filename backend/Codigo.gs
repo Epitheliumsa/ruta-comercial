@@ -144,6 +144,8 @@ function guardar_(usuario, registros) {
       const previoLog = r.clase === 'logistica' && filaDe[r.id] ? JSON.parse(valores[filaDe[r.id] - 1][6]) : null;
       const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || (previoLog ? previoLog.vendedor === usuario.id : r.vendedor === usuario.id)) : usuario.admin);
       if (r.clase === 'logistica' && !logistica) return;
+      // Solo el administrador elimina paradas de Logística (las novedades del mensajero las maneja el coordinador)
+      if (r.clase === 'logistica' && r.tipo !== 'novedad' && r.borrado && !(previoLog && previoLog.borrado) && !usuario.admin) return;
       // Mercadeo solo escribe los enlaces PDF de las circulares (clase 'mensual', id circulares-pdf)
       if (usuario.tipo === 'mercadeo' && !(usuario.subeCirculares && r.id === 'circulares-pdf' && r.clase === 'mensual')) return;
       if (!logistica && usuario.tipo !== 'jefe' && r.vendedor !== usuario.id && !esSolicitante && !subeVentas) return;
@@ -155,6 +157,8 @@ function guardar_(usuario, registros) {
       if (r.clase === 'visita') {
         // Solo el administrador elimina visitas
         if (r.borrado && !(actual && actual.borrado) && !usuario.admin) return;
+        // La visita futura que se elimina (queda la huella en rojo) también solo la elimina el administrador
+        if (r.eliminada && !(actual && actual.eliminada) && !usuario.admin) return;
         // Una visita eliminada no se devuelve (p. ej. un cierre automático hecho desde un dispositivo que no había traído la eliminación)
         if (actual && (actual.borrado || actual.eliminada) && !r.borrado && !r.eliminada && r.actualizadoPor === 'sistema') return;
         // Un cierre automático nunca tapa una visita que ya se reportó (aunque lo suba el administrador desde un dispositivo con datos viejos)
