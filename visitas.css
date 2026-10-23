@@ -2072,3 +2072,9 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .form-rc .lg-chip-aforo { display: flex; margin-top: 6px; }
 
 .lg-banner-asignar { margin: 8px 0; padding: 8px 12px; border-radius: 12px; background: #fff4e5; border: 1px solid #f5c98a; color: #9a5b00; font-size: 14px; }
+
+/* Facturas y remisiones: el filtro (Factura / Remisión) va primero; en pantallas angostas la fila baja de renglón */
+.lg-fila-doc[data-g="docs"] .lg-pc { flex-wrap: wrap; }
+.form-rc .lg-pc select.lg-doc-fam { min-width: 96px; }
+.lg-fila-doc[data-g="docs"] select.lg-doc-sel { min-width: 150px; max-width: none; flex: 1 1 150px; }
+.lg-fila-doc[data-g="docs"] .lg-doc-num { flex: 1 1 130px; min-width: 130px; }

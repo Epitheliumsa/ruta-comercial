@@ -44,7 +44,7 @@ const CAMPOS_HUELLA_LOG = { despacho: 'despacho posterior', fecha: 'fecha', hora
 const INCLUYE_ENTREGA = { devolucion: 'Recolección de devolución', pqr: 'Recolección de PQR' };
 // Las remisiones (de producto terminado, magistral individual o magistral de pedido): número libre y opcional
 const esRemisionLog = k => String(k || '').startsWith('remision');
-const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución', remision_pt: 'Remisión Producto Terminado', remision_mi: 'Remisión Magistral Individual', remision_mp: 'Remisión Magistral de Pedido' };   // lo que también va en un envío fuera de Bogotá
+const INCLUYE_ENVIO = { pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución' };   // lo que también va en un envío fuera de Bogotá (las remisiones van con las facturas)
 const NOMBRE_INCLUYE = { pqr: 'PQR', devolucion: 'Devolución', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', remision_pt: 'Remisión Producto Terminado', remision_mi: 'Remisión Magistral Individual', remision_mp: 'Remisión Magistral de Pedido' };
 // Radicación: factura (serie A = OVI o B = OV) con su número, nota crédito (RNC) con su número, u otros (texto)
 const DOCS_RADICACION = [{ k: 'factura', t: 'Factura' }, { k: 'nc', t: 'Nota crédito RNC' }, { k: 'otros', t: 'Otros' }];
@@ -97,10 +97,20 @@ const claseDoc = k => CLASES_PEDIDO.find(c => c.k === k);
 const OPC_FACTURA = [['pt', 'Producto Terminado', 'A'], ['mi', 'Magistral Individual', 'A'], ['mini', 'Magistral Individual NI', 'B'], ['mp', 'Magistral de Pedido', 'B']];
 const OPC_INCLUYE = Object.entries(INCLUYE_ENVIO).map(([k, t]) => [k, t, '']);
 // Fila de documento: [tipo ▾] [serie] [número]. g = grupo (docs: facturas; aforo: facturas a aforar; inc: PQR, Reacondicionamientos, Devoluciones)
+const OPC_REMISION = [['remision_pt', 'Producto Terminado', ''], ['remision_mi', 'Magistral Individual', ''], ['remision_mp', 'Magistral de Pedido', '']];
+const opcionesTipoDoc = (opc, k) => opc.map(([ko, t, sr]) => `<option value="${ko}" data-s="${sr}"${ko === k ? ' selected' : ''}>${esc(t)}</option>`).join('');
 const filaDoc = (g, f = {}) => {
-    const opc = g === 'inc' ? OPC_INCLUYE : OPC_FACTURA, sel = opc.find(o => o[0] === f.k) || opc[0];
-    return `<div class="lg-fila-doc" data-g="${g}"><label class="lg-pc"><select class="lg-pref lg-serie lg-doc-sel" aria-label="Tipo de documento" onchange="cambiaFilaDoc(this)">${opc.map(([k, t, sr]) => `<option value="${k}" data-s="${sr}"${k === sel[0] ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><span class="lg-pref lg-doc-serie">${sel[2] || 'Nº'}</span><input class="lg-doc-num" ${NUMDOC} value="${esc(f.numero || '')}"></label><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarFilaDoc(this)" hidden>×</button></div>`;
+    const rem = g === 'docs' && esRemisionLog(f.k), opc = g === 'inc' ? OPC_INCLUYE : rem ? OPC_REMISION : OPC_FACTURA, sel = opc.find(o => o[0] === f.k) || opc[0];
+    // En el bloque de facturas, el "filtro" escoge si la fila es Factura o Remisión; el tipo (Producto Terminado, Magistral…) cambia según eso
+    const fam = g === 'docs' ? `<select class="lg-pref lg-serie lg-doc-fam" aria-label="Documento: factura o remisión" onchange="cambiaFamDoc(this)"><option value="fac"${rem ? '' : ' selected'}>Factura</option><option value="rem"${rem ? ' selected' : ''}>Remisión</option></select>` : '';
+    return `<div class="lg-fila-doc" data-g="${g}"><label class="lg-pc">${fam}<select class="lg-pref lg-serie lg-doc-sel" aria-label="Tipo de documento" onchange="cambiaFilaDoc(this)">${opcionesTipoDoc(opc, sel[0])}</select><span class="lg-pref lg-doc-serie">${sel[2] || 'Nº'}</span><input class="lg-doc-num" ${NUMDOC} value="${esc(f.numero || '')}"${rem ? ' placeholder="Nº (opcional, letras y números)" inputmode="text"' : ''}></label><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarFilaDoc(this)" hidden>×</button></div>`;
 };
+function cambiaFamDoc(fam) {
+    const f = fam.closest('.lg-fila-doc'), sel = f.querySelector('.lg-doc-sel'), opc = fam.value === 'rem' ? OPC_REMISION : OPC_FACTURA;
+    sel.innerHTML = opcionesTipoDoc(opc, opc[0][0]);
+    cambiaFilaDoc(sel); logCampos();
+}
+
 const contFilasDoc = g => $('lgFilas_' + g);
 function refrescarFilasDoc(g) { const filas = contFilasDoc(g).querySelectorAll('.lg-fila-doc'); filas.forEach(f => { f.querySelector('.lg-quitar').hidden = filas.length < 2; }); }
 function masFilaDoc(g) { contFilasDoc(g).insertAdjacentHTML('beforeend', filaDoc(g)); refrescarFilasDoc(g); contFilasDoc(g).lastElementChild.querySelector('input').focus(); logCampos(); }
@@ -439,13 +449,13 @@ function abrirLogForm(id) {
         <label for="lgTel">Teléfono <small>(sale solo con el <span id="lgQuienTel">cliente</span>; puedes cambiarlo)</small></label>
         <input id="lgTel" type="tel" autocomplete="off" maxlength="40" value="${esc(r?.telefono || '')}" oninput="this.dataset.auto = ''"></div>
         <div id="lgBDocs">
-            <label>Factura <span id="lgReqDoc">${REQ}</span> <small>(escoge el tipo y escribe el número; puedes agregar varias)</small></label>
-            <div id="lgFilas_docs">${(filasDeDocumentos(r?.documentos).length ? filasDeDocumentos(r.documentos) : [{}]).map(f => filaDoc('docs', f)).join('')}</div>
-            <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('docs')">+ Otra factura</button>
+            <label>Factura o remisión <span id="lgReqDoc">${REQ}</span> <small>(escoge si es factura o remisión, el tipo y escribe el número; la remisión puede ir sin número; puedes agregar varias)</small></label>
+            <div id="lgFilas_docs">${(l => l.length ? l : [{}])([...filasDeDocumentos(r?.documentos), ...(r?.incluyeDocs || []).filter(d => esRemisionLog(d.k))]).map(f => filaDoc('docs', f)).join('')}</div>
+            <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('docs')">+ Otro documento</button>
         </div>
         <div id="lgBIncluyeEnvio">
-            <label><span id="lgTitInc">PQR - Reacondicionamientos - Devoluciones - Remisiones</span> <small>(opcional: escoge el tipo y escribe el número del documento; puedes agregar varios)</small></label>
-            <div id="lgFilas_inc">${((r?.incluyeDocs || []).length ? r.incluyeDocs : [{}]).map(f => filaDoc('inc', f)).join('')}</div>
+            <label><span id="lgTitInc">PQR - Reacondicionamientos - Devoluciones</span> <small>(opcional: escoge el tipo y escribe el número del documento; puedes agregar varios)</small></label>
+            <div id="lgFilas_inc">${(l => l.length ? l : [{}])((r?.incluyeDocs || []).filter(d => !esRemisionLog(d.k))).map(f => filaDoc('inc', f)).join('')}</div>
             <button type="button" class="link-mini lg-mas" onclick="masFilaDoc('inc')">+ Otro documento</button>
         </div>
         <div id="lgBRecol">
@@ -500,7 +510,7 @@ function tipoClick(el) {
     document.querySelectorAll('input[name=lgTipo]').forEach(i => { i.dataset.on = i.checked ? '1' : ''; });
     logCampos();
 }
-const incluyeMarcado = () => [...new Set(filasDoc('inc').map(x => x.k))];
+const incluyeMarcado = () => [...new Set([...filasDoc('inc'), ...filasDoc('docs').filter(x => esRemisionLog(x.k))].map(x => x.k))];   // las remisiones cuentan como "algo más que la factura"
 // Muestra solo los campos del tipo de parada escogido
 const despachoSelLog = () => document.querySelector('input[name=lgDespacho]:checked')?.value || '';
 function logCampos() {
@@ -678,10 +688,10 @@ async function guardarLog(e, id) {
         const llenos = lista.filter(x => Object.entries(x.d).some(([c, v]) => c !== 'serie' && v));
         return llenos.length ? llenos : lista.slice(0, 1);
     });
-    const documentos = tp.docs ? filasDoc('docs').map(x => ({ clase: x.k, [x.serie === 'A' ? 'ovi' : 'ov']: x.numero })) : [];
+    const documentos = tp.docs ? filasDoc('docs').filter(x => !esRemisionLog(x.k)).map(x => ({ clase: x.k, [x.serie === 'A' ? 'ovi' : 'ov']: x.numero })) : [];
     const radicacion = conRad && !radAProv() ? leer('#lgBRad .lg-pedido').map(({ k, d }) => ({ doc: k, ...d })) : [];
     // Entrega o envío: PQR, Reacondicionamientos y Devoluciones que también van, cada uno con su número
-    const incluyeDocs = tipo === 'entrega' || tipo === 'envio' ? filasDoc('inc').map(x => ({ k: x.k, numero: x.numero })) : [];
+    const incluyeDocs = tipo === 'entrega' || tipo === 'envio' ? [...filasDoc('docs').filter(x => esRemisionLog(x.k)), ...filasDoc('inc')].map(x => ({ k: x.k, numero: x.numero })) : [];
     const incluye = [...new Set(incluyeDocs.map(d => d.k))];
     // Una misma factura no se repite dentro de la parada
     const claves = [...documentos.flatMap(d => [d.ov && `B ${d.ov}`, d.ovi && `A ${d.ovi}`]), ...incluyeDocs.filter(d => d.numero).map(d => `${d.k} ${d.numero}`), ...radicacion.filter(d => d.numero).map(d => `${d.doc} ${d.serie || ''} ${d.numero}`)].filter(Boolean);
