@@ -251,7 +251,7 @@ function pintarLog() {
     // Coordinación y administrador: aforos terminados que todavía no tienen quién los despache
     if (esCoordLog() || esAdmin()) { const pa = todos.filter(porAsignarLog); if (pa.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🟠 <b>${pa.length} ${pa.length === 1 ? 'aforo por asignar' : 'aforos por asignar'}</b> para despacho: ${esc(pa.slice(0, 4).map(nombreParada).join(', '))}${pa.length > 4 ? '…' : ''}</div>`; }
     // Administrador: solicitudes de eliminación de paradas por autorizar
-    if (esAdmin()) { const sp = solicitudesLogPendientes(); if (sp.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🗑 <b>${sp.length} ${sp.length === 1 ? 'solicitud de eliminación' : 'solicitudes de eliminación'}</b> por autorizar · <a href="#" onclick="abrirSolicitudesLog(); return false">Revisar</a></div>`; }
+    if (esAdmin()) { const sp = solicitudesLogPendientes(); if (sp.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🗑 <b>${sp.length} ${sp.length === 1 ? 'solicitud de eliminación' : 'solicitudes de eliminación'}</b> por autorizar · <a href="#" onclick="abrirSolicitudes(); return false">Revisar</a></div>`; }
     const base = fp && fp !== 'dia' ? deP[fp] : dia;
     const lista = base.filter(r => (!parte || claseLog(r) === parte.f)
         && (!q || normalizar([tituloLog(r), r.proveedor, r.direccion, r.telefono, r.destino, ...(r.documentos || []).flatMap(d => [d.ov, d.ovi]), ...(r.incluyeDocs || []).map(d => d.numero), ...(r.radicacion || []).map(textoRad)].join(' ')).includes(q)));
@@ -788,25 +788,6 @@ function enviarSolicitudLog(e, id) {
 }
 // El administrador autoriza o rechaza (con la causa, máx. 50 caracteres)
 const solicitudesLogPendientes = () => logRegs().filter(r => r.solicitudEliminar?.estado === 'pendiente').sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
-function abrirSolicitudesLog() {
-    if (!esAdmin()) return;
-    const lista = solicitudesLogPendientes();
-    abrirModal(`<div class="form-rc">
-        <h2>Solicitudes de eliminación · Logística</h2>
-        <p class="sub">Paradas que el equipo pide eliminar. Solo tú las autorizas.</p>
-        ${lista.length ? lista.map(r => `<div class="solicitud">
-            <strong>${esc(tituloLog(r))}</strong>
-            <small>${esc(nombreVendedor(r.vendedor))} · parada del ${esc(fechaCorta(r.fecha))} (${r.estado === 'pendiente' ? 'pendiente' : r.estado === 'entregado' ? 'reportada' : 'no efectiva'}) · pedida por ${esc(nombreVendedor(r.solicitudEliminar.por))} el ${esc(fechaHora(r.solicitudEliminar.fecha))}</small>
-            <p>${esc(r.solicitudEliminar.motivo)}</p>
-            <div class="form-botones">
-                <button class="btn-secundario" onclick="verParadaSolicitada('${r.id}')">Ver la parada</button>
-                <button class="btn-secundario" onclick="resolverSolicitudLog('${r.id}', false)">Rechazar</button>
-                <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitudLog('${r.id}', true)">Autorizar y eliminar</button>
-            </div>
-        </div>`).join('') : '<p class="no-results">No hay solicitudes pendientes.</p>'}
-        <div class="form-botones"><button type="button" class="btn-secundario" onclick="cerrarModal()">Cerrar</button></div>
-    </div>`, 'theme-rojo');
-}
 function verParadaSolicitada(id) { const r = registros[id]; cerrarModal(); if (r) { logi.fecha = r.fecha; if (logi.filtro) logi.filtro = ''; } pintarLog(); }
 async function resolverSolicitudLog(id, autorizar) {
     if (!esAdmin()) return;
@@ -817,7 +798,7 @@ async function resolverSolicitudLog(id, autorizar) {
     const solicitud = { ...r.solicitudEliminar, estado: autorizar ? 'aprobada' : 'rechazada', razonRechazo: (razon || '').trim(), resueltaPor: sesion.id, resuelta: new Date().toISOString() };
     if (autorizar) borrarRegistro({ ...r, solicitudEliminar: solicitud }); else guardarRegistro({ ...r, solicitudEliminar: solicitud });
     toast(autorizar ? 'Parada eliminada' : 'Solicitud rechazada');
-    abrirSolicitudesLog(); pintarLog();
+    abrirSolicitudes(); pintarInicio(); repintarPantallaActiva();
 }
 
 function moverLog(id, d) {

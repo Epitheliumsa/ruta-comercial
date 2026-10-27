@@ -837,8 +837,8 @@ function pintarInicio() {
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     const corrs = correccionesPendientes().length;
-    const edsN = edicionesPendientes().length;
-    $('solicitudesTxt').textContent = sols.length + corrs + edsN ? [sols.length && `${sols.length} de eliminación`, corrs && `${corrs} de corrección`, edsN && `${edsN} de edición`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
+    const edsN = edicionesPendientes().length, logN = esAdmin() ? solicitudesLogPendientes().length : 0;
+    $('solicitudesTxt').textContent = sols.length + corrs + edsN + logN ? [sols.length && `${sols.length} de eliminación`, logN && `${logN} de Logística`, corrs && `${corrs} de corrección`, edsN && `${edsN} de edición`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
     const vigentes = CIRCULARES.filter(c => estadoCircular(c) === 'vigente').length;
     $('homeActTxt').textContent = `${vigentes} ${vigentes === 1 ? 'circular vigente' : 'circulares vigentes'}` + (acts.length ? ` · ${hechas} de ${acts.length} tareas del mes` : '');
     pintarInicioLog();
@@ -962,6 +962,7 @@ function aprobacionesPendientes() {
     const l = [];
     if (esAdmin()) {
         solicitudesPendientes().forEach(v => l.push({ k: 'el:' + v.id, tipo: 'eliminacion', txt: `${nombreVendedor(v.vendedor)} pide eliminar la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
+        solicitudesLogPendientes().forEach(r => l.push({ k: 'el:' + r.id, tipo: 'eliminacion', txt: `${nombreVendedor(r.solicitudEliminar.por)} pide eliminar la parada de Logística a ${tituloLog(r)} (${fechaCorta(r.fecha)})` }));
         edicionesPendientes().forEach(v => l.push({ k: 'ed:' + v.id + ':' + v.edicionPendiente.fecha, tipo: 'edicion', txt: `${nombreVendedor(v.edicionPendiente.por)} propone editar el reporte de ${v.contacto} (${fechaCorta(v.fecha)})` }));
         correccionesPendientes().forEach(v => l.push({ k: 'co:' + v.id + ':' + v.solicitudCorreccion.fecha, tipo: 'correccion', txt: `${nombreVendedor(v.vendedor)} pide corregir la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
     }
@@ -1603,7 +1604,7 @@ function pintarHistSol() {
         <p class="dash-leyenda"><i class="ok"></i>Autorizadas <i class="no"></i>Rechazadas</p>` : '<p class="meta">No hay solicitudes resueltas con estos filtros.</p>';
     $('solHist').innerHTML = l.map(h => `<div class="sol-hist ${h.s.estado === 'aprobada' ? 'ok' : 'no'}">
         <b class="sol-cli">${esc(h.v.contacto)}</b> <span class="sol-res">${h.s.estado === 'aprobada' ? '✔' : '✕'} ${NOMBRE_TIPO_SOL[h.tipo]} ${h.s.estado === 'aprobada' ? 'autorizada' : 'rechazada'}</span>
-        <small>${esc([nombreVendedor(h.v.vendedor), zonaHistSol(h), 'visita del ' + fechaCorta(h.v.fecha), 'por ' + nombreVendedor(h.s.resueltaPor), h.s.resuelta && fechaHora(h.s.resuelta)].filter(Boolean).join(' · '))}</small>
+        <small>${esc([nombreVendedor(h.v.vendedor), zonaHistSol(h), (h.v.clase === 'logistica' ? 'parada del ' : 'visita del ') + fechaCorta(h.v.fecha), 'por ' + nombreVendedor(h.s.resueltaPor), h.s.resuelta && fechaHora(h.s.resuelta)].filter(Boolean).join(' · '))}</small>
         <small>${esc('Pedido: ' + h.s.motivo)}${h.s.razonRechazo ? esc(' · Causa del rechazo: ' + h.s.razonRechazo) : ''}</small></div>`).join('');
 }
 function abrirSolicitudes() {
@@ -1611,7 +1612,8 @@ function abrirSolicitudes() {
     const eds = edicionesPendientes().sort((a, b) => a.edicionPendiente.fecha.localeCompare(b.edicionPendiente.fecha));
     const corr = correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
     // Lo ya resuelto queda como huella, pequeño y debajo de lo pendiente (incluye las visitas eliminadas)
-    const resueltas = Object.values(registros).filter(r => r.clase === 'visita').flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion], ['edicion', v.edicionPendiente]]
+    const lg = solicitudesLogPendientes();
+    const resueltas = Object.values(registros).filter(r => r.clase === 'visita' || (r.clase === 'logistica' && r.tipo !== 'novedad')).map(r => r.clase === 'logistica' ? { ...r, contacto: tituloLog(r) } : r).flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion], ['edicion', v.edicionPendiente]]
         .filter(([, s]) => s && s.estado && s.estado !== 'pendiente').map(([tipo, s]) => ({ v, tipo, s }))).sort((a, b) => (b.s.resuelta || '').localeCompare(a.s.resuelta || ''));
     const estadoTxt = v => v.cierreAutomatico ? 'cerrada sin reporte' : v.estado === 'visitado' ? (v.interno ? 'realizado' : 'visitada') : (v.interno ? 'no realizado' : 'no visitada');
     abrirModal(`<div class="form-rc">
@@ -1637,6 +1639,16 @@ function abrirSolicitudes() {
             </div>
         </div>`).join('')}<p class="grupo-titulo">🗑 Eliminación de visitas</p>` : ''}
         <p class="sub">Visitas que los vendedores piden eliminar por error de programación.</p>
+        ${lg.length ? `<p class="grupo-titulo">🚚 Eliminación de paradas de Logística · ${lg.length}</p>${lg.map(r => `<div class="solicitud">
+            <strong>${esc(tituloLog(r))}</strong>
+            <small>${esc(nombreVendedor(r.vendedor))} · parada del ${esc(fechaCorta(r.fecha))} (${r.estado === 'pendiente' ? 'pendiente' : r.estado === 'entregado' ? 'reportada' : 'no efectiva'}) · pedida por ${esc(nombreVendedor(r.solicitudEliminar.por))} el ${esc(fechaHora(r.solicitudEliminar.fecha))}</small>
+            <p>${esc(r.solicitudEliminar.motivo)}</p>
+            <div class="form-botones">
+                <button class="btn-secundario" onclick="verParadaSolicitada('${r.id}')">Ver la parada</button>
+                <button class="btn-secundario" onclick="resolverSolicitudLog('${r.id}', false)">Rechazar</button>
+                <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitudLog('${r.id}', true)">Autorizar y eliminar</button>
+            </div>
+        </div>`).join('')}<p class="grupo-titulo">🗑 Eliminación de visitas</p>` : ''}
         ${lista.length ? lista.map(v => `<div class="solicitud">
             <strong>${esc(v.contacto)}</strong>
             <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} · pedida el ${esc(fechaHora(v.solicitudEliminar.fecha))}</small>
@@ -1647,7 +1659,7 @@ function abrirSolicitudes() {
                 <button class="btn-secundario" onclick="resolverSolicitud('${v.id}', false)">Rechazar</button>
                 <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitud('${v.id}', true)">Autorizar y eliminar</button>
             </div>
-        </div>`).join('') : (corr.length || eds.length ? '' : '<p class="no-results">No hay solicitudes pendientes.</p>')}
+        </div>`).join('') : (corr.length || eds.length || lg.length ? '' : '<p class="no-results">No hay solicitudes pendientes.</p>')}
         ${resueltas.length ? `<div class="sol-hist-bloque">
             <p class="grupo-titulo">Historial · <span id="solHistN">${resueltas.length}</span></p>
             <div class="sol-filtros">
