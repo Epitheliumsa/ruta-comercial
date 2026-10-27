@@ -145,7 +145,15 @@ function guardar_(usuario, registros) {
       const logistica = r.clase === 'logistica' && (usuario.area === 'logistica' ? (usuario.coordLogistica || (previoLog ? previoLog.vendedor === usuario.id : r.vendedor === usuario.id)) : usuario.admin);
       if (r.clase === 'logistica' && !logistica) return;
       // Solo el administrador elimina paradas de Logística (las novedades del mensajero las maneja el coordinador)
-      if (r.clase === 'logistica' && r.tipo !== 'novedad' && r.borrado && !(previoLog && previoLog.borrado) && !usuario.admin) return;
+      if (r.clase === 'logistica' && r.tipo !== 'novedad' && !usuario.admin) {
+        // El dueño (o el coordinador) elimina directo solo una parada pendiente de un día futuro; las demás las autoriza el administrador
+        const hoyBogota = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+        const futuraPendiente = !!previoLog && previoLog.estado === 'pendiente' && String(previoLog.fecha) > hoyBogota;
+        if (r.borrado && !(previoLog && previoLog.borrado) && !futuraPendiente) return;
+        // Autorizar o rechazar una solicitud de eliminación es solo del administrador
+        const solN = r.solicitudEliminar, solA = previoLog && previoLog.solicitudEliminar;
+        if (solN && solN.estado !== 'pendiente' && JSON.stringify(solN) !== JSON.stringify(solA)) return;
+      }
       // Mercadeo solo escribe los enlaces PDF de las circulares (clase 'mensual', id circulares-pdf)
       if (usuario.tipo === 'mercadeo' && !(usuario.subeCirculares && r.id === 'circulares-pdf' && r.clase === 'mensual')) return;
       if (!logistica && usuario.tipo !== 'jefe' && r.vendedor !== usuario.id && !esSolicitante && !subeVentas) return;

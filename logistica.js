@@ -250,6 +250,8 @@ function pintarLog() {
     $('logResumen').innerHTML += Object.values(reinc).map(r => `<div class="lg-banner-reincide">⚠ <b>Reincidencia:</b> ${esc(nombreParada(r))} · ${fallosParada(r)} no efectivas en 30 días · ${intentoLog(r)}.º intento el ${esc(fechaCorta(r.fecha))}</div>`).join('');
     // Coordinación y administrador: aforos terminados que todavía no tienen quién los despache
     if (esCoordLog() || esAdmin()) { const pa = todos.filter(porAsignarLog); if (pa.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🟠 <b>${pa.length} ${pa.length === 1 ? 'aforo por asignar' : 'aforos por asignar'}</b> para despacho: ${esc(pa.slice(0, 4).map(nombreParada).join(', '))}${pa.length > 4 ? '…' : ''}</div>`; }
+    // Administrador: solicitudes de eliminación de paradas por autorizar
+    if (esAdmin()) { const sp = solicitudesLogPendientes(); if (sp.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🗑 <b>${sp.length} ${sp.length === 1 ? 'solicitud de eliminación' : 'solicitudes de eliminación'}</b> por autorizar · <a href="#" onclick="abrirSolicitudesLog(); return false">Revisar</a></div>`; }
     const base = fp && fp !== 'dia' ? deP[fp] : dia;
     const lista = base.filter(r => (!parte || claseLog(r) === parte.f)
         && (!q || normalizar([tituloLog(r), r.proveedor, r.direccion, r.telefono, r.destino, ...(r.documentos || []).flatMap(d => [d.ov, d.ovi]), ...(r.incluyeDocs || []).map(d => d.numero), ...(r.radicacion || []).map(textoRad)].join(' ')).includes(q)));
@@ -356,10 +358,10 @@ function tarjetaLog(r, n, total) {
             ${pasosLog(r) && r.aforo && !puedeDespacharLog(r) ? '' : `<button class="bv no" onclick="abrirLogReporte('${r.id}', false)">✕ ${esc(no)}</button>`}
             ${enPasosLog(r) && r.aforo ? botonAsignarLog(r) : ''}${pasosLog(r) && r.aforo && r.asignado?.a === sesion?.id && !(esCoordLog() || esAdmin()) && enPasosLog(r) ? `<button class="link-mini" onclick="soltarDespachoLog('${r.id}')">↩ Ya no puedo</button>` : ''}
             <button class="link-mini" onclick="abrirLogForm('${r.id}')">Editar</button>
-            ${esAdmin() ? `<button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button>` : ''}</div>`;   // solo el administrador elimina paradas
+            ${botonEliminarLog(r)}</div>`;
     } else {
         acciones = `<div class="acciones cerrada"><span class="nota-cierre">🔒 Reportado el ${esc(fechaHora(r.registrada))} por ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}${r.correcciones?.length ? ` · corregido ${r.correcciones.length} ${r.correcciones.length === 1 ? 'vez' : 'veces'}` : ''}</span>
-            ${puedeCorregirLog() ? `<button class="link-mini" onclick="reabrirLog('${r.id}')">✏️ Corregir reporte</button>` : ''}</div>`;
+            ${puedeCorregirLog() ? `<button class="link-mini" onclick="reabrirLog('${r.id}')">✏️ Corregir reporte</button>` : ''}${botonEliminarLog(r)}</div>`;
     }
     // Las de hora fija van por hora; las demás se ordenan con Subir / Bajar
     const sueltas = logRegs().filter(x => x.fecha === r.fecha && x.vendedor === r.vendedor && !x.hora).sort(ordenLog), k = sueltas.findIndex(x => x.id === r.id);
@@ -748,13 +750,74 @@ async function guardarLog(e, id) {
     pintarLog();
 }
 
+// Eliminar una parada (mismas condiciones que la visita comercial): el administrador elimina directo; quien la programó o el coordinador, solo si es de un día futuro y sigue pendiente;
+// en cualquier otro caso se pide la eliminación y la autoriza solo el administrador
+const puedeEliminarDirectoLog = r => !!r && (esAdmin() || (r.estado === 'pendiente' && r.fecha > hoy() && (esCoordLog() || r.vendedor === sesion?.id)));
+function botonEliminarLog(r) {
+    if (puedeEliminarDirectoLog(r)) return `<button type="button" class="link-mini peligro" onclick="eliminarLog('${r.id}')">🗑 Eliminar</button>`;
+    const s = r.solicitudEliminar;
+    if (s?.estado === 'pendiente') return '<span class="chip np">Eliminación por autorizar</span>';
+    return `${s?.estado === 'rechazada' ? `<small class="nota-cierre">Eliminación rechazada${s.razonRechazo ? ': ' + esc(s.razonRechazo) : ''}</small> ` : ''}<button type="button" class="link-mini peligro" onclick="solicitarEliminacionLog('${r.id}')">Solicitar eliminación</button>`;
+}
 async function eliminarLog(id) {
     const r = registros[id];
-    if (!r || r.estado !== 'pendiente') return;
-    if (!esAdmin()) return toast('Solo el administrador elimina paradas');
+    if (!r || !puedeEliminarDirectoLog(r)) return toast('Esta parada se elimina pidiendo la autorización del administrador');
     if (!await dialogo({ titulo: '¿Eliminar esta parada?', texto: `${tituloLog(r)} sale de la ruta del ${fechaCorta(r.fecha)}.`, aceptar: 'Eliminar', tono: 'aviso', icono: '🗑' })) return;
     borrarRegistro(r);
     pintarLog();
+}
+function solicitarEliminacionLog(id) {
+    const r = registros[id];
+    if (!r || puedeEliminarDirectoLog(r)) return;
+    abrirModal(`<form class="form-rc" onsubmit="enviarSolicitudLog(event, '${id}')">
+        <h2>Solicitar eliminación</h2>
+        <p class="sub">${esc(tituloLog(r))} · ${esc(fechaCorta(r.fecha))}</p>
+        <p class="ayuda">Las paradas solo se eliminan con autorización de ${esc(ADMIN.nombre)}. Mientras tanto la parada sigue en la ruta.</p>
+        <label for="sMotivo">¿Por qué se debe eliminar?</label>
+        <textarea id="sMotivo" required maxlength="200" placeholder="Ej: la programé dos veces por error"></textarea>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario" style="background:#c2413a">Enviar solicitud</button>
+        </div>
+    </form>`, 'theme-rojo');
+}
+function enviarSolicitudLog(e, id) {
+    e.preventDefault();
+    guardarRegistro({ ...registros[id], solicitudEliminar: { estado: 'pendiente', motivo: $('sMotivo').value.trim(), por: sesion.id, fecha: new Date().toISOString() } });
+    cerrarModal(); toast(`Solicitud enviada a ${ADMIN.nombre}`); pintarLog();
+}
+// El administrador autoriza o rechaza (con la causa, máx. 50 caracteres)
+const solicitudesLogPendientes = () => logRegs().filter(r => r.solicitudEliminar?.estado === 'pendiente').sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
+function abrirSolicitudesLog() {
+    if (!esAdmin()) return;
+    const lista = solicitudesLogPendientes();
+    abrirModal(`<div class="form-rc">
+        <h2>Solicitudes de eliminación · Logística</h2>
+        <p class="sub">Paradas que el equipo pide eliminar. Solo tú las autorizas.</p>
+        ${lista.length ? lista.map(r => `<div class="solicitud">
+            <strong>${esc(tituloLog(r))}</strong>
+            <small>${esc(nombreVendedor(r.vendedor))} · parada del ${esc(fechaCorta(r.fecha))} (${r.estado === 'pendiente' ? 'pendiente' : r.estado === 'entregado' ? 'reportada' : 'no efectiva'}) · pedida por ${esc(nombreVendedor(r.solicitudEliminar.por))} el ${esc(fechaHora(r.solicitudEliminar.fecha))}</small>
+            <p>${esc(r.solicitudEliminar.motivo)}</p>
+            <div class="form-botones">
+                <button class="btn-secundario" onclick="verParadaSolicitada('${r.id}')">Ver la parada</button>
+                <button class="btn-secundario" onclick="resolverSolicitudLog('${r.id}', false)">Rechazar</button>
+                <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitudLog('${r.id}', true)">Autorizar y eliminar</button>
+            </div>
+        </div>`).join('') : '<p class="no-results">No hay solicitudes pendientes.</p>'}
+        <div class="form-botones"><button type="button" class="btn-secundario" onclick="cerrarModal()">Cerrar</button></div>
+    </div>`, 'theme-rojo');
+}
+function verParadaSolicitada(id) { const r = registros[id]; cerrarModal(); if (r) { logi.fecha = r.fecha; if (logi.filtro) logi.filtro = ''; } pintarLog(); }
+async function resolverSolicitudLog(id, autorizar) {
+    if (!esAdmin()) return;
+    const r = registros[id];
+    if (!r) return;
+    const razon = autorizar ? '' : await dialogo({ titulo: 'Rechazar la eliminación', texto: `${tituloLog(r)} · ${fechaCorta(r.fecha)}\n¿Por qué se rechaza? (obligatorio, máximo 50 caracteres)`, campo: 'Ej: la parada sí se debe hacer', max: 50, obligatorio: true, aceptar: 'Rechazar' });
+    if (razon === null) return;
+    const solicitud = { ...r.solicitudEliminar, estado: autorizar ? 'aprobada' : 'rechazada', razonRechazo: (razon || '').trim(), resueltaPor: sesion.id, resuelta: new Date().toISOString() };
+    if (autorizar) borrarRegistro({ ...r, solicitudEliminar: solicitud }); else guardarRegistro({ ...r, solicitudEliminar: solicitud });
+    toast(autorizar ? 'Parada eliminada' : 'Solicitud rechazada');
+    abrirSolicitudesLog(); pintarLog();
 }
 
 function moverLog(id, d) {
