@@ -56,6 +56,12 @@ for f in FUENTES:
                               'e': etiquetas(nueva if str(nueva or '').strip() else r[ie] if ie is not None else ''),
                               'g': str(r[ig] or '').strip() if ig is not None else ('Producto Terminado' if cod.startswith('PT') else 'Magistral de Pedido')})
 
+# Muestras (no están en las bases de Odoo cargadas): salen solo al buscar por código o nombre en Entrega de Muestras
+EXTRAS = [{'c': 'MU0048', 'n': 'Minobit Z Cap Capsulas x 30', 'e': [], 'g': 'Muestras'}]
+for x in EXTRAS:
+    if x['c'] not in vistos:
+        productos.append(x)
+
 productos.sort(key=lambda p: clave(p['n']))
 datos = {'desplegables': DESPLEGABLES, 'cerradas': CERRADAS, 'productos': productos, 'guia': guia}
 (RAIZ / 'productos.js').write_text('// Generado con herramientas/productos.py desde datos/Base_Productos.xlsx y datos/Productos_Terminados.xlsx. No editar a mano.\n'
