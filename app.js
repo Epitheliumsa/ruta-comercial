@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610271642';
+const APP_VERSION = '202610281759';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -3065,6 +3065,7 @@ async function adelantarVisita(id) {
     if (!v || v.estado !== 'pendiente' || v.fecha <= hoy()) return;
     if (visitaMismoDia(v, hoy(), v.id)) return avisoYaProgramado(v, hoy());
     if (!await dialogo({ titulo: `¿Adelantar la visita a hoy?`, texto: `${v.contacto} estaba planeada para el ${fechaLarga(v.fecha)}. Queda para hoy y se guarda la fecha planeada.`, aceptar: 'Adelantar' })) return;
+    liberarAcompanamientos(v, hoy());
     guardarRegistro({ ...v, fechaPlaneada: v.fechaPlaneada || v.fecha, fecha: hoy(), adelantada: true, hora: '' });
     toast(`${v.contacto}: adelantada a hoy`);
     elegirFecha(hoy());
@@ -3091,6 +3092,7 @@ function guardarReprogramar(e, id) {
     if (!fecha) { toast('Elige la nueva fecha'); return; }
     if (fecha === v.fecha) { toast('Elige un día distinto al que ya tiene'); return; }
     if (visitaMismoDia(v, fecha, v.id)) { avisoYaProgramado(v, fecha, true); return; }
+    liberarAcompanamientos(v, fecha);
     guardarRegistro({ ...v, fecha, hora: $('aReproHora').value, origen: 'reprogramada', vieneDe: v.vieneDe || v.fecha,
         fechaPlaneada: v.fechaPlaneada || v.fecha, adelantada: false, programada: Date.now() < limiteProgramacion(fecha) });
     cerrarModal();
@@ -3191,12 +3193,22 @@ const acompDeVisita = id => acompanamientos().filter(a => a.visitaId === id || a
 const invitacionesMias = () => acompanamientos().filter(a => a.vendedor === sesion.id && a.estado === 'pendiente' && a.fecha >= hoy())
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 const primerNombre = id => nombreVendedor(id).split(' ')[0];
+// Los acompañamientos valen para el día de la visita: si la visita se reprogramó o adelantó, los del día anterior ya no cuentan
+const acompVigentes = v => acompDeVisita(v.id).filter(a => a.visitaId === v.id && a.fecha === v.fecha);
+// Al cambiar la fecha de una visita, sus acompañamientos del día anterior se cancelan (y la visita del acompañante, si no ha reportado)
+function liberarAcompanamientos(v, nuevaFecha) {
+    acompanamientos().filter(a => a.visitaId === v.id && a.fecha !== nuevaFecha && (a.estado === 'pendiente' || a.estado === 'aceptada')).forEach(a => {
+        const suya = a.visitaAcomp && registros[a.visitaAcomp];
+        if (suya && suya.estado === 'pendiente' && !suya.borrado) borrarRegistro({ ...suya });
+        borrarRegistro({ ...a });
+    });
+}
 const CAMPOS_ACOMP = ['contacto', 'tipoContacto', 'ciudad', 'hora', 'tipoVisita', 'tiposVisita', 'objetivos', 'subobjetivos', 'objetivo', 'modalidad', 'esProyecto', 'contactoProyecto', 'personalizada'];
 const datosVisita = v => Object.fromEntries(CAMPOS_ACOMP.map(k => [k, v[k] ?? '']));
 
 function filaAcomp(v) {
     if (v.interno) return '';
-    const mios = acompDeVisita(v.id).filter(a => a.visitaId === v.id);
+    const mios = acompVigentes(v);
     const chips = mios.map(a => a.estado === 'aceptada' ? `<span class="chip acomp">🤝 Acompaña ${esc(primerNombre(a.vendedor))}</span>`
             : a.estado === 'pendiente' ? `<span class="chip acomp-p">🤝 Solicitado a ${esc(primerNombre(a.vendedor))} · pendiente</span>`
             : `<span class="chip gris">🤝 ${esc(primerNombre(a.vendedor))} no aceptó</span>`)
@@ -3212,8 +3224,9 @@ function filaAcomp(v) {
 
 function solicitarAcompanamiento(id) {
     const v = registros[id];
-    const ya = new Set(acompDeVisita(id).filter(a => a.visitaId === id && a.estado !== 'rechazada').map(a => a.vendedor));
-    const gente = USUARIOS.filter(u => u.id !== v.vendedor && !ya.has(u.id) && u.tipo !== 'mercadeo');
+    const ya = new Set(acompVigentes(v).filter(a => a.estado !== 'rechazada').map(a => a.vendedor));
+    // Solo el equipo comercial y los jefes: logística y mercadeo no acompañan visitas
+    const gente = USUARIOS.filter(u => u.id !== v.vendedor && !ya.has(u.id) && u.tipo !== 'mercadeo' && u.tipo !== 'logistica');
     const jefes = gente.filter(u => u.tipo === 'jefe' || u.jefe), comp = gente.filter(u => !(u.tipo === 'jefe' || u.jefe));
     const opcion = u => `<label class="check"><input type="checkbox" value="${u.id}"><span>${esc(u.nombre)} <small>${esc(u.cargo || u.zona || '')}</small></span></label>`;
     if (!gente.length) return toast('Ya le pediste acompañamiento a todo el equipo');
@@ -3275,7 +3288,7 @@ async function acompanarVisita(id) {
     if (!esJefe() || !v) return;
     if (v.fecha < hoy()) return toast('No se puede acompañar una visita de un día que ya pasó');
     if (!await dialogo({ tono: 'aviso', icono: '🤝', titulo: `Acompañar a ${primerNombre(v.vendedor)}`, texto: `${v.contacto} · ${fechaLarga(v.fecha)}.\nLa visita te queda en tu programación y cada uno reporta la suya.`, aceptar: 'Sí, acompañar', cancelar: 'No' })) return;
-    const pend = acompDeVisita(id).find(a => a.visitaId === id && a.vendedor === sesion.id && a.estado === 'pendiente');
+    const pend = acompVigentes(v).find(a => a.vendedor === sesion.id && a.estado === 'pendiente');
     if (pend) return responderAcompanamiento(pend.id, true);
     const a = { id: nuevoId(), clase: 'acompanamiento', vendedor: sesion.id, solicitante: v.vendedor, visitaId: v.id, fecha: v.fecha, ...datosVisita(v),
         estado: 'aceptada', directo: true, creado: new Date().toISOString(), creadoPor: sesion.id };
