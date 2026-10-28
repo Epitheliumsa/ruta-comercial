@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610281759';
+const APP_VERSION = '202610281833';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -1083,6 +1083,13 @@ const contactosAteneo = () => {
     ateneosDeEtiqueta().forEach(a => l.push({ n: a.n, e: `Ateneo · ${a.medicos} médicos` }));
     return l;
 };
+// Zona del cliente y su visitador médico, ej: "Zona Sur-Yunelis Caballero"
+function zonaVisitador(nombre, zonaPref, proyecto) {
+    const z = buscarMaestra(zonaPref, nombre) ? zonaPref : Object.keys(contactos).find(k => buscarMaestra(k, nombre)) || proyecto?.zona;
+    if (!z || z === ZONA_PROV || z === ZONA_EMP) return '';
+    const v = COMERCIALES.find(c => c.zona === z);
+    return v ? `${z}-${v.nombre}` : z;
+}
 const buscarEnTodas = nombre => Object.keys(contactos).map(z => buscarMaestra(z, nombre)).find(Boolean) || buscarAteneo(nombre);
 // La Visita Ateneo Médico busca el contacto en todas las zonas
 const maestraForm = nombre => buscarMaestra(comercial(agenda.vendedor)?.zona, nombre) || (esJefe() || $('fTipo')?.value === ATENEO ? buscarEnTodas(nombre) : undefined);
@@ -4742,7 +4749,7 @@ function pintarHistorial() {
     }).join('');
     abrirModal(`<div class="form-rc ficha historial">
         <h2>${esc(nombre)}</h2>
-        <p class="sub">${esc([m?.e || (p ? etiquetaLead(p.tipo) : ''), m?.c || p?.ciudad || ''].filter(Boolean).join(' · '))}</p>
+        <p class="sub">${esc([m?.e || (p ? etiquetaLead(p.tipo) : ''), m?.c || p?.ciudad || '', zonaVisitador(nombre, zona, p)].filter(Boolean).join(' · '))}</p>
         ${htmlDirectorioCliente(nombre)}
         ${m && (m.cl || m.ca) ? `<p class="clasif-cliente">Clasificación <b>${esc(m.cl || '')}</b>${m.ca ? ' · ' + esc(m.ca) : ''}</p>` : ''}
         ${esLogistica() || dia ? '' : chipsMes}
