@@ -273,7 +273,7 @@ async function subirOdoo() {
 }
 
 // ---------- Productos (misma lógica que herramientas/productos.py) ----------
-const DESPLEGABLES_BASE = ['Nuevo', 'Foco', 'Transición-Impulso'], CERRADAS_BASE = ['Portafolio', 'Cliente', 'Consultorio'];
+const DESPLEGABLES_BASE = ['Nuevo', 'Foco', 'Transición-Impulso', 'Producto Terminado'], CERRADAS_BASE = ['Portafolio', 'Cliente', 'Consultorio'];
 const NOMBRES_ETIQUETA = { nuevo: 'Nuevo', foco: 'Foco', transicion: 'Transición-Impulso', 'transicion-impulso': 'Transición-Impulso', 'transicion - impulso': 'Transición-Impulso',
     'transicion impulso': 'Transición-Impulso', portafolio: 'Portafolio', estrategico: 'Estratégico', consultorio: 'Consultorio', cliente: 'Cliente',
     'a descodificar': 'A descodificar', 'en desarrollo': 'En Desarrollo', 'producto terminado': 'Producto Terminado' };

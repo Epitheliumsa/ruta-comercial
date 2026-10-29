@@ -4308,9 +4308,9 @@ async function eliminarVisita(id) {
 }
 
 // ---------- CIERRE DE VISITA: pedido, productos y muestras ----------
-// Catálogo de productos (productos.js, herramientas/productos.py). Nuevo, Foco y Transición-Impulso se despliegan y se buscan
+// Catálogo de productos (productos.js, herramientas/productos.py). Nuevo, Foco, Transición-Impulso y Producto Terminado se despliegan y se buscan
 // por código o nombre; Portafolio y Consultorio van cerradas (solo se marcan).
-const CATALOGO = window.CATALOGO || { desplegables: ['Nuevo', 'Foco', 'Transición-Impulso'], cerradas: ['Portafolio', 'Consultorio'], productos: [] };
+const CATALOGO = window.CATALOGO || { desplegables: ['Nuevo', 'Foco', 'Transición-Impulso', 'Producto Terminado'], cerradas: ['Portafolio', 'Consultorio'], productos: [] };
 const productoPorCodigo = Object.fromEntries(CATALOGO.productos.map(p => [p.c, p]));
 const nombreProducto = c => productoPorCodigo[c] ? `[${c}] ${productoPorCodigo[c].n}` : c;
 // Pedido: sale solo si en Colocación se cumplió Producto Terminado, Magistral Individual o Magistral de Pedido.

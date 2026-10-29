@@ -7,7 +7,7 @@ Fuentes (en datos/):
   La etiqueta que vale es "Nueva Etiqueta" si tiene algo; si no, "Etiquetas de producto".
   Hoja "Guía de Etiquetas" (Etiqueta | Concepto Estratégico | Mensaje Comercial): sale al abrir la etiqueta en el cierre.
 - Productos_Terminados.xlsx: productos terminados (export de Odoo con Referencia Interna, Nombre, Etiquetas de producto).
-Categorías del cierre: Nuevo, Foco y Transición-Impulso se despliegan (buscador por código o nombre);
+Categorías del cierre: Nuevo, Foco, Transición-Impulso y Producto Terminado se despliegan (buscador por código o nombre);
 Portafolio y Consultorio van cerradas (solo se marcan).
 """
 import collections, json, unicodedata
@@ -16,7 +16,7 @@ import openpyxl
 
 RAIZ = Path(__file__).resolve().parent.parent
 FUENTES = [RAIZ / 'datos' / 'Base_Productos.xlsx', RAIZ / 'datos' / 'Productos_Terminados.xlsx']
-DESPLEGABLES = ['Nuevo', 'Foco', 'Transición-Impulso']
+DESPLEGABLES = ['Nuevo', 'Foco', 'Transición-Impulso', 'Producto Terminado']
 CERRADAS = ['Portafolio', 'Cliente', 'Consultorio']
 
 def clave(t):
