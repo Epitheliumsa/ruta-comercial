@@ -222,6 +222,11 @@
                         <option value="ini">Ordenar: fecha de inicio</option>
                         <option value="fin">Ordenar: fecha final</option>
                     </select>
+                    <select id="circSentido" class="ag-orden" aria-label="Sentido del orden de las circulares" onchange="circulares.sentido=this.value; pintarCirculares()">
+                        <option value="">Sentido: automático</option>
+                        <option value="asc">De menor a mayor</option>
+                        <option value="desc">De mayor a menor</option>
+                    </select>
                     <div class="mc-multis circ-multis" id="circMultis"></div>
                 </div>
                 <div id="actTareasCtrl" hidden>

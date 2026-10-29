@@ -805,10 +805,11 @@ function limpiarFiltros() {
     Object.keys(maestra.sel).forEach(k => { maestra.sel[k] = []; });
     maestra.busca = '';
     Object.assign(agenda, { filtro: '', busca: '' });
-    Object.assign(circulares, { filtro: 'vigente', busca: '', orden: 'circular', sel: { cl: [], cli: [], g: [], t: [] } });
+    Object.assign(circulares, { filtro: 'vigente', busca: '', orden: 'circular', sentido: '', sel: { cl: [], cli: [], g: [], t: [] } });
     Object.values(MULTI).forEach(g => { g.abierto = null; g.busca = ''; });
     ['vpBusca', 'mcBusca', 'agBuscar', 'circBuscar'].forEach(id => { if ($(id)) $(id).value = ''; });
     if ($('circOrden')) $('circOrden').value = 'circular';
+    if ($('circSentido')) $('circSentido').value = '';
 }
 
 function irInicio() {
@@ -5082,7 +5083,7 @@ function cargarVentas() {
 // ---------- ACTIVIDADES-CIRCULARES ----------
 // Dos vistas: Circulares (resumen con estado, días que faltan y PDF) y Tareas del mes (lo de antes)
 let actVista = 'circulares';
-const circulares = { filtro: 'vigente', busca: '', orden: 'circular', sel: { cl: [], cli: [], g: [], t: [] } };
+const circulares = { filtro: 'vigente', busca: '', orden: 'circular', sentido: '', sel: { cl: [], cli: [], g: [], t: [] } };
 // Grupo de producto: se unifica cómo viene escrito en el Excel ("Terminados", "Producto terminado"…)
 function gruposCircular(c) {
     return [...new Set(String(c.grupo || '').split('/').map(x => {
@@ -5133,11 +5134,14 @@ function pintarCirculares() {
     const base = CIRCULARES.filter(c => f === 'todas' || estadoCircular(c) === f)
         .filter(c => !q || normalizar([c.c, c.nombre, c.tipo, c.dirigida, c.producto, c.resumen].join(' ')).includes(q));
     // Orden: por número de circular, por fecha de inicio (más recientes primero) o por fecha final (las que vencen antes)
-    const ordenar = {
+    // y el sentido: automático (circular y fecha final de menor a mayor; fecha de inicio, la más reciente primero), de menor a mayor o de mayor a menor
+    const natural = {
         circular: (a, b) => a.c.localeCompare(b.c),
-        ini: (a, b) => (b.ini || '').localeCompare(a.ini || '') || a.c.localeCompare(b.c),
+        ini: (a, b) => (a.ini || '').localeCompare(b.ini || '') || a.c.localeCompare(b.c),
         fin: (a, b) => (a.fin || '9999').localeCompare(b.fin || '9999') || a.c.localeCompare(b.c)
     }[circulares.orden] || (() => 0);
+    const sentido = circulares.sentido || (circulares.orden === 'ini' ? 'desc' : 'asc');
+    const ordenar = sentido === 'desc' ? (a, b) => natural(b, a) : natural;
     const lista = base.filter(c => pasaFiltroCirc(c)).sort(ordenar);
     // Filtros de lista (una o varias opciones): clasificación, cliente y grupo de producto
     const cuentaDe = (k, valores, pasa) => Object.fromEntries(valores.map(v => [v, base.filter(c => pasaFiltroCirc(c, k) && pasa(c, v)).length]));
