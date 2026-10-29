@@ -43,6 +43,11 @@ function pintarEntrarComo() {
 }
 async function ingresar() {''', 1)
 app += '\npintarEntrarComo();\n'
+# Sin aviso de "versión nueva": el módulo se republica por partes y su version.txt no siempre coincide con el app.js (el aviso se quedaba pegado)
+app = app.replace("async function revisarVersion() {", "async function revisarVersion() {\n    return;   // módulo de pruebas: sin aviso de versión", 1)
+bases = (SALIDA / 'bases.js').read_text(encoding='utf-8')
+bases = bases.replace("async function appAlDia() {", "async function appAlDia() {\n    return true;   // módulo de pruebas", 1)
+(SALIDA / 'bases.js').write_text(bases, encoding='utf-8')
 (SALIDA / 'app.js').write_text(app, encoding='utf-8')
 
 h = (SALIDA / 'index.html').read_text(encoding='utf-8')
