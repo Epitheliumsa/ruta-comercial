@@ -420,3 +420,7 @@
 - **Base cerrada de CLIENTES en Logística**: no se crean clientes nuevos (`guardarLog`): hay que escogerlos de la Maestra (también valen los leads y los empleados); una parada vieja conserva el suyo.
   Un **proveedor** o un **contacto de Trámite área** que no es cliente sí se escribe a mano: queda con nombre propio (`nombrePropio`) y **guardado en memoria** para la próxima vez, con su dirección y teléfono
   (registro `lista-otros-log`, clase `lista`, `items: [{t: 'prov'|'cont', n, dir, tel}]`; se sincroniza y lo ven todos en Logística; no es una base de datos; `recordarOtro`, `otrosGuardados`). Los contactos guardados solo salen en la lista de Trámite área, no en la de clientes.
+
+## Logística: correcciones de reportes (huella y fotos)
+- **Corregir reporte** (`reabrirLog`) deja la parada pendiente pero **conserva las fotos** de la entrega (antes se pasaban solo al historial y la tarjeta quedaba "Sin foto"); el nuevo reporte no pide otra foto si ya hay una.
+- Cada corrección deja **huella** en la tarjeta (`huellaCorreccionesLog`): el reporte anterior (hora y quién), qué decía, quién reabrió y cuándo, con sus fotos si ya no están en el nuevo reporte; el nuevo reporte lleva su hora ("Reporte corregido el …").

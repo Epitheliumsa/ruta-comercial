@@ -2088,3 +2088,8 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .obj-item .subs .lista-muestras { grid-column: 1 / -1; display: grid; gap: 6px; padding: 2px 0 4px 14px; }
 .obj-item .subs .lista-muestras[hidden] { display: none; }
 .lista-muestras .ayuda { margin: 0; font-weight: 700; }
+
+/* Huella de una corrección de reporte (Logística): lo anterior, en pequeño y en gris */
+.lg-huella-cor { flex-basis: 100%; font-size: 12.5px; color: #475569; background: #f1f5f4; border-radius: 8px; padding: 6px 10px; margin: 4px 0; }
+.lg-huella-cor small { color: #64748b; font-size: 12px; }
+.lg-huella-cor .lg-fotos { margin-top: 4px; }

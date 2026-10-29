@@ -360,7 +360,7 @@ function tarjetaLog(r, n, total) {
             <button class="link-mini" onclick="abrirLogForm('${r.id}')">Editar</button>
             ${botonEliminarLog(r)}</div>`;
     } else {
-        acciones = `<div class="acciones cerrada"><span class="nota-cierre">🔒 Reportado el ${esc(fechaHora(r.registrada))} por ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}${r.correcciones?.length ? ` · corregido ${r.correcciones.length} ${r.correcciones.length === 1 ? 'vez' : 'veces'}` : ''}</span>
+        acciones = `<div class="acciones cerrada"><span class="nota-cierre">🔒 ${r.correcciones?.length ? 'Reporte corregido' : 'Reportado'} el ${esc(fechaHora(r.registrada))} por ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}${r.correcciones?.length ? ` · ${r.correcciones.length} ${r.correcciones.length === 1 ? 'corrección' : 'correcciones'}` : ''}</span>${huellaCorreccionesLog(r)}
             ${puedeCorregirLog() ? `<button class="link-mini" onclick="reabrirLog('${r.id}')">✏️ Corregir reporte</button>` : ''}${botonEliminarLog(r)}</div>`;
     }
     // Las de hora fija van por hora; las demás se ordenan con Subir / Bajar
@@ -814,6 +814,16 @@ function moverLog(id, d) {
 // ---------- AFORO Y DESPACHO EN PASOS (misma ficha) ----------
 // La parada con "se afora primero" tiene dos pasos que pueden hacer personas distintas: ① Aforado (con foto) y ② Despachado/Entregado (con guía o recibido y foto).
 // El primero no cierra la parada: queda "aforada, falta despachar" para todo Logística. Las fotos del aforo llevan e: 'aforo'.
+// Huella de las correcciones: cuándo se reportó antes, qué decía, quién reabrió y cuándo; el nuevo reporte lleva su propia hora
+const resumenReporteLog = (r, c) => {
+    const rp = c.reporte || {}, tp = TIPOS_LOG[repTipoLog(r)] || {};
+    return [c.estado === 'entregado' ? okTxt(r) : noTxt(r), rp.recibio && `${tp.rec || 'Recibió'}: ${rp.recibio}`, rp.guia && `Guía: ${rp.guia}`, rp.motivo && `Motivo: ${rp.motivo}`, rp.novedad && `Novedad: ${rp.novedad}`, rp.detalle].filter(Boolean).join(' · ');
+};
+const huellaCorreccionesLog = r => (r.correcciones || []).map((c, i) => {
+    const propias = new Set((r.fotos || []).map(f => f.id || f.url));
+    const fotos = miniaturasLog((c.fotos || []).filter(f => !propias.has(f.id || f.url)));
+    return `<div class="lg-huella-cor"><b>✏️ Corrección ${i + 1}</b> · reporte anterior: ${c.registrada ? esc(fechaHora(c.registrada)) : 'sin hora'} por ${esc(nombreVendedor(c.reportadoPor || r.vendedor))} · reabierto por ${esc(nombreVendedor(c.por))} el ${esc(fechaHora(c.reabierta))}<br><small>${esc(resumenReporteLog(r, c))}</small>${fotos ? `<div class="lg-fotos fija">${fotos}</div>` : ''}</div>`;
+}).join('');
 const fotosDe = (r, aforo) => (r.fotos || []).filter(f => (f.e === 'aforo') === !!aforo);
 const miniaturasLog = lista => lista.map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener" title="Foto ${i + 1}"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
 function htmlPasosLog(r) {
@@ -1234,7 +1244,7 @@ async function reabrirLog(id) {
     if (!r || r.estado === 'pendiente' || !puedeCorregirLog()) return;
     if (!await dialogo({ titulo: '¿Corregir este reporte?', texto: 'La parada vuelve a pendiente para reportarla de nuevo. El reporte anterior queda guardado en su historial.', aceptar: 'Reabrir' })) return;
     guardarRegistro({ ...r, estado: 'pendiente', reporte: null, registrada: '',
-        correcciones: [...(r.correcciones || []), { estado: r.estado, reporte: r.reporte, registrada: r.registrada, reportadoPor: r.reportadoPor, fotos: fotosDe(r, false), reabierta: new Date().toISOString(), por: sesion.id }], fotos: fotosDe(r, true) });
+        correcciones: [...(r.correcciones || []), { estado: r.estado, reporte: r.reporte, registrada: r.registrada, reportadoPor: r.reportadoPor, fotos: fotosDe(r, false), reabierta: new Date().toISOString(), por: sesion.id }] });   // las fotos se conservan (también quedan en el historial de la corrección)
     pintarLog();
 }
 
