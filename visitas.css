@@ -2083,3 +2083,8 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-fila-doc[data-g="docs"] .lg-pc { grid-template-columns: 112px 1fr; }
 .form-rc .lg-fila-doc[data-g="docs"] .lg-pc select.lg-doc-fam { grid-row: 1; grid-column: 1; min-width: 0; width: 100%; padding: 0 6px; border-bottom: 1px solid #d5dfdc; border-right: 1px solid #d5dfdc; }
 .form-rc .lg-fila-doc[data-g="docs"] .lg-pc select.lg-doc-sel { grid-column: 2; }
+
+/* Muestras médicas a entregar (al programar la visita) */
+.obj-item .subs .lista-muestras { grid-column: 1 / -1; display: grid; gap: 6px; padding: 2px 0 4px 14px; }
+.obj-item .subs .lista-muestras[hidden] { display: none; }
+.lista-muestras .ayuda { margin: 0; font-weight: 700; }
