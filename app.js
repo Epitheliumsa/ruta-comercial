@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202610281833';
+const APP_VERSION = '202610281911';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -3668,6 +3668,7 @@ async function abrirProgramar(id, contactoPlan) {
             <button class="btn-primario">${v ? 'Guardar cambios' : 'Programar'}</button>
         </div>
     </form>`);
+    muestrasPlanForm = (v?.muestrasPlan || []).slice();
     tiposForm = v?.tiposVisita?.length ? v.tiposVisita.slice() : v && (TIPOS_VISITA[v.tipoVisita] || v.tipoVisita === VMC) ? [v.tipoVisita] : null;
     cambiarTipoProgramacion(v?.objetivos || [], v?.subobjetivos || {});
     if (v && v.clase === 'visita') avisoProgramacion(v);
@@ -3839,7 +3840,8 @@ function pintarObjetivos(marcados, subsMarcados) {
     const antes = merc ? leerDetalles(cont) : null;
     const editando = registrosForm.id && registros[registrosForm.id];
     const detalle = merc ? { detalle: { ...(editando?.detalleObjetivos || {}), ...(antes?.det || {}) }, proyecto: editando?.proyectoMercadeo || null, vendedor: editando?.vendedor || sesion.id } : null;
-    cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs, detalle })
+    if (cont.querySelector('.mu-plan')) muestrasPlanForm = leerMuestrasPlan(cont);
+    cont.innerHTML = htmlObjetivos(lista, { tipo, nuevo, mes: mesDe($('fFecha').value || agenda.fecha), marcados: actuales, subs, detalle, muestrasPlan: muestrasPlanForm })
         + (conPersonal ? htmlPersonal(actuales.includes(PERSONALIZADA), textoAntes) : '');
 }
 // Objetivo "Otros": al marcarlo se escribe cuál es (máximo 50 caracteres)
@@ -3948,13 +3950,21 @@ function registrarAvance(proyecto, det, visita) {
 }
 const resumenDetalles = (det, proyecto) => Object.entries(det).map(([o, t]) => `${o}${o === 'Proyectos' && proyecto?.nombre ? ' (' + proyecto.nombre + ')' : ''}: ${t}`).join(' · ');
 
-function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {}, detalle = null }) {
+// Al programar "Muestra Médica": lista de muestras médicas del catálogo para escoger cuáles se van a entregar (queda en la visita y
+// al reportar se precarga en "Muestras entregadas")
+const muestrasMedicas = () => CATALOGO.productos.filter(p => p.g === 'Muestras');
+const listaMuestrasPlan = (sel, visible) => `<div class="lista-muestras"${visible ? '' : ' hidden'}><p class="ayuda">Muestras médicas a entregar</p>${
+    muestrasMedicas().map(p => `<label class="check sub"><input type="checkbox" class="mu-plan" value="${esc(p.c)}" ${sel.includes(p.c) ? 'checked' : ''}><span>[${esc(p.c)}] ${esc(p.n)}</span></label>`).join('') || '<p class="ayuda">No hay muestras médicas cargadas en el catálogo.</p>'}</div>`;
+let muestrasPlanForm = [];   // muestras médicas escogidas en el formulario de programar
+const leerMuestrasPlan = cont => [...cont.querySelectorAll('.mu-plan:checked')].map(i => i.value);
+function htmlObjetivos(lista, { tipo, nuevo, mes, marcados = [], subs = {}, programados = null, subsProg = {}, detalle = null, muestrasPlan = null }) {
     return lista.map(o => {
         const sc = subcategoriasDe(tipo, nuevo, o, mes);
         const prog = programados && programados.includes(o);
         const abierto = marcados.includes(o) || prog;
         const estilo = (lo, de) => programados ? (tieneSub(de, lo) ? ' programado' : ' no-programado') : '';
-        const labelSub = x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`;
+        const labelSub = x => `<label class="check sub${estilo(x, subsProg[o] || [])}"><input type="checkbox" data-o="${esc(o)}" value="${esc(x)}" ${tieneSub(subs[o], x) ? 'checked' : ''}><span>${esc(x)}</span>${enlacePdfSub(o, x)}</label>`
+            + (muestrasPlan && o === 'Entrega de Muestras' && x === 'Muestra Médica' ? listaMuestrasPlan(muestrasPlan, tieneSub(subs[o], x)) : '');
         const cajaSubs = detalle ? cajaDetalle(o, abierto, detalle, sc.map(labelSub).join(''))
             : sc.length
             ? `<div class="subs"${abierto ? '' : ' hidden'}>${sc.map(x => o === 'Actividades' && circularDeEtiqueta(x) ? htmlCircularSub(o, x, subs, estilo, subsProg) : labelSub(x)).join('')}</div>`
@@ -3977,6 +3987,12 @@ document.addEventListener('input', e => {
     const obj = e.target.closest('.obj-item').querySelector('input.obj');
     if (obj && !obj.checked) obj.checked = true;
 }, true);
+// Al marcar "Muestra Médica" sale la lista de muestras para entregar
+document.addEventListener('change', e => {
+    if (!e.target.matches?.('.obj-item .subs input[data-o="Entrega de Muestras"][value="Muestra Médica"]')) return;
+    const lista = e.target.closest('.subs').querySelector('.lista-muestras');
+    if (lista) lista.hidden = !e.target.checked;
+}, true);
 // Al marcar una subcategoría se marca también su objetivo (al programar y al cerrar)
 document.addEventListener('change', e => {
     if (!e.target.matches?.('.obj-item .subs input') || !e.target.checked) return;
@@ -3987,6 +4003,7 @@ const leerObjetivos = cont => [...cont.querySelectorAll('input.obj:checked')].ma
 function leerSubs(cont, soloDe) {
     const r = {};
     cont.querySelectorAll('.subs input:checked').forEach(i => {
+        if (!i.dataset.o) return;   // las muestras a entregar no son subcategorías
         if (soloDe && !soloDe.includes(i.dataset.o)) return;
         (r[i.dataset.o] = r[i.dataset.o] || []).push(i.value);
     });
@@ -4156,6 +4173,7 @@ async function guardarProgramada(e, id) {
         fecha, hora: interno ? '' : $('fHora').value, objetivo: merc ? resumenDetalles(detMerc.det, detMerc.proyecto) : $('fObjetivo').value.trim(),
         diaCompleto: interno ? !internoHoras : undefined, horaInicio, horaFin,
         modalidad: interno ? '' : modalidadElegida(), tipoVisita: tipos[0], tiposVisita: tipos.length > 1 ? tipos : [], objetivos, subobjetivos,
+        muestrasPlan: (subobjetivos['Entrega de Muestras'] || []).includes('Muestra Médica') ? leerMuestrasPlan($('fObjetivos')) : [],
         // Si cambia de día se vuelve a revisar si alcanzó a programarse antes de las 8:00 a. m.
         programada: antes && antes.fecha === fecha ? esProgramada(antes) : Date.now() < limiteProgramacion(fecha)
     });
@@ -4446,7 +4464,12 @@ function actualizarCierreVisita() {
     TIPOS_MUESTRA.forEach(t => {
         const b = document.querySelector(`#cajaMuestras .bloque-muestra[data-tipo="${t}"]`), ver = mu.includes(t);
         b.hidden = !ver; hayM = hayM || ver;
-        if (ver && !b.querySelector('.fila-muestra')) agregarMuestra(t);
+        if (ver && !b.querySelector('.fila-muestra')) {
+            // Muestra Médica: se precargan las muestras que se programaron para entregar
+            const plan = t === 'Muestra Médica' ? ($('cajaMuestras').dataset.plan || '').split(',').filter(Boolean) : [];
+            if (plan.length) plan.forEach(c => $('muestras-' + t.replace(/\s/g, '')).insertAdjacentHTML('beforeend', filaMuestra(t, { c })));
+            else agregarMuestra(t);
+        }
     });
     $('cajaMuestras').hidden = !hayM;
 }
@@ -4502,7 +4525,7 @@ function abrirRegistro(id, tipo, propuesta = false) {
                 <label>Productos presentados</label>
                 ${htmlSelProductos('rProdPresentados', [...CATALOGO.desplegables, ...CATALOGO.cerradas], ya ? v.productosPresentados : {})}
             </div>
-            <div id="cajaMuestras" class="caja-cierre" hidden>
+            <div id="cajaMuestras" class="caja-cierre" data-plan="${esc((v.muestrasPlan || []).join(','))}" hidden>
                 <label>Muestras entregadas ${REQ} <small>(producto y cantidad)</small></label>
                 <datalist id="dlProductos">${opcionesProductos()}</datalist>
                 ${TIPOS_MUESTRA.map(t => `<div class="bloque-muestra" data-tipo="${t}" hidden><p class="obj-grupo">${t}</p>
