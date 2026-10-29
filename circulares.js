@@ -2126,5 +2126,127 @@ window.CIRCULARES = [
   "excluidos": [],
   "todos": false,
   "interna": false
+ },
+ {
+  "c": "2026-040",
+  "tipo": "Evacuación",
+  "nombre": "Actividad promocional Dermatodo octubre–noviembre",
+  "grupo": "Producto Terminado",
+  "dirigida": "Ciruderma S.A.S. (Dermatodo)",
+  "producto": "[PT0002] Capilplus DS Shampoo Anticaspa x 220 ml; [PT0012] Sensibath x 240 ml; [PT0014] Capilplus Acondicionador x 220 ml; [PT0011] Capilplus Shampoo x 220 ml",
+  "ini": "2026-10-26",
+  "fin": "2026-11-30",
+  "objetivo": "Apoyar a Dermatodo (Ciruderma S.A.S.) en su campaña de descuentos de la última semana de octubre y el mes de noviembre de 2026, para impulsar la evacuación de inventario y la rotación de los productos relacionados, en sus puntos de venta físicos y canales digitales. Meta: evacuar 90 unidades entre el 26 de octubre y el 30 de noviembre de 2026: Capilplus DS Shampoo Anticaspa x 220 ml (24), Sensibath x 240 ml (30), Capilplus Acondicionador x 220 ml (12) y Capilplus Shampoo x 220 ml (24).",
+  "resumen": "Descuento del 10% sobre el valor de venta Epithelium antes de IVA, del 26 de octubre al 30 de noviembre de 2026, en puntos de venta físicos y canales digitales de Dermatodo. Aplica solo a los 4 productos terminados de la circular y no es acumulable con otras promociones sobre los mismos productos. El cliente envía la relación de ventas POS a más tardar el 6 de diciembre de 2026; la liquidación es por nota crédito, emitida entre el 9 y el 16 de diciembre de 2026, una vez validadas las ventas efectivas.",
+  "obs": "Descuento 10% antes de IVA; meta 90 unidades; ventas POS del cliente a más tardar el 6/12/2026; NC entre el 9 y el 16/12/2026.",
+  "pdf": "",
+  "productos": [
+   {
+    "c": "PT0002",
+    "n": "Capilplus DS Shampoo Anticaspa x 220 ml"
+   },
+   {
+    "c": "PT0012",
+    "n": "Sensibath x 240 ml"
+   },
+   {
+    "c": "PT0014",
+    "n": "Capilplus Acondicionador x 220 ml"
+   },
+   {
+    "c": "PT0011",
+    "n": "Capilplus Shampoo x 220 ml"
+   }
+  ],
+  "canales": [],
+  "clientes": [
+   "Ciruderma S.A.S.",
+   "Ciruderma S.A.S., Dermatodo C.C. Avenida Chile",
+   "Ciruderma S.A.S., Dermatodo C.C. Cedritos 151",
+   "Ciruderma S.A.S., Dermatodo C.C. Centro 93",
+   "Ciruderma S.A.S., Dermatodo C.C. Centro Chia",
+   "Ciruderma S.A.S., Dermatodo C.C. Centro Mayor",
+   "Ciruderma S.A.S., Dermatodo C.C. Gran Estacion",
+   "Ciruderma S.A.S., Dermatodo C.C. Mall 138",
+   "Ciruderma S.A.S., Dermatodo C.C. Metropolis",
+   "Ciruderma S.A.S., Dermatodo C.C. Niza",
+   "Ciruderma S.A.S., Dermatodo C.C. Sabana Norte",
+   "Ciruderma S.A.S., Dermatodo C.C. Salitre Plaza",
+   "Ciruderma S.A.S., Dermatodo C.C. Unicentro",
+   "Ciruderma S.A.S., Dermatodo Calle 72",
+   "Ciruderma S.A.S., Dermatodo Calle 92",
+   "Ciruderma S.A.S., Dermatodo Centro Medico de la Sabana",
+   "Ciruderma S.A.S., Dermatodo Colina",
+   "Ciruderma S.A.S., Dermatodo Edificio el Bosque",
+   "Ciruderma S.A.S., Dermatodo Santa Barbara"
+  ],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
+ },
+ {
+  "c": "2026-041",
+  "tipo": "Codificación",
+  "nombre": "Gana por codificar",
+  "grupo": "Producto Terminado",
+  "dirigida": "Ciruderma S.A.S. (Dermatodo)",
+  "producto": "[PT0001] Hydrafort Face x 50 g; [PT0003] Revival Crema x 50 g; [PT0004] Hydrafort pH5 Ultrahumectante Crema x 250 g; [PT0005] Sunskin Oil Free x 80 g; [PT0009] Sunskin SPF 50+ Gel x 80 g; [PT0010] Sunskin SPF 50+ Emulsión x 80 g",
+  "ini": "2026-11-01",
+  "fin": "2026-11-30",
+  "objetivo": "Codificar toda la línea de producto terminado pendiente (6 referencias de Sunskin, Hydrafort y Revival) en Ciruderma S.A.S. (Dermatodo) durante noviembre, con un 20% de descuento adicional antes de IVA, para que los productos queden disponibles para la temporada de vacaciones y cierre de año. Meta: 6 de 6 referencias codificadas.",
+  "resumen": "Durante noviembre, Dermatodo obtiene un 20% de descuento adicional, antes de IVA, en cada referencia que codifique, producto por producto, con un único pedido de codificación de mínimo 6 unidades por referencia (cuenta la fecha de inclusión del pedido). Aplica solo a las 6 referencias de la circular y no a unidades bonificadas. La circular 2026-033 Bonificado Cruzado no aplica para Ciruderma en estos productos: el visitador médico comercial debe garantizar que no se aplique al hacer el pedido. El descuento queda matriculado en Odoo y se refleja en la factura (sin nota crédito).",
+  "obs": "Pedido único de codificación, mínimo 6 unidades por referencia; 20% adicional antes de IVA; no aplica 2026-033 (Bonificado Cruzado) para Ciruderma en estos productos; sin nota crédito.",
+  "pdf": "",
+  "productos": [
+   {
+    "c": "PT0001",
+    "n": "Hydrafort Face x 50 g"
+   },
+   {
+    "c": "PT0003",
+    "n": "Revival Crema x 50 g"
+   },
+   {
+    "c": "PT0004",
+    "n": "Hydrafort pH5 Ultrahumectante Crema x 250 g"
+   },
+   {
+    "c": "PT0005",
+    "n": "Sunskin Oil Free x 80 g"
+   },
+   {
+    "c": "PT0009",
+    "n": "Sunskin SPF 50+ Gel x 80 g"
+   },
+   {
+    "c": "PT0010",
+    "n": "Sunskin SPF 50+ Emulsión x 80 g"
+   }
+  ],
+  "canales": [],
+  "clientes": [
+   "Ciruderma S.A.S.",
+   "Ciruderma S.A.S., Dermatodo C.C. Avenida Chile",
+   "Ciruderma S.A.S., Dermatodo C.C. Cedritos 151",
+   "Ciruderma S.A.S., Dermatodo C.C. Centro 93",
+   "Ciruderma S.A.S., Dermatodo C.C. Centro Chia",
+   "Ciruderma S.A.S., Dermatodo C.C. Centro Mayor",
+   "Ciruderma S.A.S., Dermatodo C.C. Gran Estacion",
+   "Ciruderma S.A.S., Dermatodo C.C. Mall 138",
+   "Ciruderma S.A.S., Dermatodo C.C. Metropolis",
+   "Ciruderma S.A.S., Dermatodo C.C. Niza",
+   "Ciruderma S.A.S., Dermatodo C.C. Sabana Norte",
+   "Ciruderma S.A.S., Dermatodo C.C. Salitre Plaza",
+   "Ciruderma S.A.S., Dermatodo C.C. Unicentro",
+   "Ciruderma S.A.S., Dermatodo Calle 72",
+   "Ciruderma S.A.S., Dermatodo Calle 92",
+   "Ciruderma S.A.S., Dermatodo Centro Medico de la Sabana",
+   "Ciruderma S.A.S., Dermatodo Colina",
+   "Ciruderma S.A.S., Dermatodo Edificio el Bosque",
+   "Ciruderma S.A.S., Dermatodo Santa Barbara"
+  ],
+  "excluidos": [],
+  "todos": false,
+  "interna": false
  }
 ];
