@@ -48,8 +48,8 @@ async function cargarBases(forzar = false) {
 // ---------- Pantalla ----------
 const TARJETAS_BASES = [
     { k: 'odoo', t: 'Maestra de Odoo (todo en uno)', d: 'Sube la Maestra de Contactos de Odoo tal como sale (con Calle, Teléfono y Móvil), uno o varios archivos con las mismas columnas. La app reparte cada fila según su Equipo de ventas: zonas → Maestra de contactos y Direcciones; Empleados → Empleados; el resto → Proveedores. Empleados y Proveedores solo los ven Logística y tú.', a: 'subirOdoo()', n: 'odoo' },
-    { k: 'catalogo', t: 'Productos', d: 'Catálogo con etiquetas (Nuevo, Foco, Transición-Impulso…) para visitas y muestras. Sube Base_Productos (materias primas), Productos_Terminados (terminados) o los dos: cada archivo reemplaza solo lo suyo.', a: 'subirCatalogo()', n: 'productos' },
-    { k: 'vademecum', t: 'Vademécum', d: 'Productos y portafolios por cliente del Vademécum. Sube Vademecum_Epithelium (productos), Vademecum_clientes (portafolios) o los dos: cada archivo reemplaza solo lo suyo. El Vademécum lo toma de aquí.', a: 'subirVademecum()', n: 'vademecum' }
+    { k: 'catalogo', t: 'Productos y Vademécum (todo en uno)', d: 'Sube de una vez los dos archivos de Odoo, Producto Terminado y Magistrales (misma estructura), seleccionándolos juntos. La app reparte sola: etiquetas del catálogo de visitas y muestras, productos del Vademécum y portafolio de cada cliente. Si subes solo uno, reemplaza únicamente lo suyo.', a: 'subirProductosTodo()', n: 'productos' },
+    { k: 'vademecum', t: 'Vademécum (archivos sueltos)', d: 'Alternativa: sube Vademecum_Epithelium (productos), Vademecum_clientes (portafolios) o los dos.', a: 'subirVademecum()', n: 'vademecum' }
 ];
 const cuandoBase = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }) : ''; };
 let estadoBases = {};
@@ -464,6 +464,77 @@ async function subirVademecum() {
         refrescarBases();
         toast('Vademécum actualizado: ' + resumen);
     } catch (e) { toast('No se pudo subir el Vademécum: ' + e.message); }
+}
+// ---------- Productos y Vademécum en una sola subida ----------
+// Los dos archivos de Odoo (Producto Terminado y Magistrales) traen la misma estructura. Cada fila se reparte por su referencia:
+// PT → catálogo de visitas; MP → catálogo + Vademécum (lo que no es Cliente) y portafolios (etiqueta Cliente, categoría "Magistral de Pedido / cliente").
+async function subirProductosTodo() {
+    if (!esAdmin()) return;
+    const archivos = await elegirArchivos(true);
+    if (!archivos.length) return;
+    try {
+        const libros = []; for (const a of archivos) libros.push(await leerLibro(a));
+        const leido = catalogoDeLibros(libros);
+        if (!leido.productos.length) return toast('No encontré productos: los archivos deben tener la columna "Referencia Interna"');
+        // Filas completas (todas las columnas del Vademécum) de cada hoja de productos
+        const filasVade = [];
+        libros.forEach(wb => wb.worksheets.forEach(ws => {
+            const f = filasHoja(ws); if (!f.length || !f[0].map(claveTexto).includes('referencia interna')) return;
+            const cab = f[0].map(x => x.trim()), falta = COLS_VADE.filter(n => !cab.includes(n));
+            if (falta.length) throw new Error(`Al archivo le faltan columnas: ${falta.join(', ')}`);
+            const col = Object.fromEntries(cab.map((n, i) => [n, i])), inu = cab.findIndex(x => claveTexto(x) === 'nueva etiqueta'), ia = cab.findIndex(x => claveTexto(x) === 'activo(a)');
+            productosVademecum(f).forEach(({ o, f: fila }) => {
+                if (ia >= 0 && ['false', '0', 'no'].includes(claveTexto(fila[ia]))) return;
+                if (inu >= 0 && String(fila[inu] || '').trim()) o['Etiquetas de producto'] = fila[inu];
+                filasVade.push(o);
+            });
+        }));
+        const familias = new Set(leido.productos.map(p => familiaProducto(p.c)));
+        const conservados = CATALOGO.productos.filter(p => !familias.has(familiaProducto(p.c)));
+        const productos = [...conservados, ...leido.productos].sort((a, b) => claveTexto(a.n).localeCompare(claveTexto(b.n)));
+        const catalogo = { desplegables: DESPLEGABLES_BASE, cerradas: CERRADAS_BASE, productos, guia: Object.keys(leido.guia).length ? leido.guia : CATALOGO.guia || {} };
+        const esCliente = o => etiquetasProducto(o['Etiquetas de producto']).includes('Cliente');
+        const mp = filasVade.filter(o => familiaProducto(o['Referencia Interna']) === 'MP');
+        const maestro = mp.filter(o => !esCliente(o));
+        const delCliente = mp.filter(o => esCliente(o));
+        if (mp.length && maestro.length < 100) return toast('Los magistrales traen muy pocos productos: revisa que sea el archivo completo');
+        if (new Set(maestro.map(o => o['Referencia Interna'])).size !== maestro.length) return toast('Hay referencias repetidas en los magistrales: revísalas antes de subir');
+        const lineas = [`Catálogo de visitas: ${productos.length} productos (${[...familias].map(f => NOMBRE_FAMILIA[f].toLowerCase()).join(' y ')} se reemplazan)`];
+        const bases = [{ nombre: 'catalogo', contenido: JSON.stringify(catalogo), resumen: `${productos.length} productos` }];
+        let resumenV = '';
+        if (mp.length) {
+            bases.push({ nombre: 'vademecum', contenido: JSON.stringify(maestro), resumen: `${maestro.length} productos` });
+            lineas.push(`Vademécum: ${maestro.length} productos`);
+            resumenV = `${maestro.length} productos`;
+        }
+        let sinAcceso = [], nPf = 0;
+        if (delCliente.length) {
+            let indice;
+            try { const r = await fetch(URL_INDICE_VADEMECUM, { cache: 'no-cache' }); if (!r.ok) throw new Error('HTTP ' + r.status); indice = await r.json(); }
+            catch (e) { return toast('No pude traer la lista de clientes del Vademécum: revisa la conexión e inténtalo de nuevo'); }
+            const porNombre = Object.fromEntries(indice.map(x => [claveTexto(x.cliente), x])), por = {};
+            delCliente.forEach(o => {
+                const cat = String(o['Categoría del Producto'] || ''), nom = cat.includes(' / ') ? cat.split(' / ').slice(1).join(' / ').trim() : '';
+                const x = porNombre[claveTexto(nom)];
+                if (!x) { if (nom && !sinAcceso.includes(nom)) sinAcceso.push(nom); return; }
+                (por[x.huella] ||= { cliente: x.cliente, zona: x.zona || '', productos: [] }).productos.push(o);
+            });
+            Object.entries(por).forEach(([h, c]) => bases.push({ nombre: 'pf_' + h, contenido: JSON.stringify(c), resumen: '' }));
+            nPf = Object.keys(por).length;
+            lineas.push(`Portafolios de clientes: ${nPf} se actualizan${sinAcceso.length ? `; sin cruzar con la lista del Vademécum (no se tocan): ${sinAcceso.join(', ')}` : ''}`);
+        }
+        if (!familias.has('MP')) lineas.push('Magistrales: no se subieron, el Vademécum y los portafolios no cambian.');
+        if (!await dialogo({ titulo: 'Productos y Vademécum', aceptar: 'Subir', texto: `${lineas.join('\n')}\nReemplaza lo que ven todos los usuarios.` })) return;
+        const resumen = `${productos.length} productos`;
+        bases[0].resumen = resumen;
+        let cuando = new Date().toISOString();
+        if (API_URL) cuando = (await llamarApi({ accion: 'guardarBases', bases, borrarPortafolios: false }, 180000)).actualizado || cuando;
+        guardarBaseLocal('catalogo', cuando, catalogo, resumen); aplicarBase('catalogo', catalogo);
+        estadoBases.catalogo = { actualizado: cuando, resumen };
+        if (resumenV) estadoBases.vademecum = { actualizado: cuando, resumen: resumenV + (nPf ? ` · ${nPf} portafolios` : '') };
+        refrescarBases(); repintarPantallaActiva();
+        toast(`Listo: ${productos.length} productos en el catálogo${resumenV ? ', ' + resumenV + ' en el Vademécum' : ''}${nPf ? ' y ' + nPf + ' portafolios' : ''}`);
+    } catch (e) { toast('No se pudo subir: ' + e.message); }
 }
 async function descargarVademecum() {
     const r = API_URL ? await llamarApi({ accion: 'leerVademecum' }, 120000) : { productos: null };
