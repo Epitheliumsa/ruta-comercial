@@ -2256,7 +2256,7 @@ window.CIRCULARES = [
   "grupo": "Magistral de Pedido / Producto Terminado",
   "dirigida": "Canales 20, 21, 22",
   "producto": "[MP0586] Minobit TD Loción x 60 ml; [MP0611] Minobit TD Loción x 120 ml; [MP0916] Ascorvit 20% Serum x 30 ml; [MP0750] Shampoo Anticaída con C.B.D. x 250 ml; [PT0014] Capilplus Acondicionador x 220 ml; [PT0001] Hydrafort Face x 50 g; [PT0003] Revival Crema x 50 g",
-  "ini": "2026-11-03",
+  "ini": "2026-11-01",
   "fin": "2027-01-31",
   "objetivo": "Presentar la parrilla promocional al 100% del panel médico de cada zona, con mínimo 1 impacto mensual",
   "resumen": "Parrilla noviembre-enero para canales 20, 21 y 22: Minobit TD Loción, Ascorvit 20% Serum, Shampoo Anticaída con C.B.D., Capilplus Acondicionador, Hydrafort Face y Revival Crema. Visita mensual (presencial en Bogotá, virtual en regiones), refuerzo semanal y mensaje unificado.",
