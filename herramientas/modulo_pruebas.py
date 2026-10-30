@@ -47,6 +47,11 @@ app += '\npintarEntrarComo();\n'
 app = app.replace("async function revisarVersion() {", "async function revisarVersion() {\n    return;   // módulo de pruebas: sin aviso de versión", 1)
 bases = (SALIDA / 'bases.js').read_text(encoding='utf-8')
 bases = bases.replace("async function appAlDia() {", "async function appAlDia() {\n    return true;   // módulo de pruebas", 1)
+# La lista de clientes del Vademécum va dentro del módulo (la página de pruebas no puede consultar otros sitios)
+indice = RAIZ.parent / 'vademecum-epithelium' / 'portafolios-index.json'
+if indice.exists():
+    shutil.copy(indice, SALIDA / 'portafolios-index.json')
+    bases = re.sub(r"const URL_INDICE_VADEMECUM = '[^']*';", "const URL_INDICE_VADEMECUM = 'portafolios-index.json';", bases, count=1)
 (SALIDA / 'bases.js').write_text(bases, encoding='utf-8')
 (SALIDA / 'app.js').write_text(app, encoding='utf-8')
 
