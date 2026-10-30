@@ -48,8 +48,7 @@ async function cargarBases(forzar = false) {
 // ---------- Pantalla ----------
 const TARJETAS_BASES = [
     { k: 'odoo', t: 'Maestra de Odoo (todo en uno)', d: 'Sube la Maestra de Contactos de Odoo tal como sale (con Calle, Teléfono y Móvil), uno o varios archivos con las mismas columnas. La app reparte cada fila según su Equipo de ventas: zonas → Maestra de contactos y Direcciones; Empleados → Empleados; el resto → Proveedores. Empleados y Proveedores solo los ven Logística y tú.', a: 'subirOdoo()', n: 'odoo' },
-    { k: 'catalogo', t: 'Productos y Vademécum (todo en uno)', d: 'Sube de una vez los dos archivos de Odoo, Producto Terminado y Magistrales (misma estructura), seleccionándolos juntos. La app reparte sola: etiquetas del catálogo de visitas y muestras, productos del Vademécum y portafolio de cada cliente. Si subes solo uno, reemplaza únicamente lo suyo.', a: 'subirProductosTodo()', n: 'productos' },
-    { k: 'vademecum', t: 'Vademécum (archivos sueltos)', d: 'Alternativa: sube Vademecum_Epithelium (productos), Vademecum_clientes (portafolios) o los dos.', a: 'subirVademecum()', n: 'vademecum' }
+    { k: 'catalogo', t: 'Productos y Vademécum (todo en uno)', d: 'Sube de una vez los dos archivos de Odoo, Producto Terminado y Magistrales (misma estructura), seleccionándolos juntos. La app reparte sola: etiquetas del catálogo de visitas y muestras, productos del Vademécum y portafolio de cada cliente. Si subes solo uno, reemplaza únicamente lo suyo.', a: 'subirProductosTodo()', n: 'productos' }
 ];
 const cuandoBase = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }) : ''; };
 let estadoBases = {};
@@ -546,13 +545,12 @@ async function subirProductosTodo() {
         }
         if (!familias.has('MP')) lineas.push('Magistrales: no se subieron, el Vademécum y los portafolios no cambian.');
         if (!await dialogo({ titulo: 'Productos y Vademécum', aceptar: 'Subir', texto: `${lineas.join('\n')}\nReemplaza lo que ven todos los usuarios.` })) return;
-        const resumen = `${productos.length} productos`;
+        const resumen = [`${productos.length} productos`, resumenV && `${maestro.length} en el Vademécum`, nPf && `${nPf} portafolios`].filter(Boolean).join(' · ');
         bases[0].resumen = resumen;
         let cuando = new Date().toISOString();
         if (API_URL) cuando = (await llamarApi({ accion: 'guardarBases', bases, borrarPortafolios: false }, 180000)).actualizado || cuando;
         guardarBaseLocal('catalogo', cuando, catalogo, resumen); aplicarBase('catalogo', catalogo);
         estadoBases.catalogo = { actualizado: cuando, resumen };
-        if (resumenV) estadoBases.vademecum = { actualizado: cuando, resumen: resumenV + (nPf ? ` · ${nPf} portafolios` : '') };
         refrescarBases(); repintarPantallaActiva();
         toast(`Listo: ${productos.length} productos en el catálogo${resumenV ? ', ' + resumenV + ' en el Vademécum' : ''}${nPf ? ' y ' + nPf + ' portafolios' : ''}`);
     } catch (e) { toast('No se pudo subir: ' + e.message); }
