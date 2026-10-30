@@ -84,7 +84,13 @@ function refrescarBases() { if (pantallaActiva() === 'basesScreen') { pintarBase
 const claveTexto = t => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 const celdaTexto = c => { const v = c.value; return v === null || v === undefined ? '' : typeof v === 'boolean' ? String(v) : String(c.text ?? v).trim(); };
 // Filas de una hoja como listas de texto (la primera, con los títulos)
-const filasHoja = ws => { const f = []; ws.eachRow({ includeEmpty: false }, fila => { const a = []; for (let i = 1; i <= ws.columnCount; i++) a.push(celdaTexto(fila.getCell(i))); f.push(a); }); return f; };
+// Odoo a veces exporta con los nombres técnicos de los campos: se leen como las columnas de siempre
+const ALIAS_COLUMNAS = { default_code: 'Referencia Interna', name: 'Nombre', product_group: 'Grupo de Producto', categ_id: 'Categoría del Producto', pharmaceutical_form: 'Forma Farmacéutica',
+    pharmaceutical_presentation: 'Presentación Farmacéutica', size: 'Tamaño', components: 'Componentes', indication: 'Indicación', recommended_dosage: 'Dosis Recomendada',
+    product_tag_ids: 'Etiquetas de producto', active: 'Activo(a)' };
+const filasHoja = ws => { const f = []; ws.eachRow({ includeEmpty: false }, fila => { const a = []; for (let i = 1; i <= ws.columnCount; i++) a.push(celdaTexto(fila.getCell(i))); f.push(a); });
+    if (f[0]?.includes('default_code')) f[0] = f[0].map(c => ALIAS_COLUMNAS[c.trim()] || c);
+    return f; };
 async function leerLibro(archivo) { await cargarExcelJS(); const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await archivo.arrayBuffer()); return wb; }
 function elegirArchivos(multiple = false) {
     return new Promise(resolve => {
@@ -465,6 +471,14 @@ async function subirVademecum() {
         toast('Vademécum actualizado: ' + resumen);
     } catch (e) { toast('No se pudo subir el Vademécum: ' + e.message); }
 }
+// Cliente de la categoría → cliente de la lista del Vademécum: nombre igual (sin puntuación) o, si no, el único que el otro nombre contiene
+const claveCliente = t => claveTexto(t).replace(/[^a-z0-9&]+/g, ' ').trim();
+function clienteDelIndice(nom, indice, porNombre) {
+    const k = claveCliente(nom); if (!k) return null;
+    const exacto = indice.find(x => claveCliente(x.cliente) === k); if (exacto) return exacto;
+    const cerca = indice.filter(x => { const c = claveCliente(x.cliente); return c && (k.startsWith(c + ' ') || c.startsWith(k + ' ')); });
+    return cerca.length === 1 ? cerca[0] : null;
+}
 // ---------- Productos y Vademécum en una sola subida ----------
 // Los dos archivos de Odoo (Producto Terminado y Magistrales) traen la misma estructura. Cada fila se reparte por su referencia:
 // PT → catálogo de visitas; MP → catálogo + Vademécum (lo que no es Cliente) y portafolios (etiqueta Cliente, categoría "Magistral de Pedido / cliente").
@@ -476,16 +490,23 @@ async function subirProductosTodo() {
         const libros = []; for (const a of archivos) libros.push(await leerLibro(a));
         const leido = catalogoDeLibros(libros);
         if (!leido.productos.length) return toast('No encontré productos: los archivos deben tener la columna "Referencia Interna"');
-        // Filas completas (todas las columnas del Vademécum) de cada hoja de productos
+        // Filas completas (columnas del Vademécum); lo que el archivo no trae (Masa) sale del nombre o de lo que ya había
+        let previo = {};
+        if (API_URL) { try { ((await llamarApi({ accion: 'leerVademecum' }, 120000)).productos || []).forEach(x => { previo[x['Referencia Interna']] = x; }); } catch (e) { /* sin copia anterior */ } }
         const filasVade = [];
         libros.forEach(wb => wb.worksheets.forEach(ws => {
             const f = filasHoja(ws); if (!f.length || !f[0].map(claveTexto).includes('referencia interna')) return;
-            const cab = f[0].map(x => x.trim()), falta = COLS_VADE.filter(n => !cab.includes(n));
-            if (falta.length) throw new Error(`Al archivo le faltan columnas: ${falta.join(', ')}`);
-            const col = Object.fromEntries(cab.map((n, i) => [n, i])), inu = cab.findIndex(x => claveTexto(x) === 'nueva etiqueta'), ia = cab.findIndex(x => claveTexto(x) === 'activo(a)');
-            productosVademecum(f).forEach(({ o, f: fila }) => {
-                if (ia >= 0 && ['false', '0', 'no'].includes(claveTexto(fila[ia]))) return;
-                if (inu >= 0 && String(fila[inu] || '').trim()) o['Etiquetas de producto'] = fila[inu];
+            const cab = f[0].map(x => x.trim()), col = Object.fromEntries(cab.map((n, i) => [n, i]));
+            if (!('Nombre' in col)) throw new Error('Al archivo le falta la columna "Nombre"');
+            const inu = cab.findIndex(x => claveTexto(x) === 'nueva etiqueta'), ia = cab.findIndex(x => claveTexto(x) === 'activo(a)');
+            f.slice(1).filter(r => String(r[col['Referencia Interna']] || '').trim()).forEach(r => {
+                if (ia >= 0 && ['false', '0', 'no'].includes(claveTexto(r[ia]))) return;
+                const o = Object.fromEntries(COLS_VADE.map(n => [n, n in col ? String(r[col[n]] ?? '').trim() : '']));
+                o['Referencia Interna'] = String(o['Referencia Interna']).trim();
+                o['Nombre'] = o['Nombre'].split(/\s+/).filter(Boolean).join(' ');
+                if (o['Tamaño'] !== '' && !isNaN(Number(o['Tamaño']))) o['Tamaño'] = Number(o['Tamaño']);
+                if (inu >= 0 && String(r[inu] || '').trim()) o['Etiquetas de producto'] = r[inu];
+                if (!o['Masa']) o['Masa'] = (o['Nombre'].match(/\bx\s*[\d.,]+\s*(ml|g|mg|kg|l)\b/i) || [])[1]?.toLowerCase() || previo[o['Referencia Interna']]?.['Masa'] || '';
                 filasVade.push(o);
             });
         }));
@@ -515,7 +536,7 @@ async function subirProductosTodo() {
             const porNombre = Object.fromEntries(indice.map(x => [claveTexto(x.cliente), x])), por = {};
             delCliente.forEach(o => {
                 const cat = String(o['Categoría del Producto'] || ''), nom = cat.includes(' / ') ? cat.split(' / ').slice(1).join(' / ').trim() : '';
-                const x = porNombre[claveTexto(nom)];
+                const x = clienteDelIndice(nom, indice, porNombre);
                 if (!x) { if (nom && !sinAcceso.includes(nom)) sinAcceso.push(nom); return; }
                 (por[x.huella] ||= { cliente: x.cliente, zona: x.zona || '', productos: [] }).productos.push(o);
             });
