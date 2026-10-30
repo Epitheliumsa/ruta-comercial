@@ -174,6 +174,7 @@ function abrirMapa(e, dir) {
 const enlacesTel = t => String(t || '').split(/\s*[\/,;]\s*/).filter(Boolean).map(x => `<a href="tel:${esc(x.replace(/[^0-9+]/g, ''))}">${esc(x)}</a>`).join(' · ');
 const urlFoto = f => f.url || f.data || '';
 const miniFoto = f => f.id ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(f.id)}&sz=w400` : (f.data || '');
+const miniFotoRespaldo = f => f.id ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(f.id)}=w400` : '';
 
 // ---------- INICIO ----------
 function pintarInicioLog() {
@@ -825,7 +826,7 @@ const huellaCorreccionesLog = r => (r.correcciones || []).map((c, i) => {
     return `<div class="lg-huella-cor"><b>✏️ Corrección ${i + 1}</b> · reporte anterior: ${c.registrada ? esc(fechaHora(c.registrada)) : 'sin hora'} por ${esc(nombreVendedor(c.reportadoPor || r.vendedor))} · reabierto por ${esc(nombreVendedor(c.por))} el ${esc(fechaHora(c.reabierta))}<br><small>${esc(resumenReporteLog(r, c))}</small>${fotos ? `<div class="lg-fotos fija">${fotos}</div>` : ''}</div>`;
 }).join('');
 const fotosDe = (r, aforo) => (r.fotos || []).filter(f => (f.e === 'aforo') === !!aforo);
-const miniaturasLog = lista => lista.map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener" title="Foto ${i + 1}"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
+const miniaturasLog = lista => lista.map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener" title="Foto ${i + 1}"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"${miniFotoRespaldo(f) ? ` onerror="this.onerror=null; this.src='${esc(miniFotoRespaldo(f))}'"` : ''}></a>`).join('');
 function htmlPasosLog(r) {
     if (!pasosLog(r)) return '';
     const af = r.aforo, pend = (leerFotosPend()[r.id] || []).filter(x => typeof x !== 'string' && x.e === 'aforo').length;
@@ -1268,6 +1269,8 @@ const FOTOS_PEND = 'rc_fotos_log';
 const leerFotosPend = () => { try { return JSON.parse(localStorage.getItem(FOTOS_PEND) || '{}'); } catch (e) { return {}; } };
 const guardarFotosPend = p => { try { localStorage.setItem(FOTOS_PEND, JSON.stringify(p)); } catch (e) { toast('El teléfono no tiene espacio para guardar la foto: sube las pendientes con señal'); } };
 let subiendoFotos = false;
+// Huella corta de una foto (para que un reintento no la duplique en la parada)
+const huellaFoto = d => { let a = 5381, b = 52711; for (let i = 0; i < d.length; i += 7) { a = ((a << 5) + a + d.charCodeAt(i)) | 0; b = ((b << 5) ^ b ^ d.charCodeAt(i)) | 0; } return d.length.toString(36) + (a >>> 0).toString(36) + (b >>> 0).toString(36); };
 async function subirFotosPend() {
     if (!API_URL || !sesion || subiendoFotos) return;
     const p = leerFotosPend();
@@ -1277,17 +1280,25 @@ async function subirFotosPend() {
         for (const id of Object.keys(p)) {
             const r = registros[id];
             if (!r) { delete p[id]; continue; }
-            const subidas = [];
+            if (pendientes.has(id)) continue;   // la parada todavía no llegó al servidor: la foto espera su turno (no se pierde)
+            const subidas = []; let actualizado = '';
             for (const x of p[id]) {
                 const d = typeof x === 'string' ? x : x.d, etapa = typeof x === 'string' ? '' : x.e || '';   // la foto del aforo lleva su etapa
                 try {
-                    const res = await llamarApi({ accion: 'subirArchivo', carpeta: 'Entregas de logística', nombre: `${r.tipo}-${r.id}.jpg`, tipo: 'image/jpeg', datos: d.split(',')[1] }, 90000);
-                    subidas.push({ url: res.url, id: res.id || idDrive(res.url), ...(etapa ? { e: etapa } : {}) });
+                    // El servidor sube la foto y la agrega a la parada en el mismo paso (no se reescribe el registro entero)
+                    const res = await llamarApi({ accion: 'subirArchivo', carpeta: 'Entregas de logística', nombre: `${r.tipo}-${r.id}.jpg`, tipo: 'image/jpeg', datos: d.split(',')[1], registro: id, etapa, huella: huellaFoto(d) }, 90000);
+                    subidas.push({ url: res.url, id: res.id || idDrive(res.url), ...(etapa ? { e: etapa } : {}), ...(res.h ? { h: res.h } : {}) });
+                    if (res.actualizado) actualizado = res.actualizado;
                 } catch (e) { break; }
             }
             p[id] = p[id].slice(subidas.length);
             if (!p[id].length) delete p[id];
-            if (subidas.length) guardarRegistro({ ...registros[id], fotos: [...(registros[id].fotos || []), ...subidas] });
+            if (subidas.length) {
+                // Se ve de inmediato en este teléfono; el servidor ya la tiene (la próxima sincronización trae su misma versión)
+                const actual = registros[id], tengo = new Set((actual.fotos || []).map(f => f.id));
+                registros[id] = { ...actual, fotos: [...(actual.fotos || []), ...subidas.filter(f => !tengo.has(f.id))], ...(actualizado && actualizado > (actual.actualizado || '') ? { actualizado } : {}) };
+                guardarLocal();
+            }
         }
     } finally {
         guardarFotosPend(p);
@@ -1563,7 +1574,7 @@ function htmlEntregasCliente(nombre, dia = '') {
         const tp = TIPOS_LOG[repTipoLog(r)], rp = r.reporte || {}, cls = r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p';
         const docs = [...(r.documentos || []).map(textoDoc), ...(r.incluyeDocs || []).map(textoInc), ...(r.radicacion || []).map(textoRad), ...(r.tipo === 'oficina' ? itemsOficina(r) : [])].filter(Boolean).map(esc).join('<br>');
         const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, ...(rp.devoluciones || []).map(textoDev), rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
-        const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
+        const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"${miniFotoRespaldo(f) ? ` onerror="this.onerror=null; this.src='${esc(miniFotoRespaldo(f))}'"` : ''}></a>`).join('');
         return `<div class="hist-item ${cls}">
             <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : r.hora ? ' · hora fija ' + esc(horaBonita(r.hora)) : ''}</b>${chipEstadoLog(r)}</div>
             <p class="meta"><span class="hist-tag l">${esc(TIPOS_LOG[repTipoLog(r)]?.corto || 'Entrega')}</span>${esc([nombreTipos(r), nombreVendedor(r.vendedor)].join(' · '))}</p>
@@ -1743,7 +1754,7 @@ function tarjetaConsulta(x, q) {
         ${local ? `<button type="button" class="link-mini" onclick="irAVisita('${x.id}')">Ver la visita</button>` : ''}</div>`;
     const tp = TIPOS_LOG[x.tipo] || {};
     const chip = x.estado === 'entregado' ? `<span class="chip ok">${esc(tp.ok || 'Realizada')}</span>` : x.estado === 'no_entregado' ? `<span class="chip no">${esc(tp.no || 'No realizada')}</span>` : x.fecha < hoy() ? '<span class="chip sin-rep">Sin reporte a tiempo</span>' : '<span class="chip p">Pendiente</span>';
-    const fotos = (x.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('');
+    const fotos = (x.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"${miniFotoRespaldo(f) ? ` onerror="this.onerror=null; this.src='${esc(miniFotoRespaldo(f))}'"` : ''}></a>`).join('');
     return `<div class="cd-item"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b>${chip}</div>
         <p><b>${esc(x.titulo || tp.corto || '')}</b> · ${esc(tp.corto || '')} · ${esc(nombreVendedor(x.vendedor))}</p><div class="lg-docs">${docsHtml}</div>
         ${x.estado === 'entregado' ? `<p class="meta">${esc(tp.ok || 'Realizada')}${x.registrada ? ' a las ' + esc(horaLog(x.registrada)) : ''}${x.recibio ? ' · ' + esc(tp.rec || 'Recibió') + ': ' + esc(x.recibio) : ''}${(x.devoluciones || []).length ? ' · ' + esc(x.devoluciones.join(' | ')) : ''}</p>`

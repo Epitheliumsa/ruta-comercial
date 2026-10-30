@@ -424,3 +424,9 @@
 ## Logística: correcciones de reportes (huella y fotos)
 - **Corregir reporte** (`reabrirLog`) deja la parada pendiente pero **conserva las fotos** de la entrega (antes se pasaban solo al historial y la tarjeta quedaba "Sin foto"); el nuevo reporte no pide otra foto si ya hay una.
 - Cada corrección deja **huella** en la tarjeta (`huellaCorreccionesLog`): el reporte anterior (hora y quién), qué decía, quién reabrió y cuándo, con sus fotos si ya no están en el nuevo reporte; el nuevo reporte lleva su hora ("Reporte corregido el …").
+
+## Logística: fotos (subida y adjunto en un solo paso)
+- La foto se sube a Drive **y se agrega a la parada en el mismo paso, en el servidor** (`subirArchivo` con `registro`, `etapa` y `huella`; `subirFotoParada_` en `Codigo.gs`). Antes el teléfono subía el archivo y luego reescribía el registro entero:
+  si entretanto la parada cambiaba de dueño (asignación del despacho) o el teléfono tenía una copia vieja, el servidor rechazaba o pisaba esa escritura y la foto quedaba en Drive pero la tarjeta decía "Sin foto".
+- La foto espera en la cola (`rc_fotos_log`) mientras la parada no haya llegado al servidor (`pendientes`); un reintento no duplica (`huella`). Si Drive no sirve la miniatura, la imagen prueba un enlace de respaldo (`miniFotoRespaldo`).
+- Diagnóstico si fallan: Apps Script > Ejecuciones (errores de `doPost`) y el script de diagnóstico de Drive (crear, compartir, espacio, fotos del día). Pegar `Codigo.gs`.

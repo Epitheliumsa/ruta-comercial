@@ -223,9 +223,39 @@ function subirArchivo_(usuario, pedido) {
   const carpeta = carpeta_(usuario.area === 'logistica' ? 'Entregas de logística' : pedido.carpeta);
   const fecha = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd HH.mm');
   const nombre = fecha + ' · ' + usuario.id + ' · ' + String(pedido.nombre || 'archivo').replace(/[\\/]/g, '-');
+  // Foto de una parada de Logística: se sube Y se agrega al registro en el mismo paso (sin reescribir el registro entero, así no choca con quien lo esté editando
+  // ni depende de quién sea hoy el dueño de la parada). Si la misma foto (huella) ya está en la parada, no se duplica.
+  if (pedido.registro && usuario.area === 'logistica') return subirFotoParada_(usuario, pedido, carpeta, bytes, nombre);
   const archivo = carpeta.createFile(Utilities.newBlob(bytes, pedido.tipo || 'application/octet-stream', nombre));
   archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return { url: archivo.getUrl(), id: archivo.getId() };
+}
+
+function subirFotoParada_(usuario, pedido, carpeta, bytes, nombre) {
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+  try {
+    const h = hoja_();
+    const valores = h.getDataRange().getValues();
+    let n = 0;
+    valores.forEach((f, i) => { if (i > 0 && f[0] === pedido.registro) n = i + 1; });
+    if (!n) throw new Error('La parada todavía no está en el servidor: la foto se reintenta');
+    const r = JSON.parse(valores[n - 1][6]);
+    if (r.clase !== 'logistica') throw new Error('Solo se adjuntan fotos a paradas de Logística');
+    const huella = String(pedido.huella || '');
+    const ya = huella ? (r.fotos || []).find(x => x.h === huella) : null;
+    if (ya) return { url: ya.url, id: ya.id, h: huella, actualizado: String(valores[n - 1][4]), repetida: true };
+    const archivo = carpeta.createFile(Utilities.newBlob(bytes, pedido.tipo || 'image/jpeg', nombre));
+    archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const foto = Object.assign({ url: archivo.getUrl(), id: archivo.getId() }, pedido.etapa ? { e: String(pedido.etapa) } : {}, huella ? { h: huella } : {});
+    r.fotos = (r.fotos || []).concat([foto]);
+    r.actualizado = new Date().toISOString();
+    h.getRange(n, 5).setValue(r.actualizado);
+    h.getRange(n, 7).setValue(JSON.stringify(r));
+    return { url: foto.url, id: foto.id, h: huella, actualizado: r.actualizado };
+  } finally {
+    bloqueo.releaseLock();
+  }
 }
 
 // Firma electrónica del formato de vinculación (Excel): escribe "Aprobado por ... electrónicamente" con la fecha en la casilla
