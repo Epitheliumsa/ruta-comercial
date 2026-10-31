@@ -2093,3 +2093,7 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 .lg-huella-cor { flex-basis: 100%; font-size: 12.5px; color: #475569; background: #f1f5f4; border-radius: 8px; padding: 6px 10px; margin: 4px 0; }
 .lg-huella-cor small { color: #64748b; font-size: 12px; }
 .lg-huella-cor .lg-fotos { margin-top: 4px; }
+
+/* Saludo en dos líneas: la hora del día y debajo el nombre */
+.home-saludo .saludo-hora { display: block; font-size: 15px; font-weight: 500; color: #4a6a9c; }
+.home-saludo .saludo-nombre { display: block; font-size: 22px; font-weight: 700; line-height: 1.2; }

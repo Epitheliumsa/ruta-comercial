@@ -712,6 +712,13 @@ async function cerrarSesion() {
     mostrarPantalla('loginScreen');
 }
 
+// Saludo según la hora de Bogotá: 5:00-11:59 buenos días, 12:00-17:59 buenas tardes, el resto buenas noches
+function saludoHora() {
+    const h = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Bogota' }).format(new Date())) % 24;
+    return h >= 5 && h < 12 ? 'Buenos días' : h >= 12 && h < 18 ? 'Buenas tardes' : 'Buenas noches';
+}
+function pintarSaludo() { const s = document.querySelector('#homeIntro .saludo-hora'); if (s) s.textContent = `${saludoHora()},`; }
+
 function entrarApp() {
     agenda.vendedor = esComercial() ? sesion.id : COMERCIALES[0].id;
     agenda.vendedores = [agenda.vendedor];
@@ -720,11 +727,13 @@ function entrarApp() {
     intro.innerHTML = '';
     const saludo = document.createElement('span');
     saludo.className = 'home-saludo';
-    saludo.textContent = `Hola, ${sesion.nombre}`;
+    saludo.innerHTML = '<span class="saludo-hora"></span><span class="saludo-nombre"></span>';
+    saludo.querySelector('.saludo-nombre').textContent = sesion.nombre;
     const detalle = document.createElement('small');
     detalle.textContent = [sesion.cargo || 'Visitador Médico Comercial', sesion.zona].filter(Boolean).join(' · ');
     saludo.appendChild(detalle);
     intro.appendChild(saludo);
+    pintarSaludo();
     // Logística: solo ve el módulo de Logística, la Maestra Clientes y el Vademécum
     document.body.classList.toggle('es-logistica', esLogistica());
     document.body.classList.toggle('es-mercadeo', esMercadeo());
@@ -752,6 +761,7 @@ function entrarApp() {
 function mostrarPantalla(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     $(id).classList.add('active');
+    if (id === 'homeScreen') pintarSaludo();
     // Aviso de derechos de Epithelium: fijo abajo en todas las pantallas, menos en el login
     const enLogin = id === 'loginScreen';
     $('avisoLegal').hidden = enLogin;
