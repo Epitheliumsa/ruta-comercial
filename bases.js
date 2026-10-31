@@ -696,7 +696,8 @@ async function subirProductosTodo(soloPT = false) {
                 asignados.filter(x => !etiquetasProducto(x['Etiquetas de producto']).includes('Cliente') && !propios.has(x['Referencia Interna']))
                     .forEach(x => { c.productos.push(maestroPorRef[x['Referencia Interna']] || x); conservados++; });
             }));
-            Object.entries(por).forEach(([h, c]) => bases.push({ nombre: 'pf_' + h, contenido: JSON.stringify(c), resumen: '' }));
+            const clasificar = clasificadorCategorias(maestro, await categoriasPrevias(Object.keys(por)));
+            Object.entries(por).forEach(([h, c]) => bases.push({ nombre: 'pf_' + h, contenido: JSON.stringify({ ...c, productos: categorizarPortafolio(c.productos, clasificar) }), resumen: '' }));
             nPf = Object.keys(por).length;
             lineas.push(`Portafolios de clientes: ${nPf} se actualizan (${delCliente.length} productos propios + ${conservados} de Epithelium que ya tenían)${sinAcceso.length ? `; sin cruzar con la lista del Vademécum (no se tocan): ${sinAcceso.join(', ')}` : ''}`);
         }
@@ -713,6 +714,41 @@ async function subirProductosTodo(soloPT = false) {
         toast(`Listo: ${productos.length} productos en el catálogo${resumenV ? ', ' + resumenV + ' en el Vademécum' : ''}${nPf ? ' y ' + nPf + ' portafolios' : ''}`);
     } catch (e) { toast('No se pudo subir: ' + e.message); }
 }
+// ---------- Categoría terapéutica de los productos de un portafolio ----------
+// Los productos propios del cliente vienen de Odoo con el nombre del cliente como categoría ("Magistral de Pedido / Cliente"). En el Vademécum deben llevar su categoría
+// terapéutica: primero la que ya tenían (portafolios publicados), luego la del producto del maestro con los mismos componentes y, si no hay, la que más se repite
+// entre los ingredientes de la fórmula (mismo criterio de Vademecum Clientes).
+const sinPrefijoCat = c => String(c || '').replace(/^Magistral de Pedido\s*\/\s*/, '').trim();
+const ingredientesDe = t => String(t || '').split('+').map(x => claveTexto(x.replace(/\d+([.,]\d+)?\s*%/g, '')).replace(/\s+/g, ' ').trim()).filter(Boolean);
+function clasificadorCategorias(maestro, previas) {
+    const exacto = {}, puntos = {};
+    maestro.forEach(m => {
+        const cat = sinPrefijoCat(m['Categoría del Producto']), ing = ingredientesDe(m['Componentes']);
+        if (!cat || !ing.length) return;
+        exacto[[...ing].sort().join('+')] ||= cat;
+        ing.forEach(i => { const q = (puntos[i] ||= {}); q[cat] = (q[cat] || 0) + 1; });
+    });
+    return o => {
+        const ya = previas.get(o['Referencia Interna']); if (ya) return ya;
+        const ing = ingredientesDe(o['Componentes']), e = exacto[[...ing].sort().join('+')]; if (e) return e;
+        const suma = {}; ing.forEach(i => Object.entries(puntos[i] || {}).forEach(([c, n]) => { suma[c] = (suma[c] || 0) + n; }));
+        const mejor = Object.entries(suma).sort((a, b) => b[1] - a[1])[0];
+        return mejor ? mejor[0] : sinPrefijoCat(o['Categoría del Producto']);
+    };
+}
+async function categoriasPrevias(huellas) {
+    const previas = new Map();
+    await Promise.all(huellas.map(async h => {
+        try {
+            const r = await fetch(URL_INDICE_VADEMECUM.replace('portafolios-index.json', `portafolios/${h}.json`));
+            if (r.ok) ((await r.json()).productos || []).forEach(x => { const c = sinPrefijoCat(x['Categoría del Producto']); if (c && !previas.has(x['Referencia Interna'])) previas.set(x['Referencia Interna'], c); });
+        } catch (e) { /* sin categorías previas de este cliente */ }
+    }));
+    return previas;
+}
+// Deja cada producto del portafolio con su categoría terapéutica (los del cliente por clasificación, los de Epithelium sin el prefijo)
+const categorizarPortafolio = (productos, clasificar) => productos.map(x => ({ ...x, 'Categoría del Producto': etiquetasProducto(x['Etiquetas de producto']).includes('Cliente') ? clasificar(x) : sinPrefijoCat(x['Categoría del Producto']) }));
+
 // ---------- Homólogos (solo magistrales): cómo llama cada cliente a los productos de Epithelium ----------
 // Nombre del cliente en Odoo → nombre del cliente en la lista del Vademécum (confirmados con el administrador)
 const MAPA_CLIENTES_HOMOLOGOS = {
@@ -788,21 +824,26 @@ async function subirHomologos() {
             texto: `${items.length} homólogos de ${clientes} clientes${previo?.items ? ` (antes ${previo.items.length})` : ''}\n${sinCruce.size ? `Sin cruzar con la lista del Vademécum (no se cargan): ${[...sinCruce].join('; ')}\n` : ''}${excluidos.size ? `Clientes retirados: ${[...excluidos].join('; ')}\n` : ''}Con esto se actualizan los portafolios de esos clientes.` })) return;
         await guardarBaseServidor('homologos', { items }, `${items.length} homólogos · ${clientes} clientes`);
         // Se rehacen los portafolios: sus productos propios (etiqueta Cliente) + los homólogos con el nombre del cliente
-        const maestro = await maestroActual();
-        let rehechos = 0;
-        if (maestro.length && API_URL) {
-            const lee = await llamarApi({ accion: 'leerVademecum' }, 120000), porRef = Object.fromEntries(maestro.map(x => [x['Referencia Interna'], x]));
+        let rehechos = 0, motivo = '';
+        try {
+            if (!API_URL) throw new Error('sin conexión con el servidor');
+            const lee = await llamarApi({ accion: 'leerVademecum' }, 120000), maestro = lee.productos || [];
+            if (!maestro.length) throw new Error('el servidor no tiene el maestro de productos: sube primero Productos y Vademécum');
+            const porRef = Object.fromEntries(maestro.map(x => [x['Referencia Interna'], x]));
             const porCliente = {}; items.forEach(i => { (porCliente[i.h] ||= []).push(i); });
+            const clasificar = clasificadorCategorias(maestro, await categoriasPrevias(Object.keys(porCliente)));
             const bases = Object.entries(porCliente).map(([h, lista]) => {
-                const actual = lee.portafolios?.[h] || { cliente: indice.find(x => x.huella === h).cliente, zona: indice.find(x => x.huella === h).zona || '', productos: [] };
+                const cli = indice.find(x => x.huella === h), actual = lee.portafolios?.[h] || { cliente: cli.cliente, zona: cli.zona || '', productos: [] };
                 const propios = actual.productos.filter(x => etiquetasProducto(x['Etiquetas de producto']).includes('Cliente'));
                 const homologos = lista.map(i => productoHomologo(porRef, i)).filter(Boolean).filter(x => !propios.some(y => y['Referencia Interna'] === x['Referencia Interna'] && claveTexto(y['Nombre']) === claveTexto(x['Nombre'])));
                 rehechos++;
-                return { nombre: 'pf_' + h, contenido: JSON.stringify({ ...actual, productos: [...propios, ...homologos] }), resumen: '' };
+                return { nombre: 'pf_' + h, contenido: JSON.stringify({ ...actual, productos: categorizarPortafolio([...propios, ...homologos], clasificar) }), resumen: '' };
             });
             await llamarApi({ accion: 'guardarBases', bases, borrarPortafolios: false }, 180000);
-        }
-        toast(`Homólogos actualizados: ${items.length}${rehechos ? ` · ${rehechos} portafolios al día` : ''}`);
+        } catch (e) { rehechos = 0; motivo = e.message; }
+        if (motivo) await dialogo({ titulo: 'Homólogos guardados, portafolios sin rehacer', aceptar: 'Entendido', cancelar: '',
+            texto: `Los ${items.length} homólogos quedaron guardados, pero no pude rehacer los portafolios (${motivo}).\nSube ahora Productos y Vademécum para armarlos con los homólogos guardados.` });
+        else toast(`Homólogos actualizados: ${items.length} · ${rehechos} portafolios rehechos`);
     } catch (e) { toast('No se pudo subir los homólogos: ' + e.message); }
 }
 async function descargarVademecum() {
