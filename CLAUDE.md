@@ -430,3 +430,13 @@
   si entretanto la parada cambiaba de dueño (asignación del despacho) o el teléfono tenía una copia vieja, el servidor rechazaba o pisaba esa escritura y la foto quedaba en Drive pero la tarjeta decía "Sin foto".
 - La foto espera en la cola (`rc_fotos_log`) mientras la parada no haya llegado al servidor (`pendientes`); un reintento no duplica (`huella`). Si Drive no sirve la miniatura, la imagen prueba un enlace de respaldo (`miniFotoRespaldo`).
 - Diagnóstico si fallan: Apps Script > Ejecuciones (errores de `doPost`) y el script de diagnóstico de Drive (crear, compartir, espacio, fotos del día). Pegar `Codigo.gs`.
+
+## Acompañamientos, muestras y circulares (cambios recientes)
+- **Acompañamientos vigentes por fecha** (`acompVigentes`): un acompañamiento vale para el día de la visita. Si la visita se reprograma o se adelanta, los del día anterior ya no
+  cuentan (ni chip "Acompaña…" ni excluyen a la persona de la lista) y `liberarAcompanamientos` los cancela (borra la solicitud y la visita del acompañante si no ha reportado).
+  La lista para pedir acompañamiento excluye a **Logística y Mercadeo** (solo jefes y comerciales).
+- **Muestra Médica**: al programar, al marcar Entrega de Muestras > Muestra Médica sale la lista de muestras médicas del catálogo (grupo `Muestras`, `muestrasMedicas`); lo escogido queda
+  en la visita (`muestrasPlan`) y al reportar se precarga en "Muestras entregadas". Las muestras no vienen de Odoo: se agregan en `EXTRAS` de `herramientas/productos.py` (ej. MU0048) y se regenera `productos.js`.
+- **Circular nueva** (ej. parrilla): fila en `datos/Circulares.xlsx` (hoja Circulares, copiar el estilo de la fila anterior y extender la tabla) → `python3 herramientas/circulares.py` → versión.
+  Las fechas Desde/Hasta van **como dice la circular**. La lista de Parrilla Promocional de la visita sale de la circular vigente a la **fecha de la visita**. El PDF lo pegan los jefes desde la app.
+- **Ficha del cliente** (historial): junto a la ciudad muestra zona y visitador médico, ej. "Zona Sur-Yunelis Caballero" (`zonaVisitador`); no en zonas privadas (Proveedores, Empleados).
