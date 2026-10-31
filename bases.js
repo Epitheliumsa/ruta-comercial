@@ -48,7 +48,8 @@ async function cargarBases(forzar = false) {
 // ---------- Pantalla ----------
 const TARJETAS_BASES = [
     { k: 'odoo', t: 'Maestra de Odoo (todo en uno)', d: 'Sube la Maestra de Contactos de Odoo tal como sale (con Calle, Teléfono y Móvil), uno o varios archivos con las mismas columnas. La app reparte cada fila según su Equipo de ventas: zonas → Maestra de contactos y Direcciones; Empleados → Empleados; el resto → Proveedores. Empleados y Proveedores solo los ven Logística y tú.', a: 'subirOdoo()', n: 'odoo' },
-    { k: 'catalogo', t: 'Productos y Vademécum (todo en uno)', d: 'Sube de una vez los dos archivos de Odoo, Producto Terminado y Magistrales (misma estructura), seleccionándolos juntos. La app reparte sola: etiquetas del catálogo de visitas y muestras, productos del Vademécum y portafolio de cada cliente. Si subes solo uno, reemplaza únicamente lo suyo.', a: 'subirProductosTodo()', n: 'productos' }
+    { k: 'catalogo', t: 'Productos y Vademécum (todo en uno)', d: 'Sube de una vez los dos archivos de Odoo, Producto Terminado y Magistrales (misma estructura), seleccionándolos juntos. La app reparte sola: etiquetas del catálogo de visitas y muestras, productos del Vademécum y portafolio de cada cliente. Si subes solo uno, reemplaza únicamente lo suyo.', a: 'subirProductosTodo()', n: 'productos' },
+    { k: 'materiasprimas', t: 'Materias primas', d: 'Vademécum de materias primas (Vademecum Materias Primas: Referencia Interna, Nombre, Componentes, Indicación, Dosis Recomendada, Categoria Principal y Secundaria). Al subirlo, la app categoriza: respeta la categoría que ya trae cada materia o la que tenía, y las que quedan sin categoría te las propone para que las confirmes.', a: 'subirMateriasPrimas()', n: 'materiasprimas' }
 ];
 const cuandoBase = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }) : ''; };
 let estadoBases = {};
@@ -379,6 +380,11 @@ async function descargarBase(k) {
             hojaTabla(wb, 'Contactos', ['Nombre Público', 'Ciudad', 'Etiquetas', 'Equipo de ventas', 'Comercial', 'Título', 'Provincia', 'Cliente para Facturar',
                 'Categoría de cliente/Clasificación', 'Categoría de cliente', 'Plazos de Pago'], filas, [40, 18, 30, 20, 18, 12, 18, 14, 28, 22, 18]);
             nombre = 'Maestra_Contactos'; cuenta = filas.length;
+        } else if (k === 'materiasprimas') {
+            const lista = await materiasPrimasActuales();
+            if (!lista.length) return toast('Aún no has subido las materias primas desde aquí: no hay nada para descargar');
+            hojaTabla(wb, 'Vademecum Materias Primas', COLS_MP_ARCHIVO, lista.map(m => COLS_MP_ARCHIVO.map(c => m[CLAVE_MP[c]] ?? '')), [16, 30, 55, 40, 28, 28, 28]);
+            nombre = 'Vademecum_Materias_Primas'; cuenta = lista.length;
         } else if (k === 'catalogo') {
             const ps = CATALOGO.productos;
             hojaTabla(wb, 'Productos', ['Referencia Interna', 'Nombre', 'Etiquetas de producto', 'Grupo de Producto'], ps.map(p => [p.c, p.n, (p.e || []).join(', '), p.g || '']), [20, 60, 30, 24]);
@@ -470,6 +476,110 @@ async function subirVademecum() {
         toast('Vademécum actualizado: ' + resumen);
     } catch (e) { toast('No se pudo subir el Vademécum: ' + e.message); }
 }
+// ---------- Materias primas: archivo → categorización → Vademécum ----------
+const COLS_MP_ARCHIVO = ['Referencia Interna', 'Nombre', 'Componentes', 'Indicación', 'Dosis Recomendada', 'Categoria Principal', 'Categoria Secundaria'];
+// Columna del archivo → llave con la que el Vademécum guarda cada materia prima
+const CLAVE_MP = { 'Referencia Interna': 'Referencia Interna', 'Nombre': 'Nombre', 'Componentes': 'Identificación Técnica', 'Indicación': 'Uso Terapéutico y Cosmético',
+    'Dosis Recomendada': 'Concentración de Uso', 'Categoria Principal': 'Categoria Principal', 'Categoria Secundaria': 'Categoria Secundaria' };
+const ALIAS_MP = { 'identificacion tecnica': 'Componentes', 'uso terapeutico y cosmetico': 'Indicación', 'concentracion de uso': 'Dosis Recomendada', 'indicacion': 'Indicación',
+    'categoria principal': 'Categoria Principal', 'categoria secundaria': 'Categoria Secundaria' };
+const CATEGORIAS_MP = ['Acné', 'Rosácea', 'Corticoides', 'Antibióticos Tópicos', 'Cicatrizantes - Reparadores', 'Anestésicos Tópicos', 'Antivirales Dermatológicos', 'Queratolíticos - Exfoliantes',
+    'Antiparasitarios', 'Protectores Solares', 'Vitaminas', 'Capilares', 'Shampoo Magistrales', 'Ungueales', 'Desodorantes - Antitranspirantes', 'Limpiadores Magistrales', 'Despigmentantes',
+    'Hidratantes', 'Antienvejecimiento', 'Antiestrias', 'Excipientes'];
+// Sugerencia para las que llegan sin categoría: puntúa por el uso terapéutico (la persona la confirma o cambia)
+const REGLAS_MP = [
+    ['Excipientes', /emulsionante|espesante|conservante|vehiculo|solvente|disolvente|quelante|regulador de ph|fragancia|colorante|excipiente|capsula|antioxidante de la formula/],
+    ['Corticoides', /corticoide|corticosteroide|antiinflamatorio esteroideo|mometasona|clobetasol|betametasona|hidrocortisona|desonida|triamcinolona/],
+    ['Antibióticos Tópicos', /antibiotico|antibacteri|clindamicina|eritromicina|mupirocina|acido fusidico|metronidazol/],
+    ['Antivirales Dermatológicos', /antiviral|herpes|verruga|molusco|aciclovir|imiquimod/],
+    ['Antiparasitarios', /antiparasit|escabiosis|sarna|pediculosis|piojo|permetrina|ivermectina|azufre/],
+    ['Anestésicos Tópicos', /anestesic|lidocaina|benzocaina|tetracaina|prilocaina|analgesic/],
+    ['Protectores Solares', /fotoprote|filtro solar|protector solar|uva|uvb|spf/],
+    ['Rosácea', /rosacea/],
+    ['Acné', /acne|comedon|seborre|sebo\b|poro/],
+    ['Ungueales', /ungueal|onicomicosis|\buna\b|unas\b/],
+    ['Capilares', /capilar|alopecia|caida del cabello|cuero cabelludo|cabello/],
+    ['Desodorantes - Antitranspirantes', /antitranspirante|hiperhidrosis|desodorante|sudor/],
+    ['Antiestrias', /estria/],
+    ['Despigmentantes', /despigment|melasma|hiperpigment|mancha|tirosinasa|aclarante/],
+    ['Queratolíticos - Exfoliantes', /queratolitic|exfoliante|exfoliacion|peeling|hiperqueratosis|queratosis/],
+    ['Cicatrizantes - Reparadores', /cicatriz|reparador|regenerad|heridas|quemadura|epiteliz/],
+    ['Antienvejecimiento', /antienvejec|arruga|antiedad|envejecimiento|colageno|firmeza|rejuvenec/],
+    ['Vitaminas', /vitamina/],
+    ['Hidratantes', /hidratante|humectante|emoliente|barrera cutanea|xerosis/]
+];
+function sugerirCategoriaMP(m) {
+    const t = claveTexto([m['Nombre'], m['Identificación Técnica'], m['Uso Terapéutico y Cosmético']].join(' '));
+    const puntos = REGLAS_MP.map(([c, re]) => [c, (t.match(new RegExp(re.source, 'g')) || []).length]).filter(x => x[1]);
+    puntos.sort((a, b) => b[1] - a[1]);
+    return puntos.length ? puntos[0][0] : '';
+}
+// Lo que hay hoy (servidor; en pruebas, lo último que se subió en este navegador)
+async function materiasPrimasActuales() {
+    if (API_URL) { try { const r = await llamarApi({ accion: 'vademecumMateriasPrimas' }, 60000); if (Array.isArray(r.materiasprimas) && r.materiasprimas.length) return r.materiasprimas; } catch (e) { /* sin copia anterior */ } }
+    return leerBaseLocal('materiasprimas')?.d || [];
+}
+function leerMateriasPrimas(libro) {
+    const ws = libro.worksheets.find(w => filasHoja(w)[0]?.map(claveTexto).includes('referencia interna'));
+    if (!ws) throw new Error('No encontré la hoja con la columna "Referencia Interna"');
+    const f = filasHoja(ws), cab = f[0].map(x => ALIAS_MP[claveTexto(x)] || x.trim()), col = Object.fromEntries(cab.map((n, i) => [n, i]));
+    for (const n of ['Referencia Interna', 'Nombre', 'Componentes', 'Indicación', 'Dosis Recomendada']) if (!(n in col)) throw new Error(`Falta la columna "${n}"`);
+    return f.slice(1).filter(r => String(r[col['Referencia Interna']] || '').trim()).map(r => {
+        const m = {};
+        COLS_MP_ARCHIVO.forEach(c => { const v = c in col ? String(r[col[c]] ?? '').replace(/[ \t]+\n/g, '\n').trim() : ''; m[CLAVE_MP[c]] = c === 'Nombre' ? v.split(/\s+/).filter(Boolean).join(' ') : v; });
+        return m;
+    });
+}
+// Pantalla de categorización: una fila por cada materia que quedó sin categoría
+function categorizarMateriasPrimas(pend) {
+    return new Promise(resolve => {
+        const opciones = (sel, vacio) => `<option value="">${vacio}</option>` + CATEGORIAS_MP.map(c => `<option${c === sel ? ' selected' : ''}>${esc(c)}</option>`).join('');
+        abrirModal(`<div class="form-rc"><h2>Categorizar materias primas</h2>
+            <p>${pend.length} materia${pend.length === 1 ? '' : 's'} prima${pend.length === 1 ? '' : 's'} sin categoría. Dejé una sugerencia según su uso: confírmala o cámbiala. La categoría principal define el color.</p>
+            <div style="max-height:55vh;overflow:auto">${pend.map((m, i) => `<div style="border-bottom:1px solid #e2e6ea;padding:8px 0">
+                <b>${esc(m['Referencia Interna'])} · ${esc(m['Nombre'])}</b>
+                <div style="font-size:.85em;color:#555;margin:2px 0 6px">${esc((m['Uso Terapéutico y Cosmético'] || '').slice(0, 160))}</div>
+                <select class="mp-cat" data-i="${i}" style="width:100%;margin-bottom:4px">${opciones(sugerirCategoriaMP(m), 'Elige la categoría principal…')}</select>
+                <select class="mp-cat2" data-i="${i}" style="width:100%">${opciones('', 'Categoría secundaria (opcional)')}</select></div>`).join('')}</div>
+            <div class="form-botones"><button type="button" class="btn-secundario" id="mpCancelar">Cancelar</button><button type="button" class="btn-primario" id="mpGuardar">Categorizar y continuar</button></div></div>`);
+        $('mpCancelar').onclick = () => { cerrarModal(); resolve(false); };
+        $('mpGuardar').onclick = () => {
+            const pr = [...document.querySelectorAll('.mp-cat')], se = [...document.querySelectorAll('.mp-cat2')];
+            if (pr.some(x => !x.value)) return toast('Falta elegir la categoría principal de algunas materias');
+            pr.forEach((x, i) => { pend[i]['Categoria Principal'] = x.value; pend[i]['Categoria Secundaria'] = se[i].value && se[i].value !== x.value ? se[i].value : ''; });
+            cerrarModal(); resolve(true);
+        };
+    });
+}
+async function subirMateriasPrimas() {
+    if (!esAdmin()) return;
+    const [archivo] = await elegirArchivos(false);
+    if (!archivo) return;
+    try {
+        const lista = leerMateriasPrimas(await leerLibro(archivo));
+        if (lista.length < 50) return toast('El archivo trae muy pocas materias primas: revisa que sea el Vademecum de Materias Primas');
+        if (new Set(lista.map(m => m['Referencia Interna'])).size !== lista.length) return toast('Hay referencias repetidas en el archivo: revísalas antes de subir');
+        const previo = Object.fromEntries((await materiasPrimasActuales()).map(m => [m['Referencia Interna'], m]));
+        const valida = c => CATEGORIAS_MP.includes(c);
+        let heredadas = 0;
+        lista.forEach(m => {
+            if (valida(m['Categoria Principal'])) return;
+            const antes = previo[m['Referencia Interna']];
+            if (antes && valida(antes['Categoria Principal'])) { m['Categoria Principal'] = antes['Categoria Principal']; m['Categoria Secundaria'] = valida(m['Categoria Secundaria']) ? m['Categoria Secundaria'] : antes['Categoria Secundaria'] || ''; heredadas++; }
+            else m['Categoria Principal'] = '';
+        });
+        lista.forEach(m => { if (!valida(m['Categoria Secundaria']) || m['Categoria Secundaria'] === m['Categoria Principal']) m['Categoria Secundaria'] = ''; });
+        const pend = lista.filter(m => !m['Categoria Principal']);
+        if (pend.length && !await categorizarMateriasPrimas(pend)) return;
+        const nuevas = lista.filter(m => !previo[m['Referencia Interna']]).length, quitadas = Object.keys(previo).filter(r => !lista.some(m => m['Referencia Interna'] === r)).length;
+        const porCat = {}; lista.forEach(m => { porCat[m['Categoria Principal']] = (porCat[m['Categoria Principal']] || 0) + 1; });
+        if (!await dialogo({ titulo: 'Materias primas', aceptar: 'Subir',
+            texto: `${lista.length} materias primas${Object.keys(previo).length ? ` (antes ${Object.keys(previo).length}: ${nuevas} nuevas, ${quitadas} que ya no vienen)` : ''}\nCategorizadas ahora: ${pend.length} · con la categoría que ya tenían: ${heredadas}\n${CATEGORIAS_MP.filter(c => porCat[c]).map(c => `${c}: ${porCat[c]}`).join(' · ')}\nReemplaza lo que ve el Vademécum.` })) return;
+        await guardarBaseServidor('materiasprimas', lista, `${lista.length} materias primas`);
+        toast(`Materias primas actualizadas: ${lista.length}`);
+    } catch (e) { toast('No se pudo subir las materias primas: ' + e.message); }
+}
+
 // Cliente de la categoría → cliente de la lista del Vademécum: nombre igual (sin puntuación) o, si no, el único que el otro nombre contiene
 const claveCliente = t => claveTexto(t).replace(/[^a-z0-9&]+/g, ' ').trim();
 function clienteDelIndice(nom, indice, porNombre) {
