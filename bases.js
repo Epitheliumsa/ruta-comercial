@@ -670,9 +670,20 @@ async function subirProductosTodo(soloPT = false) {
                 if (!x) { if (nom && !sinAcceso.includes(nom)) sinAcceso.push(nom); return; }
                 (por[x.huella] ||= { cliente: x.cliente, zona: x.zona || '', productos: [] }).productos.push(o);
             });
+            // Además de sus productos propios (etiqueta Cliente), cada portafolio conserva los productos de Epithelium que ya tenía asignados,
+            // con los datos vigentes del maestro (se cruzan por Referencia Interna)
+            const maestroPorRef = Object.fromEntries(maestro.map(o => [o['Referencia Interna'], o]));
+            let conservados = 0;
+            await Promise.all(Object.entries(por).map(async ([h, c]) => {
+                let asignados = [];
+                try { const r = await fetch(URL_INDICE_VADEMECUM.replace('portafolios-index.json', `portafolios/${h}.json`), { cache: 'no-cache' }); if (r.ok) asignados = (await r.json()).productos || []; } catch (e) { /* sin asignados previos */ }
+                const propios = new Set(c.productos.map(o => o['Referencia Interna']));
+                asignados.filter(x => !etiquetasProducto(x['Etiquetas de producto']).includes('Cliente') && !propios.has(x['Referencia Interna']))
+                    .forEach(x => { c.productos.push(maestroPorRef[x['Referencia Interna']] || x); conservados++; });
+            }));
             Object.entries(por).forEach(([h, c]) => bases.push({ nombre: 'pf_' + h, contenido: JSON.stringify(c), resumen: '' }));
             nPf = Object.keys(por).length;
-            lineas.push(`Portafolios de clientes: ${nPf} se actualizan${sinAcceso.length ? `; sin cruzar con la lista del Vademécum (no se tocan): ${sinAcceso.join(', ')}` : ''}`);
+            lineas.push(`Portafolios de clientes: ${nPf} se actualizan (${delCliente.length} productos propios + ${conservados} de Epithelium que ya tenían)${sinAcceso.length ? `; sin cruzar con la lista del Vademécum (no se tocan): ${sinAcceso.join(', ')}` : ''}`);
         }
         if (!soloPT && !familias.has('MP')) lineas.push('Magistrales: no se subieron, el Vademécum y los portafolios no cambian.');
         if (!await dialogo({ titulo: soloPT ? 'Vademécum Producto Terminado' : 'Productos y Vademécum', aceptar: 'Subir', cancelar: 'No subir', texto: `${lineas.join('\n')}\nReemplaza lo que ven todos los usuarios.` })) return;

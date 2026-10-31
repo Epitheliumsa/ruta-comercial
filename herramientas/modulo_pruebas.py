@@ -51,6 +51,7 @@ bases = bases.replace("async function appAlDia() {", "async function appAlDia() 
 indice = RAIZ.parent / 'vademecum-epithelium' / 'portafolios-index.json'
 if indice.exists():
     shutil.copy(indice, SALIDA / 'portafolios-index.json')
+    shutil.copytree(indice.parent / 'portafolios', SALIDA / 'portafolios', dirs_exist_ok=True)
     bases = re.sub(r"const URL_INDICE_VADEMECUM = '[^']*';", "const URL_INDICE_VADEMECUM = 'portafolios-index.json';", bases, count=1)
 (SALIDA / 'bases.js').write_text(bases, encoding='utf-8')
 (SALIDA / 'app.js').write_text(app, encoding='utf-8')
