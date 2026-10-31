@@ -537,16 +537,19 @@ function categorizarMateriasPrimas(pend) {
         abrirModal(`<div class="form-rc"><h2>Categorizar materias primas</h2>
             <p>${pend.length} materia${pend.length === 1 ? '' : 's'} prima${pend.length === 1 ? '' : 's'} sin categoría. Dejé una sugerencia según su uso: confírmala o cámbiala. La categoría principal define el color.</p>
             <div style="max-height:55vh;overflow:auto">${pend.map((m, i) => `<div style="border-bottom:1px solid #e2e6ea;padding:8px 0">
+                <label style="float:right;font-size:.85em;white-space:nowrap"><input type="checkbox" class="mp-omitir" data-i="${i}"> No subir</label>
                 <b>${esc(m['Referencia Interna'])} · ${esc(m['Nombre'])}</b>
                 <div style="font-size:.85em;color:#555;margin:2px 0 6px">${esc((m['Uso Terapéutico y Cosmético'] || '').slice(0, 160))}</div>
                 <select class="mp-cat" data-i="${i}" style="width:100%;margin-bottom:4px">${opciones(sugerirCategoriaMP(m), 'Elige la categoría principal…')}</select>
                 <select class="mp-cat2" data-i="${i}" style="width:100%">${opciones('', 'Categoría secundaria (opcional)')}</select></div>`).join('')}</div>
             <div class="form-botones"><button type="button" class="btn-secundario" id="mpCancelar">No subir</button><button type="button" class="btn-primario" id="mpGuardar">Categorizar y continuar</button></div></div>`);
+        const omitir = [...document.querySelectorAll('.mp-omitir')];
+        omitir.forEach((c, i) => { c.onchange = () => { const f = c.closest('div'); f.style.opacity = c.checked ? '.45' : ''; f.querySelectorAll('select').forEach(x => { x.disabled = c.checked; }); }; });
         $('mpCancelar').onclick = () => { cerrarModal(); resolve(false); };
         $('mpGuardar').onclick = () => {
             const pr = [...document.querySelectorAll('.mp-cat')], se = [...document.querySelectorAll('.mp-cat2')];
-            if (pr.some(x => !x.value)) return toast('Falta elegir la categoría principal de algunas materias');
-            pr.forEach((x, i) => { pend[i]['Categoria Principal'] = x.value; pend[i]['Categoria Secundaria'] = se[i].value && se[i].value !== x.value ? se[i].value : ''; });
+            if (pr.some((x, i) => !omitir[i].checked && !x.value)) return toast('Falta elegir la categoría principal (o marca "No subir" en las que no quieras subir)');
+            pr.forEach((x, i) => { if (omitir[i].checked) { pend[i].__omitir = true; return; } pend[i]['Categoria Principal'] = x.value; pend[i]['Categoria Secundaria'] = se[i].value && se[i].value !== x.value ? se[i].value : ''; });
             cerrarModal(); resolve(true);
         };
     });
@@ -571,10 +574,13 @@ async function subirMateriasPrimas() {
         lista.forEach(m => { if (!valida(m['Categoria Secundaria']) || m['Categoria Secundaria'] === m['Categoria Principal']) m['Categoria Secundaria'] = ''; });
         const pend = lista.filter(m => !m['Categoria Principal']);
         if (pend.length && !await categorizarMateriasPrimas(pend)) return;
+        // Las marcadas "No subir" no entran: si ya existían se queda como estaba, si eran nuevas no se agregan
+        const omitidas = lista.filter(m => m.__omitir).length;
+        for (let i = lista.length - 1; i >= 0; i--) if (lista[i].__omitir) { const antes = previo[lista[i]['Referencia Interna']]; if (antes) lista[i] = antes; else lista.splice(i, 1); }
         const nuevas = lista.filter(m => !previo[m['Referencia Interna']]).length, quitadas = Object.keys(previo).filter(r => !lista.some(m => m['Referencia Interna'] === r)).length;
         const porCat = {}; lista.forEach(m => { porCat[m['Categoria Principal']] = (porCat[m['Categoria Principal']] || 0) + 1; });
         if (!await dialogo({ titulo: 'Materias primas', aceptar: 'Subir', cancelar: 'No subir',
-            texto: `${lista.length} materias primas${Object.keys(previo).length ? ` (antes ${Object.keys(previo).length}: ${nuevas} nuevas, ${quitadas} que ya no vienen)` : ''}\nCategorizadas ahora: ${pend.length} · con la categoría que ya tenían: ${heredadas}\n${CATEGORIAS_MP.filter(c => porCat[c]).map(c => `${c}: ${porCat[c]}`).join(' · ')}\nReemplaza lo que ve el Vademécum.` })) return;
+            texto: `${lista.length} materias primas${Object.keys(previo).length ? ` (antes ${Object.keys(previo).length}: ${nuevas} nuevas, ${quitadas} que ya no vienen)` : ''}\nCategorizadas ahora: ${pend.length - omitidas} · con la categoría que ya tenían: ${heredadas}${omitidas ? ` · sin subir: ${omitidas}` : ''}\n${CATEGORIAS_MP.filter(c => porCat[c]).map(c => `${c}: ${porCat[c]}`).join(' · ')}\nReemplaza lo que ve el Vademécum.` })) return;
         await guardarBaseServidor('materiasprimas', lista, `${lista.length} materias primas`);
         toast(`Materias primas actualizadas: ${lista.length}`);
     } catch (e) { toast('No se pudo subir las materias primas: ' + e.message); }
