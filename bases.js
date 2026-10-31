@@ -50,6 +50,7 @@ const TARJETAS_BASES = [
     { k: 'odoo', t: 'Maestra de Odoo (todo en uno)', d: 'Sube la Maestra de Contactos de Odoo tal como sale (con Calle, Teléfono y Móvil), uno o varios archivos con las mismas columnas. La app reparte cada fila según su Equipo de ventas: zonas → Maestra de contactos y Direcciones; Empleados → Empleados; el resto → Proveedores. Empleados y Proveedores solo los ven Logística y tú.', a: 'subirOdoo()', n: 'odoo' },
     { k: 'catalogo', t: 'Productos y Vademécum (todo en uno)', d: 'Sube de una vez los dos archivos de Odoo, Producto Terminado y Magistrales (misma estructura), seleccionándolos juntos. La app reparte sola: etiquetas del catálogo de visitas y muestras, productos del Vademécum y portafolio de cada cliente. Si subes solo uno, reemplaza únicamente lo suyo.', a: 'subirProductosTodo()', n: 'productos' },
     { k: 'productoterminado', t: 'Vademécum Producto Terminado', d: 'Archivo de Producto Terminado de Odoo (Referencia Interna, Nombre, Categoría, Forma, Presentación, Tamaño…). Alimenta el Vademécum de Producto Terminado que ven todos los usuarios y también las etiquetas de producto terminado del catálogo de visitas y muestras.', a: 'subirProductosTodo(true)', n: 'productoterminado' },
+    { k: 'homologos', t: 'Homólogos (solo magistrales)', d: 'Productos que un cliente conoce con otro nombre (Product Counterpart/Cliente y /Nombre). Se guardan aquí y con ellos se arman los portafolios de cada cliente, sin depender de archivos publicados. Sube el archivo Producto_product.template de Odoo (Grupo, Categoría, Etiquetas, Referencia Interna, Nombre, Product Counterpart/Cliente, Product Counterpart/Nombre).', a: 'subirHomologos()', n: 'homologos' },
     { k: 'materiasprimas', t: 'Materias primas', d: 'Vademécum de materias primas (Vademecum Materias Primas: Referencia Interna, Nombre, Componentes, Indicación, Dosis Recomendada, Categoria Principal y Secundaria). Al subirlo, la app categoriza: respeta la categoría que ya trae cada materia o la que tenía, y las que quedan sin categoría te las propone para que las confirmes.', a: 'subirMateriasPrimas()', n: 'materiasprimas' }
 ];
 const cuandoBase = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }) : ''; };
@@ -381,6 +382,14 @@ async function descargarBase(k) {
             hojaTabla(wb, 'Contactos', ['Nombre Público', 'Ciudad', 'Etiquetas', 'Equipo de ventas', 'Comercial', 'Título', 'Provincia', 'Cliente para Facturar',
                 'Categoría de cliente/Clasificación', 'Categoría de cliente', 'Plazos de Pago'], filas, [40, 18, 30, 20, 18, 12, 18, 14, 28, 22, 18]);
             nombre = 'Maestra_Contactos'; cuenta = filas.length;
+        } else if (k === 'homologos') {
+            const h = await homologosActuales();
+            if (!h?.items?.length) return toast('Aún no has subido los homólogos: no hay nada para descargar');
+            const maestro = await maestroActual(), porRef = Object.fromEntries(maestro.map(x => [x['Referencia Interna'], x]));
+            const nombres = await nombresClientes();
+            const filas = h.items.map(i => { const m = porRef[i.r] || {}; return [m['Grupo de Producto'] ?? '', m['Categoría del Producto'] ?? '', m['Etiquetas de producto'] ?? '', i.r, m['Nombre'] ?? '', nombres[i.h] || i.h, i.n]; });
+            hojaTabla(wb, 'Homologos', ['Grupo de Producto', 'Categoría del Producto', 'Etiquetas de producto', 'Referencia Interna', 'Nombre', 'Product Counterpart/Cliente', 'Product Counterpart/Nombre'], filas, [20, 38, 20, 16, 40, 40, 44]);
+            nombre = 'Homologos'; cuenta = filas.length;
         } else if (k === 'productoterminado') {
             let lista = [];
             if (API_URL) { try { const r = await llamarApi({ accion: 'vademecumProductoTerminado' }, 60000); lista = r.productoterminado || []; } catch (e) { /* sin copia */ } }
@@ -674,7 +683,13 @@ async function subirProductosTodo(soloPT = false) {
             // con los datos vigentes del maestro (se cruzan por Referencia Interna)
             const maestroPorRef = Object.fromEntries(maestro.map(o => [o['Referencia Interna'], o]));
             let conservados = 0;
+            const guardados = await homologosActuales();
+            const homPorCliente = {}; (guardados?.items || []).forEach(i => { (homPorCliente[i.h] ||= []).push(i); });
             await Promise.all(Object.entries(por).map(async ([h, c]) => {
+                if (guardados?.items) {   // los homólogos guardados en Bases de datos mandan: el cliente tiene sus propios más los que lleva con otro nombre
+                    (homPorCliente[h] || []).forEach(i => { const x = productoHomologo(maestroPorRef, i); if (x && !c.productos.some(y => y['Referencia Interna'] === x['Referencia Interna'] && claveTexto(y['Nombre']) === claveTexto(x['Nombre']))) { c.productos.push(x); conservados++; } });
+                    return;
+                }
                 let asignados = [];
                 try { const r = await fetch(URL_INDICE_VADEMECUM.replace('portafolios-index.json', `portafolios/${h}.json`), { cache: 'no-cache' }); if (r.ok) asignados = (await r.json()).productos || []; } catch (e) { /* sin asignados previos */ }
                 const propios = new Set(c.productos.map(o => o['Referencia Interna']));
@@ -697,6 +712,98 @@ async function subirProductosTodo(soloPT = false) {
         refrescarBases(); repintarPantallaActiva();
         toast(`Listo: ${productos.length} productos en el catálogo${resumenV ? ', ' + resumenV + ' en el Vademécum' : ''}${nPf ? ' y ' + nPf + ' portafolios' : ''}`);
     } catch (e) { toast('No se pudo subir: ' + e.message); }
+}
+// ---------- Homólogos (solo magistrales): cómo llama cada cliente a los productos de Epithelium ----------
+// Nombre del cliente en Odoo → nombre del cliente en la lista del Vademécum (confirmados con el administrador)
+const MAPA_CLIENTES_HOMOLOGOS = {
+    'Boutique de la Piel, Giovanny German Avila Camacho': 'Boutique de la Piel - Giovanny German Avila Camacho', 'Carlos Fernando Quintero Baute': 'Dr. Carlos Fernando Quintero',
+    'Carolina Andrea Murcia Alvarez': 'Farmapiel Garzon - Carolina Andrea Murcia Alvarez', 'Claudia Milena Arango Atehortua': 'Dermaskin Cuidado para La Piel - Dra Claudia Milena Arango',
+    'Dermaskin Cuidado Para La Piel, Mileydi Jhoana Loaiza Luna': 'Dermaskin Cuidado para La Piel - Dra Claudia Milena Arango',
+    'Cm Dra Carol Mesa Dermatologa, Carol Vanessa Messa Velandia': 'Dra. Carol Mesa Dermatologa', 'Darwin Alejandro Lazo Sanchez': 'Darwin Alejandro Lazo',
+    'Deladieth Serrano Rincon': 'Dermatologia y Medicina Estetica- Dra. Erika Molina/Deladieth Serrano Rincon',
+    'Dermoestetica Dra. Claudia Figueroa, Claudia Elena Figueroa Murcia': 'Dermoestetica Dra. Claudia Figueroa', 'Dermoscience Group S.A.S, Jessica Martelo Fernandez': 'Dermoscience Group S.A.S',
+    'Dra. Tatiana Leal Sandoval': 'Dra. Tatiana Leal S.A.S.', 'Drogueria Farmapiel, Olmedo Humberto Obando Delgado': 'Drogueria Farmapiel',
+    'Farmadescuentos Co S.A.S - Pharmags Laboratories S.A.S.': 'Farmadescuentos Co S.A.S', 'GG & Piel S.A.S - Dr. Giovanny Antonio Guerra': 'GG & Piel S.A.S.', 'Giovanny Antonio Guerra Jimenez': 'GG & Piel S.A.S.',
+    'Lizeth Daniela Caro Suarez': 'Gema Clinic - Dra. Lizeth Daniela Caro Suarez', 'Sandra Carolina Moreno Ferrer': 'Guapa Glow - Sandra Carolina Moreno',
+    'Isis Gyo By Dra. Karen Acosta, Karen Lorena Acosta Ussa': 'Isis Gyo By Dra. Karen Acosta', 'MD Support LTDA': 'MD Support Ltda', 'Maria De Jesus Correa Acosta': 'Niks Leip - Maria de Jesus Acosta Correa',
+    'Natalia Hernandez Mantilla': 'Dra. Natalia Hernandez Mantilla', 'Pielmedic, Antony Adrian Aguilar Erazo': 'PielMedic Cabello y Piel - Antony Adrian Aguilar Erazo',
+    'Tienda Dermocosmetica Bella Piel, Juanita Ceron Delgado': 'Tienda Dermocosmetica Bella Piel- Juanita Ceron Delgado', 'Andres Mauricio Ardila Rojas': 'Drogueria Dermatos - Dr. Andres Mauricio Ardila',
+    'Carolina Palacio S.A.S.': 'Hair and Skin Evolution - Carolina Palacio S.A.S.'
+};
+// Clientes que no son clientes activos del Vademécum (no se cargan)
+const CLIENTES_EXCLUIDOS = ['Hernan Guillermo Reyes Sierra', 'Luis Ignacio Jimenez Alba', 'Ximena Sanchez Angarita'];
+const listaClientesVademecum = async () => { const r = await fetch(URL_INDICE_VADEMECUM, { cache: 'no-cache' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); };
+const nombresClientes = async () => { try { return Object.fromEntries((await listaClientesVademecum()).map(x => [x.huella, x.cliente])); } catch (e) { return {}; } };
+function clienteHomologo(nombre, indice) {
+    const k = claveCliente(nombre);
+    if (CLIENTES_EXCLUIDOS.some(x => claveCliente(x) === k)) return 'excluido';
+    const mapeado = Object.entries(MAPA_CLIENTES_HOMOLOGOS).find(([o]) => claveCliente(o) === k);
+    return clienteDelIndice(mapeado ? mapeado[1] : nombre, indice, null);
+}
+// Lo guardado (servidor; en pruebas, lo último subido en este navegador)
+async function homologosActuales() {
+    if (API_URL) { try { const r = await llamarApi({ accion: 'leerBase', nombre: 'homologos' }, 60000); if (r.contenido) return JSON.parse(r.contenido); } catch (e) { /* sin copia */ } }
+    return leerBaseLocal('homologos')?.d || null;
+}
+async function maestroActual() {
+    if (API_URL) { try { const r = await llamarApi({ accion: 'leerVademecum' }, 120000); if (r.productos?.length) return r.productos; } catch (e) { /* sin copia */ } }
+    return [];
+}
+function leerHomologos(libro) {
+    const ws = libro.worksheets.find(w => filasHoja(w)[0]?.map(claveTexto).includes('product counterpart/cliente'));
+    if (!ws) throw new Error('No encontré las columnas "Product Counterpart/Cliente" y "Product Counterpart/Nombre"');
+    const f = filasHoja(ws), cab = f[0].map(claveTexto), ir = cab.indexOf('referencia interna'), ic = cab.indexOf('product counterpart/cliente'), inn = cab.indexOf('product counterpart/nombre');
+    if (ir < 0 || inn < 0) throw new Error('Faltan las columnas "Referencia Interna" y "Product Counterpart/Nombre"');
+    let ref = '';
+    const filas = [];
+    f.slice(1).forEach(r => {   // la referencia solo viene en la primera fila de cada producto: se arrastra hacia abajo
+        if (String(r[ir] || '').trim()) ref = String(r[ir]).trim();
+        const cliente = String(r[ic] || '').trim(), nombre = String(r[inn] || '').split(/\s+/).filter(Boolean).join(' ');
+        if (ref && cliente && nombre) filas.push({ r: ref, c: cliente, n: nombre });
+    });
+    return filas;
+}
+// Producto del maestro con el nombre que le pone el cliente
+const productoHomologo = (maestroPorRef, i) => { const m = maestroPorRef[i.r]; return m ? { ...m, Nombre: i.n } : null; };
+async function subirHomologos() {
+    if (!esAdmin()) return;
+    const [archivo] = await elegirArchivos(false);
+    if (!archivo) return;
+    try {
+        const filas = leerHomologos(await leerLibro(archivo));
+        if (filas.length < 100) return toast('El archivo trae muy pocos homólogos: revisa que sea Producto_product.template de Odoo');
+        let indice;
+        try { indice = await listaClientesVademecum(); }
+        catch (e) { return toast('No pude traer la lista de clientes del Vademécum: revisa la conexión e inténtalo de nuevo'); }
+        const items = [], sinCruce = new Set(), excluidos = new Set();
+        filas.forEach(x => {
+            const cl = clienteHomologo(x.c, indice);
+            if (cl === 'excluido') return excluidos.add(x.c);
+            if (!cl) return sinCruce.add(x.c);
+            if (!items.some(i => i.r === x.r && i.h === cl.huella && claveTexto(i.n) === claveTexto(x.n))) items.push({ r: x.r, h: cl.huella, n: x.n });
+        });
+        const clientes = new Set(items.map(i => i.h)).size, previo = await homologosActuales();
+        if (!items.length) return toast('Ningún cliente del archivo está en la lista del Vademécum');
+        if (!await dialogo({ titulo: 'Homólogos', aceptar: 'Subir', cancelar: 'No subir',
+            texto: `${items.length} homólogos de ${clientes} clientes${previo?.items ? ` (antes ${previo.items.length})` : ''}\n${sinCruce.size ? `Sin cruzar con la lista del Vademécum (no se cargan): ${[...sinCruce].join('; ')}\n` : ''}${excluidos.size ? `Clientes retirados: ${[...excluidos].join('; ')}\n` : ''}Con esto se actualizan los portafolios de esos clientes.` })) return;
+        await guardarBaseServidor('homologos', { items }, `${items.length} homólogos · ${clientes} clientes`);
+        // Se rehacen los portafolios: sus productos propios (etiqueta Cliente) + los homólogos con el nombre del cliente
+        const maestro = await maestroActual();
+        let rehechos = 0;
+        if (maestro.length && API_URL) {
+            const lee = await llamarApi({ accion: 'leerVademecum' }, 120000), porRef = Object.fromEntries(maestro.map(x => [x['Referencia Interna'], x]));
+            const porCliente = {}; items.forEach(i => { (porCliente[i.h] ||= []).push(i); });
+            const bases = Object.entries(porCliente).map(([h, lista]) => {
+                const actual = lee.portafolios?.[h] || { cliente: indice.find(x => x.huella === h).cliente, zona: indice.find(x => x.huella === h).zona || '', productos: [] };
+                const propios = actual.productos.filter(x => etiquetasProducto(x['Etiquetas de producto']).includes('Cliente'));
+                const homologos = lista.map(i => productoHomologo(porRef, i)).filter(Boolean).filter(x => !propios.some(y => y['Referencia Interna'] === x['Referencia Interna'] && claveTexto(y['Nombre']) === claveTexto(x['Nombre'])));
+                rehechos++;
+                return { nombre: 'pf_' + h, contenido: JSON.stringify({ ...actual, productos: [...propios, ...homologos] }), resumen: '' };
+            });
+            await llamarApi({ accion: 'guardarBases', bases, borrarPortafolios: false }, 180000);
+        }
+        toast(`Homólogos actualizados: ${items.length}${rehechos ? ` · ${rehechos} portafolios al día` : ''}`);
+    } catch (e) { toast('No se pudo subir los homólogos: ' + e.message); }
 }
 async function descargarVademecum() {
     const r = API_URL ? await llamarApi({ accion: 'leerVademecum' }, 120000) : { productos: null };
