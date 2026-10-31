@@ -36,6 +36,7 @@ function doPost(e) {
     // El Vademécum no tiene usuarios de Ruta Comercial: lee su maestro y el portafolio de cada cliente (por huella), solo lectura
     if (pedido.accion === 'vademecumMaestro') return responder_(Object.assign({ ok: true }, vademecumMaestro_()));
     if (pedido.accion === 'vademecumMateriasPrimas') return responder_(Object.assign({ ok: true }, vademecumMateriasPrimas_()));
+    if (pedido.accion === 'vademecumProductoTerminado') return responder_(Object.assign({ ok: true }, vademecumProductoTerminado_()));
     if (pedido.accion === 'vademecumPortafolio') return responder_(Object.assign({ ok: true }, vademecumPortafolio_(pedido.huella)));
     const usuario = autenticar_(pedido.usuario, pedido.clave);
     if (!usuario) return responder_({ ok: false, error: 'Usuario o clave incorrectos' });
@@ -407,7 +408,7 @@ function guardarEmpleados_(usuario, filas) {
 // Direcciones (hoja "Directorio") y Proveedores (hoja "Proveedores") siguen con sus propias hojas y permisos.
 const HOJA_BASES = 'Bases';
 const COLUMNAS_BASES = ['Nombre', 'Parte', 'Contenido', 'Actualizado', 'Resumen'];
-const BASES_VALIDAS = ['contactos', 'catalogo', 'vademecum', 'materiasprimas'];
+const BASES_VALIDAS = ['contactos', 'catalogo', 'vademecum', 'materiasprimas', 'productoterminado'];
 const PARTE_BASES = 40000;
 function filasBases_() {
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_BASES);
@@ -458,6 +459,10 @@ function textoBase_(nombre) {
 function vademecumMaestro_() {
   const b = textoBase_('vademecum');
   return b ? { productos: JSON.parse(b.contenido), actualizado: b.actualizado } : { productos: null, actualizado: '' };
+}
+function vademecumProductoTerminado_() {
+  const b = textoBase_('productoterminado');
+  return b ? { productoterminado: JSON.parse(b.contenido), actualizado: b.actualizado } : { productoterminado: null, actualizado: '' };
 }
 function vademecumMateriasPrimas_() {
   const b = textoBase_('materiasprimas');
