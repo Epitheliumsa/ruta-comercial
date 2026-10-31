@@ -152,7 +152,7 @@ async function subirContactos() {
         const total = Object.keys(despues).length;
         if (total < 50) return toast('La maestra trae muy pocos contactos: revisa que sea la Maestra de Contactos de Odoo');
         const resumen = `${total} contactos en ${ZONAS_BASE.length} zonas`;
-        if (!await dialogo({ titulo: 'Maestra de contactos', aceptar: 'Subir',
+        if (!await dialogo({ titulo: 'Maestra de contactos', aceptar: 'Subir', cancelar: 'No subir',
             texto: `${total} contactos (${ZONAS_BASE.map(z => `${z}: ${nuevo[z].length}`).join(' · ')}).\nNuevos: ${nuevos} · Retirados: ${retirados} · Cambian de zona: ${cambios}${sinZona.length ? `\nSin zona (no se suben): ${sinZona.length}` : ''}\nReemplaza la lista de contactos de la app para todos los usuarios.` })) return;
         await guardarBaseServidor('contactos', nuevo, resumen);
         toast(`Maestra de contactos actualizada: ${total}`);
@@ -328,7 +328,7 @@ async function subirCatalogo() {
         const cuenta = {}; d.productos.forEach(p => p.e.forEach(e => { cuenta[e] = (cuenta[e] || 0) + 1; }));
         const linea = f => `${NOMBRE_FAMILIA[f]}: ${d.productos.filter(p => familiaProducto(p.c) === f).length} (antes ${CATALOGO.productos.filter(p => familiaProducto(p.c) === f).length})${familias.has(f) ? ' · se reemplazan' : ' · se conservan'}`;
         const resumen = `${d.productos.length} productos`;
-        if (!await dialogo({ titulo: 'Productos', aceptar: 'Subir',
+        if (!await dialogo({ titulo: 'Productos', aceptar: 'Subir', cancelar: 'No subir',
             texto: `${linea('MP')}\n${linea('PT')}\nTotal: ${d.productos.length} productos. ${[...DESPLEGABLES_BASE, ...CERRADAS_BASE].map(c => `${c}: ${cuenta[c] || 0}`).join(' · ')}\nReemplaza el catálogo de la app para todos los usuarios.` })) return;
         await guardarBaseServidor('catalogo', d, resumen);
         toast(`Productos actualizados: ${d.productos.length}`);
@@ -466,7 +466,7 @@ async function subirVademecum() {
             lineas.push(`Portafolios de clientes: ${n}${sinAcceso.length ? ` (sin acceso configurado, no se suben: ${sinAcceso.join(', ')})` : ''}`);
         }
         resumen = [maestro && `${maestro.length} productos`, clientes && `${bases.filter(b => b.nombre !== 'vademecum').length} portafolios`].filter(Boolean).join(' · ');
-        if (!await dialogo({ titulo: 'Vademécum', aceptar: 'Subir',
+        if (!await dialogo({ titulo: 'Vademécum', aceptar: 'Subir', cancelar: 'No subir',
             texto: `${lineas.join('\n')}\n${maestro ? '' : 'Los productos no cambian (no subiste Vademecum_Epithelium).\n'}${clientes ? '' : 'Los portafolios no cambian (no subiste Vademecum_clientes).\n'}Reemplaza lo que lee el Vademécum.` })) return;
         bases[0].resumen = resumen;
         let cuando = new Date().toISOString();
@@ -541,7 +541,7 @@ function categorizarMateriasPrimas(pend) {
                 <div style="font-size:.85em;color:#555;margin:2px 0 6px">${esc((m['Uso Terapéutico y Cosmético'] || '').slice(0, 160))}</div>
                 <select class="mp-cat" data-i="${i}" style="width:100%;margin-bottom:4px">${opciones(sugerirCategoriaMP(m), 'Elige la categoría principal…')}</select>
                 <select class="mp-cat2" data-i="${i}" style="width:100%">${opciones('', 'Categoría secundaria (opcional)')}</select></div>`).join('')}</div>
-            <div class="form-botones"><button type="button" class="btn-secundario" id="mpCancelar">Cancelar</button><button type="button" class="btn-primario" id="mpGuardar">Categorizar y continuar</button></div></div>`);
+            <div class="form-botones"><button type="button" class="btn-secundario" id="mpCancelar">No subir</button><button type="button" class="btn-primario" id="mpGuardar">Categorizar y continuar</button></div></div>`);
         $('mpCancelar').onclick = () => { cerrarModal(); resolve(false); };
         $('mpGuardar').onclick = () => {
             const pr = [...document.querySelectorAll('.mp-cat')], se = [...document.querySelectorAll('.mp-cat2')];
@@ -573,7 +573,7 @@ async function subirMateriasPrimas() {
         if (pend.length && !await categorizarMateriasPrimas(pend)) return;
         const nuevas = lista.filter(m => !previo[m['Referencia Interna']]).length, quitadas = Object.keys(previo).filter(r => !lista.some(m => m['Referencia Interna'] === r)).length;
         const porCat = {}; lista.forEach(m => { porCat[m['Categoria Principal']] = (porCat[m['Categoria Principal']] || 0) + 1; });
-        if (!await dialogo({ titulo: 'Materias primas', aceptar: 'Subir',
+        if (!await dialogo({ titulo: 'Materias primas', aceptar: 'Subir', cancelar: 'No subir',
             texto: `${lista.length} materias primas${Object.keys(previo).length ? ` (antes ${Object.keys(previo).length}: ${nuevas} nuevas, ${quitadas} que ya no vienen)` : ''}\nCategorizadas ahora: ${pend.length} · con la categoría que ya tenían: ${heredadas}\n${CATEGORIAS_MP.filter(c => porCat[c]).map(c => `${c}: ${porCat[c]}`).join(' · ')}\nReemplaza lo que ve el Vademécum.` })) return;
         await guardarBaseServidor('materiasprimas', lista, `${lista.length} materias primas`);
         toast(`Materias primas actualizadas: ${lista.length}`);
@@ -654,7 +654,7 @@ async function subirProductosTodo() {
             lineas.push(`Portafolios de clientes: ${nPf} se actualizan${sinAcceso.length ? `; sin cruzar con la lista del Vademécum (no se tocan): ${sinAcceso.join(', ')}` : ''}`);
         }
         if (!familias.has('MP')) lineas.push('Magistrales: no se subieron, el Vademécum y los portafolios no cambian.');
-        if (!await dialogo({ titulo: 'Productos y Vademécum', aceptar: 'Subir', texto: `${lineas.join('\n')}\nReemplaza lo que ven todos los usuarios.` })) return;
+        if (!await dialogo({ titulo: 'Productos y Vademécum', aceptar: 'Subir', cancelar: 'No subir', texto: `${lineas.join('\n')}\nReemplaza lo que ven todos los usuarios.` })) return;
         const resumen = [`${productos.length} productos`, resumenV && `${maestro.length} en el Vademécum`, nPf && `${nPf} portafolios`].filter(Boolean).join(' · ');
         bases[0].resumen = resumen;
         let cuando = new Date().toISOString();
