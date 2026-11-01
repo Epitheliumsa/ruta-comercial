@@ -2301,5 +2301,25 @@ window.CIRCULARES = [
   "excluidos": [],
   "todos": false,
   "interna": false
+ },
+ {
+  "c": "2026-044",
+  "tipo": "Implementación",
+  "nombre": "Implementación y personalización del Vademécum Epithelium",
+  "grupo": "Magistral de Pedido / Producto Terminado",
+  "dirigida": "Todos",
+  "producto": "Vademécum Epithelium; Vademécum Clientes",
+  "ini": "2026-11-04",
+  "fin": "2026-12-31",
+  "objetivo": "Implementar el Vademécum Epithelium y el Vademécum Clientes entre el 4 de noviembre y el 31 de diciembre de 2026: 85% de los médicos (clasificaciones 20, 21 y 22) y 80% de los clientes de cada zona, redondeado al entero superior. En Clientes Especiales el objetivo de clientes es Bella Piel S.A.S., Kaili S.A.S. y MD Support Ltda. Metas: Zona Norte 94 de 110 médicos y 25 de 31 clientes; Zona Sur 107 de 125 y 20 de 25; Zona Desarrollo 4 de 4 y 11 de 13; Clientes Especiales 29 de 34 y 3 de 3. Total: 234 de 273 médicos y 59 de 72 clientes.",
+  "resumen": "Cada médico y cada cliente recibe su vademécum personalizado. Proceso: 1) la Coordinación Comercial entrega la plantilla del Anexo 1 (acceso de médicos a vademécums cliente) el 3 de noviembre de 2026; 2) el visitador valida con su médico o cliente el portafolio que desea ver y lo define en la plantilla; 3) en la visita mensual (presencial en Bogotá, virtual en regiones) se presenta y entrega el vademécum personalizado, explicando su uso; 4) el registro de la entrega se hace en la App Visita Comercial; 5) cobertura al 31 de diciembre de 2026.",
+  "obs": "Plantilla Anexo 1 (Excel) con el acceso de los médicos a los vademécums cliente; el avance por zona se consulta en la App Visita Comercial; sin liquidación.",
+  "pdf": "",
+  "productos": [],
+  "canales": [],
+  "clientes": [],
+  "excluidos": [],
+  "todos": true,
+  "interna": false
  }
 ];
