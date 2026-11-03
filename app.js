@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202611010822';
+const APP_VERSION = '202611031130';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -22,7 +22,7 @@ const USUARIOS = [
     { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cumple: '1998-06-30', cargo: 'Auxiliar de Domicilios y Mensajería' },
     { usuario: 'D.Barrero',   huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', tipo: 'logistica', id: 'dbarrero', nombre: 'Deelan Barrero', cumple: '1996-12-17', cargo: 'Auxiliar de Domicilios y Mensajería' },
     // Mercadeo: ve el panel del equipo (visitas y cuota por línea, total y por zona) y las circulares, en solo lectura, y sube los PDF de las circulares
-    { usuario: 'E.Rodriguez', huella: '1810ebbb28c9a1f5b1b7d8f7612189070fcddbcc9a8b0a2e0d18c161506ecf08', tipo: 'mercadeo', id: 'erodriguez', nombre: 'Erika Elena Rodriguez', cumple: '1976-05-23', cargo: 'Jefe de RRHH y Mercadeo', verEquipo: true, subeCirculares: true }
+    { usuario: 'E.Rodriguez', huella: '049cf64428110707ba7acb783f084ec8edd7d442ea9266084f0194e74bcc597a', tipo: 'mercadeo', id: 'erodriguez', nombre: 'Erika Elena Rodriguez', cumple: '1976-05-23', cargo: 'Jefe de RRHH y Mercadeo', verEquipo: true, subeCirculares: true }
 ];
 const COMERCIALES = USUARIOS.filter(u => u.tipo === 'comercial');
 // Quienes hacen paradas: los auxiliares y también el coordinador (que además programa a sus auxiliares); el coordinador va de último
