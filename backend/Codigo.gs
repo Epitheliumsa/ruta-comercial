@@ -24,7 +24,7 @@ const USUARIOS = {
   'e.ovalle':    { huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', id: 'eovalle',  tipo: 'logistica', area: 'logistica' },
   'd.barrero':   { huella: 'e4929e77c56f8b90b5a9f9f6d713a18a3f27f3d0aadd8a29dbbef35cc97a0041', id: 'dbarrero', tipo: 'logistica', area: 'logistica' },
   // Mercadeo: lee visitas, ventas (cuota) y actividades de todo el equipo, sin escribirlas; solo guarda los PDF de las circulares
-  'e.rodriguez': { huella: '1810ebbb28c9a1f5b1b7d8f7612189070fcddbcc9a8b0a2e0d18c161506ecf08', id: 'erodriguez', tipo: 'mercadeo', verEquipo: true, subeCirculares: true }
+  'e.rodriguez': { huella: '049cf64428110707ba7acb783f084ec8edd7d442ea9266084f0194e74bcc597a', id: 'erodriguez', tipo: 'mercadeo', verEquipo: true, subeCirculares: true }
 };
 
 const HOJA = 'Registros';
