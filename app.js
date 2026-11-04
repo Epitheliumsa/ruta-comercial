@@ -485,13 +485,13 @@ const PLANEACION_DEFECTO = { desde: '2026-12', hasta: '2027-12', tipo: 'Planeaci
 function primerDiaHabilDe(mes) { let d = mes + '-01'; while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 function cargaPlaneacionDefecto() {
     if (ETAPA_DATOS !== 'vivo' || !sesion) return;
-    const k = PLANEACION_DEFECTO, marca = 'rc_planeacion_defecto_v2';
+    const k = PLANEACION_DEFECTO, marca = 'rc_planeacion_defecto_v3';
     try { if (localStorage.getItem(marca) === sesion.id) return; } catch (e) {}
     const mios = esJefe() ? COMERCIALES.map(c => c.id) : COMERCIALES.map(c => c.id).filter(v => v === sesion.id);
-    // Lo cargado por error (4 de noviembre) se retira, siempre que nadie lo haya tocado
+    // Lo cargado por error (4 de noviembre) se retira mientras siga pendiente (si ya lo reportaron, se deja)
     k.retirar.forEach(fecha => COMERCIALES.map(c => c.id).filter(v => esJefe() || v === sesion.id).forEach(v => {
         const r = registros[`vivo-planeacion-${fecha}-${v}`];
-        if (r && !r.borrado && r.estado === 'pendiente' && r.actualizado === k.registrada) { r.borrado = true; r.actualizado = new Date().toISOString(); r.actualizadoPor = sesion.id; guardarRegistro(r); }
+        if (r && !r.borrado && r.estado === 'pendiente') { r.borrado = true; r.actualizado = new Date().toISOString(); r.actualizadoPor = sesion.id; guardarRegistro(r); }
         const plan = registros[idPlan(v, mesDe(fecha))];
         if (plan && (plan.marcas?.[k.tipo] || []).includes(fecha)) {
             const nuevo = { ...plan, marcas: { ...plan.marcas, [k.tipo]: plan.marcas[k.tipo].filter(d => d !== fecha) }, confirmadas: { ...(plan.confirmadas || {}) } };
