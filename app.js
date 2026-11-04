@@ -319,9 +319,9 @@ const horaBonita = h => { const [H, M] = h.split(':').map(Number); return `${H %
 const fechaHora = isoTxt => new Date(isoTxt).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 // ---------- DÍAS HÁBILES Y CIERRE DE VISITAS ----------
-// Cada visita se reporta a más tardar a las 11:59 a. m. (Colombia) del siguiente día hábil;
+// Cada visita se reporta a más tardar a las 8:10 a. m. (Colombia) del siguiente día hábil;
 // si no se reporta, queda automáticamente como NO visitada
-const HORA_CIERRE = '11:59';
+const HORA_CIERRE = '08:10';
 function pascua(y) {
     const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
     const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
@@ -366,7 +366,7 @@ const diaCierre = v => siguienteHabil(v.fecha);
 const limiteCierre = v => Date.parse(`${diaCierre(v)}T${HORA_CIERRE}:59-05:00`);
 // En pruebas no hay plazo para reportar (ni cierre automático); en vivo aplican todas las restricciones
 const puedeReportar = v => v.estado === 'pendiente' && v.fecha <= hoy() && (ETAPA_DATOS === 'pruebas' || Date.now() <= limiteCierre(v));
-// Una visita ya reportada se puede corregir el mismo día y hasta las 11:59 a. m. del siguiente día hábil
+// Una visita ya reportada se puede corregir el mismo día y hasta las 8:10 a. m. del siguiente día hábil
 // (no las que cerró el sistema por no reportarse a tiempo)
 // (también en pruebas). Después queda bloqueada: solo se corrige con una solicitud que autoriza el Gerente General.
 const correccionAutorizada = v => v.solicitudCorreccion?.estado === 'aprobada' && Date.now() <= Date.parse(v.solicitudCorreccion.hasta || 0);
@@ -481,17 +481,17 @@ function cargaInicialVivo() {
 // ---------- PLANEACIÓN MES POR DEFECTO ----------
 // El primer día hábil de cada mes, de diciembre de 2026 a diciembre de 2027 (menos enero de 2027, sin fecha todavía), queda programado "Planeación Mes" (todo el día) para todas las comerciales:
 // en el plan diario (para reportarlo) y marcado en su Visiplan. Ids fijos y fecha de actualización vieja: si alguien lo edita, lo suyo gana y nada se duplica.
-const PLANEACION_DEFECTO = { desde: '2026-12', hasta: '2027-12', tipo: 'Planeación Mes', objetivos: ['Visiplan'], texto: 'Día de planeación', registrada: '2026-11-04T17:00:00.000Z', sin: ['2027-01'], extra: ['2026-11-03'], retirar: ['2026-11-04'] };   // extra: días sueltos (hoy, 3 de noviembre de 2026); retirar: fechas cargadas por error   // enero de 2027 queda fuera hasta tener fecha
+const PLANEACION_DEFECTO = { desde: '2026-12', hasta: '2027-12', tipo: 'Planeación Mes', objetivos: ['Visiplan'], texto: 'Día de planeación', registrada: '2026-11-03T12:00:00.000Z', sin: ['2027-01'], extra: ['2026-11-03'], retirar: ['2026-11-04'] };   // extra: días sueltos (hoy, 3 de noviembre de 2026); retirar: fechas cargadas por error   // enero de 2027 queda fuera hasta tener fecha
 function primerDiaHabilDe(mes) { let d = mes + '-01'; while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 function cargaPlaneacionDefecto() {
     if (ETAPA_DATOS !== 'vivo' || !sesion) return;
-    const k = PLANEACION_DEFECTO, marca = 'rc_planeacion_defecto_v3';
+    const k = PLANEACION_DEFECTO, marca = 'rc_planeacion_defecto_v4';
     try { if (localStorage.getItem(marca) === sesion.id) return; } catch (e) {}
     const mios = esJefe() ? COMERCIALES.map(c => c.id) : COMERCIALES.map(c => c.id).filter(v => v === sesion.id);
-    // Lo cargado por error (4 de noviembre) se retira mientras siga pendiente (si ya lo reportaron, se deja)
+    // Lo cargado por error (4 de noviembre) se retira mientras siga pendiente (si ya lo reportaron, se deja). Las visitas solo las elimina el administrador; la marca del Visiplan la quita cualquiera
     k.retirar.forEach(fecha => COMERCIALES.map(c => c.id).filter(v => esJefe() || v === sesion.id).forEach(v => {
         const r = registros[`vivo-planeacion-${fecha}-${v}`];
-        if (r && !r.borrado && r.estado === 'pendiente') { r.borrado = true; r.actualizado = new Date().toISOString(); r.actualizadoPor = sesion.id; guardarRegistro(r); }
+        if (r && !r.borrado && r.estado === 'pendiente' && esAdmin()) { r.borrado = true; guardarRegistro(r); }
         const plan = registros[idPlan(v, mesDe(fecha))];
         if (plan && (plan.marcas?.[k.tipo] || []).includes(fecha)) {
             const nuevo = { ...plan, marcas: { ...plan.marcas, [k.tipo]: plan.marcas[k.tipo].filter(d => d !== fecha) }, confirmadas: { ...(plan.confirmadas || {}) } };
@@ -586,7 +586,8 @@ function guardarLocal() {
 let modoPropuesta = '';
 function guardarRegistro(r) {
     if (modoPropuesta && r.id === modoPropuesta) return proponerEdicion(r);
-    r.actualizado = new Date().toISOString();
+    const ahoraIso = new Date().toISOString(), previoIso = registros[r.id]?.actualizado || '';
+    r.actualizado = previoIso > ahoraIso ? new Date(Date.parse(previoIso) + 1).toISOString() : ahoraIso;   // si el registro tiene fecha futura, el cambio igual lo supera
     r.etapa = ETAPA_DATOS;
     if (r.clase === 'visita') r.limiteReporte = new Date(limiteCierre(r)).toISOString();
     r.actualizadoPor = sesion.id;
