@@ -481,13 +481,24 @@ function cargaInicialVivo() {
 // ---------- PLANEACIÓN MES POR DEFECTO ----------
 // El primer día hábil de cada mes, de diciembre de 2026 a diciembre de 2027 (menos enero de 2027, sin fecha todavía), queda programado "Planeación Mes" (todo el día) para todas las comerciales:
 // en el plan diario (para reportarlo) y marcado en su Visiplan. Ids fijos y fecha de actualización vieja: si alguien lo edita, lo suyo gana y nada se duplica.
-const PLANEACION_DEFECTO = { desde: '2026-12', hasta: '2027-12', tipo: 'Planeación Mes', objetivos: ['Visiplan'], texto: 'Día de planeación', registrada: '2026-11-04T17:00:00.000Z', sin: ['2027-01'], extra: ['2026-11-04'] };   // extra: días sueltos (hoy, 4 de noviembre de 2026)   // enero de 2027 queda fuera hasta tener fecha
+const PLANEACION_DEFECTO = { desde: '2026-12', hasta: '2027-12', tipo: 'Planeación Mes', objetivos: ['Visiplan'], texto: 'Día de planeación', registrada: '2026-11-04T17:00:00.000Z', sin: ['2027-01'], extra: ['2026-11-03'], retirar: ['2026-11-04'] };   // extra: días sueltos (hoy, 3 de noviembre de 2026); retirar: fechas cargadas por error   // enero de 2027 queda fuera hasta tener fecha
 function primerDiaHabilDe(mes) { let d = mes + '-01'; while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 function cargaPlaneacionDefecto() {
     if (ETAPA_DATOS !== 'vivo' || !sesion) return;
-    const k = PLANEACION_DEFECTO, marca = 'rc_planeacion_defecto_v1';
+    const k = PLANEACION_DEFECTO, marca = 'rc_planeacion_defecto_v2';
     try { if (localStorage.getItem(marca) === sesion.id) return; } catch (e) {}
     const mios = esJefe() ? COMERCIALES.map(c => c.id) : COMERCIALES.map(c => c.id).filter(v => v === sesion.id);
+    // Lo cargado por error (4 de noviembre) se retira, siempre que nadie lo haya tocado
+    k.retirar.forEach(fecha => COMERCIALES.map(c => c.id).filter(v => esJefe() || v === sesion.id).forEach(v => {
+        const r = registros[`vivo-planeacion-${fecha}-${v}`];
+        if (r && !r.borrado && r.estado === 'pendiente' && r.actualizado === k.registrada) { r.borrado = true; r.actualizado = new Date().toISOString(); r.actualizadoPor = sesion.id; guardarRegistro(r); }
+        const plan = registros[idPlan(v, mesDe(fecha))];
+        if (plan && (plan.marcas?.[k.tipo] || []).includes(fecha)) {
+            const nuevo = { ...plan, marcas: { ...plan.marcas, [k.tipo]: plan.marcas[k.tipo].filter(d => d !== fecha) }, confirmadas: { ...(plan.confirmadas || {}) } };
+            delete nuevo.confirmadas[clavePlan(k.tipo, fecha)];
+            guardarRegistro(nuevo);
+        }
+    }));
     const dias = [];
     for (let mes = k.desde; mes <= k.hasta; mes = mesDe(sumarDias(mes + '-28', 5))) if (!k.sin.includes(mes)) dias.push(primerDiaHabilDe(mes));
     k.extra.forEach(d => { if (!dias.includes(d)) dias.push(d); });
