@@ -481,16 +481,18 @@ function cargaInicialVivo() {
 // ---------- PLANEACIÓN MES POR DEFECTO ----------
 // El primer día hábil de cada mes, de diciembre de 2026 a diciembre de 2027 (menos enero de 2027, sin fecha todavía), queda programado "Planeación Mes" (todo el día) para todas las comerciales:
 // en el plan diario (para reportarlo) y marcado en su Visiplan. Ids fijos y fecha de actualización vieja: si alguien lo edita, lo suyo gana y nada se duplica.
-const PLANEACION_DEFECTO = { desde: '2026-12', hasta: '2027-12', tipo: 'Planeación Mes', objetivos: ['Visiplan'], texto: 'Día de planeación', registrada: '2026-11-04T17:00:00.000Z', sin: ['2027-01'] };   // enero de 2027 queda fuera hasta tener fecha
+const PLANEACION_DEFECTO = { desde: '2026-12', hasta: '2027-12', tipo: 'Planeación Mes', objetivos: ['Visiplan'], texto: 'Día de planeación', registrada: '2026-11-04T17:00:00.000Z', sin: ['2027-01'], extra: ['2026-11-04'] };   // extra: días sueltos (hoy, 4 de noviembre de 2026)   // enero de 2027 queda fuera hasta tener fecha
 function primerDiaHabilDe(mes) { let d = mes + '-01'; while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 function cargaPlaneacionDefecto() {
     if (ETAPA_DATOS !== 'vivo' || !sesion) return;
     const k = PLANEACION_DEFECTO, marca = 'rc_planeacion_defecto_v1';
     try { if (localStorage.getItem(marca) === sesion.id) return; } catch (e) {}
     const mios = esJefe() ? COMERCIALES.map(c => c.id) : COMERCIALES.map(c => c.id).filter(v => v === sesion.id);
-    for (let mes = k.desde; mes <= k.hasta; mes = mesDe(sumarDias(mes + '-28', 5))) {
-        if (k.sin.includes(mes)) continue;
-        const fecha = primerDiaHabilDe(mes);
+    const dias = [];
+    for (let mes = k.desde; mes <= k.hasta; mes = mesDe(sumarDias(mes + '-28', 5))) if (!k.sin.includes(mes)) dias.push(primerDiaHabilDe(mes));
+    k.extra.forEach(d => { if (!dias.includes(d)) dias.push(d); });
+    for (const fecha of dias.sort()) {
+        const mes = mesDe(fecha);
         mios.forEach(v => {
             const id = `vivo-planeacion-${fecha}-${v}`;
             if (!registros[id]) {
@@ -505,9 +507,9 @@ function cargaPlaneacionDefecto() {
             const pid = idPlan(v, mes), antes = registros[pid];
             const plan = antes ? { ...antes, marcas: { ...antes.marcas }, confirmadas: { ...(antes.confirmadas || {}) } }
                 : { id: pid, clase: 'plan', vendedor: v, mes, fecha: mes + '-01', marcas: {}, confirmadas: {}, creado: k.registrada, creadoPor: 'hreyes' };
-            const dias = new Set(plan.marcas[k.tipo] || []);
-            let cambio = !dias.has(fecha);
-            dias.add(fecha); plan.marcas[k.tipo] = [...dias].sort();
+            const marcados = new Set(plan.marcas[k.tipo] || []);
+            let cambio = !marcados.has(fecha);
+            marcados.add(fecha); plan.marcas[k.tipo] = [...marcados].sort();
             if (!plan.confirmadas[clavePlan(k.tipo, fecha)]) { plan.confirmadas[clavePlan(k.tipo, fecha)] = id; cambio = true; }
             if (cambio) guardarRegistro(plan);
         });
