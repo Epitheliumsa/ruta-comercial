@@ -2321,5 +2321,25 @@ window.CIRCULARES = [
   "excluidos": [],
   "todos": true,
   "interna": false
+ },
+ {
+  "c": "2026-045",
+  "tipo": "Concurso",
+  "nombre": "Concurso por cumplimiento de cuota: Noviembre y Diciembre",
+  "grupo": "Todos",
+  "dirigida": "Fuerza de ventas (Zona Sur, Zona Norte, Zona Desarrollo y Clientes Especiales)",
+  "producto": "Venta total de la compañía (todas las líneas)",
+  "ini": "2026-11-01",
+  "fin": "2026-12-31",
+  "objetivo": "Incentivar el cumplimiento de la cuota de ventas de cada zona en noviembre y diciembre de 2026, con un premio al vendedor que alcance como mínimo el 95% de su cuota mensual. Meta: 95% o más de la cuota de la zona en cada mes, y 100% de la cuota sumada del bimestre para acceder a los bonos adicionales. Cuotas de noviembre / diciembre / bimestre: Zona Sur (Yunelis Caballero) $90.427.028 / $93.982.133 / $184.409.160; Zona Norte (Lizeth Ramos) $64.425.142 / $80.357.767 / $144.782.909; Zona Desarrollo (Maryi Castro) $28.117.656 / $31.551.946 / $59.669.602; Clientes Especiales (Jennifer Herrera) $166.757.351 / $180.762.214 / $347.519.564; total compañía $349.727.176 / $386.654.060 / $736.381.236.",
+  "resumen": "Cada mes se evalúa y se premia por separado, sobre el salario básico del vendedor: menos del 95% de la cuota, sin premio; desde el 95% hasta el 110%, 50% del salario básico; más del 110%, 100% del salario básico. Bonos del bimestre: $500.000 si la zona cumple el 100% o más de la cuota sumada de noviembre y diciembre (cada zona por separado); si la compañía cumple el 100% o más de su cuota sumada, $500.000 para cada zona y $1.000.000 para la Coordinadora Comercial. El cumplimiento se mide como venta neta del mes frente a la cuota de la zona y se valida con el informe oficial de ventas del cierre mensual. Un vendedor puede ganar el premio de noviembre, el de diciembre y los bonos.",
+  "obs": "Liquidación una vez cerrado y validado el mes (bonos, al cerrar el bimestre). Pago: premio de noviembre el 15 de diciembre de 2026; premio de diciembre y bonos el 15 de enero de 2027. Se informa a la fuerza de ventas el avance de la cuota por zona.",
+  "pdf": "",
+  "productos": [],
+  "canales": [],
+  "clientes": [],
+  "excluidos": [],
+  "todos": false,
+  "interna": true
  }
 ];
