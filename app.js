@@ -244,6 +244,8 @@ const novedadesDe = (vendedor, fecha) => visibles().filter(r => r.clase === 'nov
 const esPorHoras = n => NOVEDAD_HORAS.includes(n.tipo) && !n.diaCompleto && n.horaInicio && n.horaFin;
 const rangoNovedad = n => esPorHoras(n) ? `${fechaCorta(n.fecha)}, de ${horaBonita(n.horaInicio)} a ${horaBonita(n.horaFin)}`
     : n.hasta && n.hasta !== n.fecha ? `${fechaCorta(n.fecha)} al ${fechaCorta(n.hasta)}` : fechaCorta(n.fecha);
+// Iconos de las novedades (los usan Visita Comercial y Logística)
+const ICONO_NOV = { 'Cita médica': '🩺', 'Cumpleaños': '🎂', Incapacidad: '🤒', Permiso: '📝', Vacaciones: '🌴' };
 const CORTO_NOVEDAD = { Vacaciones: 'Vacac.', Incapacidad: 'Incap.', Permiso: 'Permiso', 'Cumpleaños': 'Cumple', 'Cita médica': 'Cita méd.' };
 const MODALIDADES = { presencial: 'Presencial', virtual: 'Virtual', remota: 'WhatsApp/Llamada/Correo' };
 // Las visitas se programan antes de esta hora (Colombia, UTC-5) del día de la visita;
@@ -2925,7 +2927,8 @@ function pintarAgenda() {
     $('agFestivo').textContent = fest ? `Festivo · ${fest}` : '';
     const novs = deTodos(x => novedadesDe(x, f));
     // Tarjeta de cumpleaños: sale sola el día del cumpleaños (salvo que ya tenga la novedad vieja "Cumpleaños")
-    const tarjetasCumple = vs.filter(x => esCumple(x, f) && !novs.some(n => n.vendedor === x && n.tipo === 'Cumpleaños')).map(tarjetaCumple).join('');
+    const idsCumple = vs.filter(x => esCumple(x, f) && !novs.some(n => n.vendedor === x && n.tipo === 'Cumpleaños'));
+    const panelNov = panelNovedades(idsCumple.length + novs.length, idsCumple.map(tarjetaCumple).join('') + novs.map(n => tarjetaNovedad(n)).join(''));
     const lista = deTodos(x => visitasDe(x, f)).sort(ordenCita);
     const k = cuentaVisitas(lista);
     const internos = lista.filter(x => x.interno).length;
@@ -3009,7 +3012,7 @@ function pintarAgenda() {
         return;
     }
     if (!lista.length && !novs.length && !plan.length) {
-        cont.innerHTML = bannerCorr + tarjetasInvitaciones() + tarjetasCumple + `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>` + eliminadasDe(vs, f).map(tarjetaEliminada).join('');
+        cont.innerHTML = bannerCorr + tarjetasInvitaciones() + panelNov + `<div class="no-results">${fest ? 'Día festivo: no hay nada programado.' : 'No hay visitas programadas para este día.'}<br><button class="btn-nuevo btn-programar" style="margin-top:15px" onclick="abrirProgramar()" ${f < t ? 'disabled title="Este día ya pasó: no se puede programar"' : ''}>+ Programar</button></div>` + eliminadasDe(vs, f).map(tarjetaEliminada).join('');
         return;
     }
     // Filtro por indicador y orden (por hora de cita o por el orden en que se reportaron las visitas)
@@ -3033,7 +3036,7 @@ function pintarAgenda() {
     if (avisoOrden) $('agResumen').querySelector('.ag-orden')?.insertAdjacentHTML('beforebegin', avisoOrden);
     const filtrando = agenda.filtro;
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
-    cont.innerHTML = bannerCorr + (filtrando ? '' : tarjetasInvitaciones() + tarjetasCumple + novs.map(n => tarjetaNovedad(n)).join('') + bloquePlan) + aviso
+    cont.innerHTML = bannerCorr + (filtrando ? '' : tarjetasInvitaciones() + panelNov + bloquePlan) + aviso
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
         + (filtrando ? '' : bloqueCerradas + bloqueHuellas + eliminadasDe(vs, f).map(tarjetaEliminada).join(''));
 }
@@ -4321,8 +4324,8 @@ async function eliminarNovedad(id) {
 function tarjetaCumple(id) {
     const varios = vendedoresAgenda().length > 1;
     const yo = id === sesion.id;
-    return `<div class="producto-card novedad-card cumple-card">
-        <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(id))}</span>` : ''}<h3>🎂 Cumpleaños</h3></div><span class="chip cumple">Cumpleaños</span></div>
+    return `<div class="producto-card novedad-card lg-nov cumple-card">
+        <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(id))}</span>` : ''}<h3>${ICONO_NOV['Cumpleaños']} Cumpleaños</h3></div><span class="chip lg-nov-chip">Cumpleaños</span></div>
         <p>${yo ? `¡Feliz cumpleaños, ${esc(sesion.nombre.split(' ')[0])}! Disfruta tu día.` : `Hoy es el cumpleaños de ${esc(nombreVendedor(id))}.`}</p>
     </div>`;
 }
@@ -4354,13 +4357,16 @@ function saludoCumpleHoy() {
 
 function tarjetaNovedad(n, conVendedor = false) {
     const varios = conVendedor || vendedoresAgenda().length > 1;
-    return `<div class="producto-card novedad-card">
-        <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(n.vendedor))}</span>` : ''}<h3>${esc(n.tipo)}</h3></div><span class="chip gris">Novedad</span></div>
+    return `<div class="producto-card novedad-card lg-nov">
+        <div class="visita-cab"><div>${varios ? `<span class="vend-card">${esc(nombreVendedor(n.vendedor))}</span>` : ''}<h3>${ICONO_NOV[n.tipo] || ''} ${esc(n.tipo)}</h3></div><span class="chip lg-nov-chip">${esc(n.tipo)}</span></div>
         <p class="meta">${esc(rangoNovedad(n))}</p>
         ${n.nota ? `<p>${esc(n.nota)}</p>` : ''}
-        <div class="acciones"><button class="link-mini" onclick="abrirProgramar('${n.id}')">Editar</button><button class="link-mini" onclick="eliminarNovedad('${n.id}')">Eliminar</button></div>
+        <div class="acciones"><button class="link-mini" onclick="abrirProgramar('${n.id}')">Editar</button><button class="link-mini peligro" onclick="eliminarNovedad('${n.id}')">Eliminar</button></div>
     </div>`;
 }
+// Novedades y cumpleaños del día, en el mismo panel que se esconde que usa Logística
+const panelNovedades = (cantidad, tarjetas) => !cantidad ? '' : `<details class="lg-grafico lg-novs"${agenda.novAbierto === false ? '' : ' open'} ontoggle="agenda.novAbierto = this.open">
+    <summary>🗓 Novedades del día <small>${cantidad} ${cantidad === 1 ? 'novedad' : 'novedades'}</small></summary>${tarjetas}</details>`;
 
 async function eliminarVisita(id) {
     if (!esAdmin() || !await dialogo({ titulo: '¿Eliminar esta visita?', texto: 'La visita se borra para todo el equipo.', aceptar: 'Eliminar' })) return;

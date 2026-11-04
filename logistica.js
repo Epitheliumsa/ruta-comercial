@@ -59,7 +59,6 @@ const logi = { fecha: '', mensajero: '', filtro: '', busca: '', soloLectura: fal
 const logRegs = () => visibles().filter(r => r.clase === 'logistica' && r.tipo !== 'novedad' && (!esLogistica() || esCoordLog() || r.vendedor === sesion.id));
 // Novedades del equipo de Logística (cita médica, incapacidad, permiso, vacaciones): se guardan como registros de logística de tipo 'novedad'
 const NOVEDADES_LOG = ['Cita médica', 'Incapacidad', 'Permiso', 'Vacaciones'];
-const ICONO_NOV = { 'Cita médica': '🩺', Incapacidad: '🤒', Permiso: '📝', Vacaciones: '🌴' };
 const novLogRegs = () => visibles().filter(r => r.clase === 'logistica' && r.tipo === 'novedad')
     .filter(r => esLogistica() ? (esCoordLog() || r.vendedor === sesion.id) : esAdmin());
 const novLogDe = (fecha, vendedor) => novLogRegs().filter(n => n.fecha <= fecha && (n.hasta || n.fecha) >= fecha && (!vendedor || n.vendedor === vendedor));
@@ -673,7 +672,7 @@ const panelNovLog = lista => !lista.length ? '' : `<details class="lg-grafico lg
 const tarjetaNovLog = n => `<div class="producto-card novedad-card lg-nov">
     <div class="visita-cab"><div><span class="vend-card">${esc(nombreVendedor(n.vendedor))}</span><h3>${ICONO_NOV[n.novedad] || ''} ${esc(n.novedad)}</h3></div><span class="chip lg-nov-chip">${esc(n.novedad)}</span></div>
     <p class="meta">${esc(rangoNovLog(n))}</p>${n.detalle ? `<p>${esc(n.detalle)}</p>` : ''}
-    ${puedeOperarLog() && (esCoordLog() || esAdmin() || n.vendedor === sesion.id) ? `<div class="acciones"><button type="button" class="btn-link" onclick="abrirLogForm('${n.id}')">Editar</button><button type="button" class="btn-link peligro" onclick="eliminarNovLog('${n.id}')">Eliminar</button></div>` : ''}
+    ${puedeOperarLog() && (esCoordLog() || esAdmin() || n.vendedor === sesion.id) ? `<div class="acciones"><button type="button" class="link-mini" onclick="abrirLogForm('${n.id}')">Editar</button><button type="button" class="link-mini peligro" onclick="eliminarNovLog('${n.id}')">Eliminar</button></div>` : ''}
 </div>`;
 async function guardarLog(e, id) {
     e.preventDefault();
