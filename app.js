@@ -2239,7 +2239,10 @@ function limitePlan(mes) {   // hasta el final del 2.º día hábil del mes (hor
     return { dia: d, ms: Date.parse(`${d}T23:59:59-05:00`) };
 }
 // Mientras estemos en pruebas el plan queda abierto; en vivo se cierra el 2.º día hábil para todos (también jefes y administrador)
-const planEditable = mes => ETAPA_DATOS === 'pruebas' || Date.now() <= limitePlan(mes).ms;
+// Reaperturas puntuales del Visiplan para un vendedor ('vendedor|mes' → hasta cuándo, hora Colombia)
+const REAPERTURA_PLAN = { 'lramos|2026-11': '2026-11-05T20:00:00-05:00' };
+const reaperturaPlan = (mes, vend) => Date.parse(REAPERTURA_PLAN[`${vend}|${mes}`] || '') || 0;
+const planEditable = (mes, vend) => ETAPA_DATOS === 'pruebas' || Date.now() <= Math.max(limitePlan(mes).ms, vend ? reaperturaPlan(mes, vend) : 0);
 const clavePlan = (contacto, fecha) => `${contacto}|${fecha}`;
 
 // Seguimiento del mes: X del plan, visitas efectivas y próximas visitas agendadas que aún no son efectivas
@@ -2358,11 +2361,13 @@ function pintarVisiplan() {
     const vista = COMERCIALES.filter(c => visiplan.vendedores.includes(c.id));
     const todos = vista.length > 1;   // varios vendedores: se muestra el vendedor en cada fila
     visiplan.vista = vista.map(c => c.id);
-    const editable = planEditable(mes);
+    const editable = vista.some(c => planEditable(mes, c.id));
     const lim = limitePlan(mes);
+    const reabiertos = vista.filter(c => reaperturaPlan(mes, c.id) > lim.ms && Date.now() <= reaperturaPlan(mes, c.id));
     $('vpMesTxt').textContent = mayuscula(nombreMes(mes));
     $('vpMesSub').textContent = editable
         ? (Date.now() > lim.ms && ETAPA_DATOS === 'pruebas' ? 'Abierto para pruebas (en vivo se cierra el 2.º día hábil)'
+            : Date.now() > lim.ms && reabiertos.length ? `Reabierto para ${reabiertos.map(c => c.nombre).join(', ')} hasta las ${horaBonita(new Date(reaperturaPlan(mes, reabiertos[0].id)).toLocaleTimeString('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }))} de hoy`
             : `Se puede editar hasta el ${fechaLarga(lim.dia)}`)
         : `Plan cerrado el ${fechaLarga(lim.dia)}: ya no se puede editar`;
     $('vpMesSub').classList.toggle('cerrado', !editable);
@@ -2710,7 +2715,7 @@ const planesPorGuardar = new Set();
 function marcarPlan(celda) {
     const mes = visiplan.mes;
     const { c, d, v: vend } = celda.dataset;
-    if (!planEditable(mes)) return toast(`El plan de ${nombreMes(mes)} ya está cerrado`);
+    if (!planEditable(mes, vend)) return toast(`El plan de ${nombreMes(mes)} ya está cerrado`);
     if (esJefe() && !esAdmin() && vend !== sesion.id) return toast('Solo el vendedor (o el administrador) puede editar su plan');
     const id = idPlan(vend, mes);
     const plan = registros[id] ? { ...registros[id], marcas: { ...registros[id].marcas } }
