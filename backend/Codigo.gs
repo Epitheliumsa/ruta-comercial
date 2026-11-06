@@ -43,11 +43,11 @@ function doPost(e) {
     if (pedido.accion === 'listar') return responder_({ ok: true, registros: listar_(usuario, pedido.desde, pedido.hasta) });
     if (pedido.accion === 'guardar') return responder_({ ok: true, guardados: guardar_(usuario, pedido.registros || []) });
     if (pedido.accion === 'subirArchivo') return responder_(Object.assign({ ok: true }, subirArchivo_(usuario, pedido)));
-    if (pedido.accion === 'directorio') return responder_(Object.assign({ ok: true }, directorio_(usuario)));
+    if (pedido.accion === 'directorio') return responder_(Object.assign({ ok: true }, directorio_(usuario, pedido.version)));
     if (pedido.accion === 'guardarDirectorio') return responder_(Object.assign({ ok: true }, guardarDirectorio_(usuario, pedido.filas)));
-    if (pedido.accion === 'proveedores') return responder_(Object.assign({ ok: true }, proveedores_(usuario)));
+    if (pedido.accion === 'proveedores') return responder_(Object.assign({ ok: true }, proveedores_(usuario, pedido.version)));
     if (pedido.accion === 'guardarProveedores') return responder_(Object.assign({ ok: true }, guardarProveedores_(usuario, pedido.filas)));
-    if (pedido.accion === 'empleados') return responder_(Object.assign({ ok: true }, empleados_(usuario)));
+    if (pedido.accion === 'empleados') return responder_(Object.assign({ ok: true }, empleados_(usuario, pedido.version)));
     if (pedido.accion === 'guardarEmpleados') return responder_(Object.assign({ ok: true }, guardarEmpleados_(usuario, pedido.filas)));
     if (pedido.accion === 'estadoBases') return responder_(Object.assign({ ok: true }, estadoBases_(usuario)));
     if (pedido.accion === 'versionesBases') return responder_({ ok: true, versiones: versionesBases_(usuario) });
@@ -322,12 +322,14 @@ const HOJA_DIR = 'Directorio';
 // Principal y Tipo: solo en las direcciones alternas (Entrega, Personal) de un cliente; Principal = nombre del cliente al que pertenecen
 const COLUMNAS_DIR = ['Nombre', 'Ciudad', 'Dirección', 'Teléfono', 'Zona', 'Principal', 'Tipo'];
 function veTodoDirectorio_(u) { return u.area === 'logistica' || u.tipo === 'jefe' || !!u.admin; }
-function directorio_(usuario) {
+function directorio_(usuario, version) {
   const todo = veTodoDirectorio_(usuario);
   if (!todo && !usuario.zona) throw new Error('Sin permiso para ver el directorio');
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_DIR);
   if (!h) return { filas: [], actualizado: '' };
   const valores = h.getDataRange().getValues();
+  const actualizado = String(valores[0][COLUMNAS_DIR.length] || '');
+  if (version && String(version) === actualizado) return { sinCambios: true, actualizado: actualizado };   // el celular ya tiene esta versión
   // Cada comercial: solo su zona y sin las direcciones personales (esas las ven Logística, los jefes y el administrador)
   const filas = valores.slice(1).filter(f => f[0] && (todo || (String(f[4]) === usuario.zona && String(f[6]) !== 'Personal'))).map(f => f.slice(0, COLUMNAS_DIR.length).map(String));
   return { filas: filas, actualizado: String(valores[0][COLUMNAS_DIR.length] || '') };
@@ -352,11 +354,12 @@ function guardarDirectorio_(usuario, filas) {
 // Hoja "Proveedores" (Nombre, Ciudad, Provincia, Etiquetas, Dirección, Teléfono). La ven Logística y el administrador; solo el administrador la reemplaza.
 const HOJA_PROV = 'Proveedores';
 const COLUMNAS_PROV = ['Nombre', 'Ciudad', 'Provincia', 'Etiquetas', 'Dirección', 'Teléfono'];
-function proveedores_(usuario) {
+function proveedores_(usuario, version) {
   if (usuario.area !== 'logistica' && !usuario.admin) throw new Error('Sin permiso para ver los proveedores');
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_PROV);
   if (!h) return { filas: [], actualizado: '' };
   const valores = h.getDataRange().getValues();
+  if (version && String(version) === String(valores[0][COLUMNAS_PROV.length] || '')) return { sinCambios: true, actualizado: String(version) };   // el celular ya tiene esta versión
   return { filas: valores.slice(1).filter(f => f[0]).map(f => f.slice(0, COLUMNAS_PROV.length).map(String)),
            actualizado: String(valores[0][COLUMNAS_PROV.length] || '') };
 }
@@ -379,11 +382,12 @@ function guardarProveedores_(usuario, filas) {
 // Hoja "Empleados" (mismas columnas que Proveedores). La ven Logística y el administrador; solo el administrador la reemplaza.
 // Nunca viaja a comerciales ni a los demás usuarios.
 const HOJA_EMP = 'Empleados';
-function empleados_(usuario) {
+function empleados_(usuario, version) {
   if (usuario.area !== 'logistica' && !usuario.admin) throw new Error('Sin permiso para ver los empleados');
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_EMP);
   if (!h) return { filas: [], actualizado: '' };
   const valores = h.getDataRange().getValues();
+  if (version && String(version) === String(valores[0][COLUMNAS_PROV.length] || '')) return { sinCambios: true, actualizado: String(version) };   // el celular ya tiene esta versión
   return { filas: valores.slice(1).filter(f => f[0]).map(f => f.slice(0, COLUMNAS_PROV.length).map(String)),
            actualizado: String(valores[0][COLUMNAS_PROV.length] || '') };
 }

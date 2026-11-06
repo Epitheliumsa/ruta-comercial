@@ -385,6 +385,7 @@ function tarjetaLog(r, n, total) {
 // Orden del formulario: fecha (y hora si es fija) → cliente (dirección y teléfono salen solos) → tipo de parada → lo de ese tipo
 function abrirLogForm(id) {
     if (!puedeOperarLog()) return;
+    cargarProveedores(); cargarEmpleados(); cargarDirectorio();   // por si el administrador subió algo nuevo desde la última vez
     const r = id ? registros[id] : null;
     if (r && r.tipo !== 'novedad' && r.estado !== 'pendiente') return toast('Esta parada ya se reportó');
     const mens = esCoordLog() || esAdmin();
@@ -1348,9 +1349,13 @@ let trayendoDir = false;
 async function cargarDirectorio(forzar = false) {
     if (!API_URL || !veDirectorio() || trayendoDir) return;
     // Una copia vacía (p. ej. traída antes de subir la maestra) no vale: se vuelve a pedir en vez de esperar 6 horas
-    if (!forzar && directorio.traido && Object.keys(directorio.filas).length && Date.now() - directorio.traido < 6 * 3600e3) return;
+    if (!forzar && directorio.traido && Object.keys(directorio.filas).length && Date.now() - directorio.traido < VENTANA_MAESTRAS) return;
     trayendoDir = true;
-    try { const r = await llamarApi({ accion: 'directorio' }); ponerDirectorio(r.filas || [], r.actualizado); }
+    try {
+        const r = await llamarApi({ accion: 'directorio', version: directorio.actualizado || '' });
+        if (r.sinCambios) { directorio.traido = Date.now(); try { localStorage.setItem(DIR_LOCAL, JSON.stringify(directorio)); } catch (e) { /* nada */ } }
+        else ponerDirectorio(r.filas || [], r.actualizado);
+    }
     catch (e) { console.warn('No se pudo traer el directorio:', e); }
     finally { trayendoDir = false; }
 }
@@ -1396,6 +1401,8 @@ function subirDirectorio() {
 // Nombre, ciudad, provincia y etiquetas de cada proveedor (hoja "Proveedores" del servidor, no el repositorio público).
 // La ven Logística y el administrador; solo el administrador la sube. Alimenta la lista "Busca proveedor" del formulario.
 const PROV_LOCAL = 'rc_proveedores';
+// Las maestras privadas (directorio, proveedores, empleados) se revisan como mucho cada minuto: si el servidor tiene lo mismo (misma fecha de subida) no se vuelven a bajar
+const VENTANA_MAESTRAS = 60e3;
 const veProveedores = () => !!sesion && (esLogistica() || esAdmin());
 let proveedoresMaestra = (() => { try { return JSON.parse(localStorage.getItem(PROV_LOCAL)) || { filas: {} }; } catch (e) { return { filas: {} }; } })();
 function ponerProveedores(filas, actualizado) {
@@ -1410,9 +1417,13 @@ function borrarProveedores() {
 let trayendoProv = false;
 async function cargarProveedores(forzar = false) {
     if (!API_URL || !veProveedores() || trayendoProv) return;
-    if (!forzar && proveedoresMaestra.traido && Object.keys(proveedoresMaestra.filas).length && Date.now() - proveedoresMaestra.traido < 6 * 3600e3) return;
+    if (!forzar && proveedoresMaestra.traido && Object.keys(proveedoresMaestra.filas).length && Date.now() - proveedoresMaestra.traido < VENTANA_MAESTRAS) return;
     trayendoProv = true;
-    try { const r = await llamarApi({ accion: 'proveedores' }); ponerProveedores(r.filas || [], r.actualizado); }
+    try {
+        const r = await llamarApi({ accion: 'proveedores', version: proveedoresMaestra.actualizado || '' });
+        if (r.sinCambios) { proveedoresMaestra.traido = Date.now(); try { localStorage.setItem(PROV_LOCAL, JSON.stringify(proveedoresMaestra)); } catch (e) { /* nada */ } }
+        else ponerProveedores(r.filas || [], r.actualizado);
+    }
     catch (e) { console.warn('No se pudo traer la maestra de proveedores:', e); }
     finally { trayendoProv = false; }
 }
@@ -1491,9 +1502,13 @@ const empleadosComoContactos = () => !veProveedores() ? [] : Object.values(emple
 let trayendoEmp = false;
 async function cargarEmpleados(forzar = false) {
     if (!API_URL || !veProveedores() || trayendoEmp) return;
-    if (!forzar && empleadosMaestra.traido && Object.keys(empleadosMaestra.filas).length && Date.now() - empleadosMaestra.traido < 6 * 3600e3) return;
+    if (!forzar && empleadosMaestra.traido && Object.keys(empleadosMaestra.filas).length && Date.now() - empleadosMaestra.traido < VENTANA_MAESTRAS) return;
     trayendoEmp = true;
-    try { const r = await llamarApi({ accion: 'empleados' }); ponerEmpleados(r.filas || [], r.actualizado); }
+    try {
+        const r = await llamarApi({ accion: 'empleados', version: empleadosMaestra.actualizado || '' });
+        if (r.sinCambios) { empleadosMaestra.traido = Date.now(); try { localStorage.setItem(EMP_LOCAL, JSON.stringify(empleadosMaestra)); } catch (e) { /* nada */ } }
+        else ponerEmpleados(r.filas || [], r.actualizado);
+    }
     catch (e) { console.warn('No se pudo traer la maestra de empleados:', e); }
     finally { trayendoEmp = false; }
 }
