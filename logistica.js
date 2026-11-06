@@ -609,14 +609,14 @@ function logInfoCliente(rellenar = true) {
     if (!$('lgInfoCli')) return;
     // Trámite área: un contacto que no está en la Maestra ni es lead es "Otros": dirección y teléfono a mano
     const guardado = tipoMarcado() === 'vuelta' && otroPorNombre('cont', nombre);
-    const otroCont = tipoMarcado() === 'vuelta' && !!nombre && !zonaDeContacto(nombre) && !leadPorNombre(nombre) && !guardado;
+    const otroCont = tipoMarcado() === 'vuelta' && !!nombre && !zonaDeContacto(nombre) && !leadPorNombre(nombre) && !guardado && !proveedoresMaestra.filas[normalizar(nombre)];
     $('lgOtroCont').hidden = !otroCont;
     obligDirTelLog();
     if (!nombre) { $('lgInfoCli').textContent = ''; pintarDirSel(''); return; }
     const d = datosClienteLog(nombre);
     $('lgInfoCli').innerHTML = d.lead ? `✓ Lead${d.zona ? ' · ' + esc(d.zona) : ''}${d.comercial ? ' · ' + esc(nombreVendedor(d.comercial)) + ' verá esta entrega en el historial del cliente' : ''}`
         : d.comercial ? `✓ ${esc(d.zona)} · ${esc(nombreVendedor(d.comercial))} verá esta entrega en el historial del cliente${d.ciudad ? ' · ' + esc(d.ciudad) : ''}`
-        : empleadosMaestra.filas[normalizar(nombre)] ? '✓ Empleado' : guardado ? '✓ Contacto guardado de otras veces' : tipoMarcado() === 'vuelta' ? 'Contacto fuera de la Maestra (Otros): no se le avisará a ningún comercial.' : '🚫 No está en la Maestra: la base está cerrada, escoge un cliente de la lista.';
+        : empleadosMaestra.filas[normalizar(nombre)] ? '✓ Empleado' : tipoMarcado() === 'vuelta' && proveedoresMaestra.filas[normalizar(nombre)] ? '✓ Proveedor' : guardado ? '✓ Contacto guardado de otras veces' : tipoMarcado() === 'vuelta' ? 'Contacto fuera de la Maestra (Otros): no se le avisará a ningún comercial.' : '🚫 No está en la Maestra: la base está cerrada, escoge un cliente de la lista.';
     if (!rellenar) { pintarDirSel(nombre); return; }
     const ultima = logRegs().filter(x => x.contacto && normalizar(x.contacto) === normalizar(nombre) && (x.direccion || x.telefono)).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
     const poner = (campo, valor) => { if (valor && (!campo.value || campo.dataset.auto === '1')) { campo.value = valor; campo.dataset.auto = '1'; } };
@@ -717,7 +717,7 @@ async function guardarLog(e, id) {
     if (!tp.vuelta && !(tp.oficina && !oficina.includes('aforar'))) { const rr = resolverClienteLog($('lgCliente').value); if (rr) $('lgCliente').value = rr; }
     const escrito = tp.oficina && !oficina.includes('aforar') ? '' : $('lgCliente').value.trim(), zonaC = escrito ? zonaDeContacto(escrito) : '';
     const lead = !zonaC && escrito ? leadPorNombre(escrito) : null;
-    const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : lead ? lead.nombre : escrito ? nombrePropio(escrito) : '';
+    const aProv = radAProv(), contacto = aProv ? '' : zonaC ? buscarMaestra(zonaC, escrito).n : lead ? lead.nombre : tp.vuelta && proveedoresMaestra.filas[normalizar(escrito)] ? proveedoresMaestra.filas[normalizar(escrito)].n : escrito ? nombrePropio(escrito) : '';
     // Base cerrada de CLIENTES: no se crean desde Logística (solo los de la Maestra, los leads y los empleados; una parada vieja conserva el suyo).
     // Un proveedor o un contacto de Trámite área que no es cliente sí se escribe a mano (queda con nombre propio y guardado para la próxima vez)
     if (!tp.vuelta && escrito && !zonaC && !lead && !empleadosMaestra.filas[normalizar(escrito)] && escrito !== (antes?.contacto || '')) return toast('Escoge el cliente de la lista: la base está cerrada y no se crean clientes nuevos');
@@ -732,7 +732,7 @@ async function guardarLog(e, id) {
     const nuevo = {
         ...base, ...(tp.oficina ? { oficina, facturasAforo, otroOficina } : {}), despacho: tp.oficina && oficina.includes('aforar') ? despachoSelLog() : '', tipo, tipos, incluye, incluyeDocs, fecha, hora: $('lgHora').value, vendedor, orden, documentos, radicacion,
         contacto, zona: cl.zona, comercial: cl.comercial, ciudad: cl.ciudad || '',
-        proveedor: tp.recoleccion || aProv ? provNombre : '', contactoOtro: tp.vuelta && !!contacto && !zonaC && !lead, proveedorOtro: (tp.recoleccion || aProv) && !!$('lgProv').value.trim() && !proveedoresMaestra.filas[normalizar($('lgProv').value)], materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
+        proveedor: tp.recoleccion || aProv ? provNombre : '', contactoOtro: tp.vuelta && !!contacto && !zonaC && !lead && !proveedoresMaestra.filas[normalizar(contacto)], proveedorOtro: (tp.recoleccion || aProv) && !!$('lgProv').value.trim() && !proveedoresMaestra.filas[normalizar($('lgProv').value)], materiales: tp.recoleccion ? [...document.querySelectorAll('#lgMateriales input:checked')].map(i => i.value) : [],
         area: tp.vuelta ? $('lgArea').value : '', entidad: tp.banco ? $('lgBanco').value.trim() : '', direccion: tp.banco || (tp.oficina && !oficina.includes('aforar')) ? '' : $('lgDir').value.trim(), telefono: tp.banco || (tp.oficina && !oficina.includes('aforar')) ? '' : $('lgTel').value.trim(), detalle: $('lgDetalle').value.trim()
     };
     // Huella de la edición: quién la editó, cuándo y qué cambió (solo si algo cambió)
@@ -1086,7 +1086,7 @@ function antesCliente(nombre) {
     return { recibio: [...new Set(regs.map(x => x.reporte.recibio))] };
 }
 // Lista de clientes del formulario: Maestra, leads y empleados (en Trámite área también los contactos guardados)
-const listaClientesLog = conContactos => [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre), ...Object.values(empleadosMaestra.filas).map(e => e.n), ...(conContactos ? otrosGuardados('cont').map(x => x.n) : [])])].sort((a, b) => a.localeCompare(b, 'es'));
+const listaClientesLog = conContactos => [...new Set([...Object.values(contactos).flat().map(c => c.n), ...leadsLog().map(p => p.nombre), ...Object.values(empleadosMaestra.filas).map(e => e.n), ...(conContactos ? otrosGuardados('cont').map(x => x.n) : []), ...(conContactos && veProveedores() ? Object.values(proveedoresMaestra.filas).map(p => p.n) : [])])].sort((a, b) => a.localeCompare(b, 'es'));
 // El cliente se puede escribir a medias o sin puntos ("Bella Piel C.C Centro Mayor (Cm)"): si todas sus palabras llevan a UN solo cliente de la lista, se completa con su nombre exacto
 const palabrasLog = t => normalizar(t).replace(/[^a-z0-9]+/g, ' ').trim();
 function resolverClienteLog(texto) {
@@ -1331,7 +1331,10 @@ const dirDe = nombre => {
     if (d && (esLogistica() || esJefe() || esAdmin() || !d.z || d.z === comercial(sesion?.id)?.zona)) return d;
     // Empleados: dirección y teléfono de la maestra privada (solo Logística y administrador)
     const e = nombre && veProveedores() ? empleadosMaestra.filas[normalizar(nombre)] : null;
-    return e ? { n: e.n, c: e.c, dir: e.dir, tel: e.tel, z: '' } : null;
+    if (e) return { n: e.n, c: e.c, dir: e.dir, tel: e.tel, z: '' };
+    // Proveedores: en Trámite área también se pueden escoger como contacto (dirección y teléfono de la maestra privada)
+    const pv = nombre && veProveedores() ? proveedoresMaestra.filas[normalizar(nombre)] : null;
+    return pv ? { n: pv.n, c: pv.c, dir: pv.dir, tel: pv.tel, z: '' } : null;
 };
 // Direcciones alternas del cliente (el servidor ya filtra por zona; las personales no llegan a los comerciales: esto cubre el módulo de pruebas)
 const altDe = nombre => {
