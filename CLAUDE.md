@@ -461,7 +461,7 @@
   **Nunca se muestran códigos de materias primas** ni el homólogo con que se cotiza (p. ej. Albatin → Melaslow va por dentro; la línea de Odoo sí usa el homólogo).
   Al personal de la empresa le sale «Cotiza: <nombre>» en la etiqueta; a los usuarios propios no. El PDV se llenará solo desde el maestro de cotizadores personalizados (segunda etapa);
   Limpiar conserva el PDV.
-- Hasta **5 fórmulas** por cotización (botón punteado «+ Nueva fórmula»), un solo paciente (**obligatorio**) y el **PDV automático** = nombre de quien cotiza
+- Hasta **5 fórmulas** por cotización (botón punteado «+ Nueva fórmula»), un solo paciente (**obligatorio**, siempre en NomProp al salir del campo y al cotizar) y el **PDV automático** = nombre de quien cotiza
   (empleado de Epithelium o cliente propio; no se edita). Etiqueta: paciente en negrilla + activos + presentación en una sola línea; precio de facturación
   (por unidad y total si hay más de una unidad) y al final **Precio Venta Sugerido** (antes "PVSP", en verde lima, por unidad y total). En CDFLL no se muestra
   el precio del motor Epithelium. «Cotiza: <nombre>» va fuera de la etiqueta. **Descargar PDF** (jsPDF en `cotizador/lib/`, funciona sin internet):
