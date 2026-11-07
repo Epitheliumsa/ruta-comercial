@@ -14,7 +14,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="../../styles.css?v=202611070003">
+<link rel="stylesheet" href="../../styles.css?v=202611070007">
 <style>
 [hidden]{display:none!important}
 .franja-pruebas{position:sticky;top:0;z-index:50;background:#b91c1c;color:#fff;text-align:center;font:700 12.5px system-ui,sans-serif;padding:6px 12px}
@@ -210,7 +210,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
 </div>
 
 <script src="lib/jspdf.umd.min.js"></script>
-<script src="usuarios.js?v=202611070003" charset="utf-8"></script>
+<script src="usuarios.js?v=202611070007" charset="utf-8"></script>
 <script>
 /* ===== Cotizador Epithelium: ingreso con los mismos usuarios y claves de Visita Comercial =====
    El motor (costos, márgenes) NO está en el repositorio: se trae del servidor de Visita Comercial
@@ -266,7 +266,7 @@ async function entrar(u, clave) {
   window.CZ_MOTORES = u.motores || ['EPITHELIUM', 'CDFLL'];   // usuarios propios: solo sus motores
   $id('carga').hidden = true;
   document.querySelectorAll('#form, .lado').forEach(e => e.hidden = false);
-  if (!cotizadorListo) { cotizadorListo = true; await cargarScript('cotizador.js?v=202611070003'); }
+  if (!cotizadorListo) { cotizadorListo = true; await cargarScript('cotizador.js?v=202611070007'); }
 }
 
 async function ingresar() {
@@ -302,7 +302,7 @@ async function instalarApp() { if (!avisoInstalar) return; avisoInstalar.prompt(
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone) $id('ayudaIos').hidden = false;
 /* módulo de pruebas: sin service worker */
 // ===== Versión (como en Visita Comercial): la publicada está en version.txt =====
-const COTI_VERSION = '202611070003';
+const COTI_VERSION = '202611070007';
 const fechaVersion = v => v && v.length === 12 ? `${v.slice(6,8)}/${v.slice(4,6)}/${v.slice(0,4)} ${v.slice(8,10)}:${v.slice(10,12)}` : v;
 function hayDatosEscritos() { return !!(document.getElementById('paciente')?.value.trim() || [...document.querySelectorAll('#formulas input')].some(i => i.value && !i.classList.contains('in-cant'))); }
 async function revisarVersion() {
