@@ -27,7 +27,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="../styles.css?v=202611062343">
+<link rel="stylesheet" href="../styles.css?v=202611062350">
 <style>
 [hidden]{display:none!important}
 .en-pruebas-cz{display:inline-block;background:#dc2626;color:#fff!important;font-size:11px!important;font-weight:800;letter-spacing:.08em;padding:2px 8px;border-radius:6px;vertical-align:middle;margin:0 0 10px!important}
@@ -211,7 +211,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
 </div>
 
 <script src="lib/jspdf.umd.min.js"></script>
-<script src="usuarios.js?v=202611062343" charset="utf-8"></script>
+<script src="usuarios.js?v=202611062350" charset="utf-8"></script>
 <script>
 /* ===== Cotizador Epithelium: ingreso con los mismos usuarios y claves de Visita Comercial =====
    El motor (costos, márgenes) NO está en el repositorio: se trae del servidor de Visita Comercial
@@ -265,7 +265,7 @@ async function entrar(u, clave) {
   window.CZ_MOTORES = u.motores || ['EPITHELIUM', 'CDFLL'];   // usuarios propios: solo sus motores
   $id('carga').hidden = true;
   document.querySelectorAll('#form, .lado').forEach(e => e.hidden = false);
-  if (!cotizadorListo) { cotizadorListo = true; await cargarScript('cotizador.js?v=202611062343'); }
+  if (!cotizadorListo) { cotizadorListo = true; await cargarScript('cotizador.js?v=202611062350'); }
 }
 
 async function ingresar() {
