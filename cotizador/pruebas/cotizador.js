@@ -257,6 +257,34 @@ async function copiar(){
 
 
 /* ================= PDF de la cotizaci\u00f3n ================= */
+/* Valor en letras (pesos colombianos): 2072000 -> "DOS MILLONES SETENTA Y DOS MIL PESOS M/CTE" */
+function numeroALetras(n){
+  n=Math.round(n);
+  const U=["","uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","diecis\u00e9is","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintid\u00f3s","veintitr\u00e9s","veinticuatro","veinticinco","veintis\u00e9is","veintisiete","veintiocho","veintinueve"];
+  const D=["","","","treinta","cuarenta","cincuenta","sesenta","setenta","ochenta","noventa"];
+  const C=["","ciento","doscientos","trescientos","cuatrocientos","quinientos","seiscientos","setecientos","ochocientos","novecientos"];
+  const menosDeMil=x=>{ if(x===100) return "cien"; const c=Math.floor(x/100), r=x%100; let t=C[c];
+    const dd=r<30?U[r]:D[Math.floor(r/10)]+(r%10?" y "+U[r%10]:""); return [t,dd].filter(Boolean).join(" "); };
+  const apocope=t=>t.replace(/veintiuno$/,"veinti\u00fan").replace(/uno$/,"un");
+  if(n===0) return "CERO PESOS M/CTE";
+  const mill=Math.floor(n/1e6), miles=Math.floor((n%1e6)/1000), resto=n%1000, partes=[];
+  if(mill) partes.push(mill===1?"un mill\u00f3n":apocope(menosDeMil(mill))+" millones");
+  if(miles) partes.push(miles===1?"mil":apocope(menosDeMil(miles))+" mil");
+  if(resto) partes.push(menosDeMil(resto));
+  let t=partes.join(" "); if(!resto) t+=(mill&&!miles?" de":""); else t=apocope(t);
+  return (t+" pesos m/cte").replace(/\s+/g," ").trim().toUpperCase();
+}
+/* Escribe texto con partes en negrilla, parti\u00e9ndolo en l\u00edneas de ancho fijo. Devuelve el alto usado. */
+function textoRico(doc,partes,x,y,ancho,tam,interlinea){
+  const pal=[]; partes.forEach(([t,neg])=>t.split(/(\s+)/).forEach(w=>{ if(w) pal.push([w,neg]); }));
+  let cx=x, cy=y, lineas=1;
+  pal.forEach(([w,neg])=>{ doc.setFont("helvetica",neg?"bold":"normal"); doc.setFontSize(tam); const ww=doc.getTextWidth(w);
+    if(/^\s+$/.test(w)){ if(cx>x) cx+=ww; return; }
+    if(cx+ww>x+ancho && cx>x){ cx=x; cy+=interlinea; lineas++; }
+    doc.text(w,cx,cy); cx+=ww; });
+  return lineas*interlinea;
+}
+
 function logoDataURL(){
   return new Promise(res=>{const img=new Image(); img.onload=()=>{try{const w=360,h=Math.round(w*img.naturalHeight/img.naturalWidth),c=document.createElement("canvas");c.width=w;c.height=h;const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,w,h);g.drawImage(img,0,0,w,h);res({d:c.toDataURL("image/jpeg",0.9),w,h});}catch(e){res(null);}}; img.onerror=()=>res(null);
     img.src=(document.querySelector(".header-logo-img")?.getAttribute("src")||"logo-blanco.png").replace("logo-blanco","logo");});
@@ -282,19 +310,28 @@ async function generarPDF(){
   const colP=46, anT=AN-colP-8;
   doc.setFillColor(0,107,79); doc.roundedRect(X,y,AN,9,1.5,1.5,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(255,255,255);
-  doc.text("F\u00f3rmula",X+4,y+6); doc.text("Precio Venta Sugerido",W-X-4,y+6,{align:"right"}); y+=9;
+  doc.text("F\u00f3rmula",X+4,y+6); doc.text("Valor",W-X-4,y+6,{align:"right"}); y+=9;
+  let total=0;
   lista.forEach(({f,i},k)=>{
-    const R=f.R, n=f.cant, pvs=cdf?R.pr_venta_cdfll:R.pvsp;
+    const R=f.R, n=f.cant, pvs=cdf?R.pr_venta_cdfll:R.pvsp; total+=pvs*n;
     const acts=f.acts.filter(a=>a.codigo).map(a=>`${BYCODE[a.codigo].nombre} ${pctTxt(a.pct)} %`).join(" + ");
-    const linea=`${lista.length>1?(k+1)+". ":""}${acts} \u00b7 ${f.forma} x ${f.pres} ${unidadDe(f)}${n>1?` \u00b7 ${n} unidades (${fmt(pvs)} c/u)`:""}`;
-    doc.setFont("helvetica","normal"); doc.setFontSize(10.5); const tl=doc.splitTextToSize(linea,anT);
-    const alto=Math.max(10,tl.length*5+5);
-    if(y+alto>272){ doc.addPage(); y=20; }
-    if(k%2) { doc.setFillColor(255,253,246); doc.rect(X,y,AN,alto,"F"); }
-    doc.setTextColor(...tinta); doc.text(tl,X+4,y+6.5);
+    const partes=[[`${lista.length>1?(k+1)+". ":""}${acts} \u00b7 ${f.forma} x ${f.pres} ${unidadDe(f)}`,false]];
+    if(n>1) partes.push([` \u00b7 ${n} unidades (${fmt(pvs)} c/u)`,true]);   // m\u00e1s de una unidad: resaltado en negrilla
+    // alto: se mide escribiendo en una hoja de prueba
+    const medida=new window.jspdf.jsPDF({unit:"mm",format:"a4"}); const alto=Math.max(10,textoRico(medida,partes,0,0,anT,10.5,5)+5);
+    if(y+alto>255){ doc.addPage(); y=20; }
+    if(k%2){ doc.setFillColor(255,253,246); doc.rect(X,y,AN,alto,"F"); }
+    doc.setTextColor(...tinta); textoRico(doc,partes,X+4,y+6.5,anT,10.5,5);
     doc.setFont("helvetica","bold"); doc.setFontSize(11.5); doc.setTextColor(...lima); doc.text(fmt(pvs*n),W-X-4,y+6.5,{align:"right"});
     y+=alto; doc.setDrawColor(231,223,199); doc.line(X,y,W-X,y);
   });
+  // Total, siempre, con el valor en letras
+  if(y+24>272){ doc.addPage(); y=20; }
+  doc.setFillColor(241,247,230); doc.rect(X,y,AN,11,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(11.5); doc.setTextColor(...tinta); doc.text("Total",X+4,y+7.5);
+  doc.setTextColor(...lima); doc.setFontSize(12.5); doc.text(fmt(total),W-X-4,y+7.5,{align:"right"}); y+=16;
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(...gris);
+  const enLetras=doc.splitTextToSize(`Son: ${numeroALetras(total)}`,AN); doc.text(enLetras,X,y); y+=enLetras.length*4.5;
   y+=8;
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...gris);
   doc.text(doc.splitTextToSize(`\u00a9 ${ahora.getFullYear()} Epithelium S.A. Informaci\u00f3n confidencial y de uso exclusivo para usuarios autorizados. Los precios corresponden al motor ${M.version} y pueden cambiar sin previo aviso.`,AN),X,287);
