@@ -472,3 +472,7 @@
 - **Probar motor** (solo administrador, en el módulo): carga un JSON de motor solo en ese navegador para ensayar un motor nuevo antes de subirlo
   para todos con «Cargar motor» en el cotizador oficial. «Volver al motor publicado» lo quita. Nada se sube al servidor desde el módulo.
 - Los cambios de `backend/Codigo.gs` no se ven en el módulo (el servidor es uno solo).
+- **Módulo en el panel de claude.ai** (como el de Visita Comercial): link fijo https://claude.ai/artifact/8vYGbN8G6H2BrwjZ4Hge8q
+  (Artifact privado; siempre se publica en ese mismo link, nunca se crea otro). Se arma con
+  `python3 herramientas/vista_previa_cotizador.py <rama>` y luego `python3 herramientas/modulo_pruebas_cotizador.py <salida> <motor.json>`:
+  se entra tocando el usuario (sin clave), sin servidor, con el motor incluido dentro del Artifact (el JSON del motor nunca va al repositorio).
