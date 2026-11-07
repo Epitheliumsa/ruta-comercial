@@ -173,7 +173,7 @@ function etiquetaHTML(f,fi){
   let precio;
   if(!R) precio=`<div class="precio"><span class="k">Precio</span><span class="v" style="color:var(--gris)">\u2014</span><span class="vacio-txt">Completa la f\u00f3rmula y toca \u00abCotizar\u00bb.</span></div>`;
   else if(S.motor==="CDFLL") precio=`<div class="precio"><span class="k">Precio facturaci\u00f3n CDFLL</span><span class="v">${fmt(R.precio_cdfll)}</span></div>
-    <dl class="kv"><dt>PVSP CDFLL</dt><dd class="fuerte">${fmt(R.pr_venta_cdfll)}</dd><dt>Rango</dt><dd>${R.rango}</dd><dt>Precio motor Epithelium</dt><dd>${fmt(R.precio)}</dd>${f.cant>1?`<dt>Total ${f.cant} unidades</dt><dd>${fmt(R.precio_cdfll*f.cant)}</dd>`:""}</dl>`;
+    <dl class="kv"><dt>PVSP CDFLL</dt><dd class="fuerte">${fmt(R.pr_venta_cdfll)}</dd><dt>Rango</dt><dd>${R.rango}</dd>${f.cant>1?`<dt>Total ${f.cant} unidades</dt><dd>${fmt(R.precio_cdfll*f.cant)}</dd>`:""}</dl>`;
   else precio=`<div class="precio"><span class="k">Precio de facturaci\u00f3n</span><span class="v">${fmt(R.precio)}</span></div>
     <dl class="kv"><dt>PVSP</dt><dd class="fuerte">${fmt(R.pvsp)}</dd>${f.cant>1?`<dt>Total ${f.cant} unidades</dt><dd>${fmt(R.total)}</dd>`:""}</dl>`;
   const pill=`${S.formulas.length>1?`F\u00d3RMULA ${fi+1} \u00b7 `:""}${R?"COTIZADA":"BORRADOR"} \u00b7 ${motorTxt}`;
