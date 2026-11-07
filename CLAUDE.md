@@ -467,7 +467,8 @@
   el precio del motor Epithelium. «Cotiza: <nombre>» va fuera de la etiqueta. **Descargar PDF** (jsPDF en `cotizador/lib/`, funciona sin internet):
   archivo «AAAAMM Cotizacion <Paciente>.pdf» (sin tildes en el nombre del archivo).
   El PDF lleva arriba el paciente y «Cotiza: <nombre>» (o «PDV: <cliente>» para usuarios propios) y una fila por fórmula con **solo el Precio Venta Sugerido**
-  en la misma línea (total; si hay varias unidades, la línea dice «N unidades ($ X c/u)»). Sin precio de facturación ni rango CDFLL: eso es solo de la pantalla.
+  en la misma línea, columna **«Valor»** (total; si hay varias unidades, «· N unidades ($ X c/u)» va en negrilla). Siempre cierra con **Total** y el valor
+  en letras (`numeroALetras`: «Son: DOS MILLONES SETENTA Y DOS MIL PESOS M/CTE»). Sin precio de facturación ni rango CDFLL: eso es solo de la pantalla.
 - El cálculo replica la hoja COTIZACION (homólogos por forma, Clobetasol en Esmalte, sustitución de Antocianinas, márgenes por tramo y
   excepción por forma, mínimos, PVSP con MULTIPLOS y rangos CDFLL). Probado contra el motor v51 con 500 fórmulas al azar.
 
