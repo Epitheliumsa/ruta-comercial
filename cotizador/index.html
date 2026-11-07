@@ -135,6 +135,12 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
 .tel-sac{color:inherit;text-decoration:none;white-space:nowrap}
 .aviso-catalogo{display:block;margin-top:4px;padding:7px 10px;border-radius:8px;background:var(--mal-suave);border:1px solid #f5c2bc;color:var(--mal);font-size:13px;font-weight:600;line-height:1.4}
 .aviso-catalogo b{font-size:14px;font-weight:800}
+.version-cz{margin:6px 0 0;font-size:12px;color:var(--gris);display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.version-cz .al-dia{color:var(--ok);font-weight:700}.version-cz .nueva{color:var(--mal);font-weight:700}
+.btn-act{background:#fff;border:1px solid var(--linea);color:var(--verde);font:700 12px inherit;font-family:inherit;padding:3px 10px;border-radius:7px;cursor:pointer}
+.aviso-version-cz{position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:2150;max-width:520px;margin:0 auto;display:none;align-items:center;justify-content:space-between;gap:10px;background:#15302a;color:#fff;border-radius:12px;padding:12px 12px 12px 16px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.aviso-version-cz.visible{display:flex}
+.aviso-version-cz button{background:#3fa83a;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-family:inherit;font-weight:700;cursor:pointer}
 .pie{grid-column:1/-1;font-size:11.5px;color:var(--gris);line-height:1.5}
 </style>
 </head>
@@ -208,7 +214,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
       </aside>
 
       <p class="carga" id="carga" hidden>Cargando el motor de cotización…</p>
-      <div class="pie"><p id="pie"></p><div class="admin-motor" id="adminMotor" hidden><button type="button" class="btn-sec" onclick="document.getElementById('motorArchivo').click()">Cargar motor (archivo JSON)</button><input type="file" id="motorArchivo" accept=".json,application/json" hidden onchange="subirMotor(this)"><span id="adminMsg"></span></div></div>
+      <div class="pie"><p id="pie"></p><p class="version-cz"><span id="versionTxt"></span> · <span id="versionEstado">Revisando…</span> <button type="button" class="btn-act" onclick="actualizarApp()">Actualizar</button></p><div class="admin-motor" id="adminMotor" hidden><button type="button" class="btn-sec" onclick="document.getElementById('motorArchivo').click()">Cargar motor (archivo JSON)</button><input type="file" id="motorArchivo" accept=".json,application/json" hidden onchange="subirMotor(this)"><span id="adminMsg"></span></div></div>
     </div>
   </div>
 </div>
@@ -304,6 +310,27 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); avisoI
 async function instalarApp() { if (!avisoInstalar) return; avisoInstalar.prompt(); await avisoInstalar.userChoice; avisoInstalar = null; $id('btnInstalar').classList.remove('si'); }
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone) $id('ayudaIos').hidden = false;
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// ===== Versión (como en Visita Comercial): la publicada está en version.txt =====
+const COTI_VERSION = '202611070003';
+const fechaVersion = v => v && v.length === 12 ? `${v.slice(6,8)}/${v.slice(4,6)}/${v.slice(0,4)} ${v.slice(8,10)}:${v.slice(10,12)}` : v;
+function hayDatosEscritos() { return !!(document.getElementById('paciente')?.value.trim() || [...document.querySelectorAll('#formulas input')].some(i => i.value && !i.classList.contains('in-cant'))); }
+async function revisarVersion() {
+  const est = $id('versionEstado'); $id('versionTxt').textContent = 'Versión ' + fechaVersion(COTI_VERSION);
+  try {
+    const r = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) { est.textContent = 'Sin conexión para revisar'; return; }
+    const publicada = (await r.text()).trim();
+    if (!publicada || publicada === COTI_VERSION) { est.innerHTML = '<span class="al-dia">✓ Actualizada</span>'; $id('avisoVersion').classList.remove('visible'); return; }
+    est.innerHTML = '<span class="nueva">Hay una versión nueva (' + fechaVersion(publicada) + ')</span>';
+    let ya = null; try { ya = sessionStorage.getItem('cz_recarga'); } catch (e) {}
+    if (ya !== publicada && !hayDatosEscritos()) { try { sessionStorage.setItem('cz_recarga', publicada); } catch (e) {} return location.replace(location.pathname + '?v=' + publicada); }
+    $id('avisoVersion').classList.add('visible');
+  } catch (e) { est.textContent = 'Sin conexión para revisar'; }
+}
+function actualizarApp() { location.replace(location.pathname + '?v=' + Date.now()); }
+revisarVersion();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) revisarVersion(); });
+
 
 // Sesión: la propia del cotizador o, para el personal de la empresa, la de Visita Comercial (mismo sitio, mismo usuario)
 (async function () {
@@ -315,5 +342,6 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
   else { if (valida) { try { localStorage.removeItem(SESION_KEY); localStorage.removeItem(MOTOR_KEY); } catch (e) {} $id('errorMsg').textContent = 'El cotizador está en pruebas. Pronto tendrás acceso.'; } pantalla('loginScreen'); }
 })();
 </script>
+<div id="avisoVersion" class="aviso-version-cz"><span>Hay una versión nueva del Cotizador</span><button type="button" onclick="actualizarApp()">Actualizar</button></div>
 </body>
 </html>

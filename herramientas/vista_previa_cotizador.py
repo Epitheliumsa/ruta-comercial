@@ -15,7 +15,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 REF = sys.argv[1] if len(sys.argv) > 1 else 'HEAD'
 SALIDA = RAIZ / 'cotizador' / 'pruebas'
-ARCHIVOS = ['cotizador/index.html', 'cotizador/cotizador.js', 'cotizador/usuarios.js', 'cotizador/lib/jspdf.umd.min.js']
+ARCHIVOS = ['cotizador/index.html', 'cotizador/cotizador.js', 'cotizador/usuarios.js', 'cotizador/lib/jspdf.umd.min.js', 'cotizador/version.txt']
 
 tmp = RAIZ / '.vp_cotizador_tmp'
 if tmp.exists():

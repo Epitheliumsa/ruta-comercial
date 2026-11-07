@@ -21,7 +21,7 @@ if not (MOTOR.get('materias') and MOTOR.get('combos')):
 if SALIDA.exists():
     shutil.rmtree(SALIDA)
 (SALIDA / 'icons').mkdir(parents=True)
-for f in ['cotizador.js', 'usuarios.js']:
+for f in ['cotizador.js', 'usuarios.js', 'version.txt']:
     shutil.copy(ORIGEN / f, SALIDA / f)
 (SALIDA / 'lib').mkdir()
 shutil.copy(ORIGEN / 'lib' / 'jspdf.umd.min.js', SALIDA / 'lib' / 'jspdf.umd.min.js')
