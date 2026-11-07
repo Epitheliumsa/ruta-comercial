@@ -168,9 +168,8 @@ const todasFaltas=()=>S.formulas.flatMap((f,i)=>validar(f).map(t=>S.formulas.len
 function etiquetaHTML(f,fi){
   const motorTxt=S.motor==="CDFLL"?"CDFLL":"Epithelium", R=f.R, pac=$("paciente").value.trim();
   const act=f.acts.filter(a=>a.codigo), u=unidadDe(f), pres=f.forma?(f.pres?`${f.forma} x ${f.pres} ${u}`:f.forma):"";
-  const titulo=pac||`F\u00f3rmula ${fi+1}`;
   const partes=act.map(a=>`${esc(BYCODE[a.codigo].nombre)} ${a.pct===""?"\u2014":pctTxt(a.pct)+" %"}`);
-  const rx=act.length||pres?`<p class="rx-linea">${partes.join(" + ")}${pres?`${partes.length?" \u00b7 ":""}${esc(pres)}`:""}${pres&&f.cant>1?` \u00b7 ${f.cant} unidades`:""}</p>`:`<p class="rx-linea vacio">Agrega los principios activos</p>`;
+  const rx=act.length||pres?`<p class="rx-linea">${pac?`<b>${esc(pac)}</b>, `:""}${partes.join(" + ")}${pres?`${partes.length?" \u00b7 ":""}${esc(pres)}`:""}${pres&&f.cant>1?` \u00b7 ${f.cant} unidades`:""}</p>`:`<p class="rx-linea vacio">Agrega los principios activos</p>`;
   let precio;
   if(!R) precio=`<div class="precio"><span class="k">Precio</span><span class="v" style="color:var(--gris)">\u2014</span><span class="vacio-txt">Completa la f\u00f3rmula y toca \u00abCotizar\u00bb.</span></div>`;
   else if(S.motor==="CDFLL") precio=`<div class="precio"><span class="k">Precio facturaci\u00f3n CDFLL</span><span class="v">${fmt(R.precio_cdfll)}</span></div>
@@ -179,7 +178,7 @@ function etiquetaHTML(f,fi){
     <dl class="kv"><dt>PVSP</dt><dd class="fuerte">${fmt(R.pvsp)}</dd>${f.cant>1?`<dt>Total ${f.cant} unidades</dt><dd>${fmt(R.total)}</dd>`:""}</dl>`;
   const pill=`${S.formulas.length>1?`F\u00d3RMULA ${fi+1} \u00b7 `:""}${R?"COTIZADA":"BORRADOR"} \u00b7 ${motorTxt}`;
   return `<div class="etiqueta"><div class="e-top"><img src="${document.querySelector('.header-logo-img')?.getAttribute('src').replace('logo-blanco','logo')||'logo.png'}" alt="Epithelium"><span><span class="pill ${R?"ok":"mal"}">${pill}</span></span></div>
-    <div class="e-pac-tit">${esc(titulo)}</div>${rx}${precio}</div>`;
+    ${rx}${precio}</div>`;
 }
 function update(){
   const faltas=todasFaltas();
