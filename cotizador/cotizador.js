@@ -274,28 +274,28 @@ async function generarPDF(){
   doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(...gris);
   doc.text(fecha,W-X,y+13,{align:"right"}); doc.text(cdf?"Centro Dermatol\u00f3gico Federico Lleras Acosta":"Epithelium S.A.",W-X,y+18,{align:"right"});
   y+=34; doc.setDrawColor(217,229,223); doc.line(X,y,W-X,y); y+=8;
-  doc.setFontSize(10); doc.setTextColor(...gris); doc.text("Paciente",X,y); y+=5.5;
-  doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...tinta); doc.text(pac,X,y); y+=10;
-  const fila=(et,val,color,neg)=>{ doc.setFont("helvetica",neg?"bold":"normal"); doc.setFontSize(10.5); doc.setTextColor(...(color||gris)); doc.text(et,X+5,y); doc.setTextColor(...(color||tinta)); doc.setFont("helvetica","bold"); doc.text(val,W-X-5,y,{align:"right"}); y+=6.5; };
-  for(const {f,i} of lista){
-    const R=f.R, n=f.cant, fac=cdf?R.precio_cdfll:R.precio, pvs=cdf?R.pr_venta_cdfll:R.pvsp;
+  // Paciente y quien cotiza (una sola vez, arriba)
+  const etQ=window.CZ_COTIZA?"Cotiza":"PDV", nomQ=window.CZ_COTIZA||pdv;
+  doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(...gris); doc.text("Paciente",X,y); if(nomQ) doc.text(etQ,X+AN/2,y); y+=5.5;
+  doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...tinta); doc.text(pac,X,y); if(nomQ) doc.text(nomQ,X+AN/2,y); y+=11;
+  // Tabla: f\u00f3rmula y Precio Venta Sugerido en la misma l\u00ednea (sin precio de facturaci\u00f3n ni rango)
+  const colP=46, anT=AN-colP-8;
+  doc.setFillColor(0,107,79); doc.roundedRect(X,y,AN,9,1.5,1.5,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(255,255,255);
+  doc.text("F\u00f3rmula",X+4,y+6); doc.text("Precio Venta Sugerido",W-X-4,y+6,{align:"right"}); y+=9;
+  lista.forEach(({f,i},k)=>{
+    const R=f.R, n=f.cant, pvs=cdf?R.pr_venta_cdfll:R.pvsp;
     const acts=f.acts.filter(a=>a.codigo).map(a=>`${BYCODE[a.codigo].nombre} ${pctTxt(a.pct)} %`).join(" + ");
-    const linea=`${acts} \u00b7 ${f.forma} x ${f.pres} ${unidadDe(f)}${n>1?` \u00b7 ${n} unidades`:""}`;
-    doc.setFont("helvetica","normal"); doc.setFontSize(10.5); const tl=doc.splitTextToSize(linea,AN-10);
-    const alto=12+tl.length*5+ (n>1?13:6.5) + (cdf?6.5:0) + (n>1?13:6.5) + 6;
-    if(y+alto>270){ doc.addPage(); y=20; }
-    doc.setDrawColor(231,223,199); doc.setFillColor(255,253,246); doc.roundedRect(X,y,AN,alto,2,2,"FD"); const y0=y; y+=7;
-    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...verde); doc.text(lista.length>1||S.formulas.length>1?`F\u00f3rmula ${i+1}`:"F\u00f3rmula",X+5,y); y+=6;
-    doc.setFont("helvetica","normal"); doc.setFontSize(10.5); doc.setTextColor(...tinta); doc.text(tl,X+5,y); y+=tl.length*5+2;
-    fila(`Precio de facturaci\u00f3n${n>1?" por unidad":""}`,fmt(fac),verde,true);
-    if(cdf) fila("Rango",R.rango);
-    if(n>1) fila(`Total facturaci\u00f3n \u00b7 ${n} unidades`,fmt(fac*n),tinta,true);
-    fila(`Precio Venta Sugerido${n>1?" por unidad":""}`,fmt(pvs),lima,true);
-    if(n>1) fila(`Precio Venta Sugerido \u00b7 total ${n} unidades`,fmt(pvs*n),lima,true);
-    y=y0+alto+6;
-  }
-  { const et=window.CZ_COTIZA?"Cotiza: ":"PDV: ", nom=window.CZ_COTIZA||pdv;   // quien cotiza va una sola vez, abajo
-    if(nom){ doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(...gris); doc.text(et,X,y); doc.setFont("helvetica","bold"); doc.setTextColor(...tinta); doc.text(nom,X+doc.getTextWidth(et),y); y+=8; } }
+    const linea=`${lista.length>1?(k+1)+". ":""}${acts} \u00b7 ${f.forma} x ${f.pres} ${unidadDe(f)}${n>1?` \u00b7 ${n} unidades (${fmt(pvs)} c/u)`:""}`;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10.5); const tl=doc.splitTextToSize(linea,anT);
+    const alto=Math.max(10,tl.length*5+5);
+    if(y+alto>272){ doc.addPage(); y=20; }
+    if(k%2) { doc.setFillColor(255,253,246); doc.rect(X,y,AN,alto,"F"); }
+    doc.setTextColor(...tinta); doc.text(tl,X+4,y+6.5);
+    doc.setFont("helvetica","bold"); doc.setFontSize(11.5); doc.setTextColor(...lima); doc.text(fmt(pvs*n),W-X-4,y+6.5,{align:"right"});
+    y+=alto; doc.setDrawColor(231,223,199); doc.line(X,y,W-X,y);
+  });
+  y+=8;
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...gris);
   doc.text(doc.splitTextToSize(`\u00a9 ${ahora.getFullYear()} Epithelium S.A. Informaci\u00f3n confidencial y de uso exclusivo para usuarios autorizados. Los precios corresponden al motor ${M.version} y pueden cambiar sin previo aviso.`,AN),X,287);
   const aaaamm=`${ahora.getFullYear()}${String(ahora.getMonth()+1).padStart(2,"0")}`;
