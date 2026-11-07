@@ -463,3 +463,12 @@
   Limpiar conserva el PDV.
 - El cálculo replica la hoja COTIZACION (homólogos por forma, Clobetasol en Esmalte, sustitución de Antocianinas, márgenes por tramo y
   excepción por forma, mínimos, PVSP con MULTIPLOS y rangos CDFLL). Probado contra el motor v51 con 500 fórmulas al azar.
+
+### Módulo de pruebas del Cotizador (`cotizador/pruebas/`)
+- Link fijo: https://epitheliumsa.github.io/ruta-comercial/cotizador/pruebas/ — franja roja "MÓDULO DE PRUEBAS", sin instalación ni service worker,
+  y su propio espacio en el navegador (`czp_sesion`, `czp_motor`): no se cruza con el cotizador oficial.
+- Se arma con `python3 herramientas/vista_previa_cotizador.py <rama>` (copia `cotizador/` de esa rama). Flujo: trabajar en una rama → armar el módulo →
+  (con confirmación) subir a `main` **solo** `cotizador/pruebas/` → el administrador prueba → con su "sí, publica" se publica `cotizador/`.
+- **Probar motor** (solo administrador, en el módulo): carga un JSON de motor solo en ese navegador para ensayar un motor nuevo antes de subirlo
+  para todos con «Cargar motor» en el cotizador oficial. «Volver al motor publicado» lo quita. Nada se sube al servidor desde el módulo.
+- Los cambios de `backend/Codigo.gs` no se ven en el módulo (el servidor es uno solo).
