@@ -67,6 +67,7 @@ const numPct=v=>{ const t=String(v??"").trim().replace(",",".").replace(/\.$/,""
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const unidadDe=f=>{const l=FORMAS[f.forma]; return l?((l.find(x=>String(x.p)===String(f.pres))||{}).u||""):"";};
 const FORMAS_ORD=Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es"));
+const notaDup='<span style="display:block;margin-top:4px;padding:7px 10px;border-radius:8px;background:#fce8e6;border:1px solid #f5c2bc;color:#b42318;font-size:13px;font-weight:700">Materia Prima duplicada</span>';
 const nota='<span class="aviso-catalogo" style="display:block;margin-top:4px;padding:7px 10px;border-radius:8px;background:#fce8e6;border:1px solid #f5c2bc;color:#b42318;font-size:13px;font-weight:600;line-height:1.4">No est\u00e1 en el cat\u00e1logo. Comun\u00edcate a Servicio al Cliente Epithelium <a class="tel-sac" href="tel:+573007514948"><b>300 7514948</b></a></span>';
 
 const CONECTORES_NOMBRE = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e']);
@@ -124,7 +125,7 @@ function renderActs(f,el){
     inp.addEventListener("input",()=>{a.codigo="";a.texto=inp.value;sugerir(r,inp,a,f,el);f.R=null;update();});
     inp.addEventListener("focus",()=>{if(!a.codigo&&inp.value)sugerir(r,inp,a,f,el)});
     inp.addEventListener("keydown",e=>navegar(e,r));
-    inp.addEventListener("blur",()=>setTimeout(()=>{r.querySelector(".sug")?.remove(); const m=r.querySelector(".meta"); if(m) m.innerHTML=!a.codigo&&a.texto?nota:"";},150));
+    inp.addEventListener("blur",()=>setTimeout(()=>{r.querySelector(".sug")?.remove(); const m=r.querySelector(".meta"); if(m&&!a.codigo) m.innerHTML=a.texto?nota:"";},150));
     pin.addEventListener("input",()=>{a.pct=pin.value;f.R=null;update();});
     r.querySelector(".quitar").addEventListener("click",()=>{f.acts.splice(i,1);if(!f.acts.length)f.acts.push(nuevaFila());f.R=null;renderActs(f,el);});
   });
@@ -134,9 +135,7 @@ function renderActs(f,el){
 }
 function sugerir(r,inp,a,f,el){
   r.querySelector(".sug")?.remove();
-  const usadas=new Set(f.acts.filter(x=>x!==a&&x.codigo).map(x=>codigoEfectivo(f.forma,x.codigo)));
-  const todas=buscar(inp.value), res=todas.filter(m=>m.virtual||!usadas.has(codigoEfectivo(f.forma,m.codigo)));
-  if(!res.length){ if(todas.length){ const d=document.createElement("div"); d.className="sug"; d.innerHTML=`<div class="sug-aviso">${esc(todas[0].nombre)} ya est\u00e1 en esta f\u00f3rmula</div>`; r.querySelector(".who").appendChild(d); } return; }
+  const res=buscar(inp.value); if(!res.length) return;
   const s=document.createElement("div"); s.className="sug"; s.setAttribute("role","listbox");
   res.forEach((m,k)=>{const b=document.createElement("button");b.type="button";if(!k)b.className="on";
     b.innerHTML=`<span>${esc(m.nombre)}</span>`;
@@ -174,7 +173,7 @@ function validar(f){
   if(!conc) faltas.push("Cada activo necesita su concentraci\u00f3n (mayor que 0 %)");
   if(suma>=100) faltas.push(`Los activos suman ${pctTxt(+suma.toFixed(3))} %: deben sumar menos de 100 %`);
   const rep=repetidas(f);
-  if(rep.length) faltas.push(`Materia prima repetida en la f\u00f3rmula: ${[...new Set(rep.map(i=>BYCODE[f.acts[i].codigo].nombre))].join(", ")}. D\u00e9jala una sola vez`);
+  if(rep.length) faltas.push(`Materia Prima duplicada: ${[...new Set(rep.map(i=>BYCODE[f.acts[i].codigo].nombre))].join(", ")}`);
   if(!f.forma) faltas.push("Elige la forma farmac\u00e9utica");
   else if(!pres) faltas.push("Elige la presentaci\u00f3n");
   else if(!comb) faltas.push("Esa presentaci\u00f3n no existe en el cat\u00e1logo");
@@ -214,8 +213,13 @@ function update(){
 /* Resalta en rojo las casillas que faltan o est\u00e1n mal (solo despu\u00e9s de tocar \u00abCotizar\u00bb) */
 function marcarErrores(){
   document.querySelectorAll("#form .campo-mal").forEach(e=>e.classList.remove("campo-mal"));
-  if(!S.intento) return;
   const mal=e=>e&&e.classList.add("campo-mal");
+  document.querySelectorAll("#formulas .formula").forEach((el,fi)=>{   // materia prima duplicada: siempre en rojo, con su mensaje
+    const f=S.formulas[fi]; if(!f) return; const rep=new Set(repetidas(f));
+    el.querySelectorAll(".act").forEach((r,i)=>{ const a=f.acts[i], m=r.querySelector(".meta"); if(!a||!a.codigo||!m) return;
+      m.innerHTML=rep.has(i)?notaDup:""; if(rep.has(i)) mal(r.querySelector(".who input")); });
+  });
+  if(!S.intento) return;
   if(!$("paciente").value.trim()) mal($("paciente"));
   document.querySelectorAll("#formulas .formula").forEach((el,fi)=>{
     const f=S.formulas[fi]; if(!f) return;
@@ -228,7 +232,6 @@ function marcarErrores(){
       if(!a.codigo&&!a.texto&&a.pct!=="") mal(n);
       if((a.codigo||a.texto)&&!(numPct(a.pct)>0)) mal(pc);
       if(suma>=100&&a.pct!=="") mal(pc); });
-    repetidas(f).forEach(i=>mal(filas[i]?.querySelector(".who input")));
     const pres=Number(f.pres);
     if(!f.forma) mal(el.querySelector(".sel-forma"));
     else if(!pres||!(FORMAS[f.forma]||[]).some(x=>x.p===pres)||!M.combos[f.forma+pres]) mal(el.querySelector(".sel-pres"));

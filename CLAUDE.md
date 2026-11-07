@@ -457,7 +457,7 @@
   (`ACCESO_COTIZADOR = ['jherrera', 'hreyes']`, la misma lista en `app.js`, `cotizador/usuarios.js` y `backend/Codigo.gs`; vacía = todo el personal).
   Los demás ven el botón en Visita pero al tocarlo sale "Cotizador en pruebas"; el cotizador y el servidor también los rechazan.
 - Pantalla: Paciente y PDV → **Principios activos** → Forma y presentación → botones **Cotizar** y **Limpiar**. Abre siempre en blanco (sin fórmula de ejemplo);
-  el precio sale solo al tocar Cotizar y se borra si se cambia la fórmula. «Falta completar» aparece solo si al cotizar falta algo (solo lo que falta) y la casilla que falta o está errada queda resaltada en rojo (`marcarErrores`) hasta corregirla.
+  el precio sale solo al tocar Cotizar y se borra si se cambia la fórmula. «Falta completar» aparece solo si al cotizar falta algo (solo lo que falta) y la casilla que falta o está errada queda resaltada en rojo (`marcarErrores`) hasta corregirla. Una materia prima repetida en la fórmula se deja escoger, pero queda en rojo con «Materia Prima duplicada» y no deja cotizar (`repetidas`, por código efectivo: un homólogo cuenta como la misma).
   **Nunca se muestran códigos de materias primas** ni el homólogo con que se cotiza (p. ej. Albatin → Melaslow va por dentro; la línea de Odoo sí usa el homólogo).
   Al personal de la empresa le sale «Cotiza: <nombre>» en la etiqueta; a los usuarios propios no. El PDV se llenará solo desde el maestro de cotizadores personalizados (segunda etapa);
   Limpiar conserva el PDV.
