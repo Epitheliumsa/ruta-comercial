@@ -23,6 +23,8 @@ if SALIDA.exists():
 (SALIDA / 'icons').mkdir(parents=True)
 for f in ['cotizador.js', 'usuarios.js']:
     shutil.copy(ORIGEN / f, SALIDA / f)
+(SALIDA / 'lib').mkdir()
+shutil.copy(ORIGEN / 'lib' / 'jspdf.umd.min.js', SALIDA / 'lib' / 'jspdf.umd.min.js')
 for f in ['styles.css', 'logo.png', 'logo-blanco.png']:
     shutil.copy(RAIZ / f, SALIDA / f)
 for f in ['favicon-32.png', 'apple-touch-icon.png']:

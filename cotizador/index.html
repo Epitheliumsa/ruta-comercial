@@ -127,6 +127,9 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
 .rx-linea.vacio{color:var(--gris);font-family:inherit}
 .cotiza-fuera{font-size:13px;color:var(--gris);margin:0}
 .cotiza-fuera b{color:var(--tinta)}
+.pvs{margin-top:10px;padding:9px 11px;border-radius:9px;background:#f1f7e6;border:1px solid #d6e8b8;display:flex;flex-direction:column;gap:4px}
+.pvs-fila{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:#4d7c0f}
+.pvs-fila b{font-size:15px;font-variant-numeric:tabular-nums;color:#3f6212}
 .pie{grid-column:1/-1;font-size:11.5px;color:var(--gris);line-height:1.5}
 </style>
 </head>
@@ -171,7 +174,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
         <section>
           <div class="sec-h"><h2>Paciente y punto de venta</h2><span>Para el nombre en Odoo</span></div>
           <div class="fila">
-            <label class="campo">Paciente<input id="paciente" autocomplete="off" placeholder="Nombre del paciente"></label>
+            <label class="campo">Paciente *<input id="paciente" autocomplete="off" placeholder="Nombre del paciente"></label>
             <label class="campo">PDV<input id="pdv" readonly tabindex="-1" class="solo-lectura"></label>
           </div>
         </section>
@@ -193,6 +196,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
         <div id="aviso"></div>
         <div class="btns">
           <button type="button" class="btn-pri" id="copy-odoo" disabled>Copiar línea Odoo</button>
+          <button type="button" class="btn-sec" id="btnPdf" disabled>Descargar PDF</button>
         </div>
         <div class="toast-cz" id="toast-cz"></div>
         <div id="linea-box" hidden><div class="linea-odoo" id="linea"></div></div>
@@ -204,6 +208,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
   </div>
 </div>
 
+<script src="lib/jspdf.umd.min.js"></script>
 <script src="usuarios.js?v=202611071200" charset="utf-8"></script>
 <script>
 /* ===== Cotizador Epithelium: ingreso con los mismos usuarios y claves de Visita Comercial =====

@@ -15,7 +15,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 REF = sys.argv[1] if len(sys.argv) > 1 else 'HEAD'
 SALIDA = RAIZ / 'cotizador' / 'pruebas'
-ARCHIVOS = ['cotizador/index.html', 'cotizador/cotizador.js', 'cotizador/usuarios.js']
+ARCHIVOS = ['cotizador/index.html', 'cotizador/cotizador.js', 'cotizador/usuarios.js', 'cotizador/lib/jspdf.umd.min.js']
 
 tmp = RAIZ / '.vp_cotizador_tmp'
 if tmp.exists():
@@ -26,7 +26,9 @@ if SALIDA.exists():
     shutil.rmtree(SALIDA)
 SALIDA.mkdir(parents=True)
 for f in ARCHIVOS:
-    shutil.copy(tmp / f, SALIDA / Path(f).name)
+    destino = SALIDA / Path(f).relative_to('cotizador')
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(tmp / f, destino)
 shutil.rmtree(tmp)
 
 
