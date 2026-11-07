@@ -44,7 +44,7 @@ MAT.forEach(m=>m.keys=[m.nombre,...m.alias].map(norm));
 function buscar(q){
   const n=norm(q); if(!n) return [];
   const out=[], seen=new Set();
-  for (const k of Object.keys(SUSTITUCIONES)) if (k.startsWith(n)) out.push({virtual:k,nombre:k[0].toUpperCase()+k.slice(1),hint:"\u2192 Ar\u00e1ndanos + Vit. C 1%"});
+  for (const k of Object.keys(SUSTITUCIONES)) if (k.startsWith(n)) out.push({virtual:k,nombre:k[0].toUpperCase()+k.slice(1)});
   const s=Object.entries(SINONIMOS).find(([k])=>k.startsWith(n)||n.startsWith(k));
   const terms=[n]; if(s) terms.push(s[1]);
   for (const t of terms) for (const modo of ["ini","dentro"]) for (const m of MAT){
@@ -55,43 +55,46 @@ function buscar(q){
 }
 
 /* ================= Estado y utilidades ================= */
-const MAX=12, S={motor:"EPITHELIUM",acts:[]};
+const MAX=12, S={motor:"EPITHELIUM",acts:[],intento:false};
+let R=null;   // resultado: solo existe despu\u00e9s de tocar \u00abCotizar\u00bb
 const $=id=>document.getElementById(id);
 const fmt=n=>"$ "+Math.round(n).toLocaleString("es-CO");
 const pctTxt=n=>String(n).replace(".",",");
-const unidad=()=>(FORMAS[$("forma").value].find(x=>String(x.p)===$("pres").value)||{}).u||"";
+const nuevaFila=()=>({codigo:"",texto:"",pct:""});
+const unidad=()=>{const f=FORMAS[$("forma").value]; return f?((f.find(x=>String(x.p)===$("pres").value)||{}).u||""):"";};
 
 function initFormas(){
-  $("forma").innerHTML=Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es")).map(f=>`<option>${f}</option>`).join("");
-  $("cnt-comb").textContent=M.formas.length+" combinaciones";
+  $("forma").innerHTML=`<option value="">Elige la forma</option>`+Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es")).map(f=>`<option>${f}</option>`).join("");
 }
 function fillPres(keep){
-  const f=$("forma").value;
-  $("pres").innerHTML=FORMAS[f].map(x=>`<option value="${x.p}">${x.p} ${x.u}</option>`).join("");
-  if (keep!=null && FORMAS[f].some(x=>String(x.p)===String(keep))) $("pres").value=keep;
+  const f=FORMAS[$("forma").value];
+  if(!f){ $("pres").innerHTML=`<option value="">Primero elige la forma</option>`; $("pres").disabled=true; return; }
+  $("pres").disabled=false;
+  $("pres").innerHTML=`<option value="">Elige la presentaci\u00f3n</option>`+f.map(x=>`<option value="${x.p}">${x.p} ${x.u}</option>`).join("");
+  if (keep!=null && f.some(x=>String(x.p)===String(keep))) $("pres").value=keep;
 }
+// Cualquier cambio en la f\u00f3rmula borra la cotizaci\u00f3n: hay que volver a tocar \u00abCotizar\u00bb
+function cambio(){ R=null; update(); }
 
 /* ================= Activos ================= */
-function addAct(a={}){ if(S.acts.length>=MAX) return; S.acts.push({codigo:a.codigo||"",texto:"",pct:a.pct??"",regla:a.regla||""}); renderActs(); }
+function addAct(){ if(S.acts.length>=MAX) return; S.acts.push(nuevaFila()); renderActs(); }
 function renderActs(){
-  const box=$("acts"); box.innerHTML=""; const forma=$("forma").value;
+  const box=$("acts"); box.innerHTML="";
   S.acts.forEach((a,i)=>{
-    const ce=a.codigo?codigoEfectivo(forma,a.codigo):"", hom=a.codigo&&ce!==a.codigo;
     const el=document.createElement("div"); el.className="act";
-    el.innerHTML=`<div class="who"><input id="act-n-${i}" autocomplete="off" placeholder="Busca por nombre o alias" aria-label="Activo ${i+1}">
-      <div class="meta">${a.codigo?`<span class="cod">${a.codigo}</span>`:(a.texto?`<span class="nota">No est\u00e1 en el cat\u00e1logo. Elige una opci\u00f3n de la lista.</span>`:"")}
-      ${hom?`<span class="nota">En ${forma} se cotiza como ${BYCODE[ce].nombre} (${ce})</span>`:""}${a.regla?`<span class="nota">${a.regla}</span>`:""}</div></div>
+    el.innerHTML=`<div class="who"><input id="act-n-${i}" autocomplete="off" placeholder="Busca por nombre" aria-label="Activo ${i+1}">
+      <div class="meta">${!a.codigo&&a.texto?`<span class="nota">No est\u00e1 en el cat\u00e1logo. Elige una opci\u00f3n de la lista.</span>`:""}</div></div>
       <div class="pct"><input id="act-p-${i}" class="num" type="number" step="0.001" min="0" inputmode="decimal" placeholder="0" aria-label="Concentraci\u00f3n ${i+1}"></div>
       <button type="button" class="quitar" aria-label="Quitar activo ${i+1}" title="Quitar">\u00d7</button>`;
     box.appendChild(el);
     const inp=el.querySelector("#act-n-"+i), pin=el.querySelector("#act-p-"+i);
     inp.value=a.codigo?BYCODE[a.codigo].nombre:a.texto; pin.value=a.pct;
-    inp.addEventListener("input",()=>{a.codigo="";a.texto=inp.value;a.regla="";sugerir(el,inp,a);update()});
+    inp.addEventListener("input",()=>{a.codigo="";a.texto=inp.value;sugerir(el,inp,a);cambio()});
     inp.addEventListener("focus",()=>{if(!a.codigo&&inp.value)sugerir(el,inp,a)});
     inp.addEventListener("keydown",e=>navegar(e,el));
-    inp.addEventListener("blur",()=>setTimeout(()=>el.querySelector(".sug")?.remove(),150));
-    pin.addEventListener("input",()=>{a.pct=pin.value;update()});
-    el.querySelector(".quitar").addEventListener("click",()=>{S.acts.splice(i,1);if(!S.acts.length)S.acts.push({codigo:"",texto:"",pct:"",regla:""});renderActs()});
+    inp.addEventListener("blur",()=>setTimeout(()=>{el.querySelector(".sug")?.remove(); const m=el.querySelector(".meta"); if(m) m.innerHTML=!a.codigo&&a.texto?`<span class="nota">No est\u00e1 en el cat\u00e1logo. Elige una opci\u00f3n de la lista.</span>`:"";},150));
+    pin.addEventListener("input",()=>{a.pct=pin.value;cambio()});
+    el.querySelector(".quitar").addEventListener("click",()=>{S.acts.splice(i,1);if(!S.acts.length)S.acts.push(nuevaFila());R=null;renderActs()});
   });
   $("add").disabled=S.acts.length>=MAX;
   update();
@@ -101,7 +104,7 @@ function sugerir(el,inp,a){
   const res=buscar(inp.value); if(!res.length) return;
   const s=document.createElement("div"); s.className="sug"; s.setAttribute("role","listbox");
   res.forEach((m,k)=>{const b=document.createElement("button");b.type="button";if(!k)b.className="on";
-    b.innerHTML=m.virtual?`<span>${m.nombre}</span><small>${m.hint}</small>`:`<span>${m.nombre}</span><small>${m.codigo}</small>`;
+    b.innerHTML=`<span>${m.nombre}</span>`;
     b.addEventListener("mousedown",e=>{e.preventDefault();elegir(a,m)}); s.appendChild(b)});
   el.querySelector(".who").appendChild(s);
 }
@@ -112,47 +115,68 @@ function navegar(e,el){
   if(e.key==="Escape") s.remove();
 }
 function elegir(a,m){
-  if (m.virtual){ const r=SUSTITUCIONES[m.virtual]; a.codigo=r.sust; a.texto=""; a.regla=`Reemplaza ${m.nombre}`;
-    r.agrega.forEach(([c,p])=>{ if(!S.acts.some(x=>x.codigo===c)) S.acts.push({codigo:c,texto:"",pct:p,regla:`Agregado por la regla de ${m.nombre}`}); });
-  } else { a.codigo=m.codigo; a.texto=""; a.regla=""; }
-  renderActs(); const i=S.acts.indexOf(a); setTimeout(()=>{const p=$("act-p-"+i); if(p&&!p.value)p.focus()},0);
+  if (m.virtual){ const r=SUSTITUCIONES[m.virtual]; a.codigo=r.sust; a.texto="";   // Antocianinas -> Ar\u00e1ndanos (mismo %) + Vitamina C 1 %
+    r.agrega.forEach(([c,p])=>{ if(!S.acts.some(x=>x.codigo===c)) S.acts.push({codigo:c,texto:"",pct:p}); });
+  } else { a.codigo=m.codigo; a.texto=""; }
+  R=null; renderActs(); const i=S.acts.indexOf(a); setTimeout(()=>{const p=$("act-p-"+i); if(p&&!p.value)p.focus()},0);
 }
 
-/* ================= Validaci\u00f3n (C46\u2013C50) ================= */
+/* ================= Validaci\u00f3n (C46\u2013C50): solo se muestra lo que falta ================= */
 function validar(){
   const forma=$("forma").value, pres=Number($("pres").value);
   const filas=S.acts.filter(a=>a.codigo||a.texto||a.pct!=="");
+  const hay=filas.some(a=>a.codigo);
   const cods=filas.every(a=>!(a.texto&&!a.codigo));
   const conc=filas.every(a=>(a.codigo||a.texto)?Number(a.pct)>0:a.pct==="");
   const suma=filas.reduce((s,a)=>s+(Number(a.pct)||0),0);
-  const comb=(FORMAS[forma]||[]).some(x=>x.p===pres)&&!!M.combos[forma+pres];
-  const hay=filas.some(a=>a.codigo);
-  return {checks:[["C\u00f3digos v\u00e1lidos",cods,"Hay un activo que no est\u00e1 en el cat\u00e1logo"],["Activo y concentraci\u00f3n",conc,"Cada activo necesita un % mayor que 0"],
-    ["Forma + presentaci\u00f3n",comb,"Esa presentaci\u00f3n no existe en el cat\u00e1logo"],["Al menos un activo",hay,"Agrega un principio activo"],
-    ["Suma de activos < 100 %",suma<100,`Los activos suman ${pctTxt(+suma.toFixed(3))} %`]], ok:cods&&conc&&comb&&hay&&suma<100};
+  const comb=!!forma&&!!pres&&(FORMAS[forma]||[]).some(x=>x.p===pres)&&!!M.combos[forma+pres];
+  const faltas=[];
+  if(!hay) faltas.push("Agrega al menos un principio activo");
+  if(!cods) faltas.push("Hay un activo que no est\u00e1 en el cat\u00e1logo: el\u00edgelo de la lista");
+  if(!conc) faltas.push("Cada activo necesita su concentraci\u00f3n (mayor que 0 %)");
+  if(suma>=100) faltas.push(`Los activos suman ${pctTxt(+suma.toFixed(3))} %: deben sumar menos de 100 %`);
+  if(!forma) faltas.push("Elige la forma farmac\u00e9utica");
+  else if(!pres) faltas.push("Elige la presentaci\u00f3n");
+  else if(!comb) faltas.push("Esa presentaci\u00f3n no existe en el cat\u00e1logo");
+  return {faltas, ok:!faltas.length};
 }
 
-/* ================= Render ================= */
-let R=null;
+/* ================= Pantalla ================= */
 function update(){
-  const v=validar(), forma=$("forma").value, pres=Number($("pres").value), u=unidad(), cant=Math.max(1,Number($("cant").value)||1);
-  $("checks").innerHTML=v.checks.map(([t,ok,msg])=>`<div class="chk ${ok?"ok":"mal"}"><b>${ok?"OK":"NOK"}</b><span>${ok?t:msg}</span></div>`).join("");
+  const v=validar(), forma=$("forma").value, pres=$("pres").value, u=unidad(), cant=Math.max(1,Number($("cant").value)||1);
+  $("secChecks").hidden=!(S.intento&&!v.ok);
+  $("checks").innerHTML=v.faltas.map(t=>`<div class="chk mal"><b>FALTA</b><span>${t}</span></div>`).join("");
   const act=S.acts.filter(a=>a.codigo);
   $("cnt-act").textContent=`${act.length} de ${MAX}`;
-  $("e-titulo").textContent=`${forma} x ${pres} ${u}`;
+  $("e-titulo").textContent=forma?(pres?`${forma} x ${pres} ${u}`:forma):"Nueva cotizaci\u00f3n";
   const pac=$("paciente").value.trim(), pdv=$("pdv").value.trim().toUpperCase();
   $("e-pac").textContent=[pac,pdv&&("PDV "+pdv),cant>1&&(cant+" unidades")].filter(Boolean).join(" \u00b7 ");
-  $("e-rx").innerHTML=act.length?act.map(a=>`<li><span>${BYCODE[codigoEfectivo(forma,a.codigo)].nombre}</span><span>${a.pct===""?"\u2014":pctTxt(a.pct)+" %"}</span></li>`).join(""):`<li class="vacio">Agrega los principios activos</li>`;
-  R = v.ok ? cotizar(forma,pres,act.map(a=>[a.codigo,Number(a.pct)]),cant,S.motor) : null;
+  $("e-cotiza").hidden=!window.CZ_COTIZA; $("e-cotiza").innerHTML=window.CZ_COTIZA?`Cotiza: <b>${window.CZ_COTIZA}</b>`:"";
+  $("e-rx").innerHTML=act.length?act.map(a=>`<li><span>${BYCODE[a.codigo].nombre}</span><span>${a.pct===""?"\u2014":pctTxt(a.pct)+" %"}</span></li>`).join(""):`<li class="vacio">Agrega los principios activos</li>`;
   const motorTxt = S.motor==="CDFLL"?"CDFLL":"Epithelium";
-  $("e-estado").innerHTML = R?`<span class="pill ok">READY \u00b7 ${motorTxt}</span>`:`<span class="pill mal">INCOMPLETA \u00b7 ${motorTxt}</span>`;
+  $("e-estado").innerHTML = R?`<span class="pill ok">COTIZADA \u00b7 ${motorTxt}</span>`:`<span class="pill mal">BORRADOR \u00b7 ${motorTxt}</span>`;
   const box=$("e-precio");
-  if(!R) box.innerHTML=`<div class="precio"><span class="k">Precio</span><span class="v" style="color:var(--gris)">\u2014</span></div>`;
+  if(!R) box.innerHTML=`<div class="precio"><span class="k">Precio</span><span class="v" style="color:var(--gris)">\u2014</span><span class="vacio-txt">Completa la f\u00f3rmula y toca \u00abCotizar\u00bb.</span></div>`;
   else if(S.motor==="CDFLL") box.innerHTML=`<div class="precio"><span class="k">Precio facturaci\u00f3n CDFLL</span><span class="v">${fmt(R.precio_cdfll)}</span></div>
     <dl class="kv"><dt>PVSP CDFLL</dt><dd class="fuerte">${fmt(R.pr_venta_cdfll)}</dd><dt>Rango</dt><dd>${R.rango}</dd><dt>Precio motor Epithelium</dt><dd>${fmt(R.precio)}</dd>${cant>1?`<dt>Total ${cant} unidades</dt><dd>${fmt(R.precio_cdfll*cant)}</dd>`:""}</dl>`;
   else box.innerHTML=`<div class="precio"><span class="k">Precio de facturaci\u00f3n</span><span class="v">${fmt(R.precio)}</span></div>
     <dl class="kv"><dt>PVSP</dt><dd class="fuerte">${fmt(R.pvsp)}</dd>${cant>1?`<dt>Total ${cant} unidades</dt><dd>${fmt(R.total)}</dd>`:""}</dl>`;
   $("copy-odoo").disabled=!R; $("linea-box").hidden=true;
+}
+function calcular(){
+  const forma=$("forma").value, pres=Number($("pres").value), cant=Math.max(1,Number($("cant").value)||1);
+  return cotizar(forma,pres,S.acts.filter(a=>a.codigo).map(a=>[a.codigo,Number(a.pct)]),cant,S.motor);
+}
+function cotizarAhora(){
+  S.intento=true;
+  const v=validar();
+  if(!v.ok){ R=null; update(); $("secChecks").scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  S.intento=false; R=calcular(); update();
+  if(window.matchMedia("(max-width:860px)").matches) document.querySelector(".etiqueta").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function limpiar(){   // deja todo en blanco; el PDV se conserva
+  $("paciente").value=""; $("cant").value=1; $("forma").value=""; fillPres();
+  S.acts=[nuevaFila()]; S.intento=false; R=null; renderActs(); $("toast-cz").textContent="";
 }
 
 /* ================= L\u00ednea para la plantilla MI de Odoo ================= */
@@ -167,28 +191,29 @@ function lineaOdoo(){
   return [nombre,"Magistral Individual","Magistral Individual",sinTilde(forma),R.envase,pres,u,"Magistral Individual",precio,"","IVA Exento","False"].join("\t");
 }
 async function copiar(){
+  if(!R) return;
   const t=lineaOdoo(); $("linea").textContent=t;
   try{ await navigator.clipboard.writeText(t); $("toast-cz").textContent="L\u00ednea copiada. P\u00e9gala en la plantilla de creaci\u00f3n MI."; }
   catch{ $("linea-box").hidden=false; $("toast-cz").textContent="Selecciona la l\u00ednea de abajo y c\u00f3piala."; }
   setTimeout(()=>$("toast-cz").textContent="",4000);
 }
 
-/* ================= Arranque ================= */
-function setMotor(m){ S.motor=m; $("m-epi").setAttribute("aria-pressed",m==="EPITHELIUM"); $("m-cdfll").setAttribute("aria-pressed",m==="CDFLL"); update(); }
-initFormas();
-$("forma").addEventListener("change",()=>{fillPres($("pres").value);renderActs()});
-$("pres").addEventListener("change",update);
-["cant","paciente","pdv"].forEach(id=>$(id).addEventListener("input",update));
+/* ================= Arranque: siempre en blanco ================= */
+function setMotor(m){ S.motor=m; $("m-epi").setAttribute("aria-pressed",m==="EPITHELIUM"); $("m-cdfll").setAttribute("aria-pressed",m==="CDFLL"); if(R) R=calcular(); update(); }
+initFormas(); fillPres();
+$("forma").addEventListener("change",()=>{fillPres($("pres").value);cambio()});
+$("pres").addEventListener("change",cambio);
+$("cant").addEventListener("input",()=>{ if(R) R=calcular(); update(); });
+["paciente","pdv"].forEach(id=>$(id).addEventListener("input",update));
 $("add").addEventListener("click",()=>{addAct();$("act-n-"+(S.acts.length-1))?.focus()});
-$("reset").addEventListener("click",()=>{$("paciente").value="";$("pdv").value="";$("cant").value=1;S.acts=[];addAct()});
+$("btnCotizar").addEventListener("click",cotizarAhora);
+$("reset").addEventListener("click",limpiar);
 $("m-epi").addEventListener("click",()=>setMotor("EPITHELIUM"));
 $("m-cdfll").addEventListener("click",()=>setMotor("CDFLL"));
 $("copy-odoo").addEventListener("click",copiar);
 $("form").addEventListener("submit",e=>e.preventDefault());
 $("pie").innerHTML=`Motor ${M.version} (${M.fecha}) \u00b7 ${MAT.length} principios activos \u00b7 ${Object.keys(FORMAS).length} formas.<br>\u00a9 ${new Date().getFullYear()} Epithelium S.A. Informaci\u00f3n confidencial y de uso exclusivo para usuarios autorizados.`;
-/* F\u00f3rmula de ejemplo al abrir */
 (function(){const ok=window.CZ_MOTORES||["EPITHELIUM","CDFLL"];$("m-epi").hidden=!ok.includes("EPITHELIUM");$("m-cdfll").hidden=!ok.includes("CDFLL");if(ok.length<2)$("m-epi").parentNode.hidden=true;if(!ok.includes("EPITHELIUM"))S.motor="CDFLL";})();
-$("forma").value="Loci\u00f3n"; fillPres(60);
-S.acts=[{codigo:"MA0377",texto:"",pct:3,regla:""},{codigo:"MA0016",texto:"",pct:1,regla:""}];
+S.acts=[nuevaFila()];
 renderActs();
 setMotor(S.motor);

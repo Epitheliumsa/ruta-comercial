@@ -107,6 +107,10 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
 .ayuda-ios{font-size:12px;color:#666;margin-top:10px}
 .carga{grid-column:1/-1;text-align:center;color:var(--gris);padding:40px 0}
 .admin-motor{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.e-cotiza{font-size:12px;color:var(--gris);margin-top:2px}
+.e-cotiza b{color:var(--tinta)}
+.sec-h h2.falta{color:var(--mal)}
+.precio .vacio-txt{display:block;color:var(--gris);font-size:13px;margin-top:4px}
 .pie{grid-column:1/-1;font-size:11.5px;color:var(--gris);line-height:1.5}
 </style>
 </head>
@@ -156,24 +160,25 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
           </div>
         </section>
         <section>
-          <div class="sec-h"><h2>Forma y presentación</h2><span id="cnt-comb"></span></div>
+          <div class="sec-h"><h2>Principios activos</h2><span id="cnt-act"></span></div>
+          <div class="acts" id="acts"></div>
+          <button type="button" class="agregar" id="add">+ Agregar activo</button>
+        </section>
+        <section>
+          <div class="sec-h"><h2>Forma y presentación</h2></div>
           <div class="fila">
             <label class="campo">Forma farmacéutica<select id="forma"></select></label>
             <label class="campo">Presentación<select id="pres"></select></label>
             <label class="campo">Unidades<input id="cant" class="num" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
           </div>
         </section>
-        <section>
-          <div class="sec-h"><h2>Principios activos</h2><span id="cnt-act"></span></div>
-          <div class="acts" id="acts"></div>
-          <button type="button" class="agregar" id="add">+ Agregar activo</button>
-        </section>
-        <section>
-          <div class="sec-h"><h2>Validación</h2><span>Mismas reglas de la hoja COTIZACION</span></div>
+        <section id="secChecks" hidden>
+          <div class="sec-h"><h2 class="falta">Falta completar</h2></div>
           <div class="checks" id="checks"></div>
         </section>
         <div class="btns">
-          <button type="button" class="btn-sec" id="reset">Nueva fórmula</button>
+          <button type="button" class="btn-pri" id="btnCotizar">Cotizar</button>
+          <button type="button" class="btn-sec" id="reset">Limpiar</button>
         </div>
       </form>
 
@@ -182,6 +187,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
           <div class="e-top"><img src="../logo.png" alt="Epithelium"><span id="e-estado"></span></div>
           <h3 id="e-titulo">—</h3>
           <div class="e-pac" id="e-pac"></div>
+          <div class="e-cotiza" id="e-cotiza" hidden></div>
           <ul class="rx" id="e-rx"></ul>
           <div id="e-precio"></div>
         </div>
@@ -237,7 +243,8 @@ async function traerMotor() {
 async function entrar(u, clave) {
   sesion = { ...u, clave };
   escribir(SESION_KEY, { usuario: u.usuario, clave });
-  $id('czUsuario').textContent = u.nombre;
+  $id('czUsuario').textContent = u.empresa ? u.nombre : '';
+  window.CZ_COTIZA = u.empresa ? u.nombre : '';
   $id('adminMotor').hidden = !u.admin;
   pantalla('appScreen');
   document.querySelectorAll('#form, .lado').forEach(e => e.hidden = true);

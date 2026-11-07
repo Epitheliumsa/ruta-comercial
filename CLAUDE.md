@@ -456,5 +456,10 @@
 - **En pruebas** (etiqueta roja EN PRUEBAS en el cotizador y "- en pruebas" en el botón de Visita): solo entran Jennifer Herrera y Hernán Reyes
   (`ACCESO_COTIZADOR = ['jherrera', 'hreyes']`, la misma lista en `app.js`, `cotizador/usuarios.js` y `backend/Codigo.gs`; vacía = todo el personal).
   Los demás ven el botón en Visita pero al tocarlo sale "Cotizador en pruebas"; el cotizador y el servidor también los rechazan.
+- Pantalla: Paciente y PDV → **Principios activos** → Forma y presentación → botones **Cotizar** y **Limpiar**. Abre siempre en blanco (sin fórmula de ejemplo);
+  el precio sale solo al tocar Cotizar y se borra si se cambia la fórmula. «Falta completar» aparece solo si al cotizar falta algo (solo lo que falta).
+  **Nunca se muestran códigos de materias primas** ni el homólogo con que se cotiza (p. ej. Albatin → Melaslow va por dentro; la línea de Odoo sí usa el homólogo).
+  Al personal de la empresa le sale «Cotiza: <nombre>» en la etiqueta; a los usuarios propios no. El PDV se llenará solo desde el maestro de cotizadores personalizados (segunda etapa);
+  Limpiar conserva el PDV.
 - El cálculo replica la hoja COTIZACION (homólogos por forma, Clobetasol en Esmalte, sustitución de Antocianinas, márgenes por tramo y
   excepción por forma, mínimos, PVSP con MULTIPLOS y rangos CDFLL). Probado contra el motor v51 con 500 fórmulas al azar.
