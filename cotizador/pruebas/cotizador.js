@@ -266,13 +266,13 @@ function numeroALetras(n){
   const menosDeMil=x=>{ if(x===100) return "cien"; const c=Math.floor(x/100), r=x%100; let t=C[c];
     const dd=r<30?U[r]:D[Math.floor(r/10)]+(r%10?" y "+U[r%10]:""); return [t,dd].filter(Boolean).join(" "); };
   const apocope=t=>t.replace(/veintiuno$/,"veinti\u00fan").replace(/uno$/,"un");
-  if(n===0) return "CERO PESOS M/CTE";
+  if(n===0) return "cero pesos m/cte";
   const mill=Math.floor(n/1e6), miles=Math.floor((n%1e6)/1000), resto=n%1000, partes=[];
   if(mill) partes.push(mill===1?"un mill\u00f3n":apocope(menosDeMil(mill))+" millones");
   if(miles) partes.push(miles===1?"mil":apocope(menosDeMil(miles))+" mil");
   if(resto) partes.push(menosDeMil(resto));
   let t=partes.join(" "); if(!resto) t+=(mill&&!miles?" de":""); else t=apocope(t);
-  return (t+" pesos m/cte").replace(/\s+/g," ").trim().toUpperCase();
+  return (t+" pesos m/cte").replace(/\s+/g," ").trim();
 }
 /* Escribe texto con partes en negrilla, parti\u00e9ndolo en l\u00edneas de ancho fijo. Devuelve el alto usado. */
 function textoRico(doc,partes,x,y,ancho,tam,interlinea){
@@ -331,7 +331,7 @@ async function generarPDF(){
   doc.setFont("helvetica","bold"); doc.setFontSize(11.5); doc.setTextColor(...tinta); doc.text("Total",X+4,y+7.5);
   doc.setTextColor(...lima); doc.setFontSize(12.5); doc.text(fmt(total),W-X-4,y+7.5,{align:"right"}); y+=16;
   doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(...gris);
-  const enLetras=doc.splitTextToSize(`Son: ${numeroALetras(total)}`,AN); doc.text(enLetras,X,y); y+=enLetras.length*4.5;
+  const enLetras=doc.splitTextToSize(`Son: ${nombrePropio(numeroALetras(total)).replace(/M\/cte$/,"M/Cte")}`,AN); doc.text(enLetras,X,y); y+=enLetras.length*4.5;
   y+=8;
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...gris);
   doc.text(doc.splitTextToSize(`\u00a9 ${ahora.getFullYear()} Epithelium S.A. Informaci\u00f3n confidencial y de uso exclusivo para usuarios autorizados. Los precios corresponden al motor ${M.version} y pueden cambiar sin previo aviso.`,AN),X,287);
