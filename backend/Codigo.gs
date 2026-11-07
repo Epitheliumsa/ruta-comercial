@@ -412,7 +412,7 @@ function guardarEmpleados_(usuario, filas) {
 // Direcciones (hoja "Directorio") y Proveedores (hoja "Proveedores") siguen con sus propias hojas y permisos.
 const HOJA_BASES = 'Bases';
 const COLUMNAS_BASES = ['Nombre', 'Parte', 'Contenido', 'Actualizado', 'Resumen'];
-const BASES_VALIDAS = ['contactos', 'catalogo', 'vademecum', 'materiasprimas', 'productoterminado', 'homologos'];
+const BASES_VALIDAS = ['contactos', 'catalogo', 'vademecum', 'materiasprimas', 'productoterminado', 'homologos', 'motor_cotizador'];   // motor_cotizador: costos del Cotizador Epithelium (lo sube el administrador desde el cotizador)
 const PARTE_BASES = 40000;
 function filasBases_() {
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_BASES);

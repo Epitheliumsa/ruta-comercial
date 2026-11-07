@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cotizador Epithelium</title>
+<meta name="description" content="Cotiza fórmulas magistrales con los motores Epithelium y CDFLL: precio de facturación, PVSP y línea lista para Odoo.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Epithelium S.A.">
+<meta property="og:title" content="Cotizador Epithelium">
+<meta property="og:description" content="Cotiza fórmulas magistrales con los motores Epithelium y CDFLL: precio de facturación, PVSP y línea lista para Odoo.">
+<meta property="og:url" content="https://epitheliumsa.github.io/ruta-comercial/cotizador/">
+<meta property="og:image" content="https://epitheliumsa.github.io/ruta-comercial/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:locale" content="es_CO">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Cotizador Epithelium">
+<meta name="twitter:description" content="Cotiza fórmulas magistrales con los motores Epithelium y CDFLL: precio de facturación, PVSP y línea lista para Odoo.">
+<meta name="twitter:image" content="https://epitheliumsa.github.io/ruta-comercial/icons/icon-512.png">
+<meta name="color-scheme" content="only light">
+<meta name="theme-color" content="#006b4f">
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Cotizador">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="../styles.css?v=202611071200">
+<style>
+/* Misma identidad de Visita Comercial (tema claro fijo). Layout: fórmula a la izquierda, etiqueta con precio a la derecha; apilado en celular */
+:root{ color-scheme: light only;
+  --verde:#006b4f; --verde2:#00A651; --verde-suave:#e6f4ec; --tinta:#1f2937; --gris:#5f6b68; --linea:#d9e5df; --blanco:#fff;
+  --ok:#0a6647; --ok-suave:#e3f3ea; --mal:#b42318; --mal-suave:#fce8e6; --aviso:#9a5b00; --aviso-suave:#fdf2dd;
+  --papel:#fffdf6; --papel-linea:#e7dfc7; }
+body{background:#f5f5f5;color:var(--tinta)}
+.cz{width:100%;max-width:1180px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.cz{grid-template-columns:minmax(0,1fr)}}
+.motor-sel{display:inline-flex;background:rgba(255,255,255,.18);border-radius:999px;padding:3px;gap:2px}
+.motor-sel button{border:0;background:transparent;color:#fff;font:700 13px inherit;font-family:inherit;padding:7px 14px;border-radius:999px;cursor:pointer}
+.motor-sel button[aria-pressed="true"]{background:#fff;color:var(--verde)}
+.tarjeta{background:var(--blanco);border:1px solid var(--linea);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:18px;min-width:0;box-shadow:0 2px 10px rgba(0,80,50,.06)}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+.sec-h h2{font-size:16px;color:var(--verde);margin:0}
+.sec-h span{font-size:12px;color:var(--gris)}
+.fila{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--gris);min-width:0}
+.cz input,.cz select{font:500 15px inherit;font-family:inherit;color:var(--tinta)!important;background:#fff!important;border:2px solid #dde5e1;border-radius:9px;padding:9px 10px;width:100%;min-width:0}
+.cz input:focus,.cz select:focus,.cz button:focus-visible{outline:none;border-color:var(--verde2);box-shadow:0 0 0 3px rgba(0,166,81,.15)}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+.acts{display:flex;flex-direction:column;gap:8px}
+.act{display:grid;grid-template-columns:minmax(0,1fr) 96px 38px;gap:8px;align-items:start}
+.who{position:relative;min-width:0}
+.meta{font-size:12px;color:var(--gris);margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cod{font:600 11.5px ui-monospace,Menlo,monospace;background:var(--verde-suave);color:var(--verde);padding:1px 6px;border-radius:4px}
+.nota{font-size:12px;color:var(--aviso)}
+.pct{position:relative}.pct input{padding-right:26px}.pct::after{content:"%";position:absolute;right:10px;top:11px;color:var(--gris);font-size:14px}
+.quitar{width:38px;height:42px;border:2px solid #dde5e1;background:#fff;color:var(--gris);border-radius:9px;cursor:pointer;font-size:18px}
+.quitar:hover{color:var(--mal);border-color:var(--mal)}
+.sug{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--linea);border-radius:9px;box-shadow:0 10px 30px rgba(0,0,0,.14);max-height:260px;overflow:auto;padding:4px}
+.sug button{display:flex;width:100%;justify-content:space-between;gap:10px;text-align:left;border:0;background:transparent;color:var(--tinta);font:500 14px inherit;font-family:inherit;padding:8px 10px;border-radius:6px;cursor:pointer}
+.sug button:hover,.sug button.on{background:var(--verde-suave)}
+.sug small{color:var(--gris);font-size:12px}
+.agregar{align-self:flex-start;margin-top:10px;border:2px dashed var(--verde2);color:var(--verde);background:transparent;font:700 13px inherit;font-family:inherit;padding:8px 14px;border-radius:9px;cursor:pointer}
+.agregar:disabled{opacity:.4;cursor:not-allowed}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:7px 10px;border-radius:8px}
+.chk b{font:700 11px ui-monospace,Menlo,monospace;padding:1px 5px;border-radius:4px;flex:none;margin-top:2px;color:#fff}
+.chk.ok{background:var(--ok-suave)}.chk.ok b{background:var(--ok)}
+.chk.mal{background:var(--mal-suave)}.chk.mal b{background:var(--mal)}
+.btns{display:flex;flex-wrap:wrap;gap:10px}
+.btn-sec{background:#fff;border:2px solid var(--linea);color:var(--tinta);font:700 13px inherit;font-family:inherit;padding:9px 14px;border-radius:9px;cursor:pointer}
+.btn-sec:disabled{opacity:.45;cursor:not-allowed}
+.btn-pri{background:var(--verde2);color:#fff;border:0;font:700 14px inherit;font-family:inherit;padding:10px 16px;border-radius:9px;cursor:pointer}
+.btn-pri:disabled{opacity:.45;cursor:not-allowed}
+.lado{position:sticky;top:12px;display:flex;flex-direction:column;gap:12px;min-width:0}
+@media (max-width:860px){.lado{position:static}}
+.etiqueta{background:var(--papel);border:1px solid var(--papel-linea);border-radius:8px;padding:18px;font-size:13px;position:relative}
+.etiqueta::before{content:"";position:absolute;inset:6px;border:1px dashed var(--papel-linea);border-radius:4px;pointer-events:none}
+.e-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gris);font-weight:700}
+.e-top img{height:22px;width:auto}
+.etiqueta h3{font-size:20px;margin:12px 0 2px;color:var(--tinta)}
+.e-pac{color:var(--gris);min-height:1.2em}
+.rx{list-style:none;margin:12px 0;padding:10px 0;border-block:1px solid var(--papel-linea);display:flex;flex-direction:column;gap:4px;font:12.5px ui-monospace,Menlo,monospace}
+.rx li{display:flex;justify-content:space-between;gap:12px}.rx li span:first-child{min-width:0;overflow-wrap:anywhere}
+.rx .vacio{color:var(--gris);font-family:inherit}
+.precio .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gris);font-weight:700}
+.precio .v{display:block;font-size:36px;font-weight:800;color:var(--verde);font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.15}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;margin:10px 0 0}
+.kv dt{color:var(--gris)}.kv dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.kv .fuerte{font-size:15px;color:var(--tinta)}
+.pill{display:inline-block;font:800 11px ui-monospace,Menlo,monospace;padding:2px 8px;border-radius:999px}
+.pill.ok{background:var(--ok-suave);color:var(--ok)}.pill.mal{background:var(--mal-suave);color:var(--mal)}
+.aviso{font-size:13px;padding:10px 12px;border-radius:9px;background:var(--aviso-suave)}
+.aviso b{color:var(--aviso)}
+.toast-cz{font-size:12px;color:var(--ok);min-height:1em}
+.linea-odoo{font:11.5px ui-monospace,Menlo,monospace;background:#fff;border:1px solid var(--linea);border-radius:8px;padding:8px;overflow-x:auto;white-space:pre}
+.cab-der{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px 12px}
+.cz-user{font-size:13px;font-weight:600;opacity:.92}
+@media (max-width:600px){.cz-user{display:none}.header{flex-wrap:wrap}.cab-der{width:100%;justify-content:space-between}}
+.instalar{display:none;margin-top:10px;background:#fff;color:var(--verde);border:2px solid var(--verde2)!important}
+.instalar.si{display:block}
+.ayuda-ios{font-size:12px;color:#666;margin-top:10px}
+.carga{grid-column:1/-1;text-align:center;color:var(--gris);padding:40px 0}
+.admin-motor{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.pie{grid-column:1/-1;font-size:11.5px;color:var(--gris);line-height:1.5}
+</style>
+</head>
+<body>
+
+
+<div id="app">
+  <!-- INGRESO -->
+  <div id="loginScreen" class="screen active">
+    <div class="login-container">
+      <div class="logo-login"><img src="../logo.png" alt="Epithelium Logo"></div>
+      <h1>Cotizador Epithelium</h1>
+      <p>Ingresa tu usuario y clave</p>
+      <input type="text" id="accessUser" placeholder="Usuario" maxlength="40" autocapitalize="none" autocomplete="username" onkeydown="if(event.key==='Enter')ingresar()">
+      <input type="password" id="accessCode" placeholder="Clave" maxlength="30" autocomplete="current-password" onkeydown="if(event.key==='Enter')ingresar()">
+      <button type="button" onclick="ingresar()">Acceder</button>
+      <p id="errorMsg" class="error"></p>
+      <button type="button" class="instalar" id="btnInstalar" onclick="instalarApp()">Instalar en este equipo</button>
+      <p class="ayuda-ios" id="ayudaIos" hidden>En iPhone o iPad: toca Compartir y luego «Agregar a inicio».</p>
+    </div>
+  </div>
+
+  <div id="appScreen" class="screen app-screen">
+    <div class="header">
+      <div class="header-logo">
+        <img src="../logo-blanco.png" alt="Epithelium" class="header-logo-img">
+        <h1>Cotizador Epithelium</h1>
+      </div>
+      <div class="cab-der">
+        <div class="motor-sel" role="group" aria-label="Motor de precios">
+          <button type="button" id="m-epi" aria-pressed="true">Epithelium</button>
+          <button type="button" id="m-cdfll" aria-pressed="false">CDFLL</button>
+        </div>
+        <span class="cz-user" id="czUsuario"></span>
+        <button type="button" class="logout-btn" onclick="salir()">Salir</button>
+      </div>
+    </div>
+
+    <div class="cz">
+      <form class="tarjeta" id="form" novalidate>
+        <section>
+          <div class="sec-h"><h2>Paciente y punto de venta</h2><span>Para el nombre en Odoo</span></div>
+          <div class="fila">
+            <label class="campo">Paciente<input id="paciente" autocomplete="off" placeholder="Nombre del paciente"></label>
+            <label class="campo">PDV<input id="pdv" maxlength="4" autocomplete="off" placeholder="Ej. BP" style="text-transform:uppercase"></label>
+          </div>
+        </section>
+        <section>
+          <div class="sec-h"><h2>Forma y presentación</h2><span id="cnt-comb"></span></div>
+          <div class="fila">
+            <label class="campo">Forma farmacéutica<select id="forma"></select></label>
+            <label class="campo">Presentación<select id="pres"></select></label>
+            <label class="campo">Unidades<input id="cant" class="num" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
+          </div>
+        </section>
+        <section>
+          <div class="sec-h"><h2>Principios activos</h2><span id="cnt-act"></span></div>
+          <div class="acts" id="acts"></div>
+          <button type="button" class="agregar" id="add">+ Agregar activo</button>
+        </section>
+        <section>
+          <div class="sec-h"><h2>Validación</h2><span>Mismas reglas de la hoja COTIZACION</span></div>
+          <div class="checks" id="checks"></div>
+        </section>
+        <div class="btns">
+          <button type="button" class="btn-sec" id="reset">Nueva fórmula</button>
+        </div>
+      </form>
+
+      <aside class="lado">
+        <div class="etiqueta" aria-live="polite">
+          <div class="e-top"><img src="../logo.png" alt="Epithelium"><span id="e-estado"></span></div>
+          <h3 id="e-titulo">—</h3>
+          <div class="e-pac" id="e-pac"></div>
+          <ul class="rx" id="e-rx"></ul>
+          <div id="e-precio"></div>
+        </div>
+        <div id="aviso"></div>
+        <div class="btns">
+          <button type="button" class="btn-pri" id="copy-odoo" disabled>Copiar línea Odoo</button>
+        </div>
+        <div class="toast-cz" id="toast-cz"></div>
+        <div id="linea-box" hidden><div class="linea-odoo" id="linea"></div></div>
+      </aside>
+
+      <p class="carga" id="carga" hidden>Cargando el motor de cotización…</p>
+      <div class="pie"><p id="pie"></p><div class="admin-motor" id="adminMotor" hidden><button type="button" class="btn-sec" onclick="document.getElementById('motorArchivo').click()">Cargar motor (archivo JSON)</button><input type="file" id="motorArchivo" accept=".json,application/json" hidden onchange="subirMotor(this)"><span id="adminMsg"></span></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="usuarios.js?v=202611071200" charset="utf-8"></script>
+<script>
+/* ===== Cotizador Epithelium: ingreso con los mismos usuarios y claves de Visita Comercial =====
+   El motor (costos, márgenes) NO está en el repositorio: se trae del servidor de Visita Comercial
+   (base privada "motor_cotizador", solo con usuario y clave válidos) y queda guardado en el equipo. */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
+const SESION_KEY = 'cz_sesion', MOTOR_KEY = 'cz_motor';
+const $id = id => document.getElementById(id);
+let sesion = null, cotizadorListo = false;
+
+async function huellaDe(u, c) { const b = new TextEncoder().encode(`${u.toLowerCase()}:${c.toLowerCase()}`); return [...new Uint8Array(await crypto.subtle.digest('SHA-256', b))].map(x => x.toString(16).padStart(2, '0')).join(''); }
+const leer = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+const escribir = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+function pantalla(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); }
+function cargarScript(src) { return new Promise((ok, mal) => { const s = document.createElement('script'); s.src = src; s.charset = 'utf-8'; s.onload = ok; s.onerror = mal; document.body.appendChild(s); }); }
+
+async function api(cuerpo) {
+  const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...cuerpo, usuario: sesion.usuario, clave: sesion.clave }) });
+  const d = await r.json().catch(() => { throw new Error('el servidor no respondió bien'); });
+  if (!d.ok) throw new Error(d.error || 'Error del servidor');
+  return d;
+}
+// Trae el motor del servidor si hay una versión nueva; sin conexión usa el guardado en el equipo
+async function traerMotor() {
+  let cache = leer(MOTOR_KEY);
+  try {
+    const { versiones } = await api({ accion: 'versionesBases' });
+    const v = versiones && versiones.motor_cotizador;
+    if (v && (!cache || cache.v !== v)) {
+      const r = await api({ accion: 'leerBase', nombre: 'motor_cotizador' });
+      if (r.contenido) { cache = { v: r.actualizado || v, d: JSON.parse(r.contenido) }; escribir(MOTOR_KEY, cache); }
+    }
+  } catch (e) { console.warn('Sin conexión con el servidor, uso el motor guardado:', e); }
+  return cache && cache.d;
+}
+
+async function entrar(u, clave) {
+  sesion = { ...u, clave };
+  escribir(SESION_KEY, { usuario: u.usuario, clave });
+  $id('czUsuario').textContent = u.nombre;
+  $id('adminMotor').hidden = !u.admin;
+  pantalla('appScreen');
+  document.querySelectorAll('#form, .lado').forEach(e => e.hidden = true);
+  $id('carga').hidden = false; $id('carga').textContent = 'Cargando el motor de cotización…';
+  const d = await traerMotor();
+  if (!d) {
+    $id('carga').textContent = u.admin ? 'Todavía no hay motor cargado en el servidor. Súbelo con «Cargar motor» aquí abajo.' : 'Todavía no hay motor cargado. Avísale al administrador.';
+    return;
+  }
+  window.MOTOR = d;
+  $id('carga').hidden = true;
+  document.querySelectorAll('#form, .lado').forEach(e => e.hidden = false);
+  if (!cotizadorListo) { cotizadorListo = true; await cargarScript('cotizador.js?v=202611071200'); }
+}
+
+async function ingresar() {
+  const usuario = $id('accessUser').value.trim(), clave = $id('accessCode').value.trim(), err = $id('errorMsg');
+  if (!usuario || !clave) { err.textContent = 'Ingresa tu usuario y clave'; return; }
+  const u = USUARIOS.find(x => x.usuario.toLowerCase() === usuario.toLowerCase());
+  if (!u || u.huella !== await huellaDe(usuario, clave)) { err.textContent = 'Usuario o clave incorrectos'; $id('accessCode').value = ''; return; }
+  err.textContent = ''; $id('accessCode').value = '';
+  try { localStorage.removeItem('cz_salio'); } catch (e) {}
+  entrar(u, clave);
+}
+function salir() { try { localStorage.removeItem(SESION_KEY); localStorage.removeItem(MOTOR_KEY); localStorage.setItem('cz_salio', '1'); } catch (e) {} location.reload(); }
+
+// Administrador: sube el motor (archivo JSON que se genera desde los Excel del motor)
+async function subirMotor(input) {
+  const f = input.files[0]; input.value = ''; if (!f) return;
+  const msg = $id('adminMsg');
+  try {
+    const texto = await f.text(), d = JSON.parse(texto);
+    if (!d.materias || !d.combos || !d.formas || !d.rangos_cdfll) throw new Error('el archivo no es un motor del cotizador');
+    msg.textContent = `Subiendo motor ${d.version}…`;
+    await api({ accion: 'guardarBase', nombre: 'motor_cotizador', contenido: texto, resumen: `Motor ${d.version} · ${d.materias.length} activos · ${d.formas.length} presentaciones` });
+    try { localStorage.removeItem(MOTOR_KEY); } catch (e) {}
+    msg.textContent = `Motor ${d.version} cargado. Todos lo reciben al abrir el cotizador.`;
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) { msg.textContent = 'No se pudo cargar: ' + e.message; }
+}
+
+// Instalar como app (computador, tablet y celular)
+let avisoInstalar = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); avisoInstalar = e; $id('btnInstalar').classList.add('si'); });
+async function instalarApp() { if (!avisoInstalar) return; avisoInstalar.prompt(); await avisoInstalar.userChoice; avisoInstalar = null; $id('btnInstalar').classList.remove('si'); }
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone) $id('ayudaIos').hidden = false;
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// Sesión: la del cotizador o, si no hay, la de Visita Comercial (mismo sitio, mismo usuario)
+(async function () {
+  const s = leer(SESION_KEY) || (leer('cz_salio') ? null : leer('rc_sesion'));   // tras «Salir» no se vuelve a entrar con la sesión de Visita
+  const u = s && s.usuario && s.clave && USUARIOS.find(x => x.usuario.toLowerCase() === String(s.usuario).toLowerCase());
+  if (u && u.huella === await huellaDe(s.usuario, s.clave)) entrar(u, s.clave); else pantalla('loginScreen');
+})();
+</script>
+</body>
+</html>
