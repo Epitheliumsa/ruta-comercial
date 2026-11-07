@@ -469,6 +469,9 @@
   El PDF lleva arriba el paciente y «Cotiza: <nombre>» (o «PDV: <cliente>» para usuarios propios) y una fila por fórmula con **solo el Precio Venta Sugerido**
   en la misma línea, columna **«Valor»** (total; si hay varias unidades, «· N unidades ($ X c/u)» va en negrilla). Siempre cierra con **Total** y el valor
   en letras (`numeroALetras` en NomProp: «Son: Dos Millones Setenta y Dos Mil Pesos M/Cte»). Sin precio de facturación ni rango CDFLL: eso es solo de la pantalla.
+- **Versión** (como Visita Comercial): al pie sale «Versión dd/mm/aaaa hh:mm · ✓ Actualizada» y el botón **Actualizar**; si `cotizador/version.txt` trae una
+  versión más nueva, se recarga sola (si no hay nada escrito) o sale el aviso «Hay una versión nueva del Cotizador». **Antes de publicar cambios del cotizador
+  correr `sh herramientas/version_cotizador.sh`** (pone la versión en `version.txt`, `COTI_VERSION`, los `?v=` y la caché del service worker).
 - El cálculo replica la hoja COTIZACION (homólogos por forma, Clobetasol en Esmalte, sustitución de Antocianinas, márgenes por tramo y
   excepción por forma, mínimos, PVSP con MULTIPLOS y rangos CDFLL). Probado contra el motor v51 con 500 fórmulas al azar.
 
