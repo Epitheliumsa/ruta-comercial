@@ -134,7 +134,9 @@ function renderActs(f,el){
 }
 function sugerir(r,inp,a,f,el){
   r.querySelector(".sug")?.remove();
-  const res=buscar(inp.value); if(!res.length) return;
+  const usadas=new Set(f.acts.filter(x=>x!==a&&x.codigo).map(x=>codigoEfectivo(f.forma,x.codigo)));
+  const todas=buscar(inp.value), res=todas.filter(m=>m.virtual||!usadas.has(codigoEfectivo(f.forma,m.codigo)));
+  if(!res.length){ if(todas.length){ const d=document.createElement("div"); d.className="sug"; d.innerHTML=`<div class="sug-aviso">${esc(todas[0].nombre)} ya est\u00e1 en esta f\u00f3rmula</div>`; r.querySelector(".who").appendChild(d); } return; }
   const s=document.createElement("div"); s.className="sug"; s.setAttribute("role","listbox");
   res.forEach((m,k)=>{const b=document.createElement("button");b.type="button";if(!k)b.className="on";
     b.innerHTML=`<span>${esc(m.nombre)}</span>`;
@@ -155,6 +157,8 @@ function elegir(a,m,f,el){
   setTimeout(()=>{const p=el.querySelectorAll(".act")[i]?.querySelector(".pct input"); if(p&&!p.value)p.focus()},0);
 }
 
+/* \u00cdndices de las filas con una materia prima que ya est\u00e1 antes en la misma f\u00f3rmula (un hom\u00f3logo cuenta como la misma) */
+function repetidas(f){ const vistos=new Set(), out=[]; f.acts.forEach((a,i)=>{ if(!a.codigo) return; const k=codigoEfectivo(f.forma,a.codigo); if(vistos.has(k)) out.push(i); else vistos.add(k); }); return out; }
 /* ================= Validaci\u00f3n (C46\u2013C50): solo se muestra lo que falta ================= */
 function validar(f){
   const pres=Number(f.pres);
@@ -169,6 +173,8 @@ function validar(f){
   if(!cods) faltas.push("No est\u00e1 en el cat\u00e1logo. Comun\u00edcate a Servicio al Cliente Epithelium 300 7514948");
   if(!conc) faltas.push("Cada activo necesita su concentraci\u00f3n (mayor que 0 %)");
   if(suma>=100) faltas.push(`Los activos suman ${pctTxt(+suma.toFixed(3))} %: deben sumar menos de 100 %`);
+  const rep=repetidas(f);
+  if(rep.length) faltas.push(`Materia prima repetida en la f\u00f3rmula: ${[...new Set(rep.map(i=>BYCODE[f.acts[i].codigo].nombre))].join(", ")}. D\u00e9jala una sola vez`);
   if(!f.forma) faltas.push("Elige la forma farmac\u00e9utica");
   else if(!pres) faltas.push("Elige la presentaci\u00f3n");
   else if(!comb) faltas.push("Esa presentaci\u00f3n no existe en el cat\u00e1logo");
@@ -222,6 +228,7 @@ function marcarErrores(){
       if(!a.codigo&&!a.texto&&a.pct!=="") mal(n);
       if((a.codigo||a.texto)&&!(numPct(a.pct)>0)) mal(pc);
       if(suma>=100&&a.pct!=="") mal(pc); });
+    repetidas(f).forEach(i=>mal(filas[i]?.querySelector(".who input")));
     const pres=Number(f.pres);
     if(!f.forma) mal(el.querySelector(".sel-forma"));
     else if(!pres||!(FORMAS[f.forma]||[]).some(x=>x.p===pres)||!M.combos[f.forma+pres]) mal(el.querySelector(".sel-pres"));

@@ -67,7 +67,7 @@ const numPct=v=>{ const t=String(v??"").trim().replace(",",".").replace(/\.$/,""
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const unidadDe=f=>{const l=FORMAS[f.forma]; return l?((l.find(x=>String(x.p)===String(f.pres))||{}).u||""):"";};
 const FORMAS_ORD=Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es"));
-const nota='<span class="aviso-catalogo">No est\u00e1 en el cat\u00e1logo. Comun\u00edcate a Servicio al Cliente Epithelium <a class="tel-sac" href="tel:+573007514948"><b>300 7514948</b></a></span>';
+const nota='<span class="aviso-catalogo" style="display:block;margin-top:4px;padding:7px 10px;border-radius:8px;background:#fce8e6;border:1px solid #f5c2bc;color:#b42318;font-size:13px;font-weight:600;line-height:1.4">No est\u00e1 en el cat\u00e1logo. Comun\u00edcate a Servicio al Cliente Epithelium <a class="tel-sac" href="tel:+573007514948"><b>300 7514948</b></a></span>';
 
 const CONECTORES_NOMBRE = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e']);
 // Nombre del paciente siempre en NomProp (misma regla de Visita Comercial: conectores en min\u00fascula)
