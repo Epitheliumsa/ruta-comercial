@@ -162,7 +162,7 @@ function validar(f){
   else if(!comb) faltas.push("Esa presentaci\u00f3n no existe en el cat\u00e1logo");
   return faltas;
 }
-const todasFaltas=()=>S.formulas.flatMap((f,i)=>validar(f).map(t=>S.formulas.length>1?`F\u00f3rmula ${i+1}: ${t}`:t));
+const todasFaltas=()=>[...($("paciente").value.trim()?[]:["Escribe el nombre del paciente"]),...S.formulas.flatMap((f,i)=>validar(f).map(t=>S.formulas.length>1?`F\u00f3rmula ${i+1}: ${t}`:t))];
 
 /* ================= Etiquetas (derecha) ================= */
 function etiquetaHTML(f,fi){
@@ -172,10 +172,12 @@ function etiquetaHTML(f,fi){
   const rx=act.length||pres?`<p class="rx-linea">${pac?`<b>${esc(pac)}</b>, `:""}${partes.join(" + ")}${pres?`${partes.length?" \u00b7 ":""}${esc(pres)}`:""}${pres&&f.cant>1?` \u00b7 ${f.cant} unidades`:""}</p>`:`<p class="rx-linea vacio">Agrega los principios activos</p>`;
   let precio;
   if(!R) precio=`<div class="precio"><span class="k">Precio</span><span class="v" style="color:var(--gris)">\u2014</span><span class="vacio-txt">Completa la f\u00f3rmula y toca \u00abCotizar\u00bb.</span></div>`;
-  else if(S.motor==="CDFLL") precio=`<div class="precio"><span class="k">Precio facturaci\u00f3n CDFLL</span><span class="v">${fmt(R.precio_cdfll)}</span></div>
-    <dl class="kv"><dt>PVSP CDFLL</dt><dd class="fuerte">${fmt(R.pr_venta_cdfll)}</dd><dt>Rango</dt><dd>${R.rango}</dd>${f.cant>1?`<dt>Total ${f.cant} unidades</dt><dd>${fmt(R.precio_cdfll*f.cant)}</dd>`:""}</dl>`;
-  else precio=`<div class="precio"><span class="k">Precio de facturaci\u00f3n</span><span class="v">${fmt(R.precio)}</span></div>
-    <dl class="kv"><dt>PVSP</dt><dd class="fuerte">${fmt(R.pvsp)}</dd>${f.cant>1?`<dt>Total ${f.cant} unidades</dt><dd>${fmt(R.total)}</dd>`:""}</dl>`;
+  else{
+    const cdf=S.motor==="CDFLL", fac=cdf?R.precio_cdfll:R.precio, pvs=cdf?R.pr_venta_cdfll:R.pvsp, n=f.cant;
+    precio=`<div class="precio"><span class="k">Precio de facturaci\u00f3n${cdf?" CDFLL":""}${n>1?" \u00b7 por unidad":""}</span><span class="v">${fmt(fac)}</span></div>
+    <dl class="kv">${cdf?`<dt>Rango</dt><dd>${R.rango}</dd>`:""}${n>1?`<dt>Total facturaci\u00f3n \u00b7 ${n} unidades</dt><dd class="fuerte">${fmt(fac*n)}</dd>`:""}</dl>
+    <div class="pvs"><div class="pvs-fila"><span>Precio Venta Sugerido${n>1?" \u00b7 por unidad":""}</span><b>${fmt(pvs)}</b></div>${n>1?`<div class="pvs-fila"><span>Precio Venta Sugerido \u00b7 total ${n} unidades</span><b>${fmt(pvs*n)}</b></div>`:""}</div>`;
+  }
   const pill=`${S.formulas.length>1?`F\u00d3RMULA ${fi+1} \u00b7 `:""}${R?"COTIZADA":"BORRADOR"} \u00b7 ${motorTxt}`;
   return `<div class="etiqueta"><div class="e-top"><img src="${document.querySelector('.header-logo-img')?.getAttribute('src').replace('logo-blanco','logo')||'logo.png'}" alt="Epithelium"><span><span class="pill ${R?"ok":"mal"}">${pill}</span></span></div>
     ${rx}${precio}</div>`;
@@ -187,7 +189,7 @@ function update(){
   $("etiquetas").innerHTML=S.formulas.map(etiquetaHTML).join("");
   $("e-cotiza").hidden=!window.CZ_COTIZA; $("e-cotiza").innerHTML=window.CZ_COTIZA?`Cotiza: <b>${esc(window.CZ_COTIZA)}</b>`:"";
   document.querySelectorAll("#formulas .formula").forEach((el,i)=>{const f=S.formulas[i]; if(f) el.querySelector(".cnt").textContent=`${f.acts.filter(a=>a.codigo).length} de ${MAX}`;});
-  $("copy-odoo").disabled=!S.formulas.some(f=>f.R); $("linea-box").hidden=true;
+  $("copy-odoo").disabled=!S.formulas.some(f=>f.R); $("btnPdf").disabled=!S.formulas.some(f=>f.R); $("linea-box").hidden=true;
 }
 function calcular(f){ return cotizar(f.forma,Number(f.pres),f.acts.filter(a=>a.codigo).map(a=>[a.codigo,Number(a.pct)]),f.cant,S.motor); }
 function cotizarAhora(){
@@ -219,10 +221,61 @@ async function copiar(){
   setTimeout(()=>$("toast-cz").textContent="",4000);
 }
 
+
+/* ================= PDF de la cotizaci\u00f3n ================= */
+function logoDataURL(){
+  return new Promise(res=>{const img=new Image(); img.onload=()=>{try{const w=360,h=Math.round(w*img.naturalHeight/img.naturalWidth),c=document.createElement("canvas");c.width=w;c.height=h;const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,w,h);g.drawImage(img,0,0,w,h);res({d:c.toDataURL("image/jpeg",0.9),w,h});}catch(e){res(null);}}; img.onerror=()=>res(null);
+    img.src=(document.querySelector(".header-logo-img")?.getAttribute("src")||"logo-blanco.png").replace("logo-blanco","logo");});
+}
+async function generarPDF(){
+  const lista=S.formulas.map((f,i)=>({f,i})).filter(x=>x.f.R); if(!lista.length) return;
+  if(!window.jspdf){ $("toast-cz").textContent="No se pudo cargar el generador de PDF."; return; }
+  const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"}), W=210, X=18, AN=W-2*X;
+  const verde=[0,107,79], gris=[95,107,104], tinta=[31,41,55], lima=[77,124,15];
+  const pac=$("paciente").value.trim(), pdv=$("pdv").value.trim(), cdf=S.motor==="CDFLL";
+  const ahora=new Date(), fecha=ahora.toLocaleString("es-CO",{timeZone:"America/Bogota",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  const lg=await logoDataURL(); let y=16;
+  if(lg){ const w=38, h=w*lg.h/lg.w; doc.addImage(lg.d,"JPEG",X,y,w,h); }
+  doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(...verde); doc.text("Cotizaci\u00f3n",W-X,y+7,{align:"right"});
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(...gris);
+  doc.text(fecha,W-X,y+13,{align:"right"}); doc.text(cdf?"Centro Dermatol\u00f3gico Federico Lleras Acosta":"Epithelium S.A.",W-X,y+18,{align:"right"});
+  y+=34; doc.setDrawColor(217,229,223); doc.line(X,y,W-X,y); y+=8;
+  doc.setFontSize(10); doc.setTextColor(...gris); doc.text("Paciente",X,y); doc.text("PDV",X+AN/2,y); y+=5.5;
+  doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...tinta); doc.text(pac,X,y); doc.text(pdv,X+AN/2,y); y+=10;
+  const fila=(et,val,color,neg)=>{ doc.setFont("helvetica",neg?"bold":"normal"); doc.setFontSize(10.5); doc.setTextColor(...(color||gris)); doc.text(et,X+5,y); doc.setTextColor(...(color||tinta)); doc.setFont("helvetica","bold"); doc.text(val,W-X-5,y,{align:"right"}); y+=6.5; };
+  for(const {f,i} of lista){
+    const R=f.R, n=f.cant, fac=cdf?R.precio_cdfll:R.precio, pvs=cdf?R.pr_venta_cdfll:R.pvsp;
+    const acts=f.acts.filter(a=>a.codigo).map(a=>`${BYCODE[a.codigo].nombre} ${pctTxt(a.pct)} %`).join(" + ");
+    const linea=`${acts} \u00b7 ${f.forma} x ${f.pres} ${unidadDe(f)}${n>1?` \u00b7 ${n} unidades`:""}`;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10.5); const tl=doc.splitTextToSize(linea,AN-10);
+    const alto=12+tl.length*5+ (n>1?13:6.5) + (cdf?6.5:0) + (n>1?13:6.5) + 6;
+    if(y+alto>270){ doc.addPage(); y=20; }
+    doc.setDrawColor(231,223,199); doc.setFillColor(255,253,246); doc.roundedRect(X,y,AN,alto,2,2,"FD"); const y0=y; y+=7;
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...verde); doc.text(lista.length>1||S.formulas.length>1?`F\u00f3rmula ${i+1}`:"F\u00f3rmula",X+5,y); y+=6;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10.5); doc.setTextColor(...tinta); doc.text(tl,X+5,y); y+=tl.length*5+2;
+    fila(`Precio de facturaci\u00f3n${n>1?" por unidad":""}`,fmt(fac),verde,true);
+    if(cdf) fila("Rango",R.rango);
+    if(n>1) fila(`Total facturaci\u00f3n \u00b7 ${n} unidades`,fmt(fac*n),tinta,true);
+    fila(`Precio Venta Sugerido${n>1?" por unidad":""}`,fmt(pvs),lima,true);
+    if(n>1) fila(`Precio Venta Sugerido \u00b7 total ${n} unidades`,fmt(pvs*n),lima,true);
+    y=y0+alto+6;
+  }
+  if(window.CZ_COTIZA){ doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(...gris); doc.text("Cotiza: ",X,y); doc.setFont("helvetica","bold"); doc.setTextColor(...tinta); doc.text(window.CZ_COTIZA,X+doc.getTextWidth("Cotiza: "),y); y+=8; }
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...gris);
+  doc.text(doc.splitTextToSize(`\u00a9 ${ahora.getFullYear()} Epithelium S.A. Informaci\u00f3n confidencial y de uso exclusivo para usuarios autorizados. Los precios corresponden al motor ${M.version} y pueden cambiar sin previo aviso.`,AN),X,287);
+  const aaaamm=`${ahora.getFullYear()}${String(ahora.getMonth()+1).padStart(2,"0")}`;
+  const nombre=`${aaaamm} Cotizacion ${sinTilde(pac).replace(/[\\/:*?"<>|]+/g," ").trim()}.pdf`;
+  try{ const url=URL.createObjectURL(doc.output("blob")), a=document.createElement("a"); a.href=url; a.download=nombre; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+    $("toast-cz").textContent=`Se descarg\u00f3 \u00ab${nombre}\u00bb.`; }
+  catch(e){ $("toast-cz").textContent="Este navegador no permiti\u00f3 descargar el PDF."; }
+  setTimeout(()=>$("toast-cz").textContent="",5000);
+}
+
 /* ================= Arranque: siempre en blanco ================= */
 function setMotor(m){ S.motor=m; $("m-epi").setAttribute("aria-pressed",m==="EPITHELIUM"); $("m-cdfll").setAttribute("aria-pressed",m==="CDFLL"); S.formulas.forEach(f=>{if(f.R) f.R=calcular(f);}); update(); }
 $("pdv").value=window.CZ_PDV||"";
 $("paciente").addEventListener("input",update);
+$("btnPdf").addEventListener("click",generarPDF);
 $("addFormula").addEventListener("click",()=>{ if(S.formulas.length>=MAXF) return; S.formulas.push(nuevaFormula()); renderFormulas(); const els=document.querySelectorAll("#formulas .formula"); const ul=els[els.length-1]; ul.scrollIntoView({behavior:"smooth",block:"start"}); ul.querySelector(".act input")?.focus(); });
 $("btnCotizar").addEventListener("click",cotizarAhora);
 $("reset").addEventListener("click",limpiar);
