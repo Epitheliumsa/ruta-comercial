@@ -61,7 +61,9 @@ const nuevaFormula=()=>({acts:[nuevaFila()],forma:"",pres:"",cant:1,R:null});
 const S={motor:"EPITHELIUM",formulas:[nuevaFormula()],intento:false};
 const $=id=>document.getElementById(id);
 const fmt=n=>"$ "+Math.round(n).toLocaleString("es-CO");
-const pctTxt=n=>String(n).replace(".",",");
+const pctTxt=n=>Number.isNaN(n)?"\u2014":String(n).replace(".",",");
+// Porcentaje escrito con punto o coma ("3.", "3,5", "3.5"); vac\u00edo o inv\u00e1lido = NaN
+const numPct=v=>{ const t=String(v??"").trim().replace(",",".").replace(/\.$/,""); return t===""||!/^\d*\.?\d+$/.test(t)?NaN:Number(t); };
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const unidadDe=f=>{const l=FORMAS[f.forma]; return l?((l.find(x=>String(x.p)===String(f.pres))||{}).u||""):"";};
 const FORMAS_ORD=Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es"));
@@ -114,7 +116,7 @@ function renderActs(f,el){
   f.acts.forEach((a,i)=>{
     const r=document.createElement("div"); r.className="act";
     r.innerHTML=`<div class="who"><input autocomplete="off" placeholder="Busca por nombre" aria-label="Activo ${i+1}"><div class="meta">${!a.codigo&&a.texto?nota:""}</div></div>
-      <div class="pct"><input class="num" type="number" step="0.001" min="0" inputmode="decimal" placeholder="0" aria-label="Concentraci\u00f3n ${i+1}"></div>
+      <div class="pct"><input class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Concentraci\u00f3n ${i+1}"></div>
       <button type="button" class="quitar" aria-label="Quitar activo ${i+1}" title="Quitar">\u00d7</button>`;
     box.appendChild(r);
     const [inp,pin]=r.querySelectorAll("input");
@@ -159,8 +161,8 @@ function validar(f){
   const filas=f.acts.filter(a=>a.codigo||a.texto||a.pct!=="");
   const hay=filas.some(a=>a.codigo);
   const cods=filas.every(a=>!(a.texto&&!a.codigo));
-  const conc=filas.every(a=>(a.codigo||a.texto)?Number(a.pct)>0:a.pct==="");
-  const suma=filas.reduce((s,a)=>s+(Number(a.pct)||0),0);
+  const conc=filas.every(a=>(a.codigo||a.texto)?numPct(a.pct)>0:a.pct==="");
+  const suma=filas.reduce((s,a)=>s+(numPct(a.pct)||0),0);
   const comb=!!f.forma&&!!pres&&(FORMAS[f.forma]||[]).some(x=>x.p===pres)&&!!M.combos[f.forma+pres];
   const faltas=[];
   if(!hay) faltas.push("Agrega al menos un principio activo");
@@ -178,7 +180,7 @@ const todasFaltas=()=>[...($("paciente").value.trim()?[]:["Escribe el nombre del
 function etiquetaHTML(f,fi){
   const motorTxt=S.motor==="CDFLL"?"CDFLL":"Epithelium", R=f.R, pac=$("paciente").value.trim();
   const act=f.acts.filter(a=>a.codigo), u=unidadDe(f), pres=f.forma?(f.pres?`${f.forma} x ${f.pres} ${u}`:f.forma):"";
-  const partes=act.map(a=>`${esc(BYCODE[a.codigo].nombre)} ${a.pct===""?"\u2014":pctTxt(a.pct)+" %"}`);
+  const partes=act.map(a=>`${esc(BYCODE[a.codigo].nombre)} ${a.pct===""?"\u2014":pctTxt(numPct(a.pct))+" %"}`);
   const rx=act.length||pres?`<p class="rx-linea">${pac?`<b>${esc(pac)}</b>, `:""}${partes.join(" + ")}${pres?`${partes.length?" \u00b7 ":""}${esc(pres)}`:""}${pres&&f.cant>1?` \u00b7 ${f.cant} unidades`:""}</p>`:`<p class="rx-linea vacio">Agrega los principios activos</p>`;
   let precio;
   if(!R) precio=`<div class="precio"><span class="k">Precio</span><span class="v" style="color:var(--gris)">\u2014</span><span class="vacio-txt">Completa la f\u00f3rmula y toca \u00abCotizar\u00bb.</span></div>`;
@@ -214,18 +216,18 @@ function marcarErrores(){
     const filas=el.querySelectorAll(".act");
     const usados=f.acts.filter(a=>a.codigo||a.texto||a.pct!=="");
     if(!usados.some(a=>a.codigo)) mal(filas[0]?.querySelector(".who input"));
-    const suma=usados.reduce((t,a)=>t+(Number(a.pct)||0),0);
+    const suma=usados.reduce((t,a)=>t+(numPct(a.pct)||0),0);
     f.acts.forEach((a,i)=>{ const r=filas[i]; if(!r) return; const [n,pc]=r.querySelectorAll("input");
       if(a.texto&&!a.codigo) mal(n);
       if(!a.codigo&&!a.texto&&a.pct!=="") mal(n);
-      if((a.codigo||a.texto)&&!(Number(a.pct)>0)) mal(pc);
+      if((a.codigo||a.texto)&&!(numPct(a.pct)>0)) mal(pc);
       if(suma>=100&&a.pct!=="") mal(pc); });
     const pres=Number(f.pres);
     if(!f.forma) mal(el.querySelector(".sel-forma"));
     else if(!pres||!(FORMAS[f.forma]||[]).some(x=>x.p===pres)||!M.combos[f.forma+pres]) mal(el.querySelector(".sel-pres"));
   });
 }
-function calcular(f){ return cotizar(f.forma,Number(f.pres),f.acts.filter(a=>a.codigo).map(a=>[a.codigo,Number(a.pct)]),f.cant,S.motor); }
+function calcular(f){ return cotizar(f.forma,Number(f.pres),f.acts.filter(a=>a.codigo).map(a=>[a.codigo,numPct(a.pct)]),f.cant,S.motor); }
 function cotizarAhora(){
   arreglarPaciente(); S.intento=true;
   if(todasFaltas().length){ S.formulas.forEach(f=>f.R=null); update(); $("secChecks").scrollIntoView({behavior:"smooth",block:"center"}); return; }
@@ -241,7 +243,7 @@ const sinTilde=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 const tituloProp=s=>s.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
 function lineaOdoo(f){
   const u=unidadDe(f), R=f.R;
-  const acts=f.acts.filter(a=>a.codigo).map(a=>`${BYCODE[codigoEfectivo(f.forma,a.codigo)].nombre} ${pctTxt(a.pct)}%`);
+  const acts=f.acts.filter(a=>a.codigo).map(a=>`${BYCODE[codigoEfectivo(f.forma,a.codigo)].nombre} ${pctTxt(numPct(a.pct))}%`);
   const pac=$("paciente").value.trim(), pdv=$("pdv").value.trim();
   const nombre=[pac&&tituloProp(pac),...acts,`${f.forma} x ${f.pres} ${u}`].filter(Boolean).join(", ")+(pdv?` - ${pdv}`:"");
   const precio=S.motor==="CDFLL"?R.precio_cdfll:R.precio;
@@ -314,7 +316,7 @@ async function generarPDF(){
   let total=0;
   lista.forEach(({f,i},k)=>{
     const R=f.R, n=f.cant, pvs=cdf?R.pr_venta_cdfll:R.pvsp; total+=pvs*n;
-    const acts=f.acts.filter(a=>a.codigo).map(a=>`${BYCODE[a.codigo].nombre} ${pctTxt(a.pct)} %`).join(" + ");
+    const acts=f.acts.filter(a=>a.codigo).map(a=>`${BYCODE[a.codigo].nombre} ${pctTxt(numPct(a.pct))} %`).join(" + ");
     const partes=[[`${lista.length>1?(k+1)+". ":""}${acts} \u00b7 ${f.forma} x ${f.pres} ${unidadDe(f)}`,false]];
     if(n>1) partes.push([` \u00b7 ${n} unidades (${fmt(pvs)} c/u)`,true]);   // m\u00e1s de una unidad: resaltado en negrilla
     // alto: se mide escribiendo en una hoja de prueba
