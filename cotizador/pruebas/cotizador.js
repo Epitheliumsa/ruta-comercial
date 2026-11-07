@@ -67,6 +67,16 @@ const unidadDe=f=>{const l=FORMAS[f.forma]; return l?((l.find(x=>String(x.p)===S
 const FORMAS_ORD=Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es"));
 const nota='<span class="nota">No est\u00e1 en el cat\u00e1logo. Elige una opci\u00f3n de la lista.</span>';
 
+const CONECTORES_NOMBRE = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e']);
+// Nombre del paciente siempre en NomProp (misma regla de Visita Comercial: conectores en min\u00fascula)
+const nombrePropio = t => String(t || '').trim().replace(/\s+/g, ' ').split(' ').map((w, i) => {
+  const l = w.toLocaleLowerCase('es');
+  if (i && CONECTORES_NOMBRE.has(l)) return l;
+  if (/\./.test(w) && w.replace(/\./g, '').length <= 4) return w.toLocaleUpperCase('es');
+  return l.replace(/(^|[-'(])(\p{L})/gu, (m, a, b) => a + b.toLocaleUpperCase('es'));
+}).join(' ');
+const arreglarPaciente = () => { const v = nombrePropio($("paciente").value); if (v !== $("paciente").value) { $("paciente").value = v; update(); } };
+
 /* ================= F\u00f3rmulas (hasta 5) ================= */
 function renderFormulas(){
   const box=$("formulas"); box.innerHTML="";
@@ -193,7 +203,7 @@ function update(){
 }
 function calcular(f){ return cotizar(f.forma,Number(f.pres),f.acts.filter(a=>a.codigo).map(a=>[a.codigo,Number(a.pct)]),f.cant,S.motor); }
 function cotizarAhora(){
-  S.intento=true;
+  arreglarPaciente(); S.intento=true;
   if(todasFaltas().length){ S.formulas.forEach(f=>f.R=null); update(); $("secChecks").scrollIntoView({behavior:"smooth",block:"center"}); return; }
   S.intento=false; S.formulas.forEach(f=>f.R=calcular(f)); update();
   if(window.matchMedia("(max-width:860px)").matches) $("etiquetas").scrollIntoView({behavior:"smooth",block:"start"});
@@ -275,6 +285,7 @@ async function generarPDF(){
 function setMotor(m){ S.motor=m; $("m-epi").setAttribute("aria-pressed",m==="EPITHELIUM"); $("m-cdfll").setAttribute("aria-pressed",m==="CDFLL"); S.formulas.forEach(f=>{if(f.R) f.R=calcular(f);}); update(); }
 $("pdv").value=window.CZ_PDV||"";
 $("paciente").addEventListener("input",update);
+$("paciente").addEventListener("blur",arreglarPaciente);
 $("btnPdf").addEventListener("click",generarPDF);
 $("addFormula").addEventListener("click",()=>{ if(S.formulas.length>=MAXF) return; S.formulas.push(nuevaFormula()); renderFormulas(); const els=document.querySelectorAll("#formulas .formula"); const ul=els[els.length-1]; ul.scrollIntoView({behavior:"smooth",block:"start"}); ul.querySelector(".act input")?.focus(); });
 $("btnCotizar").addEventListener("click",cotizarAhora);
