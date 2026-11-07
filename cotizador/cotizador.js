@@ -55,157 +55,176 @@ function buscar(q){
 }
 
 /* ================= Estado y utilidades ================= */
-const MAX=12, S={motor:"EPITHELIUM",acts:[],intento:false};
-let R=null;   // resultado: solo existe despu\u00e9s de tocar \u00abCotizar\u00bb
+const MAX=12, MAXF=5;
+const nuevaFila=()=>({codigo:"",texto:"",pct:""});
+const nuevaFormula=()=>({acts:[nuevaFila()],forma:"",pres:"",cant:1,R:null});
+const S={motor:"EPITHELIUM",formulas:[nuevaFormula()],intento:false};
 const $=id=>document.getElementById(id);
 const fmt=n=>"$ "+Math.round(n).toLocaleString("es-CO");
 const pctTxt=n=>String(n).replace(".",",");
-const nuevaFila=()=>({codigo:"",texto:"",pct:""});
-const unidad=()=>{const f=FORMAS[$("forma").value]; return f?((f.find(x=>String(x.p)===$("pres").value)||{}).u||""):"";};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const unidadDe=f=>{const l=FORMAS[f.forma]; return l?((l.find(x=>String(x.p)===String(f.pres))||{}).u||""):"";};
+const FORMAS_ORD=Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es"));
+const nota='<span class="nota">No est\u00e1 en el cat\u00e1logo. Elige una opci\u00f3n de la lista.</span>';
 
-function initFormas(){
-  $("forma").innerHTML=`<option value="">Elige la forma</option>`+Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es")).map(f=>`<option>${f}</option>`).join("");
-}
-function fillPres(keep){
-  const f=FORMAS[$("forma").value];
-  if(!f){ $("pres").innerHTML=`<option value="">Primero elige la forma</option>`; $("pres").disabled=true; return; }
-  $("pres").disabled=false;
-  $("pres").innerHTML=`<option value="">Elige la presentaci\u00f3n</option>`+f.map(x=>`<option value="${x.p}">${x.p} ${x.u}</option>`).join("");
-  if (keep!=null && f.some(x=>String(x.p)===String(keep))) $("pres").value=keep;
-}
-// Cualquier cambio en la f\u00f3rmula borra la cotizaci\u00f3n: hay que volver a tocar \u00abCotizar\u00bb
-function cambio(){ R=null; update(); }
-
-/* ================= Activos ================= */
-function addAct(){ if(S.acts.length>=MAX) return; S.acts.push(nuevaFila()); renderActs(); }
-function renderActs(){
-  const box=$("acts"); box.innerHTML="";
-  S.acts.forEach((a,i)=>{
-    const el=document.createElement("div"); el.className="act";
-    el.innerHTML=`<div class="who"><input id="act-n-${i}" autocomplete="off" placeholder="Busca por nombre" aria-label="Activo ${i+1}">
-      <div class="meta">${!a.codigo&&a.texto?`<span class="nota">No est\u00e1 en el cat\u00e1logo. Elige una opci\u00f3n de la lista.</span>`:""}</div></div>
-      <div class="pct"><input id="act-p-${i}" class="num" type="number" step="0.001" min="0" inputmode="decimal" placeholder="0" aria-label="Concentraci\u00f3n ${i+1}"></div>
-      <button type="button" class="quitar" aria-label="Quitar activo ${i+1}" title="Quitar">\u00d7</button>`;
+/* ================= F\u00f3rmulas (hasta 5) ================= */
+function renderFormulas(){
+  const box=$("formulas"); box.innerHTML="";
+  S.formulas.forEach((f,fi)=>{
+    const el=document.createElement("div"); el.className="formula";
+    el.innerHTML=`<div class="f-head"><h2>F\u00f3rmula ${fi+1}</h2>${S.formulas.length>1?`<button type="button" class="f-quitar">Quitar f\u00f3rmula</button>`:""}</div>
+      <section><div class="sec-h"><h2 style="font-size:14px">Principios activos</h2><span class="cnt"></span></div>
+        <div class="acts"></div><button type="button" class="agregar add-act">+ Agregar activo</button></section>
+      <section><div class="sec-h"><h2 style="font-size:14px">Forma y presentaci\u00f3n</h2></div>
+        <div class="fila fila-forma">
+          <label class="campo">Forma farmac\u00e9utica<select class="sel-forma"></select></label>
+          <label class="campo">Presentaci\u00f3n<select class="sel-pres"></select></label>
+          <label class="campo campo-cant">Unidades<input class="num in-cant" type="number" min="1" step="1" inputmode="numeric"></label>
+        </div></section>`;
     box.appendChild(el);
-    const inp=el.querySelector("#act-n-"+i), pin=el.querySelector("#act-p-"+i);
-    inp.value=a.codigo?BYCODE[a.codigo].nombre:a.texto; pin.value=a.pct;
-    inp.addEventListener("input",()=>{a.codigo="";a.texto=inp.value;sugerir(el,inp,a);cambio()});
-    inp.addEventListener("focus",()=>{if(!a.codigo&&inp.value)sugerir(el,inp,a)});
-    inp.addEventListener("keydown",e=>navegar(e,el));
-    inp.addEventListener("blur",()=>setTimeout(()=>{el.querySelector(".sug")?.remove(); const m=el.querySelector(".meta"); if(m) m.innerHTML=!a.codigo&&a.texto?`<span class="nota">No est\u00e1 en el cat\u00e1logo. Elige una opci\u00f3n de la lista.</span>`:"";},150));
-    pin.addEventListener("input",()=>{a.pct=pin.value;cambio()});
-    el.querySelector(".quitar").addEventListener("click",()=>{S.acts.splice(i,1);if(!S.acts.length)S.acts.push(nuevaFila());R=null;renderActs()});
+    const sf=el.querySelector(".sel-forma"), sp=el.querySelector(".sel-pres"), ic=el.querySelector(".in-cant");
+    sf.innerHTML=`<option value="">Elige la forma</option>`+FORMAS_ORD.map(x=>`<option>${x}</option>`).join(""); sf.value=f.forma;
+    const llenarPres=()=>{const l=FORMAS[f.forma];
+      if(!l){sp.innerHTML=`<option value="">Primero elige la forma</option>`;sp.disabled=true;return;}
+      sp.disabled=false; sp.innerHTML=`<option value="">Elige la presentaci\u00f3n</option>`+l.map(x=>`<option value="${x.p}">${x.p} ${x.u}</option>`).join("");
+      if(!l.some(x=>String(x.p)===String(f.pres))) f.pres=""; sp.value=f.pres;};
+    llenarPres(); ic.value=f.cant;
+    sf.addEventListener("change",()=>{f.forma=sf.value;llenarPres();f.R=null;update();});
+    sp.addEventListener("change",()=>{f.pres=sp.value;f.R=null;update();});
+    ic.addEventListener("input",()=>{f.cant=Math.max(1,Number(ic.value)||1); if(f.R) f.R=calcular(f); update();});
+    el.querySelector(".add-act").addEventListener("click",()=>{if(f.acts.length>=MAX)return;f.acts.push(nuevaFila());renderActs(f,el);el.querySelector(`.act:last-child input`).focus();});
+    el.querySelector(".f-quitar")?.addEventListener("click",()=>{S.formulas.splice(fi,1);renderFormulas();});
+    renderActs(f,el);
   });
-  $("add").disabled=S.acts.length>=MAX;
+  $("addFormula").hidden=S.formulas.length>=MAXF;
   update();
 }
-function sugerir(el,inp,a){
-  el.querySelector(".sug")?.remove();
+function renderActs(f,el){
+  const box=el.querySelector(".acts"); box.innerHTML="";
+  f.acts.forEach((a,i)=>{
+    const r=document.createElement("div"); r.className="act";
+    r.innerHTML=`<div class="who"><input autocomplete="off" placeholder="Busca por nombre" aria-label="Activo ${i+1}"><div class="meta">${!a.codigo&&a.texto?nota:""}</div></div>
+      <div class="pct"><input class="num" type="number" step="0.001" min="0" inputmode="decimal" placeholder="0" aria-label="Concentraci\u00f3n ${i+1}"></div>
+      <button type="button" class="quitar" aria-label="Quitar activo ${i+1}" title="Quitar">\u00d7</button>`;
+    box.appendChild(r);
+    const [inp,pin]=r.querySelectorAll("input");
+    inp.value=a.codigo?BYCODE[a.codigo].nombre:a.texto; pin.value=a.pct;
+    inp.addEventListener("input",()=>{a.codigo="";a.texto=inp.value;sugerir(r,inp,a,f,el);f.R=null;update();});
+    inp.addEventListener("focus",()=>{if(!a.codigo&&inp.value)sugerir(r,inp,a,f,el)});
+    inp.addEventListener("keydown",e=>navegar(e,r));
+    inp.addEventListener("blur",()=>setTimeout(()=>{r.querySelector(".sug")?.remove(); const m=r.querySelector(".meta"); if(m) m.innerHTML=!a.codigo&&a.texto?nota:"";},150));
+    pin.addEventListener("input",()=>{a.pct=pin.value;f.R=null;update();});
+    r.querySelector(".quitar").addEventListener("click",()=>{f.acts.splice(i,1);if(!f.acts.length)f.acts.push(nuevaFila());f.R=null;renderActs(f,el);});
+  });
+  el.querySelector(".add-act").disabled=f.acts.length>=MAX;
+  el.querySelector(".cnt").textContent=`${f.acts.filter(a=>a.codigo).length} de ${MAX}`;
+  update();
+}
+function sugerir(r,inp,a,f,el){
+  r.querySelector(".sug")?.remove();
   const res=buscar(inp.value); if(!res.length) return;
   const s=document.createElement("div"); s.className="sug"; s.setAttribute("role","listbox");
   res.forEach((m,k)=>{const b=document.createElement("button");b.type="button";if(!k)b.className="on";
-    b.innerHTML=`<span>${m.nombre}</span>`;
-    b.addEventListener("mousedown",e=>{e.preventDefault();elegir(a,m)}); s.appendChild(b)});
-  el.querySelector(".who").appendChild(s);
+    b.innerHTML=`<span>${esc(m.nombre)}</span>`;
+    b.addEventListener("mousedown",e=>{e.preventDefault();elegir(a,m,f,el)}); s.appendChild(b)});
+  r.querySelector(".who").appendChild(s);
 }
-function navegar(e,el){
-  const s=el.querySelector(".sug"); if(!s) return; const bs=[...s.querySelectorAll("button")]; let i=bs.findIndex(b=>b.classList.contains("on"));
+function navegar(e,r){
+  const s=r.querySelector(".sug"); if(!s) return; const bs=[...s.querySelectorAll("button")]; let i=bs.findIndex(b=>b.classList.contains("on"));
   if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();bs[i]?.classList.remove("on");i=(i+(e.key==="ArrowDown"?1:-1)+bs.length)%bs.length;bs[i].classList.add("on");bs[i].scrollIntoView({block:"nearest"})}
   if(e.key==="Enter"){e.preventDefault();bs[i]?.dispatchEvent(new MouseEvent("mousedown"))}
   if(e.key==="Escape") s.remove();
 }
-function elegir(a,m){
+function elegir(a,m,f,el){
   if (m.virtual){ const r=SUSTITUCIONES[m.virtual]; a.codigo=r.sust; a.texto="";   // Antocianinas -> Ar\u00e1ndanos (mismo %) + Vitamina C 1 %
-    r.agrega.forEach(([c,p])=>{ if(!S.acts.some(x=>x.codigo===c)) S.acts.push({codigo:c,texto:"",pct:p}); });
+    r.agrega.forEach(([c,p])=>{ if(!f.acts.some(x=>x.codigo===c)) f.acts.push({codigo:c,texto:"",pct:p}); });
   } else { a.codigo=m.codigo; a.texto=""; }
-  R=null; renderActs(); const i=S.acts.indexOf(a); setTimeout(()=>{const p=$("act-p-"+i); if(p&&!p.value)p.focus()},0);
+  f.R=null; renderActs(f,el); const i=f.acts.indexOf(a);
+  setTimeout(()=>{const p=el.querySelectorAll(".act")[i]?.querySelector(".pct input"); if(p&&!p.value)p.focus()},0);
 }
 
 /* ================= Validaci\u00f3n (C46\u2013C50): solo se muestra lo que falta ================= */
-function validar(){
-  const forma=$("forma").value, pres=Number($("pres").value);
-  const filas=S.acts.filter(a=>a.codigo||a.texto||a.pct!=="");
+function validar(f){
+  const pres=Number(f.pres);
+  const filas=f.acts.filter(a=>a.codigo||a.texto||a.pct!=="");
   const hay=filas.some(a=>a.codigo);
   const cods=filas.every(a=>!(a.texto&&!a.codigo));
   const conc=filas.every(a=>(a.codigo||a.texto)?Number(a.pct)>0:a.pct==="");
   const suma=filas.reduce((s,a)=>s+(Number(a.pct)||0),0);
-  const comb=!!forma&&!!pres&&(FORMAS[forma]||[]).some(x=>x.p===pres)&&!!M.combos[forma+pres];
+  const comb=!!f.forma&&!!pres&&(FORMAS[f.forma]||[]).some(x=>x.p===pres)&&!!M.combos[f.forma+pres];
   const faltas=[];
   if(!hay) faltas.push("Agrega al menos un principio activo");
   if(!cods) faltas.push("Hay un activo que no est\u00e1 en el cat\u00e1logo: el\u00edgelo de la lista");
   if(!conc) faltas.push("Cada activo necesita su concentraci\u00f3n (mayor que 0 %)");
   if(suma>=100) faltas.push(`Los activos suman ${pctTxt(+suma.toFixed(3))} %: deben sumar menos de 100 %`);
-  if(!forma) faltas.push("Elige la forma farmac\u00e9utica");
+  if(!f.forma) faltas.push("Elige la forma farmac\u00e9utica");
   else if(!pres) faltas.push("Elige la presentaci\u00f3n");
   else if(!comb) faltas.push("Esa presentaci\u00f3n no existe en el cat\u00e1logo");
-  return {faltas, ok:!faltas.length};
+  return faltas;
 }
+const todasFaltas=()=>S.formulas.flatMap((f,i)=>validar(f).map(t=>S.formulas.length>1?`F\u00f3rmula ${i+1}: ${t}`:t));
 
-/* ================= Pantalla ================= */
+/* ================= Etiquetas (derecha) ================= */
+function etiquetaHTML(f,fi){
+  const motorTxt=S.motor==="CDFLL"?"CDFLL":"Epithelium", R=f.R, pac=$("paciente").value.trim();
+  const act=f.acts.filter(a=>a.codigo), u=unidadDe(f), pres=f.forma?(f.pres?`${f.forma} x ${f.pres} ${u}`:f.forma):"";
+  const titulo=pac||`F\u00f3rmula ${fi+1}`;
+  const rx=(act.length?act.map(a=>`<li><span>${esc(BYCODE[a.codigo].nombre)}</span><span>${a.pct===""?"\u2014":pctTxt(a.pct)+" %"}</span></li>`).join(""):`<li class="vacio">Agrega los principios activos</li>`)
+    +(pres?`<li class="pres-linea"><span>${esc(pres)}</span><span>${f.cant>1?f.cant+" unidades":""}</span></li>`:"");
+  let precio;
+  if(!R) precio=`<div class="precio"><span class="k">Precio</span><span class="v" style="color:var(--gris)">\u2014</span><span class="vacio-txt">Completa la f\u00f3rmula y toca \u00abCotizar\u00bb.</span></div>`;
+  else if(S.motor==="CDFLL") precio=`<div class="precio"><span class="k">Precio facturaci\u00f3n CDFLL</span><span class="v">${fmt(R.precio_cdfll)}</span></div>
+    <dl class="kv"><dt>PVSP CDFLL</dt><dd class="fuerte">${fmt(R.pr_venta_cdfll)}</dd><dt>Rango</dt><dd>${R.rango}</dd><dt>Precio motor Epithelium</dt><dd>${fmt(R.precio)}</dd>${f.cant>1?`<dt>Total ${f.cant} unidades</dt><dd>${fmt(R.precio_cdfll*f.cant)}</dd>`:""}</dl>`;
+  else precio=`<div class="precio"><span class="k">Precio de facturaci\u00f3n</span><span class="v">${fmt(R.precio)}</span></div>
+    <dl class="kv"><dt>PVSP</dt><dd class="fuerte">${fmt(R.pvsp)}</dd>${f.cant>1?`<dt>Total ${f.cant} unidades</dt><dd>${fmt(R.total)}</dd>`:""}</dl>`;
+  const pill=`${S.formulas.length>1?`F\u00d3RMULA ${fi+1} \u00b7 `:""}${R?"COTIZADA":"BORRADOR"} \u00b7 ${motorTxt}`;
+  return `<div class="etiqueta"><div class="e-top"><img src="${document.querySelector('.header-logo-img')?.getAttribute('src').replace('logo-blanco','logo')||'logo.png'}" alt="Epithelium"><span><span class="pill ${R?"ok":"mal"}">${pill}</span></span></div>
+    <div class="e-pac-tit">${esc(titulo)}</div><ul class="rx">${rx}</ul>${precio}</div>`;
+}
 function update(){
-  const v=validar(), forma=$("forma").value, pres=$("pres").value, u=unidad(), cant=Math.max(1,Number($("cant").value)||1);
-  $("secChecks").hidden=!(S.intento&&!v.ok);
-  $("checks").innerHTML=v.faltas.map(t=>`<div class="chk mal"><b>FALTA</b><span>${t}</span></div>`).join("");
-  const act=S.acts.filter(a=>a.codigo);
-  $("cnt-act").textContent=`${act.length} de ${MAX}`;
-  $("e-titulo").textContent=forma?(pres?`${forma} x ${pres} ${u}`:forma):"Nueva cotizaci\u00f3n";
-  const pac=$("paciente").value.trim(), pdv=$("pdv").value.trim().toUpperCase();
-  $("e-pac").textContent=[pac,pdv&&("PDV "+pdv),cant>1&&(cant+" unidades")].filter(Boolean).join(" \u00b7 ");
-  $("e-cotiza").hidden=!window.CZ_COTIZA; $("e-cotiza").innerHTML=window.CZ_COTIZA?`Cotiza: <b>${window.CZ_COTIZA}</b>`:"";
-  $("e-rx").innerHTML=act.length?act.map(a=>`<li><span>${BYCODE[a.codigo].nombre}</span><span>${a.pct===""?"\u2014":pctTxt(a.pct)+" %"}</span></li>`).join(""):`<li class="vacio">Agrega los principios activos</li>`;
-  const motorTxt = S.motor==="CDFLL"?"CDFLL":"Epithelium";
-  $("e-estado").innerHTML = R?`<span class="pill ok">COTIZADA \u00b7 ${motorTxt}</span>`:`<span class="pill mal">BORRADOR \u00b7 ${motorTxt}</span>`;
-  const box=$("e-precio");
-  if(!R) box.innerHTML=`<div class="precio"><span class="k">Precio</span><span class="v" style="color:var(--gris)">\u2014</span><span class="vacio-txt">Completa la f\u00f3rmula y toca \u00abCotizar\u00bb.</span></div>`;
-  else if(S.motor==="CDFLL") box.innerHTML=`<div class="precio"><span class="k">Precio facturaci\u00f3n CDFLL</span><span class="v">${fmt(R.precio_cdfll)}</span></div>
-    <dl class="kv"><dt>PVSP CDFLL</dt><dd class="fuerte">${fmt(R.pr_venta_cdfll)}</dd><dt>Rango</dt><dd>${R.rango}</dd><dt>Precio motor Epithelium</dt><dd>${fmt(R.precio)}</dd>${cant>1?`<dt>Total ${cant} unidades</dt><dd>${fmt(R.precio_cdfll*cant)}</dd>`:""}</dl>`;
-  else box.innerHTML=`<div class="precio"><span class="k">Precio de facturaci\u00f3n</span><span class="v">${fmt(R.precio)}</span></div>
-    <dl class="kv"><dt>PVSP</dt><dd class="fuerte">${fmt(R.pvsp)}</dd>${cant>1?`<dt>Total ${cant} unidades</dt><dd>${fmt(R.total)}</dd>`:""}</dl>`;
-  $("copy-odoo").disabled=!R; $("linea-box").hidden=true;
+  const faltas=todasFaltas();
+  $("secChecks").hidden=!(S.intento&&faltas.length);
+  $("checks").innerHTML=faltas.map(t=>`<div class="chk mal"><b>FALTA</b><span>${esc(t)}</span></div>`).join("");
+  $("etiquetas").innerHTML=S.formulas.map(etiquetaHTML).join("");
+  $("e-cotiza").hidden=!window.CZ_COTIZA; $("e-cotiza").innerHTML=window.CZ_COTIZA?`Cotiza: <b>${esc(window.CZ_COTIZA)}</b>`:"";
+  document.querySelectorAll("#formulas .formula").forEach((el,i)=>{const f=S.formulas[i]; if(f) el.querySelector(".cnt").textContent=`${f.acts.filter(a=>a.codigo).length} de ${MAX}`;});
+  $("copy-odoo").disabled=!S.formulas.some(f=>f.R); $("linea-box").hidden=true;
 }
-function calcular(){
-  const forma=$("forma").value, pres=Number($("pres").value), cant=Math.max(1,Number($("cant").value)||1);
-  return cotizar(forma,pres,S.acts.filter(a=>a.codigo).map(a=>[a.codigo,Number(a.pct)]),cant,S.motor);
-}
+function calcular(f){ return cotizar(f.forma,Number(f.pres),f.acts.filter(a=>a.codigo).map(a=>[a.codigo,Number(a.pct)]),f.cant,S.motor); }
 function cotizarAhora(){
   S.intento=true;
-  const v=validar();
-  if(!v.ok){ R=null; update(); $("secChecks").scrollIntoView({behavior:"smooth",block:"center"}); return; }
-  S.intento=false; R=calcular(); update();
-  if(window.matchMedia("(max-width:860px)").matches) document.querySelector(".etiqueta").scrollIntoView({behavior:"smooth",block:"start"});
+  if(todasFaltas().length){ S.formulas.forEach(f=>f.R=null); update(); $("secChecks").scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  S.intento=false; S.formulas.forEach(f=>f.R=calcular(f)); update();
+  if(window.matchMedia("(max-width:860px)").matches) $("etiquetas").scrollIntoView({behavior:"smooth",block:"start"});
 }
-function limpiar(){   // deja todo en blanco; el PDV se conserva
-  $("paciente").value=""; $("cant").value=1; $("forma").value=""; fillPres();
-  S.acts=[nuevaFila()]; S.intento=false; R=null; renderActs(); $("toast-cz").textContent="";
+function limpiar(){   // todo en blanco: una sola f\u00f3rmula; el PDV (quien cotiza) se conserva
+  $("paciente").value=""; S.formulas=[nuevaFormula()]; S.intento=false; renderFormulas(); $("toast-cz").textContent="";
 }
 
-/* ================= L\u00ednea para la plantilla MI de Odoo ================= */
+/* ================= L\u00edneas para la plantilla MI de Odoo (una por f\u00f3rmula cotizada) ================= */
 const sinTilde=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-const titulo=s=>s.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
-function lineaOdoo(){
-  const forma=$("forma").value, pres=$("pres").value, u=unidad();
-  const acts=S.acts.filter(a=>a.codigo).map(a=>`${BYCODE[codigoEfectivo(forma,a.codigo)].nombre} ${pctTxt(a.pct)}%`);
-  const pac=$("paciente").value.trim(), pdv=$("pdv").value.trim().toUpperCase();
-  const nombre=[pac&&titulo(pac),...acts,`${forma} x ${pres} ${u}`].filter(Boolean).join(", ")+(pdv?` - ${pdv}`:"");
+const tituloProp=s=>s.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
+function lineaOdoo(f){
+  const u=unidadDe(f), R=f.R;
+  const acts=f.acts.filter(a=>a.codigo).map(a=>`${BYCODE[codigoEfectivo(f.forma,a.codigo)].nombre} ${pctTxt(a.pct)}%`);
+  const pac=$("paciente").value.trim(), pdv=$("pdv").value.trim();
+  const nombre=[pac&&tituloProp(pac),...acts,`${f.forma} x ${f.pres} ${u}`].filter(Boolean).join(", ")+(pdv?` - ${pdv}`:"");
   const precio=S.motor==="CDFLL"?R.precio_cdfll:R.precio;
-  return [nombre,"Magistral Individual","Magistral Individual",sinTilde(forma),R.envase,pres,u,"Magistral Individual",precio,"","IVA Exento","False"].join("\t");
+  return [nombre,"Magistral Individual","Magistral Individual",sinTilde(f.forma),R.envase,f.pres,u,"Magistral Individual",precio,"","IVA Exento","False"].join("\t");
 }
 async function copiar(){
-  if(!R) return;
-  const t=lineaOdoo(); $("linea").textContent=t;
-  try{ await navigator.clipboard.writeText(t); $("toast-cz").textContent="L\u00ednea copiada. P\u00e9gala en la plantilla de creaci\u00f3n MI."; }
-  catch{ $("linea-box").hidden=false; $("toast-cz").textContent="Selecciona la l\u00ednea de abajo y c\u00f3piala."; }
+  const t=S.formulas.filter(f=>f.R).map(lineaOdoo).join("\n"); if(!t) return;
+  const n=t.split("\n").length; $("linea").textContent=t;
+  try{ await navigator.clipboard.writeText(t); $("toast-cz").textContent=n>1?`${n} l\u00edneas copiadas. P\u00e9galas en la plantilla de creaci\u00f3n MI.`:"L\u00ednea copiada. P\u00e9gala en la plantilla de creaci\u00f3n MI."; }
+  catch{ $("linea-box").hidden=false; $("toast-cz").textContent="Selecciona las l\u00edneas de abajo y c\u00f3pialas."; }
   setTimeout(()=>$("toast-cz").textContent="",4000);
 }
 
 /* ================= Arranque: siempre en blanco ================= */
-function setMotor(m){ S.motor=m; $("m-epi").setAttribute("aria-pressed",m==="EPITHELIUM"); $("m-cdfll").setAttribute("aria-pressed",m==="CDFLL"); if(R) R=calcular(); update(); }
-initFormas(); fillPres();
-$("forma").addEventListener("change",()=>{fillPres($("pres").value);cambio()});
-$("pres").addEventListener("change",cambio);
-$("cant").addEventListener("input",()=>{ if(R) R=calcular(); update(); });
-["paciente","pdv"].forEach(id=>$(id).addEventListener("input",update));
-$("add").addEventListener("click",()=>{addAct();$("act-n-"+(S.acts.length-1))?.focus()});
+function setMotor(m){ S.motor=m; $("m-epi").setAttribute("aria-pressed",m==="EPITHELIUM"); $("m-cdfll").setAttribute("aria-pressed",m==="CDFLL"); S.formulas.forEach(f=>{if(f.R) f.R=calcular(f);}); update(); }
+$("pdv").value=window.CZ_PDV||"";
+$("paciente").addEventListener("input",update);
+$("addFormula").addEventListener("click",()=>{ if(S.formulas.length>=MAXF) return; S.formulas.push(nuevaFormula()); renderFormulas(); const els=document.querySelectorAll("#formulas .formula"); const ul=els[els.length-1]; ul.scrollIntoView({behavior:"smooth",block:"start"}); ul.querySelector(".act input")?.focus(); });
 $("btnCotizar").addEventListener("click",cotizarAhora);
 $("reset").addEventListener("click",limpiar);
 $("m-epi").addEventListener("click",()=>setMotor("EPITHELIUM"));
@@ -214,6 +233,5 @@ $("copy-odoo").addEventListener("click",copiar);
 $("form").addEventListener("submit",e=>e.preventDefault());
 $("pie").innerHTML=`Motor ${M.version} (${M.fecha}) \u00b7 ${MAT.length} principios activos \u00b7 ${Object.keys(FORMAS).length} formas.<br>\u00a9 ${new Date().getFullYear()} Epithelium S.A. Informaci\u00f3n confidencial y de uso exclusivo para usuarios autorizados.`;
 (function(){const ok=window.CZ_MOTORES||["EPITHELIUM","CDFLL"];$("m-epi").hidden=!ok.includes("EPITHELIUM");$("m-cdfll").hidden=!ok.includes("CDFLL");if(ok.length<2)$("m-epi").parentNode.hidden=true;if(!ok.includes("EPITHELIUM"))S.motor="CDFLL";})();
-S.acts=[nuevaFila()];
-renderActs();
+renderFormulas();
 setMotor(S.motor);
