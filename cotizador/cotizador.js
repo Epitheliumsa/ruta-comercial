@@ -187,6 +187,8 @@ $("copy-odoo").addEventListener("click",copiar);
 $("form").addEventListener("submit",e=>e.preventDefault());
 $("pie").innerHTML=`Motor ${M.version} (${M.fecha}) \u00b7 ${MAT.length} principios activos \u00b7 ${Object.keys(FORMAS).length} formas.<br>\u00a9 ${new Date().getFullYear()} Epithelium S.A. Informaci\u00f3n confidencial y de uso exclusivo para usuarios autorizados.`;
 /* F\u00f3rmula de ejemplo al abrir */
+(function(){const ok=window.CZ_MOTORES||["EPITHELIUM","CDFLL"];$("m-epi").hidden=!ok.includes("EPITHELIUM");$("m-cdfll").hidden=!ok.includes("CDFLL");if(ok.length<2)$("m-epi").parentNode.hidden=true;if(!ok.includes("EPITHELIUM"))S.motor="CDFLL";})();
 $("forma").value="Loci\u00f3n"; fillPres(60);
 S.acts=[{codigo:"MA0377",texto:"",pct:3,regla:""},{codigo:"MA0016",texto:"",pct:1,regla:""}];
 renderActs();
+setMotor(S.motor);

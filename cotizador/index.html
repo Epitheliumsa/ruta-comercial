@@ -29,6 +29,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="../styles.css?v=202611071200">
 <style>
+[hidden]{display:none!important}
 /* Misma identidad de Visita Comercial (tema claro fijo). Layout: fórmula a la izquierda, etiqueta con precio a la derecha; apilado en celular */
 :root{ color-scheme: light only;
   --verde:#006b4f; --verde2:#00A651; --verde-suave:#e6f4ec; --tinta:#1f2937; --gris:#5f6b68; --linea:#d9e5df; --blanco:#fff;
@@ -221,11 +222,10 @@ async function api(cuerpo) {
 async function traerMotor() {
   let cache = leer(MOTOR_KEY);
   try {
-    const { versiones } = await api({ accion: 'versionesBases' });
-    const v = versiones && versiones.motor_cotizador;
-    if (v && (!cache || cache.v !== v)) {
-      const r = await api({ accion: 'leerBase', nombre: 'motor_cotizador' });
-      if (r.contenido) { cache = { v: r.actualizado || v, d: JSON.parse(r.contenido) }; escribir(MOTOR_KEY, cache); }
+    const { actualizado } = await api({ accion: 'motorCotizador', soloVersion: true });
+    if (actualizado && (!cache || cache.v !== actualizado)) {
+      const r = await api({ accion: 'motorCotizador' });
+      if (r.contenido) { cache = { v: r.actualizado || actualizado, d: JSON.parse(r.contenido) }; escribir(MOTOR_KEY, cache); }
     }
   } catch (e) { console.warn('Sin conexión con el servidor, uso el motor guardado:', e); }
   return cache && cache.d;
@@ -245,6 +245,7 @@ async function entrar(u, clave) {
     return;
   }
   window.MOTOR = d;
+  window.CZ_MOTORES = u.motores || ['EPITHELIUM', 'CDFLL'];   // usuarios propios: solo sus motores
   $id('carga').hidden = true;
   document.querySelectorAll('#form, .lado').forEach(e => e.hidden = false);
   if (!cotizadorListo) { cotizadorListo = true; await cargarScript('cotizador.js?v=202611071200'); }
@@ -283,11 +284,12 @@ async function instalarApp() { if (!avisoInstalar) return; avisoInstalar.prompt(
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone) $id('ayudaIos').hidden = false;
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
-// Sesión: la del cotizador o, si no hay, la de Visita Comercial (mismo sitio, mismo usuario)
+// Sesión: la propia del cotizador o, para el personal de la empresa, la de Visita Comercial (mismo sitio, mismo usuario)
 (async function () {
-  const s = leer(SESION_KEY) || (leer('cz_salio') ? null : leer('rc_sesion'));   // tras «Salir» no se vuelve a entrar con la sesión de Visita
+  const propia = leer(SESION_KEY), visita = leer('cz_salio') ? null : leer('rc_sesion');   // tras «Salir» no se entra con la de Visita
+  const s = propia || visita;
   const u = s && s.usuario && s.clave && USUARIOS.find(x => x.usuario.toLowerCase() === String(s.usuario).toLowerCase());
-  if (u && u.huella === await huellaDe(s.usuario, s.clave)) entrar(u, s.clave); else pantalla('loginScreen');
+  if (u && (s === propia || u.empresa) && u.huella === await huellaDe(s.usuario, s.clave)) entrar(u, s.clave); else pantalla('loginScreen');
 })();
 </script>
 </body>

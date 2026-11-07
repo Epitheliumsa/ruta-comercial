@@ -646,6 +646,9 @@
 .solicitud.proyecto { border-color: #f1d3b0; }
 .solicitud.vinculado { border-color: #cfe7db; background: #f6fbf8; }
 .vincular label { margin-top: 10px; }
+.home-btn.home-btn-coti { border-left-color: #0e7c66; background: linear-gradient(135deg, #ffffff 60%, #e3f4ee 100%); }
+.home-btn.home-btn-coti svg { background: linear-gradient(135deg, #064e3b, #1fa37a); }
+.home-btn.home-btn-coti .home-btn-text strong { color: #0b5f4c; }
 .home-btn.home-btn-proy { border-left-color: #d9822b; background: linear-gradient(135deg, #ffffff 60%, #fdf0e1 100%); }
 .home-btn.home-btn-proy svg { background: linear-gradient(135deg, #8a4a0e, #e39b4c); }
 .home-btn.home-btn-proy .home-btn-text strong { color: #9a4b0c; }

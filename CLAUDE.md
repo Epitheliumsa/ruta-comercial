@@ -440,3 +440,18 @@
 - **Circular nueva** (ej. parrilla): fila en `datos/Circulares.xlsx` (hoja Circulares, copiar el estilo de la fila anterior y extender la tabla) → `python3 herramientas/circulares.py` → versión.
   Las fechas Desde/Hasta van **como dice la circular**. La lista de Parrilla Promocional de la visita sale de la circular vigente a la **fecha de la visita**. El PDF lo pegan los jefes desde la app.
 - **Ficha del cliente** (historial): junto a la ciudad muestra zona y visitador médico, ej. "Zona Sur-Yunelis Caballero" (`zonaVisitador`); no en zonas privadas (Proveedores, Empleados).
+
+## Cotizador Epithelium (app independiente en `cotizador/`)
+- Tercera app: https://epitheliumsa.github.io/ruta-comercial/cotizador/ — su propio link, manifest, service worker e instalación
+  (computador, tablet y celular). Vista previa del enlace (Open Graph): logo de Epithelium, "Cotizador Epithelium" y descripción.
+- Visita Comercial lo abre con el botón **Cotizador Epithelium** del inicio (`home-btn-coti`, en otra pestaña), como el Vademécum.
+- Usuarios (`cotizador/usuarios.js`): el **personal de la empresa** = los mismos de `USUARIOS` de `app.js` (misma huella, misma clave;
+  si ya tienen sesión en Visita entran directo) + **usuarios propios del cotizador** (`USUARIOS_EXTERNOS`, con `motores: ['EPITHELIUM'|'CDFLL']`),
+  que no entran a Visita ni al Vademécum. Un usuario propio va también en `USUARIOS_COTIZADOR` de `backend/Codigo.gs` (misma huella).
+  Al crear o cambiar un usuario de la empresa en `app.js`, copiar la misma línea en `cotizador/usuarios.js`.
+- **El motor (costos y márgenes) nunca va en el repositorio** (es público): es la base privada `motor_cotizador` del servidor
+  (acción `motorCotizador`, valida usuario de la empresa o propio). La sube el administrador en el cotizador con **Cargar motor**
+  (archivo JSON que se genera desde `sheet_motor_vNN.xlsx` y `sheet_motor_CDFLL_vNN.xlsx`, skill cotizacion-bella-piel). Cada equipo guarda
+  el último motor para trabajar sin conexión.
+- El cálculo replica la hoja COTIZACION (homólogos por forma, Clobetasol en Esmalte, sustitución de Antocianinas, márgenes por tramo y
+  excepción por forma, mínimos, PVSP con MULTIPLOS y rangos CDFLL). Probado contra el motor v51 con 500 fórmulas al azar.

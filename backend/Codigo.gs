@@ -38,6 +38,8 @@ function doPost(e) {
     if (pedido.accion === 'vademecumMateriasPrimas') return responder_(Object.assign({ ok: true }, vademecumMateriasPrimas_()));
     if (pedido.accion === 'vademecumProductoTerminado') return responder_(Object.assign({ ok: true }, vademecumProductoTerminado_()));
     if (pedido.accion === 'vademecumPortafolio') return responder_(Object.assign({ ok: true }, vademecumPortafolio_(pedido.huella)));
+    // Cotizador Epithelium: lo usan el personal de la empresa (USUARIOS) y sus usuarios propios (USUARIOS_COTIZADOR)
+    if (pedido.accion === 'motorCotizador') return responder_(Object.assign({ ok: true }, motorCotizador_(pedido)));
     const usuario = autenticar_(pedido.usuario, pedido.clave);
     if (!usuario) return responder_({ ok: false, error: 'Usuario o clave incorrectos' });
     if (pedido.accion === 'listar') return responder_({ ok: true, registros: listar_(usuario, pedido.desde, pedido.hasta) });
@@ -65,6 +67,30 @@ function doPost(e) {
 
 function doGet() {
   return responder_({ ok: true, servicio: 'Ruta Comercial Epithelium' });
+}
+
+// Usuarios propios del Cotizador Epithelium (no entran a Visita Comercial). Mismo formato: huella SHA-256 de "usuario:clave" en minúsculas.
+// motores: los que puede usar ('EPITHELIUM', 'CDFLL'). Deben ser los mismos de cotizador/usuarios.js (USUARIOS_EXTERNOS).
+const USUARIOS_COTIZADOR = {
+};
+function autenticarCotizador_(usuario, clave) {
+  const interno = autenticar_(usuario, clave);
+  if (interno) return interno;
+  const u = USUARIOS_COTIZADOR[String(usuario || '').toLowerCase()];
+  if (!u) return null;
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+    (String(usuario) + ':' + String(clave)).toLowerCase(), Utilities.Charset.UTF_8);
+  const huella = bytes.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+  return huella === u.huella ? u : null;
+}
+// Motor del cotizador (base privada motor_cotizador): soloVersion = solo la fecha de la última carga
+function motorCotizador_(pedido) {
+  const u = autenticarCotizador_(pedido.usuario, pedido.clave);
+  if (!u) throw new Error('Usuario o clave incorrectos');
+  const partes = filasBases_().filter(f => f[0] === 'motor_cotizador').sort((a, b) => Number(a[1]) - Number(b[1]));
+  const actualizado = partes.length ? String(partes[0][3]) : '';
+  if (pedido.soloVersion) return { actualizado: actualizado };
+  return { contenido: partes.map(f => String(f[2])).join(''), actualizado: actualizado };
 }
 
 function autenticar_(usuario, clave) {
