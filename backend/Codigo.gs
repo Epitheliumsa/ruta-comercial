@@ -84,9 +84,12 @@ function autenticarCotizador_(usuario, clave) {
   return huella === u.huella ? u : null;
 }
 // Motor del cotizador (base privada motor_cotizador): soloVersion = solo la fecha de la última carga
+// Mientras el cotizador está en pruebas solo entran estos id (vacío = todos). Igual que ACCESO_COTIZADOR de app.js y cotizador/usuarios.js.
+const ACCESO_COTIZADOR = ['jherrera', 'hreyes'];
 function motorCotizador_(pedido) {
   const u = autenticarCotizador_(pedido.usuario, pedido.clave);
   if (!u) throw new Error('Usuario o clave incorrectos');
+  if (ACCESO_COTIZADOR.length && ACCESO_COTIZADOR.indexOf(u.id) < 0) throw new Error('El cotizador está en pruebas: todavía no tienes acceso');
   const partes = filasBases_().filter(f => f[0] === 'motor_cotizador').sort((a, b) => Number(a[1]) - Number(b[1]));
   const actualizado = partes.length ? String(partes[0][3]) : '';
   if (pedido.soloVersion) return { actualizado: actualizado };

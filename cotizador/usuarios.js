@@ -19,3 +19,7 @@ const USUARIOS_EMPRESA = [
 const USUARIOS_EXTERNOS = [
 ];
 const USUARIOS = [...USUARIOS_EMPRESA.map(x => ({ ...x, empresa: true })), ...USUARIOS_EXTERNOS];
+
+/* Mientras está en pruebas solo entran estos id (vacío = todos). La misma lista va en app.js y backend/Codigo.gs (ACCESO_COTIZADOR). */
+const ACCESO_COTIZADOR = ['jherrera', 'hreyes'];
+const tieneAcceso = u => !ACCESO_COTIZADOR.length || ACCESO_COTIZADOR.includes(u.id);

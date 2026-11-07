@@ -30,6 +30,8 @@
 <link rel="stylesheet" href="../styles.css?v=202611071200">
 <style>
 [hidden]{display:none!important}
+.en-pruebas-cz{display:inline-block;background:#dc2626;color:#fff!important;font-size:11px!important;font-weight:800;letter-spacing:.08em;padding:2px 8px;border-radius:6px;vertical-align:middle;margin:0 0 10px!important}
+.header .en-pruebas-cz{margin:0 0 0 8px!important}
 /* Misma identidad de Visita Comercial (tema claro fijo). Layout: fórmula a la izquierda, etiqueta con precio a la derecha; apilado en celular */
 :root{ color-scheme: light only;
   --verde:#006b4f; --verde2:#00A651; --verde-suave:#e6f4ec; --tinta:#1f2937; --gris:#5f6b68; --linea:#d9e5df; --blanco:#fff;
@@ -117,6 +119,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
     <div class="login-container">
       <div class="logo-login"><img src="../logo.png" alt="Epithelium Logo"></div>
       <h1>Cotizador Epithelium</h1>
+      <p class="en-pruebas-cz">EN PRUEBAS</p>
       <p>Ingresa tu usuario y clave</p>
       <input type="text" id="accessUser" placeholder="Usuario" maxlength="40" autocapitalize="none" autocomplete="username" onkeydown="if(event.key==='Enter')ingresar()">
       <input type="password" id="accessCode" placeholder="Clave" maxlength="30" autocomplete="current-password" onkeydown="if(event.key==='Enter')ingresar()">
@@ -131,7 +134,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
     <div class="header">
       <div class="header-logo">
         <img src="../logo-blanco.png" alt="Epithelium" class="header-logo-img">
-        <h1>Cotizador Epithelium</h1>
+        <h1>Cotizador Epithelium <span class="en-pruebas-cz">EN PRUEBAS</span></h1>
       </div>
       <div class="cab-der">
         <div class="motor-sel" role="group" aria-label="Motor de precios">
@@ -256,6 +259,7 @@ async function ingresar() {
   if (!usuario || !clave) { err.textContent = 'Ingresa tu usuario y clave'; return; }
   const u = USUARIOS.find(x => x.usuario.toLowerCase() === usuario.toLowerCase());
   if (!u || u.huella !== await huellaDe(usuario, clave)) { err.textContent = 'Usuario o clave incorrectos'; $id('accessCode').value = ''; return; }
+  if (!tieneAcceso(u)) { err.textContent = 'El cotizador está en pruebas. Pronto tendrás acceso.'; $id('accessCode').value = ''; return; }
   err.textContent = ''; $id('accessCode').value = '';
   try { localStorage.removeItem('cz_salio'); } catch (e) {}
   entrar(u, clave);
@@ -289,7 +293,9 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
   const propia = leer(SESION_KEY), visita = leer('cz_salio') ? null : leer('rc_sesion');   // tras «Salir» no se entra con la de Visita
   const s = propia || visita;
   const u = s && s.usuario && s.clave && USUARIOS.find(x => x.usuario.toLowerCase() === String(s.usuario).toLowerCase());
-  if (u && (s === propia || u.empresa) && u.huella === await huellaDe(s.usuario, s.clave)) entrar(u, s.clave); else pantalla('loginScreen');
+  const valida = u && (s === propia || u.empresa) && u.huella === await huellaDe(s.usuario, s.clave);
+  if (valida && tieneAcceso(u)) entrar(u, s.clave);
+  else { if (valida) { try { localStorage.removeItem(SESION_KEY); localStorage.removeItem(MOTOR_KEY); } catch (e) {} $id('errorMsg').textContent = 'El cotizador está en pruebas. Pronto tendrás acceso.'; } pantalla('loginScreen'); }
 })();
 </script>
 </body>

@@ -453,5 +453,8 @@
   (acción `motorCotizador`, valida usuario de la empresa o propio). La sube el administrador en el cotizador con **Cargar motor**
   (archivo JSON que se genera desde `sheet_motor_vNN.xlsx` y `sheet_motor_CDFLL_vNN.xlsx`, skill cotizacion-bella-piel). Cada equipo guarda
   el último motor para trabajar sin conexión.
+- **En pruebas** (etiqueta roja EN PRUEBAS en el cotizador y "- en pruebas" en el botón de Visita): solo entran Jennifer Herrera y Hernán Reyes
+  (`ACCESO_COTIZADOR = ['jherrera', 'hreyes']`, la misma lista en `app.js`, `cotizador/usuarios.js` y `backend/Codigo.gs`; vacía = todo el personal).
+  Los demás ven el botón en Visita pero al tocarlo sale "Cotizador en pruebas"; el cotizador y el servidor también los rechazan.
 - El cálculo replica la hoja COTIZACION (homólogos por forma, Clobetasol en Esmalte, sustitución de Antocianinas, márgenes por tramo y
   excepción por forma, mínimos, PVSP con MULTIPLOS y rangos CDFLL). Probado contra el motor v51 con 500 fórmulas al azar.

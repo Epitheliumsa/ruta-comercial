@@ -67,6 +67,16 @@ function abrirVademecum(e) {
     } catch (err) { /* sin almacenamiento: el Vademécum pedirá la clave */ }
 }
 
+// Cotizador Epithelium (app aparte, cotizador/): mientras está en pruebas solo entran estos usuarios (misma lista en
+// cotizador/usuarios.js y en ACCESO_COTIZADOR de backend/Codigo.gs). Lista vacía = todo el personal.
+const ACCESO_COTIZADOR = ['jherrera', 'hreyes'];
+function abrirCotizador(e) {
+    if (!ACCESO_COTIZADOR.length || (sesion && ACCESO_COTIZADOR.includes(sesion.id))) return true;
+    e.preventDefault();
+    dialogo({ titulo: 'Cotizador en pruebas', texto: 'El Cotizador Epithelium se está ajustando. Pronto tendrás acceso.', aceptar: 'Entendido', cancelar: '' });
+    return false;
+}
+
 // Tipo de visita y sus objetivos (se pueden escoger varios)
 // Objetivos y subcategorías por tipo: vienen de objetivos.js, que se genera desde
 // datos/Matriz_App.xlsx (skill "matriz": herramientas/matriz_app.py). No se editan aquí.
