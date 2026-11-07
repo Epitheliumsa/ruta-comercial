@@ -199,7 +199,31 @@ function update(){
   $("etiquetas").innerHTML=S.formulas.map(etiquetaHTML).join("");
   $("e-cotiza").hidden=!window.CZ_COTIZA; $("e-cotiza").innerHTML=window.CZ_COTIZA?`Cotiza: <b>${esc(window.CZ_COTIZA)}</b>`:"";
   document.querySelectorAll("#formulas .formula").forEach((el,i)=>{const f=S.formulas[i]; if(f) el.querySelector(".cnt").textContent=`${f.acts.filter(a=>a.codigo).length} de ${MAX}`;});
+  marcarErrores();
   $("copy-odoo").disabled=!S.formulas.some(f=>f.R); $("btnPdf").disabled=!S.formulas.some(f=>f.R); $("linea-box").hidden=true;
+}
+
+/* Resalta en rojo las casillas que faltan o est\u00e1n mal (solo despu\u00e9s de tocar \u00abCotizar\u00bb) */
+function marcarErrores(){
+  document.querySelectorAll("#form .campo-mal").forEach(e=>e.classList.remove("campo-mal"));
+  if(!S.intento) return;
+  const mal=e=>e&&e.classList.add("campo-mal");
+  if(!$("paciente").value.trim()) mal($("paciente"));
+  document.querySelectorAll("#formulas .formula").forEach((el,fi)=>{
+    const f=S.formulas[fi]; if(!f) return;
+    const filas=el.querySelectorAll(".act");
+    const usados=f.acts.filter(a=>a.codigo||a.texto||a.pct!=="");
+    if(!usados.some(a=>a.codigo)) mal(filas[0]?.querySelector(".who input"));
+    const suma=usados.reduce((t,a)=>t+(Number(a.pct)||0),0);
+    f.acts.forEach((a,i)=>{ const r=filas[i]; if(!r) return; const [n,pc]=r.querySelectorAll("input");
+      if(a.texto&&!a.codigo) mal(n);
+      if(!a.codigo&&!a.texto&&a.pct!=="") mal(n);
+      if((a.codigo||a.texto)&&!(Number(a.pct)>0)) mal(pc);
+      if(suma>=100&&a.pct!=="") mal(pc); });
+    const pres=Number(f.pres);
+    if(!f.forma) mal(el.querySelector(".sel-forma"));
+    else if(!pres||!(FORMAS[f.forma]||[]).some(x=>x.p===pres)||!M.combos[f.forma+pres]) mal(el.querySelector(".sel-pres"));
+  });
 }
 function calcular(f){ return cotizar(f.forma,Number(f.pres),f.acts.filter(a=>a.codigo).map(a=>[a.codigo,Number(a.pct)]),f.cant,S.motor); }
 function cotizarAhora(){
