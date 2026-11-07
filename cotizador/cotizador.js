@@ -250,8 +250,8 @@ async function generarPDF(){
   doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(...gris);
   doc.text(fecha,W-X,y+13,{align:"right"}); doc.text(cdf?"Centro Dermatol\u00f3gico Federico Lleras Acosta":"Epithelium S.A.",W-X,y+18,{align:"right"});
   y+=34; doc.setDrawColor(217,229,223); doc.line(X,y,W-X,y); y+=8;
-  doc.setFontSize(10); doc.setTextColor(...gris); doc.text("Paciente",X,y); doc.text("PDV",X+AN/2,y); y+=5.5;
-  doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...tinta); doc.text(pac,X,y); doc.text(pdv,X+AN/2,y); y+=10;
+  doc.setFontSize(10); doc.setTextColor(...gris); doc.text("Paciente",X,y); y+=5.5;
+  doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...tinta); doc.text(pac,X,y); y+=10;
   const fila=(et,val,color,neg)=>{ doc.setFont("helvetica",neg?"bold":"normal"); doc.setFontSize(10.5); doc.setTextColor(...(color||gris)); doc.text(et,X+5,y); doc.setTextColor(...(color||tinta)); doc.setFont("helvetica","bold"); doc.text(val,W-X-5,y,{align:"right"}); y+=6.5; };
   for(const {f,i} of lista){
     const R=f.R, n=f.cant, fac=cdf?R.precio_cdfll:R.precio, pvs=cdf?R.pr_venta_cdfll:R.pvsp;
@@ -270,7 +270,8 @@ async function generarPDF(){
     if(n>1) fila(`Precio Venta Sugerido \u00b7 total ${n} unidades`,fmt(pvs*n),lima,true);
     y=y0+alto+6;
   }
-  if(window.CZ_COTIZA){ doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(...gris); doc.text("Cotiza: ",X,y); doc.setFont("helvetica","bold"); doc.setTextColor(...tinta); doc.text(window.CZ_COTIZA,X+doc.getTextWidth("Cotiza: "),y); y+=8; }
+  { const et=window.CZ_COTIZA?"Cotiza: ":"PDV: ", nom=window.CZ_COTIZA||pdv;   // quien cotiza va una sola vez, abajo
+    if(nom){ doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(...gris); doc.text(et,X,y); doc.setFont("helvetica","bold"); doc.setTextColor(...tinta); doc.text(nom,X+doc.getTextWidth(et),y); y+=8; } }
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...gris);
   doc.text(doc.splitTextToSize(`\u00a9 ${ahora.getFullYear()} Epithelium S.A. Informaci\u00f3n confidencial y de uso exclusivo para usuarios autorizados. Los precios corresponden al motor ${M.version} y pueden cambiar sin previo aviso.`,AN),X,287);
   const aaaamm=`${ahora.getFullYear()}${String(ahora.getMonth()+1).padStart(2,"0")}`;
