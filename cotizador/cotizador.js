@@ -65,7 +65,7 @@ const pctTxt=n=>String(n).replace(".",",");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const unidadDe=f=>{const l=FORMAS[f.forma]; return l?((l.find(x=>String(x.p)===String(f.pres))||{}).u||""):"";};
 const FORMAS_ORD=Object.keys(FORMAS).sort((a,b)=>a.localeCompare(b,"es"));
-const nota='<span class="nota">No est\u00e1 en el cat\u00e1logo. Elige una opci\u00f3n de la lista.</span>';
+const nota='<span class="nota">No est\u00e1 en el cat\u00e1logo, comun\u00edcate con Servicio al Cliente Epithelium <a class="tel-sac" href="tel:+573007514948"><b>300 7514948</b></a></span>';
 
 const CONECTORES_NOMBRE = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e']);
 // Nombre del paciente siempre en NomProp (misma regla de Visita Comercial: conectores en min\u00fascula)
@@ -164,7 +164,7 @@ function validar(f){
   const comb=!!f.forma&&!!pres&&(FORMAS[f.forma]||[]).some(x=>x.p===pres)&&!!M.combos[f.forma+pres];
   const faltas=[];
   if(!hay) faltas.push("Agrega al menos un principio activo");
-  if(!cods) faltas.push("Hay un activo que no est\u00e1 en el cat\u00e1logo: el\u00edgelo de la lista");
+  if(!cods) faltas.push("Hay un activo que no est\u00e1 en el cat\u00e1logo, comun\u00edcate con Servicio al Cliente Epithelium 300 7514948");
   if(!conc) faltas.push("Cada activo necesita su concentraci\u00f3n (mayor que 0 %)");
   if(suma>=100) faltas.push(`Los activos suman ${pctTxt(+suma.toFixed(3))} %: deben sumar menos de 100 %`);
   if(!f.forma) faltas.push("Elige la forma farmac\u00e9utica");
