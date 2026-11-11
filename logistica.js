@@ -250,6 +250,8 @@ function pintarLog() {
     $('logResumen').innerHTML += Object.values(reinc).map(r => `<div class="lg-banner-reincide">⚠ <b>Reincidencia:</b> ${esc(nombreParada(r))} · ${fallosParada(r)} no efectivas en 30 días · ${intentoLog(r)}.º intento el ${esc(fechaCorta(r.fecha))}</div>`).join('');
     // Coordinación y administrador: aforos terminados que todavía no tienen quién los despache
     if (esCoordLog() || esAdmin()) { const pa = todos.filter(porAsignarLog); if (pa.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🟠 <b>${pa.length} ${pa.length === 1 ? 'aforo por asignar' : 'aforos por asignar'}</b> para despacho: ${esc(pa.slice(0, 4).map(nombreParada).join(', '))}${pa.length > 4 ? '…' : ''}</div>`; }
+    // Coordinador logístico: solo se le informa de las solicitudes en trámite (las autoriza el administrador)
+    if (esInformadoLog()) { const n = solicitudesLogPendientes().length + correccionesLogPendientes().length; if (n) $('logResumen').innerHTML += `<div class="lg-banner-asignar">ℹ️ <b>${n} ${n === 1 ? 'solicitud en trámite' : 'solicitudes en trámite'}</b> (eliminación o corrección): las decide ${esc(ADMIN.nombre)} · <a href="#" onclick="abrirSolicitudes(); return false">Ver</a></div>`; }
     // Administrador: solicitudes de corrección de reportes cerrados por autorizar
     if (esAdmin()) { const sc = correccionesLogPendientes(); if (sc.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">✏️ <b>${sc.length} ${sc.length === 1 ? 'solicitud de corrección' : 'solicitudes de corrección'}</b> de reportes cerrados · <a href="#" onclick="abrirSolicitudes(); return false">Revisar</a></div>`; }
     // Administrador: solicitudes de eliminación de paradas por autorizar

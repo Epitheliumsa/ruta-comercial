@@ -910,11 +910,11 @@ function pintarInicio() {
     $('btnCreacion').style.display = esJefe() ? '' : 'none';
     const porAmarrar = esJefe() ? leadsPorVincular().length : 0;
     $('creacionTxt').textContent = solsCreacion ? `${solsCreacion} por aprobar${porAmarrar ? ` · ${porAmarrar} ya en la Maestra, por confirmar` : ''}` : porAmarrar ? `${porAmarrar} ya en la Maestra, por confirmar` : 'No hay solicitudes por aprobar';
-    const sols = solicitudesPendientes();
-    $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
-    const corrs = correccionesPendientes().length;
-    const edsN = edicionesPendientes().length, logN = esAdmin() ? solicitudesLogPendientes().length : 0, corrLogN = esAdmin() ? correccionesLogPendientes().length : 0;
-    $('solicitudesTxt').textContent = sols.length + corrs + edsN + logN + corrLogN ? [sols.length && `${sols.length} de eliminación`, logN && `${logN} de Logística`, corrLogN && `${corrLogN} de corrección de Logística`, corrs && `${corrs} de corrección`, edsN && `${edsN} de edición`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
+    const sols = veSolicitudesCom() ? solicitudesPendientes() : [];
+    $('btnSolicitudes').style.display = veSolicitudes() ? '' : 'none';
+    const corrs = veSolicitudesCom() ? correccionesPendientes().length : 0;
+    const edsN = veSolicitudesCom() ? edicionesPendientes().length : 0, logN = veSolicitudesLog() ? solicitudesLogPendientes().length : 0, corrLogN = veSolicitudesLog() ? correccionesLogPendientes().length : 0;
+    $('solicitudesTxt').textContent = sols.length + corrs + edsN + logN + corrLogN ? [sols.length && `${sols.length} de eliminación`, logN && `${logN} de Logística`, corrLogN && `${corrLogN} de corrección de Logística`, corrs && `${corrs} de corrección`, edsN && `${edsN} de edición`].filter(Boolean).join(' · ') + (esAdmin() ? ' por revisar' : ' en trámite (informativo)') : 'No hay solicitudes pendientes';
     const vigentes = CIRCULARES.filter(c => estadoCircular(c) === 'vigente').length;
     $('homeActTxt').textContent = `${vigentes} ${vigentes === 1 ? 'circular vigente' : 'circulares vigentes'}` + (acts.length ? ` · ${hechas} de ${acts.length} tareas del mes` : '');
     pintarInicioLog();
@@ -1043,11 +1043,23 @@ function aprobacionesPendientes() {
         correccionesLogPendientes().forEach(r => l.push({ k: 'co:' + r.id + ':' + r.solicitudCorreccion.fecha, tipo: 'correccion', txt: `${nombreVendedor(r.solicitudCorreccion.por)} pide corregir la parada de Logística a ${tituloLog(r)} (${fechaCorta(r.fecha)})` }));
         correccionesPendientes().forEach(v => l.push({ k: 'co:' + v.id + ':' + v.solicitudCorreccion.fecha, tipo: 'correccion', txt: `${nombreVendedor(v.vendedor)} pide corregir la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
     }
+    // Solo informan: el coordinador logístico (Logística) y la jefa comercial (visitas) ven las solicitudes en trámite; las autoriza el administrador
+    if (!esAdmin()) {
+        if (esInformadoLog()) {
+            solicitudesLogPendientes().forEach(r => l.push({ k: 'in-el:' + r.id, tipo: 'info', txt: `Informativo: ${nombreVendedor(r.solicitudEliminar.por)} pidió eliminar la parada de ${tituloLog(r)} (${fechaCorta(r.fecha)}). La decide ${ADMIN.nombre}.` }));
+            correccionesLogPendientes().forEach(r => l.push({ k: 'in-co:' + r.id + ':' + r.solicitudCorreccion.fecha, tipo: 'info', txt: `Informativo: ${nombreVendedor(r.solicitudCorreccion.por)} pidió corregir la parada de ${tituloLog(r)} (${fechaCorta(r.fecha)}). La decide ${ADMIN.nombre}.` }));
+        }
+        if (esInformadoCom()) {
+            solicitudesPendientes().forEach(v => l.push({ k: 'in-el:' + v.id, tipo: 'info', txt: `Informativo: ${nombreVendedor(v.vendedor)} pidió eliminar la visita a ${v.contacto} (${fechaCorta(v.fecha)}). La decide ${ADMIN.nombre}.` }));
+            edicionesPendientes().forEach(v => l.push({ k: 'in-ed:' + v.id + ':' + v.edicionPendiente.fecha, tipo: 'info', txt: `Informativo: ${nombreVendedor(v.edicionPendiente.por)} propuso editar el reporte de ${v.contacto} (${fechaCorta(v.fecha)}). La decide ${ADMIN.nombre}.` }));
+            correccionesPendientes().forEach(v => l.push({ k: 'in-co:' + v.id + ':' + v.solicitudCorreccion.fecha, tipo: 'info', txt: `Informativo: ${nombreVendedor(v.vendedor)} pidió corregir la visita a ${v.contacto} (${fechaCorta(v.fecha)}). La decide ${ADMIN.nombre}.` }));
+        }
+    }
     if (esJefe()) porAprobarMias().forEach(p => l.push({ k: 'cr:' + p.id, tipo: 'creacion', txt: `Solicitud de creación: ${p.nombre}${p.vendedor ? ' · ' + nombreVendedor(p.vendedor) : ''}` }));
     invitacionesMias().forEach(a => l.push({ k: 'ac:' + a.id, tipo: 'acompanamiento', txt: `${nombreVendedor(a.solicitante)} te pide acompañamiento: ${a.contacto} (${fechaCorta(a.fecha)})` }));
     return l;
 }
-const TITULO_APROB = { edicion: 'Edición de reporte por aprobar', eliminacion: 'Solicitud de eliminación', correccion: 'Solicitud de corrección', creacion: 'Solicitud de creación', acompanamiento: 'Solicitud de acompañamiento' };
+const TITULO_APROB = { info: 'Solicitud en trámite (informativo)', edicion: 'Edición de reporte por aprobar', eliminacion: 'Solicitud de eliminación', correccion: 'Solicitud de corrección', creacion: 'Solicitud de creación', acompanamiento: 'Solicitud de acompañamiento' };
 let ultimaAprobNueva = null;
 function revisarAprobaciones() {
     if (!sesion) return;
@@ -1076,7 +1088,7 @@ function cerrarAvisoAprob() { $('avisoAprob').classList.remove('visible'); }
 function verAprobaciones() {
     cerrarAvisoAprob();
     const tipo = ultimaAprobNueva;
-    if (tipo === 'eliminacion' || tipo === 'correccion' || tipo === 'edicion') return abrirSolicitudes();
+    if (tipo === 'eliminacion' || tipo === 'correccion' || tipo === 'edicion' || tipo === 'info') return abrirSolicitudes();
     if (tipo === 'creacion') return abrirProyectos('solicitud');
     if (tipo === 'acompanamiento') { agenda.vendedor = sesion.id; agenda.vendedores = [sesion.id]; agenda.fecha = hoy(); return abrirAgenda(); }
     irInicio();
@@ -1691,17 +1703,24 @@ function pintarHistSol() {
         <small>${esc([nombreVendedor(h.v.vendedor), zonaHistSol(h), (h.v.clase === 'logistica' ? 'parada del ' : 'visita del ') + fechaCorta(h.v.fecha), 'por ' + nombreVendedor(h.s.resueltaPor), h.s.resuelta && fechaHora(h.s.resuelta)].filter(Boolean).join(' · '))}</small>
         <small>${esc('Pedido: ' + h.s.motivo)}${h.s.razonRechazo ? esc(' · Causa del rechazo: ' + h.s.razonRechazo) : ''}</small></div>`).join('');
 }
+// Solo informan (no autorizan): el coordinador logístico ve las solicitudes de Logística y la jefa comercial las de visitas; las autoriza el administrador
+const esInformadoLog = () => !!sesion && !esAdmin() && esCoordLog();
+const esInformadoCom = () => !!sesion && !esAdmin() && esJefe();
+const veSolicitudesLog = () => esAdmin() || esInformadoLog(), veSolicitudesCom = () => esAdmin() || esInformadoCom();
+const veSolicitudes = () => veSolicitudesLog() || veSolicitudesCom();
 function abrirSolicitudes() {
-    const lista = solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
-    const eds = edicionesPendientes().sort((a, b) => a.edicionPendiente.fecha.localeCompare(b.edicionPendiente.fecha));
-    const corr = correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
+    if (!veSolicitudes()) return;
+    const lista = !veSolicitudesCom() ? [] : solicitudesPendientes().sort((a, b) => a.solicitudEliminar.fecha.localeCompare(b.solicitudEliminar.fecha));
+    const eds = !veSolicitudesCom() ? [] : edicionesPendientes().sort((a, b) => a.edicionPendiente.fecha.localeCompare(b.edicionPendiente.fecha));
+    const corr = !veSolicitudesCom() ? [] : correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
     // Lo ya resuelto queda como huella, pequeño y debajo de lo pendiente (incluye las visitas eliminadas)
-    const lg = solicitudesLogPendientes(), corrLog = correccionesLogPendientes();
-    const resueltas = Object.values(registros).filter(r => r.clase === 'visita' || (r.clase === 'logistica' && r.tipo !== 'novedad')).map(r => r.clase === 'logistica' ? { ...r, contacto: tituloLog(r) } : r).flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion], ['edicion', v.edicionPendiente]]
+    const lg = veSolicitudesLog() ? solicitudesLogPendientes() : [], corrLog = veSolicitudesLog() ? correccionesLogPendientes() : [];
+    const resueltas = Object.values(registros).filter(r => (r.clase === 'visita' && veSolicitudesCom()) || (r.clase === 'logistica' && r.tipo !== 'novedad' && veSolicitudesLog())).map(r => r.clase === 'logistica' ? { ...r, contacto: tituloLog(r) } : r).flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion], ['edicion', v.edicionPendiente]]
         .filter(([, s]) => s && s.estado && s.estado !== 'pendiente').map(([tipo, s]) => ({ v, tipo, s }))).sort((a, b) => (b.s.resuelta || '').localeCompare(a.s.resuelta || ''));
     const estadoTxt = v => v.cierreAutomatico ? 'cerrada sin reporte' : v.estado === 'visitado' ? (v.interno ? 'realizado' : 'visitada') : (v.interno ? 'no realizado' : 'no visitada');
     abrirModal(`<div class="form-rc">
-        <h2>Solicitudes de eliminación y corrección</h2>
+        <h2>${esAdmin() ? 'Solicitudes de eliminación y corrección' : 'Solicitudes en trámite'}</h2>
+        ${esAdmin() ? '' : `<p class="ayuda">Solo informativo: las autoriza o rechaza ${esc(ADMIN.nombre)}.</p>`}
         ${eds.length ? `<p class="grupo-titulo">✏️ Edición de reportes cerrados · ${eds.length}</p>${eds.map(v => `<div class="solicitud">
             <strong>${esc(v.contacto)}</strong>
             <small>${esc(nombreVendedor(v.vendedor))} · visita del ${esc(fechaCorta(v.fecha))} · propuesta por ${esc(nombreVendedor(v.edicionPendiente.por))} el ${esc(fechaHora(v.edicionPendiente.fecha))}</small>
@@ -1766,6 +1785,10 @@ function abrirSolicitudes() {
             <details class="sol-dash" open><summary>📊 Resumen de lo resuelto</summary><div id="solDash"></div></details>
             <div id="solHist"></div></div>` : ''}
     </div>`, 'theme-rojo');
+    if (!esAdmin()) {   // solo informa: no autoriza ni rechaza
+        document.querySelectorAll('#modalContenido .solicitud .form-botones').forEach(b => b.remove());
+        if (!lista.length) document.querySelectorAll('#modalContenido .grupo-titulo, #modalContenido .sub').forEach(e => { if (/Eliminación de visitas|piden eliminar por error/.test(e.textContent)) e.remove(); });
+    }
     histSolDatos = resueltas;
     Object.assign(histSol, { zona: '', tipo: '', res: '', per: '', q: '' });
     pintarHistSol();
