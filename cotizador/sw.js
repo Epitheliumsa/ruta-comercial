@@ -1,7 +1,7 @@
 // Cotizador Epithelium: guarda la app para abrirla sin conexión (el motor se guarda aparte, en el equipo)
-const CACHE = 'cotizador-202611111641';
-const ARCHIVOS = ['./', './index.html', './cotizador.js?v=202611111641', './usuarios.js?v=202611111641', './manifest.json', './version.txt', './lib/jspdf.umd.min.js',
-  '../styles.css?v=202611111641', '../logo.png', '../logo-blanco.png', '../icons/favicon-32.png', '../icons/apple-touch-icon.png', '../icons/icon-192.png', '../icons/icon-512.png'];
+const CACHE = 'cotizador-202611111704';
+const ARCHIVOS = ['./', './index.html', './cotizador.js?v=202611111704', './usuarios.js?v=202611111704', './manifest.json', './version.txt', './lib/jspdf.umd.min.js',
+  '../styles.css?v=202611111704', '../logo.png', '../logo-blanco.png', '../icons/favicon-32.png', '../icons/apple-touch-icon.png', '../icons/icon-192.png', '../icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('cotizador-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 // Primero la red (siempre lo último publicado); sin conexión, lo guardado
