@@ -1227,25 +1227,14 @@ async function guardarLogReporte(e, id, ok) {
         if (reporte.reprogramadaPara && !await confirmarDobleParada(nombreParada(r), reporte.reprogramadaPara, r.id)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         // Sin servidor (pruebas) la foto chica queda en el registro; con servidor se sube a Drive en segundo plano
         if (ok && repTipoLog(r) === 'envio' && val('lgTransp')) recordarTransportadora(val('lgTransp'));
-        // Con señal, la foto se sube ahora mismo y viaja dentro del reporte; lo que no alcance a subir queda en la cola del teléfono (se verifica que quedó guardada)
-        const subidasYa = []; let paraCola = API_URL && !MODO_PRUEBA ? fotos : [];
-        if (API_URL && !MODO_PRUEBA && fotos.length && !pendientes.has(id)) {
-            btn.textContent = 'Subiendo foto…';
-            const faltan = [];
-            for (const d of fotos) {
-                try {
-                    const res = await llamarApi({ accion: 'subirArchivo', carpeta: 'Entregas de logística', nombre: `${r.tipo}-${r.id}.jpg`, tipo: 'image/jpeg', datos: d.split(',')[1], registro: id, huella: huellaFoto(d) }, 60000);
-                    subidasYa.push({ url: res.url, id: res.id || idDrive(res.url), ...(res.h ? { h: res.h } : {}) });
-                } catch (e) { faltan.push(d); }
-            }
-            paraCola = faltan;
-        }
+        // La foto queda primero en la cola del teléfono y se sube en segundo plano (el reporte no espera). Se verifica que la cola quedó guardada: si no hay espacio, el reporte no se guarda para no perder la foto
+        const paraCola = API_URL && !MODO_PRUEBA ? fotos : [];
         if (paraCola.length) {
             const p = leerFotosPend(); p[id] = [...(p[id] || []), ...paraCola];
-            if (!guardarFotosPend(p)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }   // sin espacio para la foto: el reporte no se guarda para no perderla
+            if (!guardarFotosPend(p)) { btn.disabled = false; btn.textContent = 'Guardar'; return; }
         }
         guardarRegistro({ ...r, ...envio, ...(pasosLog(r) ? { asignado: r.asignado || { a: sesion.id, por: sesion.id, cuando: new Date().toISOString() }, vendedor: r.asignado?.a || sesion.id, fecha: r.fecha < hoy() ? hoy() : r.fecha } : {}), estado: ok ? 'entregado' : 'no_entregado', reporte, registrada: new Date().toISOString(), reportadoPor: sesion.id,
-            fotos: [...(r.fotos || []).filter(f => !subidasYa.some(n => n.id === f.id)), ...subidasYa, ...(API_URL && !MODO_PRUEBA ? [] : fotos.map(d => ({ data: d })))] });
+            fotos: [...(r.fotos || []), ...(API_URL && !MODO_PRUEBA ? [] : fotos.map(d => ({ data: d })))] });
         if (paraCola.length) subirFotosPend();
         // Reprogramada: queda una parada nueva, pendiente, con lo mismo (cliente, tipo, facturas, indicaciones) en la nueva fecha
         if (reporte.reprogramadaPara) {
