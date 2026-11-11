@@ -2100,3 +2100,7 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 /* Saludo en dos líneas: la hora del día y debajo el nombre */
 .home-saludo .saludo-hora { display: block; font-size: 15px; font-weight: 500; color: #4a6a9c; }
 .home-saludo .saludo-nombre { display: block; font-size: 22px; font-weight: 700; line-height: 1.2; }
+
+/* Usuario de consulta (Brayan Aldana): en el inicio solo ve lo que consulta y las bases de datos */
+body.es-consulta .home-btn-plan, body.es-consulta .home-btn-visiplan, body.es-consulta #btnPanel, body.es-consulta #btnPanelZona, body.es-consulta .home-btn-proy,
+body.es-consulta #btnLogistica, body.es-consulta #btnCreacion, body.es-consulta #btnSolicitudes, body.es-consulta .home-btn-desc, body.es-consulta #btnConsultaDoc { display: none !important; }
