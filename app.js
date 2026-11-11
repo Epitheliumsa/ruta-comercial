@@ -17,7 +17,7 @@ const USUARIOS = [
     { usuario: 'J.Herrera',   huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', cumple: '1988-04-03', jefe: true, cargo: 'Coordinadora Comercial' },
     { usuario: 'M.Castro',    huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', tipo: 'comercial', id: 'mcastro',    nombre: 'Maryi Castro',      zona: 'Zona Desarrollo', cumple: '1999-07-09', subeVentas: true },
     { usuario: 'H.Reyes',     huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' },
-    { usuario: 'B.Aldana',    huella: '78a54bc34aa6bdaadcbbeca45bc1c48839bda7fcca9abe1e80c1b64fc0ac97f7', tipo: 'jefe',      id: 'baldana',    nombre: 'Brayan Aldana', admin: true, cargo: 'Administrador del Cotizador' },
+    { usuario: 'B.Aldana',    huella: '78a54bc34aa6bdaadcbbeca45bc1c48839bda7fcca9abe1e80c1b64fc0ac97f7', tipo: 'jefe',      id: 'baldana',    nombre: 'Brayan Aldana', soloLectura: true, cargaBases: true, cargo: 'Administrador del Cotizador' },
     // Logística: coordinador y auxiliares de domicilios y mensajería (módulo Logística, Maestra Clientes y Vademécum)
     { usuario: 'J.Arjona',    huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', tipo: 'logistica', id: 'jarjona',  nombre: 'Javier Arjona',  cumple: '1995-07-02', cargo: 'Coordinador Logístico', coordLogistica: true },
     { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cumple: '1998-06-30', cargo: 'Auxiliar de Domicilios y Mensajería' },
@@ -312,6 +312,9 @@ const veEquipo = () => esJefe() || esMercadeo();
 const subeCirculares = () => esJefe() || !!sesion?.subeCirculares;
 // El administrador (Hernán Reyes) es el único que autoriza eliminar visitas
 const esAdmin = () => !!(sesion && sesion.admin);
+// Brayan Aldana: consulta las aplicaciones sin crear ni cambiar nada (soloLectura) y sube las bases de datos (cargaBases)
+const esSoloLectura = () => !!(sesion && sesion.soloLectura);
+const puedeCargarBases = () => esAdmin() || !!(sesion && sesion.cargaBases);
 const ADMIN = USUARIOS.find(u => u.admin);
 const comercial = id => COMERCIALES.find(c => c.id === id);
 const nombreVendedor = id => USUARIOS.find(u => u.id === id)?.nombre || id;
@@ -402,7 +405,7 @@ const textoCierre = v => `${fechaCorta(diaCierre(v))}, ${horaBonita(HORA_CIERRE)
 
 // Pasa a NO visitado lo que no se reportó a tiempo (el jefe cierra las de todo el equipo)
 function cerrarVencidas() {
-    if (!sesion) return 0;
+    if (!sesion || esSoloLectura()) return 0;
     const ahora = Date.now();
     if (ETAPA_DATOS === 'pruebas') {
         // En pruebas se reabren las que el sistema cerró por no reportarse a tiempo
@@ -463,7 +466,7 @@ const CARGA_VIVO = {
     equipo: ['lramos', 'ycaballero', 'mcastro', 'jherrera', 'hreyes'], visiplan: ['lramos', 'ycaballero', 'mcastro', 'jherrera']
 };
 function cargaInicialVivo() {
-    if (ETAPA_DATOS !== 'vivo' || !sesion) return;
+    if (ETAPA_DATOS !== 'vivo' || !sesion || esSoloLectura()) return;
     const k = CARGA_VIVO, marca = 'rc_carga_vivo_' + k.fecha;
     try { if (localStorage.getItem(marca) === sesion.id) return; } catch (e) {}
     const mios = esJefe() ? k.equipo : k.equipo.filter(v => v === sesion.id);
@@ -498,7 +501,7 @@ function cargaInicialVivo() {
 const PLANEACION_DEFECTO = { desde: '2026-12', hasta: '2027-12', tipo: 'Planeación Mes', objetivos: ['Visiplan'], texto: 'Día de planeación', registrada: '2026-11-03T12:00:00.000Z', sin: ['2027-01'], extra: ['2026-11-03'], retirar: ['2026-11-04'] };   // extra: días sueltos (hoy, 3 de noviembre de 2026); retirar: fechas cargadas por error   // enero de 2027 queda fuera hasta tener fecha
 function primerDiaHabilDe(mes) { let d = mes + '-01'; while (!esHabil(d)) d = sumarDias(d, 1); return d; }
 function cargaPlaneacionDefecto() {
-    if (ETAPA_DATOS !== 'vivo' || !sesion) return;
+    if (ETAPA_DATOS !== 'vivo' || !sesion || esSoloLectura()) return;
     const k = PLANEACION_DEFECTO, marca = 'rc_planeacion_defecto_v4';
     try { if (localStorage.getItem(marca) === sesion.id) return; } catch (e) {}
     const mios = esJefe() ? COMERCIALES.map(c => c.id) : COMERCIALES.map(c => c.id).filter(v => v === sesion.id);
@@ -598,7 +601,9 @@ function guardarLocal() {
 // Visita cerrada cuyo reporte se está editando para enviarlo a aprobación del Gerente General: el guardado no cambia el reporte,
 // queda como una propuesta (edicionPendiente) hasta que se autorice. Se apaga al cerrar el recuadro.
 let modoPropuesta = '';
+const AVISO_CONSULTA = 'Tu usuario es de consulta: puedes ver y subir las bases de datos, pero no crear ni cambiar nada.';
 function guardarRegistro(r) {
+    if (esSoloLectura()) return toast(AVISO_CONSULTA);
     if (modoPropuesta && r.id === modoPropuesta) return proponerEdicion(r);
     const ahoraIso = new Date().toISOString(), previoIso = registros[r.id]?.actualizado || '';
     r.actualizado = previoIso > ahoraIso ? new Date(Date.parse(previoIso) + 1).toISOString() : ahoraIso;   // si el registro tiene fecha futura, el cambio igual lo supera
@@ -613,6 +618,7 @@ function guardarRegistro(r) {
 }
 
 function borrarRegistro(r) {
+    if (esSoloLectura()) return toast(AVISO_CONSULTA);
     r.borrado = true;
     guardarRegistro(r);
 }
@@ -808,7 +814,7 @@ function entrarApp() {
     $('btnPanelZona').style.display = esComercial() && !esJefe() ? '' : 'none';   // cada zona ve solo lo suyo
     $('panelScreen').querySelector('h1').dataset.titulo = esComercial() && !esJefe() ? 'Panel Zona' : 'Panel del equipo';
     $('maestraTxt').textContent = veTodasZonas() ? (veProveedores() ? 'Clientes, médicos y proveedores' : 'Clientes y médicos por zona y vendedor') : 'Clientes y médicos de tu zona';
-    $('btnBases').style.display = esAdmin() ? '' : 'none';
+    $('btnBases').style.display = puedeCargarBases() ? '' : 'none';
     document.querySelectorAll('.solo-jefe').forEach(el => el.style.display = esJefe() ? '' : 'none');
     // Comerciales: en el título de cada pantalla, debajo, su nombre
     document.querySelectorAll('.header-logo h1').forEach(h => {
@@ -6118,6 +6124,7 @@ function dialogo({ titulo = '', texto = '', aceptar = 'Aceptar', cancelar = 'Can
 
 // ---------- MODAL ----------
 function abrirModal(html, tema = '') {
+    if (esSoloLectura() && /<form[^>]*onsubmit/.test(html)) return toast(AVISO_CONSULTA);   // los formularios (crear, reportar, editar) no se abren
     const caja = document.querySelector('#modal .modal-content');
     caja.classList.remove('theme-rojo', 'theme-azul');
     if (tema) caja.classList.add(tema);

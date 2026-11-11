@@ -221,7 +221,7 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
       </aside>
 
       <p class="carga" id="carga" hidden>Cargando el motor de cotización…</p>
-      <div class="pie"><p id="pie"></p><p class="version-cz"><span id="versionTxt"></span> · <span id="versionEstado">Revisando…</span> <button type="button" class="btn-act" onclick="actualizarApp()">Actualizar</button></p><div class="admin-motor" id="adminMotor" hidden><button type="button" class="btn-sec" onclick="document.getElementById('motorArchivo').click()">Cargar motor (archivo JSON)</button><input type="file" id="motorArchivo" accept=".json,application/json" hidden onchange="subirMotor(this)"><button type="button" class="btn-sec" onclick="abrirAuditoria()">Auditoría</button><span id="adminMsg"></span></div>
+      <div class="pie"><p id="pie"></p><p class="version-cz"><span id="versionTxt"></span> · <span id="versionEstado">Revisando…</span> <button type="button" class="btn-act" onclick="actualizarApp()">Actualizar</button></p><div class="admin-motor" id="adminMotor" hidden><button type="button" class="btn-sec" onclick="document.getElementById('motorArchivo').click()">Cargar motor (archivo JSON)</button><input type="file" id="motorArchivo" accept=".json,application/json" hidden onchange="subirMotor(this)"><button type="button" class="btn-sec" id="btnAuditoria" onclick="abrirAuditoria()" hidden>Auditoría</button><span id="adminMsg"></span></div>
       <div class="auditoria" id="auditoria" hidden>
         <div class="aud-cab"><h2>Auditoría del Cotizador</h2><button type="button" class="btn-sec" onclick="cerrarAuditoria()">Cerrar</button></div>
         <div class="aud-motor" id="audMotor">Cargando…</div>
@@ -277,6 +277,7 @@ async function entrar(u, clave) {
   window.CZ_COTIZA = u.empresa ? u.nombre : '';
   window.CZ_PDV = u.nombre;   // PDV: el cliente o, para el personal de Epithelium, el empleado que cotiza
   $id('adminMotor').hidden = !u.admin;
+  $id('btnAuditoria').hidden = !u.auditor;   // la auditoría es solo del administrador principal
   pantalla('appScreen');
   document.querySelectorAll('#form, .lado').forEach(e => e.hidden = true);
   $id('carga').hidden = false; $id('carga').textContent = 'Cargando el motor de cotización…';
@@ -326,7 +327,7 @@ const pesos = n => '$ ' + Number(n || 0).toLocaleString('es-CO');
 const detalleAud = f => { try { return JSON.parse(f[4]) || {}; } catch (e) { return {}; } };
 const textoFormulas = d => (d.formulas || []).map((x, i) => `${i + 1}. ${(x.activos || []).map(a => `${a.nombre} ${a.pct}%`).join(' + ')} · ${x.forma} x ${x.pres} ${x.unidad || ''}${x.cant > 1 ? ` · ${x.cant} u.` : ''} · PVSP ${pesos(x.pvsp)}`).join(' | ');
 async function abrirAuditoria() {
-  if (!sesion || !sesion.admin) return;
+  if (!sesion || !sesion.auditor) return;
   $id('auditoria').hidden = false; $id('audMotor').textContent = 'Cargando…'; $id('audTabla').innerHTML = '';
   try {
     const r = await api({ accion: 'auditoriaCotizador', limite: 2000 });

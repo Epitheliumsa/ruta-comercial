@@ -74,7 +74,7 @@ function pintarBases() {
         ${x.sinDescarga ? '' : `<button type="button" class="btn-sec" onclick="descargarBase('${x.k}')">⬇ Descargar</button>`}</div></div>`).join('');
 }
 async function abrirBases() {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     pintarBases();
     mostrarPantalla('basesScreen');
     if (API_URL) { try { estadoBases = (await llamarApi({ accion: 'estadoBases' })).estado || {}; if (pantallaActiva() === 'basesScreen') pintarBases(); } catch (e) { console.warn('No se pudo traer el estado de las bases:', e); } }
@@ -141,7 +141,7 @@ function contactosDeMaestra(filas) {
     return { nuevo, sinZona };
 }
 async function subirContactos() {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     const [archivo] = await elegirArchivos();
     if (!archivo) return;
     try {
@@ -204,7 +204,7 @@ async function appAlDia() {
     } catch (e) { return true; }   // sin conexión a la versión: no se bloquea
 }
 async function subirOdoo() {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     if (!await appAlDia()) {
         if (await dialogo({ titulo: 'La app está desactualizada', texto: 'Hay una versión nueva y esta carga usaría reglas viejas (por ejemplo, no pegaría las direcciones de entrega a su cliente). Actualiza y vuelve a subir el archivo.', aceptar: 'Actualizar ahora' })) actualizarApp();
         return;
@@ -316,7 +316,7 @@ function catalogoDeLibros(libros) {
 const familiaProducto = c => String(c).startsWith('PT') ? 'PT' : 'MP';
 const NOMBRE_FAMILIA = { PT: 'Productos terminados', MP: 'Materias primas' };
 async function subirCatalogo() {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     const archivos = await elegirArchivos(true);
     if (!archivos.length) return;
     try {
@@ -358,7 +358,7 @@ async function bajarLibro(wb, nombre) {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 async function descargarBase(k) {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     try {
         await cargarExcelJS();
         const wb = new ExcelJS.Workbook();
@@ -449,7 +449,7 @@ function productosVademecum(filas, extra = []) {
 }
 const encabezadoLibro = wb => filasHoja(wb.worksheets[0])[0]?.map(x => x.trim()) || [];
 async function subirVademecum() {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     const archivos = await elegirArchivos(true);
     if (!archivos.length) return;
     try {
@@ -572,7 +572,7 @@ function categorizarMateriasPrimas(pend) {
     });
 }
 async function subirMateriasPrimas() {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     const [archivo] = await elegirArchivos(false);
     if (!archivo) return;
     try {
@@ -615,7 +615,7 @@ function clienteDelIndice(nom, indice, porNombre) {
 // Los dos archivos de Odoo (Producto Terminado y Magistrales) traen la misma estructura. Cada fila se reparte por su referencia:
 // PT → catálogo de visitas; MP → catálogo + Vademécum (lo que no es Cliente) y portafolios (etiqueta Cliente, categoría "Magistral de Pedido / cliente").
 async function subirProductosTodo(soloPT = false) {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     const archivos = await elegirArchivos(true);
     if (!archivos.length) return;
     try {
@@ -802,7 +802,7 @@ function leerHomologos(libro) {
 // Producto del maestro con el nombre que le pone el cliente
 const productoHomologo = (maestroPorRef, i) => { const m = maestroPorRef[i.r]; return m ? { ...m, Nombre: i.n } : null; };
 async function subirHomologos() {
-    if (!esAdmin()) return;
+    if (!puedeCargarBases()) return;
     const [archivo] = await elegirArchivos(false);
     if (!archivo) return;
     try {

@@ -19,7 +19,7 @@ const USUARIOS = {
   'j.herrera':   { huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', id: 'jherrera',   tipo: 'jefe' },  // Jefe comercial: ve y registra para todo el equipo
   'm.castro':    { huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', id: 'mcastro',    tipo: 'comercial', zona: 'Zona Desarrollo', subeVentas: true },  // carga el informe de ventas del mes de todos
   'h.reyes':     { huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', id: 'hreyes',     tipo: 'jefe', admin: true },
-  'b.aldana':    { huella: '78a54bc34aa6bdaadcbbeca45bc1c48839bda7fcca9abe1e80c1b64fc0ac97f7', id: 'baldana',    tipo: 'jefe', admin: true },
+  'b.aldana':    { huella: '78a54bc34aa6bdaadcbbeca45bc1c48839bda7fcca9abe1e80c1b64fc0ac97f7', id: 'baldana',    tipo: 'jefe', soloLectura: true, cargaBases: true },   // consulta todo y sube las bases de datos (y el motor del cotizador); no crea ni cambia nada más
   // Logística: solo ven y guardan registros de clase 'logistica' (el coordinador, los de todos; cada auxiliar, los suyos)
   'j.arjona':    { huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', id: 'jarjona',  tipo: 'logistica', area: 'logistica', coordLogistica: true },
   'e.ovalle':    { huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', id: 'eovalle',  tipo: 'logistica', area: 'logistica' },
@@ -105,6 +105,7 @@ function motorCotizador_(pedido) {
 
 // ---------- AUDITORÍA DEL COTIZADOR ----------
 // Hoja "AuditoriaCotizador" (Fecha, Usuario, Nombre, Evento, Detalle): cada cotización hecha y cada carga del motor. Solo la leen los administradores del cotizador.
+const ACCESO_AUDITORIA = ['hreyes'];   // quién ve la auditoría del cotizador
 const HOJA_AUD_COTI = 'AuditoriaCotizador';
 const COLUMNAS_AUD_COTI = ['Fecha', 'Usuario', 'Nombre', 'Evento', 'Detalle'];
 function auditarCotizador_(u, evento, detalle) {
@@ -129,7 +130,7 @@ function registrarCotizacion_(pedido) {
 function auditoriaCotizador_(pedido) {
   const u = autenticarCotizador_(pedido.usuario, pedido.clave);
   if (!u) throw new Error('Usuario o clave incorrectos');
-  if (!u.admin) throw new Error('Solo el administrador del cotizador puede auditar');
+  if (ACCESO_AUDITORIA.indexOf(u.id) < 0) throw new Error('Solo el administrador (Hernán Reyes) audita el cotizador');
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_AUD_COTI);
   const valores = h && h.getLastRow() > 1 ? h.getRange(2, 1, h.getLastRow() - 1, COLUMNAS_AUD_COTI.length).getValues() : [];
   const limite = Math.min(Number(pedido.limite) || 1000, 5000);
@@ -193,6 +194,7 @@ function datosPrevios_(f, id) {
 
 // Guarda o reemplaza cada registro; gana la versión más reciente
 function guardar_(usuario, registros) {
+  if (usuario.soloLectura) return 0;   // usuario de consulta: no crea ni cambia registros
   const bloqueo = LockService.getScriptLock();
   bloqueo.waitLock(20000);
   try {
@@ -289,6 +291,7 @@ function carpeta_(nombre) {
 }
 
 function subirArchivo_(usuario, pedido) {
+  if (usuario.soloLectura) throw new Error('Tu usuario es de consulta: no sube archivos');
   const bytes = Utilities.base64Decode(String(pedido.datos || ''));
   if (!bytes.length) throw new Error('Archivo vacío');
   if (bytes.length > 15 * 1024 * 1024) throw new Error('El archivo pesa más de 15 MB');
@@ -406,7 +409,7 @@ function directorio_(usuario, version) {
   return { filas: filas, actualizado: String(valores[0][COLUMNAS_DIR.length] || '') };
 }
 function guardarDirectorio_(usuario, filas) {
-  if (!usuario.admin) throw new Error('Solo el administrador sube el directorio');
+  if (!(usuario.admin || usuario.cargaBases)) throw new Error('Solo el administrador sube el directorio');
   if (!Array.isArray(filas) || !filas.length) throw new Error('El directorio llegó vacío');
   const libro = SpreadsheetApp.getActiveSpreadsheet();
   const h = libro.getSheetByName(HOJA_DIR) || libro.insertSheet(HOJA_DIR);
@@ -426,7 +429,7 @@ function guardarDirectorio_(usuario, filas) {
 const HOJA_PROV = 'Proveedores';
 const COLUMNAS_PROV = ['Nombre', 'Ciudad', 'Provincia', 'Etiquetas', 'Dirección', 'Teléfono'];
 function proveedores_(usuario, version) {
-  if (usuario.area !== 'logistica' && !usuario.admin) throw new Error('Sin permiso para ver los proveedores');
+  if (usuario.area !== 'logistica' && !usuario.admin && !usuario.cargaBases) throw new Error('Sin permiso para ver los proveedores');
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_PROV);
   if (!h) return { filas: [], actualizado: '' };
   const valores = h.getDataRange().getValues();
@@ -435,7 +438,7 @@ function proveedores_(usuario, version) {
            actualizado: String(valores[0][COLUMNAS_PROV.length] || '') };
 }
 function guardarProveedores_(usuario, filas) {
-  if (!usuario.admin) throw new Error('Solo el administrador sube los proveedores');
+  if (!(usuario.admin || usuario.cargaBases)) throw new Error('Solo el administrador sube los proveedores');
   if (!Array.isArray(filas) || !filas.length) throw new Error('La maestra de proveedores llegó vacía');
   const libro = SpreadsheetApp.getActiveSpreadsheet();
   const h = libro.getSheetByName(HOJA_PROV) || libro.insertSheet(HOJA_PROV);
@@ -454,7 +457,7 @@ function guardarProveedores_(usuario, filas) {
 // Nunca viaja a comerciales ni a los demás usuarios.
 const HOJA_EMP = 'Empleados';
 function empleados_(usuario, version) {
-  if (usuario.area !== 'logistica' && !usuario.admin) throw new Error('Sin permiso para ver los empleados');
+  if (usuario.area !== 'logistica' && !usuario.admin && !usuario.cargaBases) throw new Error('Sin permiso para ver los empleados');
   const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_EMP);
   if (!h) return { filas: [], actualizado: '' };
   const valores = h.getDataRange().getValues();
@@ -463,7 +466,7 @@ function empleados_(usuario, version) {
            actualizado: String(valores[0][COLUMNAS_PROV.length] || '') };
 }
 function guardarEmpleados_(usuario, filas) {
-  if (!usuario.admin) throw new Error('Solo el administrador sube los empleados');
+  if (!(usuario.admin || usuario.cargaBases)) throw new Error('Solo el administrador sube los empleados');
   if (!Array.isArray(filas) || !filas.length) throw new Error('La maestra de empleados llegó vacía');
   const libro = SpreadsheetApp.getActiveSpreadsheet();
   const h = libro.getSheetByName(HOJA_EMP) || libro.insertSheet(HOJA_EMP);
@@ -506,7 +509,7 @@ function guardarBase_(usuario, nombre, contenido, resumen) {
 }
 // Guarda varias bases de una sola vez (una sola reescritura de la hoja). borrarPortafolios: retira los portafolios del Vademécum que ya no vienen.
 function guardarBases_(usuario, bases, borrarPortafolios) {
-  if (!usuario.admin) throw new Error('Solo el administrador sube las bases de datos');
+  if (!(usuario.admin || usuario.cargaBases)) throw new Error('Solo el administrador sube las bases de datos');
   if (!bases || !bases.length) throw new Error('No llegó nada para guardar');
   bases.forEach(b => {
     if (!baseValida_(b.nombre)) throw new Error('Base desconocida');
@@ -549,7 +552,7 @@ function vademecumPortafolio_(huella) {
   return b ? { portafolio: JSON.parse(b.contenido), actualizado: b.actualizado } : { portafolio: null };
 }
 function leerVademecum_(usuario) {
-  if (!usuario.admin) throw new Error('Solo el administrador descarga el Vademécum');
+  if (!(usuario.admin || usuario.cargaBases)) throw new Error('Solo el administrador descarga el Vademécum');
   const m = vademecumMaestro_(), portafolios = {};
   const nombres = {};
   filasBases_().forEach(f => { if (/^pf_/.test(f[0])) nombres[f[0]] = 1; });
@@ -558,7 +561,7 @@ function leerVademecum_(usuario) {
 }
 // Lo que muestra la pantalla "Bases de datos": cuándo se subió cada cosa y cuántos registros trae
 function estadoBases_(usuario) {
-  if (!usuario.admin) throw new Error('Solo el administrador ve las bases de datos');
+  if (!(usuario.admin || usuario.cargaBases)) throw new Error('Solo el administrador ve las bases de datos');
   const libro = SpreadsheetApp.getActiveSpreadsheet(), estado = {};
   const hoja = (nombre, col) => {
     const h = libro.getSheetByName(nombre);
