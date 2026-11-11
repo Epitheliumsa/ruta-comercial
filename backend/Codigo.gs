@@ -19,6 +19,7 @@ const USUARIOS = {
   'j.herrera':   { huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', id: 'jherrera',   tipo: 'jefe' },  // Jefe comercial: ve y registra para todo el equipo
   'm.castro':    { huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', id: 'mcastro',    tipo: 'comercial', zona: 'Zona Desarrollo', subeVentas: true },  // carga el informe de ventas del mes de todos
   'h.reyes':     { huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', id: 'hreyes',     tipo: 'jefe', admin: true },
+  'b.aldana':    { huella: '78a54bc34aa6bdaadcbbeca45bc1c48839bda7fcca9abe1e80c1b64fc0ac97f7', id: 'baldana',    tipo: 'jefe', admin: true },
   // Logística: solo ven y guardan registros de clase 'logistica' (el coordinador, los de todos; cada auxiliar, los suyos)
   'j.arjona':    { huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', id: 'jarjona',  tipo: 'logistica', area: 'logistica', coordLogistica: true },
   'e.ovalle':    { huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', id: 'eovalle',  tipo: 'logistica', area: 'logistica' },
@@ -40,6 +41,8 @@ function doPost(e) {
     if (pedido.accion === 'vademecumPortafolio') return responder_(Object.assign({ ok: true }, vademecumPortafolio_(pedido.huella)));
     // Cotizador Epithelium: lo usan el personal de la empresa (USUARIOS) y sus usuarios propios (USUARIOS_COTIZADOR)
     if (pedido.accion === 'motorCotizador') return responder_(Object.assign({ ok: true }, motorCotizador_(pedido)));
+    if (pedido.accion === 'registrarCotizacion') return responder_(Object.assign({ ok: true }, registrarCotizacion_(pedido)));
+    if (pedido.accion === 'auditoriaCotizador') return responder_(Object.assign({ ok: true }, auditoriaCotizador_(pedido)));
     const usuario = autenticar_(pedido.usuario, pedido.clave);
     if (!usuario) return responder_({ ok: false, error: 'Usuario o clave incorrectos' });
     if (pedido.accion === 'listar') return responder_({ ok: true, registros: listar_(usuario, pedido.desde, pedido.hasta) });
@@ -54,7 +57,11 @@ function doPost(e) {
     if (pedido.accion === 'estadoBases') return responder_(Object.assign({ ok: true }, estadoBases_(usuario)));
     if (pedido.accion === 'versionesBases') return responder_({ ok: true, versiones: versionesBases_(usuario) });
     if (pedido.accion === 'leerBase') return responder_(Object.assign({ ok: true }, leerBase_(usuario, pedido.nombre)));
-    if (pedido.accion === 'guardarBase') return responder_(Object.assign({ ok: true }, guardarBase_(usuario, pedido.nombre, pedido.contenido, pedido.resumen)));
+    if (pedido.accion === 'guardarBase') {
+      const guardada = guardarBase_(usuario, pedido.nombre, pedido.contenido, pedido.resumen);
+      if (pedido.nombre === 'motor_cotizador') auditarCotizador_(usuario, 'carga_motor', { resumen: String(pedido.resumen || '') });   // queda quién subió el motor y cuándo
+      return responder_(Object.assign({ ok: true }, guardada));
+    }
     if (pedido.accion === 'guardarBases') return responder_(Object.assign({ ok: true }, guardarBases_(usuario, pedido.bases, pedido.borrarPortafolios)));
     if (pedido.accion === 'leerVademecum') return responder_(Object.assign({ ok: true }, leerVademecum_(usuario)));
     if (pedido.accion === 'consultarDocumento') return responder_(Object.assign({ ok: true }, consultarDocumento_(usuario, pedido.numero, pedido.tipo)));
@@ -85,7 +92,7 @@ function autenticarCotizador_(usuario, clave) {
 }
 // Motor del cotizador (base privada motor_cotizador): soloVersion = solo la fecha de la última carga
 // Mientras el cotizador está en pruebas solo entran estos id (vacío = todos). Igual que ACCESO_COTIZADOR de app.js y cotizador/usuarios.js.
-const ACCESO_COTIZADOR = ['jherrera', 'hreyes'];
+const ACCESO_COTIZADOR = ['jherrera', 'hreyes', 'baldana'];
 function motorCotizador_(pedido) {
   const u = autenticarCotizador_(pedido.usuario, pedido.clave);
   if (!u) throw new Error('Usuario o clave incorrectos');
@@ -94,6 +101,41 @@ function motorCotizador_(pedido) {
   const actualizado = partes.length ? String(partes[0][3]) : '';
   if (pedido.soloVersion) return { actualizado: actualizado };
   return { contenido: partes.map(f => String(f[2])).join(''), actualizado: actualizado };
+}
+
+// ---------- AUDITORÍA DEL COTIZADOR ----------
+// Hoja "AuditoriaCotizador" (Fecha, Usuario, Nombre, Evento, Detalle): cada cotización hecha y cada carga del motor. Solo la leen los administradores del cotizador.
+const HOJA_AUD_COTI = 'AuditoriaCotizador';
+const COLUMNAS_AUD_COTI = ['Fecha', 'Usuario', 'Nombre', 'Evento', 'Detalle'];
+function auditarCotizador_(u, evento, detalle) {
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  let h = libro.getSheetByName(HOJA_AUD_COTI);
+  if (!h) {
+    h = libro.insertSheet(HOJA_AUD_COTI);
+    h.getRange(1, 1, 1, COLUMNAS_AUD_COTI.length).setValues([COLUMNAS_AUD_COTI]).setFontWeight('bold');
+    h.setFrozenRows(1);
+  }
+  const fila = h.getLastRow() + 1;
+  h.getRange(fila, 1, 1, COLUMNAS_AUD_COTI.length).setNumberFormat('@')
+    .setValues([[new Date().toISOString(), String(u.id || ''), String((detalle && detalle.quien) || u.nombre || u.id || ''), evento, JSON.stringify(detalle || {}).slice(0, 45000)]]);
+}
+function registrarCotizacion_(pedido) {
+  const u = autenticarCotizador_(pedido.usuario, pedido.clave);
+  if (!u) throw new Error('Usuario o clave incorrectos');
+  if (ACCESO_COTIZADOR.length && ACCESO_COTIZADOR.indexOf(u.id) < 0) throw new Error('El cotizador está en pruebas: todavía no tienes acceso');
+  auditarCotizador_(u, 'cotizacion', pedido.cotizacion || {});
+  return { registrada: true };
+}
+function auditoriaCotizador_(pedido) {
+  const u = autenticarCotizador_(pedido.usuario, pedido.clave);
+  if (!u) throw new Error('Usuario o clave incorrectos');
+  if (!u.admin) throw new Error('Solo el administrador del cotizador puede auditar');
+  const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_AUD_COTI);
+  const valores = h && h.getLastRow() > 1 ? h.getRange(2, 1, h.getLastRow() - 1, COLUMNAS_AUD_COTI.length).getValues() : [];
+  const limite = Math.min(Number(pedido.limite) || 1000, 5000);
+  const filas = valores.map(f => f.map(String)).reverse().slice(0, limite);   // las más recientes primero
+  const partes = filasBases_().filter(f => f[0] === 'motor_cotizador').sort((a, b) => Number(a[1]) - Number(b[1]));
+  return { filas: filas, total: valores.length, motor: { actualizado: partes.length ? String(partes[0][3]) : '', resumen: partes.length ? String(partes[0][4]) : '' } };
 }
 
 function autenticar_(usuario, clave) {

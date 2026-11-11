@@ -2,7 +2,7 @@
 // URL de la aplicación web de Google Apps Script (ver backend/Codigo.gs).
 // Vacía = los datos se guardan solo en este dispositivo.
 // Versión publicada: al cambiar, la app ofrece actualizarse (se genera junto con version.txt)
-const APP_VERSION = '202611111253';
+const APP_VERSION = '202611111641';
 const API_URL = 'https://script.google.com/macros/s/AKfycbwji7WhPpF2VhCRQETWXNFhF2PTAL8JP8z9SW-stsKdnjbyBa-KVucGCvm6seoTFLfl3Q/exec';
 
 // Zona de un vendedor que todavía no tiene zona: no trae contactos de la Maestra (todo lo que programe queda como contacto nuevo)
@@ -17,6 +17,7 @@ const USUARIOS = [
     { usuario: 'J.Herrera',   huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', tipo: 'comercial', id: 'jherrera',   nombre: 'Jennifer Herrera',  zona: 'Clientes Especiales', cumple: '1988-04-03', jefe: true, cargo: 'Coordinadora Comercial' },
     { usuario: 'M.Castro',    huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', tipo: 'comercial', id: 'mcastro',    nombre: 'Maryi Castro',      zona: 'Zona Desarrollo', cumple: '1999-07-09', subeVentas: true },
     { usuario: 'H.Reyes',     huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', tipo: 'jefe',      id: 'hreyes',     nombre: 'Hernán Reyes', cumple: '1975-01-16', admin: true, cargo: 'Gerente General' },
+    { usuario: 'B.Aldana',    huella: '78a54bc34aa6bdaadcbbeca45bc1c48839bda7fcca9abe1e80c1b64fc0ac97f7', tipo: 'jefe',      id: 'baldana',    nombre: 'Brayan Aldana', admin: true, cargo: 'Administrador del Cotizador' },
     // Logística: coordinador y auxiliares de domicilios y mensajería (módulo Logística, Maestra Clientes y Vademécum)
     { usuario: 'J.Arjona',    huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', tipo: 'logistica', id: 'jarjona',  nombre: 'Javier Arjona',  cumple: '1995-07-02', cargo: 'Coordinador Logístico', coordLogistica: true },
     { usuario: 'E.Ovalle',    huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', tipo: 'logistica', id: 'eovalle',  nombre: 'Eric Ovalle',    cumple: '1998-06-30', cargo: 'Auxiliar de Domicilios y Mensajería' },
@@ -39,6 +40,7 @@ const PERFIL_VADEMECUM = {
     jherrera: { tipo: 'equipo', zona: null },   // jefe comercial: ve todas las zonas
     mcastro: { tipo: 'comercial', zona: 'Zona Desarrollo' },
     hreyes: { tipo: 'equipo', zona: null },
+    baldana: { tipo: 'equipo', zona: null },   // administrador del Cotizador
     jarjona: { tipo: 'equipo', zona: null },   // logística: ve todos los portafolios
     eovalle: { tipo: 'equipo', zona: null },
     dbarrero: { tipo: 'equipo', zona: null },
@@ -69,7 +71,7 @@ function abrirVademecum(e) {
 
 // Cotizador Epithelium (app aparte, cotizador/): mientras está en pruebas solo entran estos usuarios (misma lista en
 // cotizador/usuarios.js y en ACCESO_COTIZADOR de backend/Codigo.gs). Lista vacía = todo el personal.
-const ACCESO_COTIZADOR = ['jherrera', 'hreyes'];
+const ACCESO_COTIZADOR = ['jherrera', 'hreyes', 'baldana'];
 function abrirCotizador(e) {
     if (!ACCESO_COTIZADOR.length || (sesion && ACCESO_COTIZADOR.includes(sesion.id))) return true;
     e.preventDefault();

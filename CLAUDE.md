@@ -453,6 +453,9 @@
   (acción `motorCotizador`, valida usuario de la empresa o propio). La sube el administrador en el cotizador con **Cargar motor**
   (archivo JSON que se genera desde `sheet_motor_vNN.xlsx` y `sheet_motor_CDFLL_vNN.xlsx`, skill cotizacion-bella-piel). Cada equipo guarda
   el último motor para trabajar sin conexión.
+- **Administradores del cotizador**: Hernán Reyes y **Brayan Aldana** (`B.Aldana`, id `baldana`, usuario de la empresa con las mismas propiedades de administrador: Visita Comercial, Vademécum y Cotizador).
+  Ven el botón **Auditoría** del cotizador: motor cargado (versión, quién y cuándo lo subió, descarga del JSON) y registro de cotizaciones (quién cotizó, cuándo, paciente, fórmulas y precio; filtros y **Descargar cotizaciones (Excel)**, sin cuadrícula).
+  El registro vive en la hoja `AuditoriaCotizador` del servidor (acciones `registrarCotizacion` y `auditoriaCotizador`); cada cotización se manda al servidor al tocar Cotizar (si no hay señal, queda en el equipo y se manda después).
 - **En pruebas** (etiqueta roja EN PRUEBAS en el cotizador y "- en pruebas" en el botón de Visita): solo entran Jennifer Herrera y Hernán Reyes
   (`ACCESO_COTIZADOR = ['jherrera', 'hreyes']`, la misma lista en `app.js`, `cotizador/usuarios.js` y `backend/Codigo.gs`; vacía = todo el personal).
   Los demás ven el botón en Visita pero al tocarlo sale "Cotizador en pruebas"; el cotizador y el servidor también los rechazan.

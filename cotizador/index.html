@@ -27,7 +27,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="../styles.css?v=202611070007">
+<link rel="stylesheet" href="../styles.css?v=202611111641">
 <style>
 [hidden]{display:none!important}
 .en-pruebas-cz{display:inline-block;background:#dc2626;color:#fff!important;font-size:11px!important;font-weight:800;letter-spacing:.08em;padding:2px 8px;border-radius:6px;vertical-align:middle;margin:0 0 10px!important}
@@ -108,6 +108,13 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
 .ayuda-ios{font-size:12px;color:#666;margin-top:10px}
 .carga{grid-column:1/-1;text-align:center;color:var(--gris);padding:40px 0}
 .admin-motor{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.auditoria{margin-top:14px;border:1px solid #d9e5df;border-radius:14px;padding:14px;background:#fff}
+.aud-cab{display:flex;justify-content:space-between;align-items:center;gap:8px}.aud-cab h2{margin:0;font-size:18px;color:var(--verde)}
+.aud-motor{margin:10px 0;padding:10px 12px;border-radius:10px;background:#f1f8f5;font-size:14px;line-height:1.5}
+.aud-acc,.aud-filtros{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.aud-filtros input,.aud-filtros select{padding:8px 10px;border:1px solid #cfe0d8;border-radius:10px;font:inherit}
+.aud-n{font-size:13px;color:#5f6b68;margin:4px 0}.aud-tabla{overflow:auto;max-height:60vh}
+.aud-tabla table{border-collapse:collapse;width:100%;font-size:13px}.aud-tabla th{position:sticky;top:0;background:#e8f1ed;text-align:left;padding:6px 8px}
+.aud-tabla td{padding:6px 8px;border-top:1px solid #e6eeea;vertical-align:top}.aud-tabla td.num{text-align:right;white-space:nowrap}
 .e-cotiza{font-size:12px;color:var(--gris);margin-top:2px}
 .e-cotiza b{color:var(--tinta)}
 .sec-h h2.falta{color:var(--mal)}
@@ -214,13 +221,21 @@ label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weigh
       </aside>
 
       <p class="carga" id="carga" hidden>Cargando el motor de cotización…</p>
-      <div class="pie"><p id="pie"></p><p class="version-cz"><span id="versionTxt"></span> · <span id="versionEstado">Revisando…</span> <button type="button" class="btn-act" onclick="actualizarApp()">Actualizar</button></p><div class="admin-motor" id="adminMotor" hidden><button type="button" class="btn-sec" onclick="document.getElementById('motorArchivo').click()">Cargar motor (archivo JSON)</button><input type="file" id="motorArchivo" accept=".json,application/json" hidden onchange="subirMotor(this)"><span id="adminMsg"></span></div></div>
+      <div class="pie"><p id="pie"></p><p class="version-cz"><span id="versionTxt"></span> · <span id="versionEstado">Revisando…</span> <button type="button" class="btn-act" onclick="actualizarApp()">Actualizar</button></p><div class="admin-motor" id="adminMotor" hidden><button type="button" class="btn-sec" onclick="document.getElementById('motorArchivo').click()">Cargar motor (archivo JSON)</button><input type="file" id="motorArchivo" accept=".json,application/json" hidden onchange="subirMotor(this)"><button type="button" class="btn-sec" onclick="abrirAuditoria()">Auditoría</button><span id="adminMsg"></span></div>
+      <div class="auditoria" id="auditoria" hidden>
+        <div class="aud-cab"><h2>Auditoría del Cotizador</h2><button type="button" class="btn-sec" onclick="cerrarAuditoria()">Cerrar</button></div>
+        <div class="aud-motor" id="audMotor">Cargando…</div>
+        <div class="aud-acc"><button type="button" class="btn-sec" onclick="descargarMotorJson()">Descargar el motor cargado (JSON)</button><button type="button" class="btn-sec" onclick="descargarAuditoriaExcel()">Descargar cotizaciones (Excel)</button></div>
+        <div class="aud-filtros"><input type="search" id="audQ" placeholder="Buscar paciente, usuario o activo…" oninput="pintarAuditoria()"><select id="audEv" onchange="pintarAuditoria()"><option value="">Todo</option><option value="cotizacion">Cotizaciones</option><option value="carga_motor">Cargas del motor</option></select><input type="date" id="audDesde" onchange="pintarAuditoria()" aria-label="Desde"></div>
+        <p class="aud-n" id="audN"></p>
+        <div class="aud-tabla" id="audTabla"></div>
+      </div></div>
     </div>
   </div>
 </div>
 
 <script src="lib/jspdf.umd.min.js"></script>
-<script src="usuarios.js?v=202611070007" charset="utf-8"></script>
+<script src="usuarios.js?v=202611111641" charset="utf-8"></script>
 <script>
 /* ===== Cotizador Epithelium: ingreso con los mismos usuarios y claves de Visita Comercial =====
    El motor (costos, márgenes) NO está en el repositorio: se trae del servidor de Visita Comercial
@@ -274,7 +289,7 @@ async function entrar(u, clave) {
   window.CZ_MOTORES = u.motores || ['EPITHELIUM', 'CDFLL'];   // usuarios propios: solo sus motores
   $id('carga').hidden = true;
   document.querySelectorAll('#form, .lado').forEach(e => e.hidden = false);
-  if (!cotizadorListo) { cotizadorListo = true; await cargarScript('cotizador.js?v=202611070007'); }
+  if (!cotizadorListo) { cotizadorListo = true; await cargarScript('cotizador.js?v=202611111641'); }
 }
 
 async function ingresar() {
@@ -304,6 +319,59 @@ async function subirMotor(input) {
   } catch (e) { msg.textContent = 'No se pudo cargar: ' + e.message; }
 }
 
+// ===== Auditoría (solo administradores del cotizador): cotizaciones hechas y cargas del motor =====
+let AUD = { filas: [], motor: {} };
+const fechaBogota = iso => { const d = new Date(iso); return isNaN(d) ? iso : d.toLocaleString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
+const pesos = n => '$ ' + Number(n || 0).toLocaleString('es-CO');
+const detalleAud = f => { try { return JSON.parse(f[4]) || {}; } catch (e) { return {}; } };
+const textoFormulas = d => (d.formulas || []).map((x, i) => `${i + 1}. ${(x.activos || []).map(a => `${a.nombre} ${a.pct}%`).join(' + ')} · ${x.forma} x ${x.pres} ${x.unidad || ''}${x.cant > 1 ? ` · ${x.cant} u.` : ''} · PVSP ${pesos(x.pvsp)}`).join(' | ');
+async function abrirAuditoria() {
+  if (!sesion || !sesion.admin) return;
+  $id('auditoria').hidden = false; $id('audMotor').textContent = 'Cargando…'; $id('audTabla').innerHTML = '';
+  try {
+    const r = await api({ accion: 'auditoriaCotizador', limite: 2000 });
+    AUD = r; const m = r.motor || {};
+    const carga = r.filas.find(f => f[3] === 'carga_motor');
+    $id('audMotor').innerHTML = `<b>Motor en el servidor:</b> ${m.resumen ? m.resumen.replace(/</g, '&lt;') : 'sin cargar'}<br><b>Cargado el:</b> ${m.actualizado ? fechaBogota(m.actualizado) : '—'}${carga ? ` · por <b>${(carga[2] || carga[1]).replace(/</g, '&lt;')}</b>` : ''}<br><b>En este equipo:</b> ${window.MOTOR ? 'versión ' + window.MOTOR.version : 'sin motor'}<br><b>Registros:</b> ${r.total} (se muestran los más recientes)`;
+    pintarAuditoria();
+  } catch (e) { $id('audMotor').textContent = 'No se pudo cargar la auditoría: ' + e.message; }
+}
+function cerrarAuditoria() { $id('auditoria').hidden = true; }
+const filasAudFiltradas = () => {
+  const q = $id('audQ').value.trim().toLowerCase(), ev = $id('audEv').value, desde = $id('audDesde').value;
+  return AUD.filas.filter(f => (!ev || f[3] === ev) && (!desde || f[0].slice(0, 10) >= desde) && (!q || (f[1] + ' ' + f[2] + ' ' + f[4]).toLowerCase().includes(q)));
+};
+function pintarAuditoria() {
+  const l = filasAudFiltradas();
+  $id('audN').textContent = `${l.length} ${l.length === 1 ? 'registro' : 'registros'}`;
+  const esc = t => String(t ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  $id('audTabla').innerHTML = l.length ? `<table><thead><tr><th>Fecha</th><th>Usuario</th><th>Evento</th><th>Paciente</th><th>Fórmulas</th><th>Total</th></tr></thead><tbody>${l.map(f => { const d = detalleAud(f); return `<tr><td>${esc(fechaBogota(f[0]))}</td><td>${esc(f[2] || f[1])}</td><td>${f[3] === 'cotizacion' ? 'Cotización' : 'Carga del motor'}</td><td>${esc(d.paciente || '')}</td><td>${esc(f[3] === 'cotizacion' ? `${d.motor || ''} · ${textoFormulas(d)}` : d.resumen || '')}</td><td class="num">${f[3] === 'cotizacion' ? pesos(d.total) : ''}</td></tr>`; }).join('')}</tbody></table>` : '<p>No hay registros con estos filtros.</p>';
+}
+function bajarArchivo(blob, nombre) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombre; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+const hoyArch = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }).replace(/-/g, '');
+function descargarMotorJson() { if (!window.MOTOR) return; bajarArchivo(new Blob([JSON.stringify(window.MOTOR)], { type: 'application/json' }), `${hoyArch()} Motor cotizador ${window.MOTOR.version || ''}.json`); }
+async function descargarAuditoriaExcel() {
+  try {
+    if (!window.ExcelJS) await cargarScript('../lib/exceljs.min.js');
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Auditoría cotizador', { views: [{ showGridLines: false, state: 'frozen', ySplit: 1 }] });
+    ws.addRow(['Fecha', 'Usuario', 'Evento', 'Paciente', 'PDV', 'Motor', 'Versión del motor', 'Fórmulas', 'Total (PVSP)']);
+    filasAudFiltradas().forEach(f => { const d = detalleAud(f), c = f[3] === 'cotizacion'; ws.addRow([fechaBogota(f[0]), f[2] || f[1], c ? 'Cotización' : 'Carga del motor', d.paciente || '', d.pdv || '', c ? d.motor || '' : '', c ? d.version || '' : '', c ? textoFormulas(d) : d.resumen || '', c ? Number(d.total || 0) : null]); });
+    [20, 24, 16, 26, 24, 12, 14, 90, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    ws.getColumn(9).numFmt = '"$" #,##0';
+    ws.getRow(1).font = { bold: true }; ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF4' } };
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 9 } };
+    bajarArchivo(new Blob([await wb.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${hoyArch()} Auditoria cotizador.xlsx`);
+  } catch (e) { $id('audN').textContent = 'No se pudo generar el Excel: ' + e.message; }
+}
+// Cada cotización queda registrada en el servidor (si no hay conexión, se guarda en el equipo y se manda después)
+const COLA_AUD = 'cz_cola_aud';
+async function enviarCotizacionesPendientes() {
+  const cola = leer(COLA_AUD) || [], resto = [];
+  for (const x of cola) { try { await api({ accion: 'registrarCotizacion', cotizacion: x }); } catch (e) { resto.push(x); } }
+  escribir(COLA_AUD, resto.slice(-100));
+}
+function registrarCotizacion(c) { escribir(COLA_AUD, [...(leer(COLA_AUD) || []), c].slice(-100)); enviarCotizacionesPendientes(); }
+
 // Instalar como app (computador, tablet y celular)
 let avisoInstalar = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); avisoInstalar = e; $id('btnInstalar').classList.add('si'); });
@@ -311,7 +379,7 @@ async function instalarApp() { if (!avisoInstalar) return; avisoInstalar.prompt(
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone) $id('ayudaIos').hidden = false;
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // ===== Versión (como en Visita Comercial): la publicada está en version.txt =====
-const COTI_VERSION = '202611070007';
+const COTI_VERSION = '202611111641';
 const fechaVersion = v => v && v.length === 12 ? `${v.slice(6,8)}/${v.slice(4,6)}/${v.slice(0,4)} ${v.slice(8,10)}:${v.slice(10,12)}` : v;
 function hayDatosEscritos() { return !!(document.getElementById('paciente')?.value.trim() || [...document.querySelectorAll('#formulas input')].some(i => i.value && !i.classList.contains('in-cant'))); }
 async function revisarVersion() {
