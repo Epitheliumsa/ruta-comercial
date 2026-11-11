@@ -250,6 +250,8 @@ function pintarLog() {
     $('logResumen').innerHTML += Object.values(reinc).map(r => `<div class="lg-banner-reincide">⚠ <b>Reincidencia:</b> ${esc(nombreParada(r))} · ${fallosParada(r)} no efectivas en 30 días · ${intentoLog(r)}.º intento el ${esc(fechaCorta(r.fecha))}</div>`).join('');
     // Coordinación y administrador: aforos terminados que todavía no tienen quién los despache
     if (esCoordLog() || esAdmin()) { const pa = todos.filter(porAsignarLog); if (pa.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🟠 <b>${pa.length} ${pa.length === 1 ? 'aforo por asignar' : 'aforos por asignar'}</b> para despacho: ${esc(pa.slice(0, 4).map(nombreParada).join(', '))}${pa.length > 4 ? '…' : ''}</div>`; }
+    // Administrador: solicitudes de corrección de reportes cerrados por autorizar
+    if (esAdmin()) { const sc = correccionesLogPendientes(); if (sc.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">✏️ <b>${sc.length} ${sc.length === 1 ? 'solicitud de corrección' : 'solicitudes de corrección'}</b> de reportes cerrados · <a href="#" onclick="abrirSolicitudes(); return false">Revisar</a></div>`; }
     // Administrador: solicitudes de eliminación de paradas por autorizar
     if (esAdmin()) { const sp = solicitudesLogPendientes(); if (sp.length) $('logResumen').innerHTML += `<div class="lg-banner-asignar">🗑 <b>${sp.length} ${sp.length === 1 ? 'solicitud de eliminación' : 'solicitudes de eliminación'}</b> por autorizar · <a href="#" onclick="abrirSolicitudes(); return false">Revisar</a></div>`; }
     const base = fp && fp !== 'dia' ? deP[fp] : dia;
@@ -361,7 +363,7 @@ function tarjetaLog(r, n, total) {
             ${botonEliminarLog(r)}</div>`;
     } else {
         acciones = `<div class="acciones cerrada"><span class="nota-cierre">🔒 ${r.correcciones?.length ? 'Reporte corregido' : 'Reportado'} el ${esc(fechaHora(r.registrada))} por ${esc(nombreVendedor(r.reportadoPor || r.vendedor))}${r.correcciones?.length ? ` · ${r.correcciones.length} ${r.correcciones.length === 1 ? 'corrección' : 'correcciones'}` : ''}</span>${huellaCorreccionesLog(r)}
-            ${puedeCorregirLog() ? `<button class="link-mini" onclick="reabrirLog('${r.id}')">✏️ Corregir reporte</button>` : ''}${botonEliminarLog(r)}</div>`;
+            ${puedeCorregirLog() ? `<button class="link-mini" onclick="reabrirLog('${r.id}')">✏️ Corregir reporte</button>` : botonCorreccionLog(r)}${botonEliminarLog(r)}</div>`;
     }
     // Las de hora fija van por hora; las demás se ordenan con Subir / Bajar
     const sueltas = logRegs().filter(x => x.fecha === r.fecha && x.vendedor === r.vendedor && !x.hora).sort(ordenLog), k = sueltas.findIndex(x => x.id === r.id);
@@ -823,7 +825,7 @@ const resumenReporteLog = (r, c) => {
 const huellaCorreccionesLog = r => (r.correcciones || []).map((c, i) => {
     const propias = new Set((r.fotos || []).map(f => f.id || f.url));
     const fotos = miniaturasLog((c.fotos || []).filter(f => !propias.has(f.id || f.url)));
-    return `<div class="lg-huella-cor"><b>✏️ Corrección ${i + 1}</b> · reporte anterior: ${c.registrada ? esc(fechaHora(c.registrada)) : 'sin hora'} por ${esc(nombreVendedor(c.reportadoPor || r.vendedor))} · reabierto por ${esc(nombreVendedor(c.por))} el ${esc(fechaHora(c.reabierta))}<br><small>${esc(resumenReporteLog(r, c))}</small>${fotos ? `<div class="lg-fotos fija">${fotos}</div>` : ''}</div>`;
+    return `<div class="lg-huella-cor"><b>✏️ Corrección ${i + 1}</b> · reporte anterior: ${c.registrada ? esc(fechaHora(c.registrada)) : 'sin hora'} por ${esc(nombreVendedor(c.reportadoPor || r.vendedor))} · ${c.solicitud ? `corrección pedida por ${esc(nombreVendedor(c.solicitud.por))} el ${esc(fechaHora(c.solicitud.fecha))}${c.solicitud.motivo ? ` («${esc(c.solicitud.motivo)}»)` : ''} y autorizada por` : 'reabierto por'} ${esc(nombreVendedor(c.por))} el ${esc(fechaHora(c.reabierta))}<br><small>${esc(resumenReporteLog(r, c))}</small>${fotos ? `<div class="lg-fotos fija">${fotos}</div>` : ''}</div>`;
 }).join('');
 const fotosDe = (r, aforo) => (r.fotos || []).filter(f => (f.e === 'aforo') === !!aforo);
 const miniaturasLog = lista => lista.map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener" title="Foto ${i + 1}"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"${miniFotoRespaldo(f) ? ` onerror="this.onerror=null; this.src='${esc(miniFotoRespaldo(f))}'"` : ''}></a>`).join('');
@@ -1257,6 +1259,52 @@ async function guardarLogReporte(e, id, ok) {
         btn.disabled = false; btn.textContent = 'Guardar';
         toast('No se pudo guardar: ' + err.message);
     }
+}
+
+// Corrección de un reporte ya cerrado: el mensajero la solicita y la autoriza el administrador, que reabre la parada (el reporte anterior, con su fecha, queda en el historial)
+const correccionesLogPendientes = () => logRegs().filter(r => r.estado !== 'pendiente' && r.solicitudCorreccion?.estado === 'pendiente').sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
+const esDeLog = r => !!sesion && (r.vendedor === sesion.id || r.reportadoPor === sesion.id || r.asignado?.a === sesion.id);
+function botonCorreccionLog(r) {
+    if (!esDeLog(r) || r.tipo === 'novedad') return '';
+    const s = r.solicitudCorreccion;
+    if (s?.estado === 'pendiente') return '<span class="chip np">Corrección por autorizar</span>';
+    return `${s?.estado === 'rechazada' ? `<small class="nota-cierre">Corrección rechazada${s.razonRechazo ? ': ' + esc(s.razonRechazo) : ''}</small> ` : ''}<button type="button" class="link-mini" onclick="solicitarCorreccionLog('${r.id}')">✏️ Solicitar corrección</button>`;
+}
+function solicitarCorreccionLog(id) {
+    const r = registros[id];
+    if (!r || r.estado === 'pendiente' || puedeCorregirLog()) return;
+    abrirModal(`<form class="form-rc" onsubmit="enviarCorreccionLog(event, '${id}')">
+        <h2>Solicitar corrección</h2>
+        <p class="sub">${esc(tituloLog(r))} · ${esc(fechaCorta(r.fecha))} · reportada el ${esc(fechaHora(r.registrada))}</p>
+        <p class="ayuda">${esc(ADMIN.nombre)} recibe la solicitud. Si la autoriza, la parada vuelve a pendiente para que la reportes de nuevo (por ejemplo, con la foto que faltó). El reporte anterior queda en el historial con su fecha.</p>
+        <label for="cMotivo">¿Qué hay que corregir?</label>
+        <textarea id="cMotivo" required maxlength="200" placeholder="Ej: la foto no se cargó, la vuelvo a tomar"></textarea>
+        <div class="form-botones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn-primario">Enviar solicitud</button>
+        </div>
+    </form>`);
+}
+function enviarCorreccionLog(e, id) {
+    e.preventDefault();
+    guardarRegistro({ ...registros[id], solicitudCorreccion: { estado: 'pendiente', motivo: $('cMotivo').value.trim(), por: sesion.id, fecha: new Date().toISOString() } });
+    cerrarModal(); toast(`Solicitud enviada a ${ADMIN.nombre}`); pintarLog();
+}
+// El administrador autoriza (la parada se reabre) o rechaza (con la causa, máx. 50 caracteres)
+async function resolverCorreccionLog(id, autorizar) {
+    if (!esAdmin()) return;
+    const r = registros[id];
+    if (!r || !r.solicitudCorreccion || r.estado === 'pendiente') return;
+    const razon = autorizar ? '' : await dialogo({ titulo: 'Rechazar la corrección', texto: `${tituloLog(r)} · ${fechaCorta(r.fecha)}\n¿Por qué se rechaza? (obligatorio, máximo 50 caracteres)`, campo: 'Ej: la entrega quedó bien', max: 50, obligatorio: true });
+    if (razon === null) return;
+    const solicitud = { ...r.solicitudCorreccion, estado: autorizar ? 'aprobada' : 'rechazada', razonRechazo: (razon || '').trim(), resueltaPor: sesion.id, resuelta: new Date().toISOString() };
+    if (autorizar) {
+        guardarRegistro({ ...r, estado: 'pendiente', reporte: null, registrada: '', solicitudCorreccion: solicitud,
+            correcciones: [...(r.correcciones || []), { estado: r.estado, reporte: r.reporte, registrada: r.registrada, reportadoPor: r.reportadoPor, fotos: fotosDe(r, false), reabierta: new Date().toISOString(), por: sesion.id,
+                solicitud: { motivo: r.solicitudCorreccion.motivo, por: r.solicitudCorreccion.por, fecha: r.solicitudCorreccion.fecha } }] });
+    } else guardarRegistro({ ...r, solicitudCorreccion: solicitud });
+    toast(autorizar ? 'Parada reabierta: el mensajero ya puede reportarla de nuevo' : 'Solicitud rechazada');
+    abrirSolicitudes(); pintarInicio(); repintarPantallaActiva();
 }
 
 async function reabrirLog(id) {

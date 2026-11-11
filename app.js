@@ -913,8 +913,8 @@ function pintarInicio() {
     const sols = solicitudesPendientes();
     $('btnSolicitudes').style.display = esAdmin() ? '' : 'none';
     const corrs = correccionesPendientes().length;
-    const edsN = edicionesPendientes().length, logN = esAdmin() ? solicitudesLogPendientes().length : 0;
-    $('solicitudesTxt').textContent = sols.length + corrs + edsN + logN ? [sols.length && `${sols.length} de eliminación`, logN && `${logN} de Logística`, corrs && `${corrs} de corrección`, edsN && `${edsN} de edición`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
+    const edsN = edicionesPendientes().length, logN = esAdmin() ? solicitudesLogPendientes().length : 0, corrLogN = esAdmin() ? correccionesLogPendientes().length : 0;
+    $('solicitudesTxt').textContent = sols.length + corrs + edsN + logN + corrLogN ? [sols.length && `${sols.length} de eliminación`, logN && `${logN} de Logística`, corrLogN && `${corrLogN} de corrección de Logística`, corrs && `${corrs} de corrección`, edsN && `${edsN} de edición`].filter(Boolean).join(' · ') + ' por revisar' : 'No hay solicitudes pendientes';
     const vigentes = CIRCULARES.filter(c => estadoCircular(c) === 'vigente').length;
     $('homeActTxt').textContent = `${vigentes} ${vigentes === 1 ? 'circular vigente' : 'circulares vigentes'}` + (acts.length ? ` · ${hechas} de ${acts.length} tareas del mes` : '');
     pintarInicioLog();
@@ -1040,6 +1040,7 @@ function aprobacionesPendientes() {
         solicitudesPendientes().forEach(v => l.push({ k: 'el:' + v.id, tipo: 'eliminacion', txt: `${nombreVendedor(v.vendedor)} pide eliminar la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
         solicitudesLogPendientes().forEach(r => l.push({ k: 'el:' + r.id, tipo: 'eliminacion', txt: `${nombreVendedor(r.solicitudEliminar.por)} pide eliminar la parada de Logística a ${tituloLog(r)} (${fechaCorta(r.fecha)})` }));
         edicionesPendientes().forEach(v => l.push({ k: 'ed:' + v.id + ':' + v.edicionPendiente.fecha, tipo: 'edicion', txt: `${nombreVendedor(v.edicionPendiente.por)} propone editar el reporte de ${v.contacto} (${fechaCorta(v.fecha)})` }));
+        correccionesLogPendientes().forEach(r => l.push({ k: 'co:' + r.id + ':' + r.solicitudCorreccion.fecha, tipo: 'correccion', txt: `${nombreVendedor(r.solicitudCorreccion.por)} pide corregir la parada de Logística a ${tituloLog(r)} (${fechaCorta(r.fecha)})` }));
         correccionesPendientes().forEach(v => l.push({ k: 'co:' + v.id + ':' + v.solicitudCorreccion.fecha, tipo: 'correccion', txt: `${nombreVendedor(v.vendedor)} pide corregir la visita a ${v.contacto} (${fechaCorta(v.fecha)})` }));
     }
     if (esJefe()) porAprobarMias().forEach(p => l.push({ k: 'cr:' + p.id, tipo: 'creacion', txt: `Solicitud de creación: ${p.nombre}${p.vendedor ? ' · ' + nombreVendedor(p.vendedor) : ''}` }));
@@ -1695,7 +1696,7 @@ function abrirSolicitudes() {
     const eds = edicionesPendientes().sort((a, b) => a.edicionPendiente.fecha.localeCompare(b.edicionPendiente.fecha));
     const corr = correccionesPendientes().sort((a, b) => a.solicitudCorreccion.fecha.localeCompare(b.solicitudCorreccion.fecha));
     // Lo ya resuelto queda como huella, pequeño y debajo de lo pendiente (incluye las visitas eliminadas)
-    const lg = solicitudesLogPendientes();
+    const lg = solicitudesLogPendientes(), corrLog = correccionesLogPendientes();
     const resueltas = Object.values(registros).filter(r => r.clase === 'visita' || (r.clase === 'logistica' && r.tipo !== 'novedad')).map(r => r.clase === 'logistica' ? { ...r, contacto: tituloLog(r) } : r).flatMap(v => [['eliminacion', v.solicitudEliminar], ['correccion', v.solicitudCorreccion], ['edicion', v.edicionPendiente]]
         .filter(([, s]) => s && s.estado && s.estado !== 'pendiente').map(([tipo, s]) => ({ v, tipo, s }))).sort((a, b) => (b.s.resuelta || '').localeCompare(a.s.resuelta || ''));
     const estadoTxt = v => v.cierreAutomatico ? 'cerrada sin reporte' : v.estado === 'visitado' ? (v.interno ? 'realizado' : 'visitada') : (v.interno ? 'no realizado' : 'no visitada');
@@ -1722,6 +1723,16 @@ function abrirSolicitudes() {
             </div>
         </div>`).join('')}<p class="grupo-titulo">🗑 Eliminación de visitas</p>` : ''}
         <p class="sub">Visitas que los vendedores piden eliminar por error de programación.</p>
+        ${corrLog.length ? `<p class="grupo-titulo">🚚 Corrección de reportes de Logística · ${corrLog.length}</p>${corrLog.map(r => `<div class="solicitud">
+            <strong>${esc(tituloLog(r))}</strong>
+            <small>${esc(nombreVendedor(r.vendedor))} · parada del ${esc(fechaCorta(r.fecha))} (${r.estado === 'entregado' ? 'entregada' : 'no efectiva'}, reportada el ${esc(fechaHora(r.registrada))}) · pedida por ${esc(nombreVendedor(r.solicitudCorreccion.por))} el ${esc(fechaHora(r.solicitudCorreccion.fecha))}</small>
+            <p>${esc(r.solicitudCorreccion.motivo)}</p>
+            <div class="form-botones">
+                <button class="btn-secundario" onclick="verParadaSolicitada('${r.id}')">Ver la parada</button>
+                <button class="btn-secundario" onclick="resolverCorreccionLog('${r.id}', false)">Rechazar</button>
+                <button class="btn-primario" onclick="resolverCorreccionLog('${r.id}', true)">Autorizar y reabrir</button>
+            </div>
+        </div>`).join('')}` : ''}
         ${lg.length ? `<p class="grupo-titulo">🚚 Eliminación de paradas de Logística · ${lg.length}</p>${lg.map(r => `<div class="solicitud">
             <strong>${esc(tituloLog(r))}</strong>
             <small>${esc(nombreVendedor(r.vendedor))} · parada del ${esc(fechaCorta(r.fecha))} (${r.estado === 'pendiente' ? 'pendiente' : r.estado === 'entregado' ? 'reportada' : 'no efectiva'}) · pedida por ${esc(nombreVendedor(r.solicitudEliminar.por))} el ${esc(fechaHora(r.solicitudEliminar.fecha))}</small>
@@ -1742,7 +1753,7 @@ function abrirSolicitudes() {
                 <button class="btn-secundario" onclick="resolverSolicitud('${v.id}', false)">Rechazar</button>
                 <button class="btn-primario" style="background:#c2413a" onclick="resolverSolicitud('${v.id}', true)">Autorizar y eliminar</button>
             </div>
-        </div>`).join('') : (corr.length || eds.length || lg.length ? '' : '<p class="no-results">No hay solicitudes pendientes.</p>')}
+        </div>`).join('') : (corr.length || eds.length || lg.length || corrLog.length ? '' : '<p class="no-results">No hay solicitudes pendientes.</p>')}
         ${resueltas.length ? `<div class="sol-hist-bloque">
             <p class="grupo-titulo">Historial · <span id="solHistN">${resueltas.length}</span></p>
             <div class="sol-filtros">
