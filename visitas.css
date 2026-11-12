@@ -2104,3 +2104,6 @@ body.con-aviso-legal .screen { padding-bottom: calc(var(--pie-alto, 64px) + 8px)
 /* Usuario de consulta (Brayan Aldana): en el inicio solo ve lo que consulta y las bases de datos */
 body.es-consulta .home-btn-plan, body.es-consulta .home-btn-visiplan, body.es-consulta #btnPanel, body.es-consulta #btnPanelZona, body.es-consulta .home-btn-proy,
 body.es-consulta #btnLogistica, body.es-consulta #btnCreacion, body.es-consulta #btnSolicitudes, body.es-consulta .home-btn-desc, body.es-consulta #btnConsultaDoc { display: none !important; }
+
+/* Filtro de modalidad (jefes): junto al de orden, a la derecha */
+.ag-modalidad + .ag-orden { margin-left: 8px; }

@@ -272,7 +272,7 @@ let sesion = null;              // { usuario, clave, ...datos del USUARIO }
 let contactos = {};             // { zona: [{ n, c, e }] }
 let registros = {};             // { id: visita | actividad }
 let pendientes = new Set();     // ids por subir al servidor
-let agenda = { fecha: hoy(), vendedor: null, filtro: '', orden: 'prog', novTipo: '' };
+let agenda = { fecha: hoy(), vendedor: null, filtro: '', orden: 'prog', novTipo: '', modalidad: '' };
 let mesAct = mesDe(hoy());
 let mesPanel = mesDe(hoy());
 const periodoPanel = { t: 'mes', v: mesDe(hoy()) };   // Panel del equipo: día, mes, trimestre, semestre o año
@@ -3007,6 +3007,8 @@ function pintarAgenda() {
     $('agResumen').innerHTML = lista.length
         ? boton('prog', 'prog', `<b>${k.prog}</b> ${k.prog === 1 ? 'programada' : 'programadas'}`)
             + (k.noProg ? boton('noProg', 'np', `${k.noProg} no programadas`) : '')
+            + (esJefe() ? `<select class="ag-orden ag-modalidad" onchange="agenda.modalidad=this.value; pintarAgenda()" aria-label="Filtrar por modalidad">
+                <option value="">Modalidad: todas</option>${Object.entries(MODALIDADES).map(([k, t]) => `<option value="${k}" ${agenda.modalidad === k ? 'selected' : ''}>Modalidad: ${esc(t)}</option>`).join('')}</select>` : '')
             + `<select class="ag-orden" onchange="agenda.orden=this.value; pintarAgenda()" aria-label="Ordenar visitas">
                 <option value="prog" ${agenda.orden === 'prog' ? 'selected' : ''}>Orden: visita programada</option>
                 <option value="realizada" ${agenda.orden === 'realizada' ? 'selected' : ''}>Orden: visita realizada</option>
@@ -3015,6 +3017,9 @@ function pintarAgenda() {
 
     // Búsqueda de cliente por nombre (visitas y lo planeado del Visiplan)
     const qb = normalizar(agenda.busca || '');
+    // Jefes (Hernán Reyes y Jennifer Herrera): filtro por modalidad de la visita (Presencial, Virtual, WhatsApp/Llamada/Correo)
+    const modal = esJefe() ? agenda.modalidad : '';
+    const pasaModalidad = x => !modal || (!x.interno && (x.modalidad || 'presencial') === modal);
     const pasaBusca = x => !qb || normalizar(x.contacto || '').includes(qb);
     const plan = deTodos(x => planeadasDe(x, f).map(p => ({ ...p, vendedor: x }))).filter(p => p.estado !== 'confirmada' && pasaBusca(p));
     // Arriba los planeados por confirmar; los que no se confirmaron a tiempo quedan al final del día
@@ -3060,7 +3065,7 @@ function pintarAgenda() {
     const porPeriodo = /^an-(semana|mes):(.+)$/.exec(agenda.filtro || '');
     if (porPeriodo) {
         const [, per, parteF] = porPeriodo, parte = PARTES_ANILLO.find(x => x.f === parteF);
-        const vp = (per === 'semana' ? deSemana : delMes).filter(x => claseAnillo(x) === parteF).filter(pasaBusca)
+        const vp = (per === 'semana' ? deSemana : delMes).filter(x => claseAnillo(x) === parteF).filter(pasaBusca).filter(pasaModalidad)
             .sort((a, b) => a.fecha.localeCompare(b.fecha) || vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || ordenCita(a, b));
         const porDia = {};
         vp.forEach(x => (porDia[x.fecha] = porDia[x.fecha] || []).push(x));
@@ -3085,14 +3090,14 @@ function pintarAgenda() {
     vs.forEach(x => { const r = ordenesDelDia(lista.filter(y => y.vendedor === x)); Object.assign(ordenes, r.o); if (!varios) programadas = r.prog; });
     const clave = x => agenda.orden === 'prog' ? (ordenes[x.id]?.prog ?? 1e9)
         : agenda.orden === 'realizada' ? (ordenes[x.id]?.real ?? 1e9) : 0;
-    const vistas = lista.filter(pasa).filter(pasaBusca).sort((a, b) => vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || clave(a) - clave(b) || ordenCita(a, b));
+    const vistas = lista.filter(pasa).filter(pasaBusca).filter(pasaModalidad).sort((a, b) => vs.indexOf(a.vendedor) - vs.indexOf(b.vendedor) || clave(a) - clave(b) || ordenCita(a, b));
     const mover = varios ? null : { abierta: Date.now() < limiteProgramacion(f), puede: sesion.id === v || esAdmin(), total: programadas.length };
     const tarjetas = vistas.map(x => tarjetaVisita(x, ordenes[x.id], mover, varios)).join('');
     const avisoOrden = mover && mover.abierta && mover.puede && programadas.length > 1 && agenda.orden === 'prog'
         ? `<span class="aviso-orden">🕗 Hasta las ${HORA_LIMITE} a. m. puedes cambiar el orden de tus visitas con <b>▲ Subir</b> y <b>▼ Bajar</b>. Después queda fijo.</span>` : '';
     // El aviso va en la fila de "programadas", al lado de los indicadores (no como una tarjeta)
     if (avisoOrden) $('agResumen').querySelector('.ag-orden')?.insertAdjacentHTML('beforebegin', avisoOrden);
-    const filtrando = agenda.filtro;
+    const filtrando = agenda.filtro || modal;
     const aviso = filtrando || qb ? `<p class="grupo-titulo filtro-activo">Mostrando ${vistas.length} de ${lista.length} · <button class="link-mini" onclick="quitarFiltrosAgenda()">Quitar filtro</button></p>` : '';
     cont.innerHTML = bannerCorr + (filtrando ? '' : tarjetasInvitaciones() + panelNov + bloquePlan) + aviso
         + (tarjetas || (lista.length || !cerradas.length ? `<div class="no-results">${qb ? `No hay visitas de "${esc(agenda.busca)}" este día.${sugerenciasHistorial(qb)}` : 'No hay visitas con este filtro.'}</div>` : ''))
@@ -3106,7 +3111,7 @@ function sugerenciasHistorial(qb) {
 }
 
 function quitarFiltrosAgenda() {
-    agenda.filtro = ''; agenda.busca = ''; $('agBuscar').value = '';
+    agenda.filtro = ''; agenda.busca = ''; agenda.modalidad = ''; $('agBuscar').value = '';
     pintarAgenda();
 }
 
