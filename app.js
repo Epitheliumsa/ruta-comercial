@@ -5009,7 +5009,7 @@ function guardarNoVisitado(e, id) {
 // Las cifras nunca van en el código (el repositorio es público).
 // Sube el informe: Tatiana (subeVentas) y el administrador. Ver sigue igual: jefes todo, comerciales solo lo suyo
 const subeVentas = () => !!(sesion && (USUARIOS.find(u => u.id === sesion.id)?.subeVentas || esAdmin()));
-const LINEAS_VENTA = { 'PRODUCTO TERMINADO': 'Producto terminado', 'MAGISTRALES INDIVIDUALES': 'Magistrales individuales', 'MAGISTRAL DE PEDIDO': 'Magistral de pedido' };
+const LINEAS_VENTA = { 'PRODUCTO TERMINADO': 'Producto terminado', 'MAGISTRALES INDIVIDUALES': 'Magistrales individuales', 'MAGISTRAL DE PEDIDO': 'Magistral de pedido', 'OTROS PRODUCTOS': 'Otros productos' };
 const diaCorte = r => r.diaCorte || (r.corte || '').slice(0, 10) || r.fecha;
 // Última foto del vendedor en ese mes con corte hasta el día dado (dia vacío = la más reciente)
 const ventasDe = (v, mes, dia = '9999-12-31') => Object.values(registros)
@@ -5033,8 +5033,8 @@ function ventasSuma(vs, mes, hasta) {
     const cuota = Object.values(lineas).reduce((a, x) => a + x.cuota, 0), venta = Object.values(lineas).reduce((a, x) => a + x.venta, 0);
     const extra = regs.reduce((a, r) => a + (r.extra?.venta || 0), 0);
     const corte = regs.map(r => r.corte).sort().pop(), dia = regs.map(diaCorte).sort().pop();
-    // Los jefes ven en el total también la venta a empleados (sin cuota); los comerciales, solo su zona
-    const conExtra = veEquipo() ? extra : 0;
+    // La venta a empleados (sin cuota) no suma al total: se muestra aparte, como en el Informe de Ventas
+    const conExtra = 0;   // la venta a empleados no entra en el total (igual que el Informe de Ventas)
     return { regs, lineas, cuota, venta: venta + conExtra, extra, conExtra, corte, dia };
 }
 // Panel del equipo: cuota y venta del periodo elegido (suma de los meses que cubre, con el último corte de cada uno; un día = el corte hasta ese día).
@@ -5053,7 +5053,6 @@ function ventasPanel() {
             const antes = ventasDe(v, m, sumarDias(periodoPanel.v, -1));
             const o = porVend[v] = { cuota: 0, venta: 0, lin: {} };
             Object.entries(hoyR.lineas).forEach(([l, x]) => { const c = (x.cuota || 0) * cuotaDia, vt = (x.venta || 0) - (antes?.lineas?.[l]?.venta || 0); o.cuota += c; o.venta += vt; sumaLinea(o.lin, l, c, vt); });
-            if (veEquipo()) o.venta += (hoyR.extra?.venta || 0) - (antes?.extra?.venta || 0);
             dia = periodoPanel.v; if (antes && (!previo || diaCorte(antes) < previo)) previo = diaCorte(antes);
         });
     } else
@@ -5061,7 +5060,6 @@ function ventasPanel() {
         const r = ventasDe(v, m, hasta); if (!r) return;
         const o = porVend[v] = porVend[v] || { cuota: 0, venta: 0, lin: {} };
         Object.entries(r.lineas).forEach(([l, x]) => { o.cuota += x.cuota || 0; o.venta += x.venta || 0; sumaLinea(o.lin, l, x.cuota || 0, x.venta || 0); });
-        if (veEquipo()) o.venta += r.extra?.venta || 0;
         if (diaCorte(r) > dia) dia = diaCorte(r);
     }));
     const filas = vs.filter(v => porVend[v]).map(v => ({ v, ...porVend[v] }));
