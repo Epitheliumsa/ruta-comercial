@@ -242,6 +242,10 @@ function cotizarAhora(){
   arreglarPaciente(); S.intento=true;
   if(todasFaltas().length){ S.formulas.forEach(f=>f.R=null); update(); $("secChecks").scrollIntoView({behavior:"smooth",block:"center"}); return; }
   S.intento=false; S.formulas.forEach(f=>f.R=calcular(f)); update();
+  try{ // auditoría: queda quién cotizó, cuándo, qué y a qué precio
+    const cdf=S.motor==="CDFLL", formulas=S.formulas.filter(f=>f.R).map(f=>({activos:f.acts.filter(a=>a.codigo).map(a=>({nombre:BYCODE[a.codigo].nombre,pct:numPct(a.pct)})),forma:f.forma,pres:f.pres,unidad:unidadDe(f),cant:f.cant,precio:cdf?f.R.precio_cdfll:f.R.precio,pvsp:cdf?f.R.pr_venta_cdfll:f.R.pvsp}));
+    registrarCotizacion({quien:window.CZ_PDV||"",paciente:$("paciente").value.trim(),pdv:$("pdv").value.trim(),motor:S.motor,version:(window.MOTOR||{}).version||"",formulas,total:formulas.reduce((s,x)=>s+x.pvsp*x.cant,0)});
+  }catch(e){ console.warn("No se pudo preparar el registro de la cotización",e); }
   if(window.matchMedia("(max-width:860px)").matches) $("etiquetas").scrollIntoView({behavior:"smooth",block:"start"});
 }
 function limpiar(){   // todo en blanco: una sola f\u00f3rmula; el PDV (quien cotiza) se conserva
