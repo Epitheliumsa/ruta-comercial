@@ -19,7 +19,7 @@ const USUARIOS = {
   'j.herrera':   { huella: '4ee896f5d2270820de1e071b1e226b123a8c4707f1137605d8e046a7b36dd4e3', id: 'jherrera',   tipo: 'jefe' },  // Jefe comercial: ve y registra para todo el equipo
   'm.castro':    { huella: '38e5f82794a1571cba7695fe203657f0a5b5a27dc385bb8cb3aa6ad7b0b8bd09', id: 'mcastro',    tipo: 'comercial', zona: 'Zona Desarrollo', subeVentas: true },  // carga el informe de ventas del mes de todos
   'h.reyes':     { huella: '67021645044fe3bc87275bbd9883e2d092cf0be800a6e6577ac859c51f31130f', id: 'hreyes',     tipo: 'jefe', admin: true },
-  'b.aldana':    { huella: '78a54bc34aa6bdaadcbbeca45bc1c48839bda7fcca9abe1e80c1b64fc0ac97f7', id: 'baldana',    tipo: 'jefe', soloLectura: true, cargaBases: true },   // consulta todo y sube las bases de datos (y el motor del cotizador); no crea ni cambia nada más
+  'b.aldana':    { huella: '6062bef6d925e26ec762a66eabd20f004fc5f9b5b0657cec65edb2d183d24f10', id: 'baldana',    tipo: 'jefe', soloLectura: true, cargaBases: true },   // consulta todo y sube las bases de datos (y el motor del cotizador); no crea ni cambia nada más
   // Logística: solo ven y guardan registros de clase 'logistica' (el coordinador, los de todos; cada auxiliar, los suyos)
   'j.arjona':    { huella: '6dd7e706dbbd6858b7d306987efbb372358d52d7dd3b877de24ee5d5e3fdc2b5', id: 'jarjona',  tipo: 'logistica', area: 'logistica', coordLogistica: true },
   'e.ovalle':    { huella: 'eb8a40c34e5adf4869a44d80284d228fa80c92d5b3f5018515d32bcb1457dd59', id: 'eovalle',  tipo: 'logistica', area: 'logistica' },
