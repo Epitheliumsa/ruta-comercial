@@ -1323,6 +1323,15 @@ function comprimirFoto(archivo, max = 1280, calidad = 0.72) {
         img.src = url;
     });
 }
+// Versión más liviana de una foto (máx. 800 px, calidad 0.6) para reintentar cuando la conexión es débil
+function aligerarFoto(d) {
+    return new Promise(ok => {
+        const img = new Image();
+        img.onload = () => { const k = Math.min(1, 800 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.6)); };
+        img.onerror = () => ok(d);
+        img.src = d;
+    });
+}
 const FOTOS_PEND = 'rc_fotos_log';
 const leerFotosPend = () => { try { return JSON.parse(localStorage.getItem(FOTOS_PEND) || '{}'); } catch (e) { return {}; } };
 // Devuelve si la cola quedó guardada. Si el teléfono no tiene espacio se liberan las copias que se pueden volver a bajar (directorio, proveedores, empleados) y se reintenta
@@ -1350,8 +1359,11 @@ async function subirFotosPend() {
             for (const x of p[id]) {
                 const d = typeof x === 'string' ? x : x.d, etapa = typeof x === 'string' ? '' : x.e || '';   // la foto del aforo lleva su etapa
                 try {
-                    // El servidor sube la foto y la agrega a la parada en el mismo paso (no se reescribe el registro entero)
-                    const res = await llamarApi({ accion: 'subirArchivo', carpeta: 'Entregas de logística', nombre: `${r.tipo}-${r.id}.jpg`, tipo: 'image/jpeg', datos: d.split(',')[1], registro: id, etapa, huella: huellaFoto(d) }, 90000);
+                    // El servidor sube la foto y la agrega a la parada en el mismo paso (no se reescribe el registro entero).
+                    // Con señal débil el primer intento puede fallar: se reintenta con la foto más liviana (la huella es la de la original, para no duplicar)
+                    const enviar = datos => llamarApi({ accion: 'subirArchivo', carpeta: 'Entregas de logística', nombre: `${r.tipo}-${r.id}.jpg`, tipo: 'image/jpeg', datos: datos.split(',')[1], registro: id, etapa, huella: huellaFoto(d) }, 90000);
+                    let res;
+                    try { res = await enviar(d); } catch (e1) { res = await enviar(await aligerarFoto(d)); }
                     subidas.push({ url: res.url, id: res.id || idDrive(res.url), ...(etapa ? { e: etapa } : {}), ...(res.h ? { h: res.h } : {}) });
                     if (res.actualizado) actualizado = res.actualizado;
                 } catch (e) { break; }
