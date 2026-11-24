@@ -202,6 +202,7 @@ const logElegir = f => { if (f) { logi.fecha = f; pintarLog(); } };
 function pintarLog() {
     const f = logi.fecha, t = hoy(), lectura = logi.soloLectura;
     $('logTitulo').textContent = tituloModuloLog();
+    pintarAvisoFotos();
     $('logFechaTxt').textContent = f === t ? 'Hoy, ' + fechaLarga(f) : mayuscula(fechaLarga(f));
     $('logFechaPick').value = f;
     $('logProgramar').hidden = lectura;
@@ -1343,6 +1344,26 @@ const guardarFotosPend = p => {
     return false;
 };
 let subiendoFotos = false;
+// Aviso con las fotos que siguen en este teléfono sin subir, con botón para reintentar
+const nFotosPend = () => Object.values(leerFotosPend()).reduce((a, l) => a + l.length, 0);
+function pintarAvisoFotos() {
+    let el = $('logFotosPend');
+    if (!el) { const ref = $('logSemana'); if (!ref) return; el = document.createElement('div'); el.id = 'logFotosPend'; el.className = 'ayuda'; el.style.cssText = 'margin:8px 12px;padding:8px 10px;border-radius:10px;background:#fff3d6;color:#7a4a00'; ref.parentNode.insertBefore(el, ref); }
+    const n = nFotosPend();
+    el.hidden = !n;
+    if (n) el.innerHTML = `📷 ${n} ${n === 1 ? 'foto por subir' : 'fotos por subir'} en este teléfono. Mantén la app abierta con señal. <button type="button" style="border:0;background:none;color:#0b5ed7;font-weight:700;text-decoration:underline;padding:0" onclick="reintentarFotos()">Subir ahora</button>`;
+}
+async function reintentarFotos() {
+    if (!navigator.onLine) return toast('Sin señal: la foto se sube sola cuando vuelva');
+    toast('Subiendo fotos…');
+    await subirFotosPend();
+    pintarAvisoFotos();
+    toast(nFotosPend() ? 'Aún no se pudo subir: revisa la señal e intenta de nuevo' : 'Fotos subidas ✓');
+}
+// Mientras haya fotos en cola se reintenta solo: al volver la señal, al volver a la app y cada 30 segundos
+window.addEventListener('online', () => subirFotosPend());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) subirFotosPend(); });
+setInterval(() => { if (sesion && !document.hidden && navigator.onLine !== false && nFotosPend()) subirFotosPend(); }, 30000);
 // Huella corta de una foto (para que un reintento no la duplique en la parada)
 const huellaFoto = d => { let a = 5381, b = 52711; for (let i = 0; i < d.length; i += 7) { a = ((a << 5) + a + d.charCodeAt(i)) | 0; b = ((b << 5) ^ b ^ d.charCodeAt(i)) | 0; } return d.length.toString(36) + (a >>> 0).toString(36) + (b >>> 0).toString(36); };
 async function subirFotosPend() {
@@ -1380,6 +1401,7 @@ async function subirFotosPend() {
     } finally {
         guardarFotosPend(p);
         subiendoFotos = false;
+        pintarAvisoFotos();
         if (pantallaActiva() === 'logScreen') pintarLog();
     }
 }
