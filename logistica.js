@@ -84,7 +84,7 @@ const nombreTipos = r => (TIPOS_LOG[r.tipo]?.t || '') + (pasosLog(r) ? ` → ${T
 const tituloLog = r => r.contacto || r.proveedor || (r.entidad ? `Banco · ${r.entidad}` : r.area ? `Trámite · ${r.area}` : r.tipo === 'oficina' ? 'Oficina' : 'Parada');
 // Paradas con hora fija primero (por hora) y después el resto en el orden de la ruta
 const ordenLog = (a, b) => (a.hora ? 0 : 1) - (b.hora ? 0 : 1) || (a.hora || '').localeCompare(b.hora || '') || (a.orden ?? 1e9) - (b.orden ?? 1e9) || (a.creado || '').localeCompare(b.creado || '');
-// Facturas que se llevan (en pantalla A = OVI y B = OV, siempre de 6 cifras): A en terminados; A y/o B en magistral individual; B en magistral de pedido
+// Facturas que se llevan (en pantalla A = OVI y B = OV, siempre de 5 cifras): A en terminados; A y/o B en magistral individual; B en magistral de pedido
 const CLASES_PEDIDO = [
     { k: 'pt', t: 'Producto Terminado', campos: [['ovi', 'A']] },
     { k: 'mi', t: 'Magistral Individual', campos: [['ovi', 'A'], ['ov', 'B']] },
@@ -102,7 +102,7 @@ const filaDoc = (g, f = {}) => {
     const rem = g === 'docs' && esRemisionLog(f.k), opc = g === 'inc' ? OPC_INCLUYE : rem ? OPC_REMISION : OPC_FACTURA, sel = opc.find(o => o[0] === f.k) || opc[0];
     // En el bloque de facturas, el "filtro" escoge si la fila es Factura o Remisión; el tipo (Producto Terminado, Magistral…) cambia según eso
     const fam = g === 'docs' ? `<select class="lg-pref lg-serie lg-doc-fam" aria-label="Documento: factura o remisión" onchange="cambiaFamDoc(this)"><option value="fac"${rem ? '' : ' selected'}>Factura</option><option value="rem"${rem ? ' selected' : ''}>Remisión</option></select>` : '';
-    return `<div class="lg-fila-doc" data-g="${g}"><label class="lg-pc">${fam}<select class="lg-pref lg-serie lg-doc-sel" aria-label="Tipo de documento" onchange="cambiaFilaDoc(this)">${opcionesTipoDoc(opc, sel[0])}</select><span class="lg-pref lg-doc-serie">${sel[2] || 'Nº'}</span><input class="lg-doc-num" ${NUMDOC} value="${esc(f.numero || '')}"${rem ? ' placeholder="Nº (opcional, letras y números)" inputmode="text"' : ''}></label><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarFilaDoc(this)" hidden>×</button></div>`;
+    return `<div class="lg-fila-doc" data-g="${g}"><label class="lg-pc">${fam}<select class="lg-pref lg-serie lg-doc-sel" aria-label="Tipo de documento" onchange="cambiaFilaDoc(this)">${opcionesTipoDoc(opc, sel[0])}</select><span class="lg-pref lg-doc-serie">${sel[2] || 'Nº'}</span><input class="lg-doc-num" ${NUMDOC(g)} value="${esc(f.numero || '')}"${rem ? ' placeholder="Nº (opcional, letras y números)" inputmode="text"' : ''}></label><button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarFilaDoc(this)" hidden>×</button></div>`;
 };
 function cambiaFamDoc(fam) {
     const f = fam.closest('.lg-fila-doc'), sel = f.querySelector('.lg-doc-sel'), opc = fam.value === 'rem' ? OPC_REMISION : OPC_FACTURA;
@@ -117,12 +117,13 @@ function quitarFilaDoc(btn) { const f = btn.closest('.lg-fila-doc'), g = f.datas
 function cambiaFilaDoc(sel) {
     const f = sel.closest('.lg-fila-doc'), n = f.querySelector('.lg-doc-num'), rem = esRemisionLog(sel.value);
     f.querySelector('.lg-doc-serie').textContent = sel.selectedOptions[0].dataset.s || 'Nº';
-    n.placeholder = rem ? 'Nº (opcional, letras y números)' : '000000'; n.inputMode = rem ? 'text' : 'numeric';
-    n.title = rem ? 'Libre: letras (en mayúscula), números y símbolos; puede ir vacío' : '6 cifras: se completa con ceros';
+    const c6 = cifrasFila(n) === 6;
+    n.placeholder = rem ? 'Nº (opcional, letras y números)' : c6 ? '000000' : '00000'; n.inputMode = rem ? 'text' : 'numeric';
+    n.title = rem ? 'Libre: letras (en mayúscula), números y símbolos; puede ir vacío' : `${c6 ? 6 : 5} cifras: se completa con ceros`;
     entradaNumDoc(n);
 }
 // Filas con número: [{ k, serie, numero }]
-const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: esRemisionLog(o.value) ? f.querySelector('.lg-doc-num').value.trim().toUpperCase() : seisCifras(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero || esRemisionLog(x.k));   // la remisión puede ir sin número
+const filasDoc = g => [...document.querySelectorAll(`.lg-fila-doc[data-g="${g}"]`)].map(f => { const o = f.querySelector('.lg-doc-sel'); return { k: o.value, serie: o.selectedOptions[0].dataset.s, numero: esRemisionLog(o.value) ? f.querySelector('.lg-doc-num').value.trim().toUpperCase() : (g === 'inc' ? seisCifras : cincoCifras)(f.querySelector('.lg-doc-num').value) }; }).filter(x => x.numero || esRemisionLog(x.k));   // la remisión puede ir sin número
 // Lo ya guardado (A = OVI, B = OV) pasa a filas; una factura "Magistral Individual" con B se muestra como Magistral Individual NI
 const filasDeDocumentos = docs => (docs || []).flatMap(d => [d.ovi && { k: d.clase === 'mp' ? 'mi' : d.clase, numero: d.ovi }, d.ov && { k: d.clase === 'mi' ? 'mini' : d.clase, numero: d.ov }]).filter(Boolean);
 // Lo que se programó en la parada, uno por uno (cada factura A o B, cada documento que incluye, lo que se radica o se recoge): se marca en el reporte
@@ -140,16 +141,33 @@ const filaDev = r => `<div class="lg-dev-fila"><select class="lg-dev-fac" aria-l
 function masDev(id) { $('lgDevLista').insertAdjacentHTML('beforeend', filaDev(registros[id])); $('lgDevLista').lastElementChild.querySelector('input').focus(); }
 const textoInc = d => [NOMBRE_INCLUYE[d.k] || d.k, d.numero].filter(Boolean).join(' ');
 const textoDoc = d => [claseDoc(d.clase)?.t, d.ovi && `A ${d.ovi}`, d.ov && `B ${d.ov}`].filter(Boolean).join(' · ');
-// Números de factura y nota crédito: 6 cifras, se completan con ceros a la izquierda (58 → 000058)
+// Números de nota crédito, PQR, REA y devolución: 6 cifras, se completan con ceros a la izquierda (58 → 000058)
 const seisCifras = v => { v = String(v || '').replace(/\D/g, ''); return v ? v.slice(-6).padStart(6, '0') : ''; };
+// Facturas (A y B): 5 cifras (un 020799 viejo queda 20799; 58 → 00058)
+const cincoCifras = v => { v = String(v || '').replace(/\D/g, ''); return v ? v.slice(-5).padStart(5, '0') : ''; };
+// Para buscar: el número sin ceros a la izquierda (20799 = 020799)
+const claveDoc = v => String(v || '').replace(/\D/g, '').replace(/^0+/, '');
+// Deja las facturas de una parada con 5 cifras (lo guardado antes con 6 y un cero a la izquierda)
+const quitarCero = t => String(t || '').replace(/(^|[^0-9])0(\d{5})(?!\d)/g, '$1$2');
+function facturas5(r) {
+    if (!r || r.clase !== 'logistica') return r;
+    (r.documentos || []).forEach(d => { if (d.ov) d.ov = cincoCifras(d.ov); if (d.ovi) d.ovi = cincoCifras(d.ovi); });
+    (r.radicacion || []).forEach(d => { if (d.doc === 'factura' && d.numero) d.numero = cincoCifras(d.numero); });
+    (r.facturasAforo || []).forEach(d => { if (d.numero) d.numero = cincoCifras(d.numero); });
+    ((r.reporte || {}).devoluciones || []).forEach(d => { if (d.factura) d.factura = quitarCero(d.factura); });
+    return r;
+}
 // Número de documento de la fila de facturas/PQR/etc.: 6 cifras (se completa con ceros); la remisión es libre: letras (siempre en mayúscula), números y símbolos, sin límite
-const NUMDOC = `placeholder="000000" inputmode="numeric" autocomplete="off" title="6 cifras: se completa con ceros" oninput="entradaNumDoc(this)" onblur="entradaNumDoc(this, true)"`;
+const cifrasFila = el => el?.closest('.lg-fila-doc')?.dataset.g === 'inc' ? 6 : 5;   // facturas 5 cifras; PQR, REA y devolución 6
+const NUMDOC = g => `placeholder="${g === 'inc' ? '000000' : '00000'}" inputmode="numeric" autocomplete="off" title="${g === 'inc' ? '6 cifras' : '5 cifras'}: se completa con ceros" oninput="entradaNumDoc(this)" onblur="entradaNumDoc(this, true)"`;
 function entradaNumDoc(i, fin) {
     const rem = esRemisionLog(i.closest('.lg-fila-doc')?.querySelector('.lg-doc-sel')?.value);
     if (rem) { i.value = i.value.toUpperCase(); return; }
-    i.value = i.value.replace(/\D/g, '').slice(0, 6);
-    if (fin) i.value = seisCifras(i.value);
+    const n = cifrasFila(i);
+    i.value = i.value.replace(/\D/g, '').slice(0, n);
+    if (fin) i.value = n === 6 ? seisCifras(i.value) : cincoCifras(i.value);
 }
+const NUM5 = `placeholder="00000" inputmode="numeric" autocomplete="off" maxlength="5" title="5 cifras: se completa con ceros" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="this.value = cincoCifras(this.value)"`;
 const NUM6 = `placeholder="000000" inputmode="numeric" autocomplete="off" maxlength="6" title="6 cifras: se completa con ceros" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="this.value = seisCifras(this.value)"`;
 const textoRad = d => d.doc === 'factura' ? `Radicar factura ${d.serie} ${d.numero || ''}`.trim()
     : d.doc === 'nc' ? `Radicar nota crédito RNC ${d.numero || ''}`.trim() : `Radicar: ${d.texto || ''}`;
@@ -487,7 +505,7 @@ function abrirLogForm(id) {
                 <div class="lg-pcampos">${c.k === 'otros'
                     ? `<label class="lg-pc"><input data-f="texto" placeholder="Qué documento se radica" autocomplete="off" maxlength="80" value="${esc(rad('otros')?.texto || '')}"></label>`
                     : `<div class="lg-pgrupo">${(rads(c.k).length ? rads(c.k) : [{}]).map(d => `<div class="lg-pset">${c.k === 'factura'
-                        ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${d.serie === s ? ' selected' : ''}>${s}</option>`).join('')}</select><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`
+                        ? `<label class="lg-pc"><select data-f="serie" class="lg-pref lg-serie" aria-label="Serie de la factura">${Object.entries(SERIES_FACTURA).map(([s, t]) => `<option value="${s}"${d.serie === s ? ' selected' : ''}>${s}</option>`).join('')}</select><input data-f="numero" ${NUM5} value="${esc(d.numero || '')}"></label>`
                         : `<label class="lg-pc"><span class="lg-pref">RNC</span><input data-f="numero" ${NUM6} value="${esc(d.numero || '')}"></label>`}<button type="button" class="lg-quitar" title="Quitar" aria-label="Quitar" onclick="quitarSetLog(this)" hidden>×</button></div>`).join('')}<button type="button" class="link-mini lg-mas" onclick="masSetLog(this)">+ Otra ${c.k === 'factura' ? 'factura' : 'nota crédito'}</button></div>`}</div>
             </div>`).join('')}</div>
         </div>
@@ -694,7 +712,7 @@ async function guardarLog(e, id) {
     // Facturas y documentos que también van: una fila por documento (tipo + número); las filas vacías se ignoran
     const leer = sel => [...document.querySelectorAll(sel)].filter(f => f.querySelector('.lg-pchk input').checked).flatMap(f => {
         const sets = [...f.querySelectorAll('.lg-pset')], bloques = sets.length ? sets : [f.querySelector('.lg-pcampos')];   // un bloque por documento
-        const lista = bloques.map(b => { const d = {}; b.querySelectorAll('[data-f]').forEach(i => { d[i.dataset.f] = ['ov', 'ovi', 'numero'].includes(i.dataset.f) ? seisCifras(i.value) : i.value.trim(); }); return { k: f.dataset.k, d }; });
+        const lista = bloques.map(b => { const d = {}; b.querySelectorAll('[data-f]').forEach(i => { d[i.dataset.f] = ['ov', 'ovi', 'numero'].includes(i.dataset.f) ? (f.dataset.k === 'factura' ? cincoCifras : seisCifras)(i.value) : i.value.trim(); }); return { k: f.dataset.k, d }; });
         const llenos = lista.filter(x => Object.entries(x.d).some(([c, v]) => c !== 'serie' && v));
         return llenos.length ? llenos : lista.slice(0, 1);
     });
@@ -1756,7 +1774,7 @@ function armarLibroLog(regs, mes, mens) {
         docs.forEach((d, i) => filas.push([
             diaXl(r.fecha), r.hora ? horaBonita(r.hora) : '', nombreVendedor(r.vendedor), nombreTipos(r), (r.contacto || r.proveedor || r.entidad || r.area || '') + (r.proveedorOtro && !r.contacto || r.contactoOtro ? ' (Otros)' : ''),
             r.zona || '', r.comercial ? nombreVendedor(r.comercial) : '', [r.destino, r.dirDestino, r.telDestino].filter(Boolean).join(' · '), r.transportadora || '',
-            d.doc || '', d.ov ? `B ${d.ov}` : '', d.ovi ? `A ${d.ovi}` : '', d.otro || '', r.estado === 'entregado' ? okTxt(r) : r.estado === 'no_entregado' ? noTxt(r) : 'Pendiente',
+            d.doc || '', d.ov ? `B${d.ov}` : '', d.ovi ? `A${d.ovi}` : '', d.otro || '', r.estado === 'entregado' ? okTxt(r) : r.estado === 'no_entregado' ? noTxt(r) : 'Pendiente',
             r.registrada ? horaXl(r.registrada) : '', rp.recibio || '', rp.guia || '', rp.motivo || '', [rp.detalle, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, ...(rp.devoluciones || []).map(textoDev), rp.novedad, textoAccionLog(rp), r.vieneDe ? `Reprogramada (era del ${fechaCorta(r.vieneDe)})` : '', intentoLog(r) > 1 ? `${intentoLog(r)}.º intento` : ''].filter(Boolean).join(' · '),
             [r.direccion, r.telefono && `Tel. ${r.telefono}`, r.proveedor && r.contacto ? `Proveedor: ${r.proveedor}` : '', r.detalle].filter(Boolean).join(' · '), i === 0 && fotos.length ? fotos.length : '', i === 0 ? fotos.join('\n') : '',
             r.reportadoPor ? nombreVendedor(r.reportadoPor) : '', (r.correcciones || []).length || ''
@@ -1843,8 +1861,8 @@ function documentosDeParada(r) {
 }
 // Los documentos tienen 6 cifras: se busca el número exacto (58 → 000058)
 function buscarDocumento(q, tipo) {
-    const n6 = seisCifras(q);
-    const coincide = d => !!n6 && seisCifras(d.num) === n6;
+    const n6 = claveDoc(q);
+    const coincide = d => !!n6 && claveDoc(d.num) === n6;
     const res = [];
     // Cualquier usuario puede consultar: se busca en todo lo que hay en el teléfono (el servidor, en todo lo registrado)
     logRegs().forEach(r => { const docs = documentosDeParada(r).filter(d => (!tipo || d.t === tipo) && coincide(d)); if (docs.length) res.push(resumenConsulta('log', r, docs)); });
@@ -1861,7 +1879,7 @@ function resumenConsulta(fuente, r, docs) {
     return { fuente, id: r.id, fecha: r.fecha, tipo: r.tipo, estado: r.estado, titulo: tituloLog(r), vendedor: r.vendedor, docs, registrada: r.registrada || '', recibio: rp.recibio || '', motivo: rp.motivo || '',
         devoluciones: (rp.devoluciones || []).map(textoDev), fotos: (r.fotos || []).slice(0, 3) };
 }
-const resaltarDoc = (txt, q) => { const n6 = seisCifras(q); const t = esc(txt); return n6 ? t.replace(n6, `<mark>${n6}</mark>`) : t; };
+const resaltarDoc = (txt, q) => { const n6 = claveDoc(q); const t = esc(txt); return n6 ? t.replace(new RegExp('0*' + n6 + '(?!\\d)'), m => `<mark>${m}</mark>`) : t; };
 function tarjetaConsulta(x, q) {
     const docsHtml = x.docs.map(d => `<span class="lg-doc-chip">${resaltarDoc(d.txt, q)}</span>`).join('');
     const local = !!registros[x.id];
@@ -1881,8 +1899,8 @@ function pintarConsultaDoc() {
     const caja = $('cdResultados'); if (!caja) return;
     const q = consultaDoc.q.trim();
     if (consultaDoc.buscando) { caja.innerHTML = '<p class="ayuda">Buscando…</p>'; return; }
-    if (!q) { caja.innerHTML = '<p class="ayuda">Escribe el número del documento (6 cifras; se completa con ceros).</p>'; return; }
-    if (!Number(seisCifras(q))) { caja.innerHTML = '<p class="ayuda">Escribe el número del documento (6 cifras).</p>'; return; }
+    if (!q) { caja.innerHTML = '<p class="ayuda">Escribe el número del documento (facturas de 5 cifras; PQR, REA y devoluciones de 6).</p>'; return; }
+    if (!claveDoc(q)) { caja.innerHTML = '<p class="ayuda">Escribe el número del documento (facturas de 5 cifras; PQR, REA y devoluciones de 6).</p>'; return; }
     const res = consultaDoc.resultados || [], total = consultaDoc.total ?? res.length;
     caja.innerHTML = `<p class="ayuda"><b>${total}</b> ${total === 1 ? 'resultado' : 'resultados'}</p>` + (res.length ? res.slice(0, 60).map(x => tarjetaConsulta(x, q)).join('') + (total > 60 ? '<p class="ayuda">Se muestran los 60 más recientes.</p>' : '') : '<div class="no-results">No encontré ese documento.</div>');
 }
@@ -1890,11 +1908,11 @@ function pintarConsultaDoc() {
 async function buscarConsultaDoc() {
     consultaDoc.q = $('cdNum').value; consultaDoc.tipo = '';
     consultaDoc.resultados = []; consultaDoc.total = undefined;
-    if (!Number(seisCifras(consultaDoc.q))) return pintarConsultaDoc();
+    if (!claveDoc(consultaDoc.q)) return pintarConsultaDoc();
     if (API_URL) {
         consultaDoc.buscando = true; pintarConsultaDoc();
         try {
-            const r = await llamarApi({ accion: 'consultarDocumento', numero: seisCifras(consultaDoc.q), tipo: consultaDoc.tipo }, 60000);
+            const r = await llamarApi({ accion: 'consultarDocumento', numero: claveDoc(consultaDoc.q), tipo: consultaDoc.tipo }, 60000);
             consultaDoc.resultados = r.resultados || []; consultaDoc.total = r.total;
         } catch (e) {
             toast('No se pudo consultar en el servidor: ' + e.message + '. Se busca en lo que hay en este teléfono');
@@ -1910,8 +1928,8 @@ function abrirConsultaDoc() {
     abrirModal(`<form class="form-rc" onsubmit="event.preventDefault(); buscarConsultaDoc()">
         <h2>🔎 Consultar documento</h2>
         <p class="sub">Pedido, factura, remisión, PQR/OUT, REA/OUT, devolución, aforo o radicación: encuentra dónde está, su estado y quién lo recibió.</p>
-        <label for="cdNum">Número <small>(6 cifras: 5498 se completa como 005498)</small></label>
-        <input id="cdNum" ${NUM6} value="${esc(consultaDoc.q)}">
+        <label for="cdNum">Número <small>(factura: 5 cifras · PQR, REA, devolución: 6)</small></label>
+        <input id="cdNum" placeholder="Número" inputmode="numeric" autocomplete="off" maxlength="6" oninput="this.value = this.value.replace(/[^0-9]/g, '')" value="${esc(consultaDoc.q)}">
         <div class="form-botones"><button type="button" class="btn-secundario" onclick="cerrarModal()">Cerrar</button><button class="btn-primario">Buscar</button></div>
         <div id="cdResultados"></div>
     </form>`);

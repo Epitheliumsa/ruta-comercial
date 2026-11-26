@@ -573,6 +573,7 @@ function limpiarSiCambioEtapa() {
 // "Visita Comercial" ahora se llama "Visita Cliente": las visitas guardadas con el nombre viejo se leen con el nuevo
 const TIPO_VIEJO = { 'Visita Comercial': 'Visita Cliente' };
 function nombreNuevoTipo(r) {
+    if (r && r.clase === 'logistica' && typeof facturas5 === 'function') return facturas5(r);   // las facturas son de 5 cifras
     if (!r || r.clase !== 'visita') return r;
     if (TIPO_VIEJO[r.tipoVisita]) r.tipoVisita = TIPO_VIEJO[r.tipoVisita];
     if (Array.isArray(r.tiposVisita)) r.tiposVisita = r.tiposVisita.map(t => TIPO_VIEJO[t] || t);

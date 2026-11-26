@@ -588,12 +588,13 @@ function responder_(obj) {
 }
 
 // ---------- CONSULTA POR DOCUMENTO: la puede hacer cualquier usuario ----------
-// Busca un número de 6 cifras (pedido de una visita, factura A o B, PQR/OUT, REA/OUT, devolución, aforo o radicación) en TODAS las paradas
+// Busca un número (factura de 5 cifras; pedido de una visita, factura A o B, PQR/OUT, REA/OUT, devolución, aforo o radicación) en TODAS las paradas
 // de Logística y en los pedidos de las visitas, sin importar de quién sean. Devuelve solo un resumen: fecha, tipo, cliente o proveedor,
 // mensajero o comercial, estado, quién recibió y las devoluciones. No devuelve direcciones, teléfonos ni fotos.
 const NOMBRE_CLASE_DOC_ = { pt: 'Producto Terminado', mi: 'Magistral Individual', mini: 'Magistral Individual NI', mp: 'Magistral de Pedido' };
 const NOMBRE_INCLUYE_DOC_ = { pqr: 'PQR', pqr_out: 'PQR/OUT', rea_out: 'REA/OUT', devolucion: 'Devolución', remision_pt: 'Remisión Producto Terminado', remision_mi: 'Remisión Magistral Individual', remision_mp: 'Remisión Magistral de Pedido' };
-function seisCifras_(v) { const d = String(v || '').replace(/\D/g, ''); return d ? ('000000' + d.slice(-6)).slice(-6) : ''; }
+// Clave de búsqueda: el número sin ceros a la izquierda (las facturas son de 5 cifras y los demás documentos de 6: 020799 = 20799)
+function seisCifras_(v) { return String(v || '').replace(/\D/g, '').replace(/^0+/, ''); }
 function docsParada_(r) {
   const docs = [], nom = c => NOMBRE_CLASE_DOC_[c] || 'Pedido';
   (r.documentos || []).forEach(d => {
@@ -608,7 +609,7 @@ function docsParada_(r) {
 }
 function consultarDocumento_(usuario, numero, tipo) {
   const n = seisCifras_(numero);
-  if (!n || n === '000000') throw new Error('Escribe el número del documento (6 cifras)');
+  if (!n) throw new Error('Escribe el número del documento (factura de 5 cifras; PQR, REA y devoluciones de 6)');
   const res = [];
   hoja_().getDataRange().getValues().slice(1).forEach(f => {
     if (!f[0] || f[5] || (f[1] !== 'logistica' && f[1] !== 'visita')) return;
@@ -631,4 +632,32 @@ function consultarDocumento_(usuario, numero, tipo) {
   });
   res.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   return { resultados: res.slice(0, 60), total: res.length };
+}
+
+
+// ---------- ÚNICA VEZ: facturas de 5 cifras ----------
+// Las facturas A y B son de 5 cifras: lo guardado con 6 (020799) pasa a 5 (20799) en las paradas de Logística
+// (facturas de la parada, facturas a aforar, facturas que se radican y devoluciones). No toca notas crédito, PQR, REA, remisiones ni pedidos.
+// Ejecuta primero "revisarFacturas5" (solo cuenta) y luego "corregirFacturas5" (aplica). Después se puede borrar.
+function revisarFacturas5() { Logger.log(JSON.stringify(corregirFacturas5_(false))); }
+function corregirFacturas5() { Logger.log(JSON.stringify(corregirFacturas5_(true))); }
+function corregirFacturas5_(aplicar) {
+  const cinco = v => { const d = String(v || '').replace(/\D/g, ''); return d ? d.slice(-5).padStart(5, '0') : ''; };
+  const sinCero = t => String(t || '').replace(/(^|[^0-9])0(\d{5})(?!\d)/g, '$1$2');
+  const h = hoja_(), valores = h.getDataRange().getValues();
+  let paradas = 0, numeros = 0;
+  valores.forEach((f, i) => {
+    if (i === 0 || !f[0] || f[1] !== 'logistica') return;
+    let r; try { r = JSON.parse(f[6]); } catch (e) { return; }
+    let cambios = 0;
+    const fija = (o, k, fn) => { if (o && o[k]) { const n = fn(o[k]); if (n !== o[k]) { o[k] = n; cambios++; } } };
+    (r.documentos || []).forEach(d => { fija(d, 'ov', cinco); fija(d, 'ovi', cinco); });
+    (r.radicacion || []).forEach(d => { if (d.doc === 'factura') fija(d, 'numero', cinco); });
+    (r.facturasAforo || []).forEach(d => fija(d, 'numero', cinco));
+    ((r.reporte || {}).devoluciones || []).forEach(d => fija(d, 'factura', sinCero));
+    if (!cambios) return;
+    paradas++; numeros += cambios;
+    if (aplicar) { r.actualizado = new Date().toISOString(); h.getRange(i + 1, 5).setValue(r.actualizado); h.getRange(i + 1, 7).setValue(JSON.stringify(r)); }
+  });
+  return { aplicado: !!aplicar, paradasConCambios: paradas, numerosCorregidos: numeros };
 }
