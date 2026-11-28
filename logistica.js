@@ -358,10 +358,10 @@ function graficoLog(todos, f) {
     const titulo = { dia: 'Día', semana: 'Semana', mes: mayuscula(nombreMes(mesDe(f)).split(' ')[0]), trimestre: `${Math.floor((Number(mesDe(f).slice(5)) - 1) / 3) + 1}.º trimestre`, ano: 'Año ' + f.slice(0, 4) }[per];
     return `<details class="lg-grafico"${logi.grafAbierto === true ? ' open' : ''} ontoggle="logi.grafAbierto = this.open">
         <summary>📊 Gráfico de entregas · ${esc(titulo)} <small>${total} ${total === 1 ? 'parada' : 'paradas'} · ${atendidas} atendidas (${pAct}%)</small></summary>
-        <div class="anillo-tabs lg-g-per">${tabsPer}</div>
+        <div class="lg-tabs lg-g-per">${tabsPer}</div>
         <p class="lg-g-rango">📅 ${esc(rg.t)} <small>(según el día elegido)</small></p>
         <div class="lg-g-kpis">${kpis}</div>${barraTotal}${comparacion}
-        ${total ? `<div class="anillo-tabs">${tabsDim}</div>` : ''}${cuerpo}
+        ${total ? `<div class="lg-tabs">${tabsDim}</div>` : ''}${cuerpo}
     </details>`;
 }
 // Tocar una parte (del día, la semana o el mes) muestra esas paradas; tocarla otra vez quita el filtro
