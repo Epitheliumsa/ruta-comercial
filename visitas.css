@@ -2107,3 +2107,4 @@ body.es-consulta #btnLogistica, body.es-consulta #btnCreacion, body.es-consulta 
 
 /* Filtro de modalidad (jefes): junto al de orden, a la derecha */
 .ag-modalidad + .ag-orden { margin-left: 8px; }
+.hist-enlace { margin: 6px 0 0; text-align: right; }
