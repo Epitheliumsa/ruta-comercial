@@ -2132,3 +2132,7 @@ body.es-consulta #btnLogistica, body.es-consulta #btnCreacion, body.es-consulta 
 .lg-tabs { display: flex; gap: 4px; margin: 8px 0 4px; background: #e3f1ef; border-radius: 10px; padding: 3px; }
 .lg-tabs button { flex: 1; border: 0; background: transparent; padding: 7px 4px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 700; color: #0b5c56; cursor: pointer; }
 .lg-tabs button.activo { background: #0f766e; color: #fff; }
+
+.lg-g-fila.enlace { cursor: pointer; border-radius: 8px; padding: 2px 4px; margin: 0 -4px; }
+.lg-g-fila.enlace:hover, .lg-g-fila.enlace:focus-visible { background: #e8f3f1; outline: none; }
+.lg-g-fila.enlace:hover .lg-g-nom { text-decoration: underline; }

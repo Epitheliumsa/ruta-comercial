@@ -350,10 +350,10 @@ function graficoLog(todos, f) {
     const comparacion = dif === null ? '' : `<p class="lg-g-comp">Período anterior: ${lAnt.length} ${lAnt.length === 1 ? 'parada' : 'paradas'} · ${pAnt}% atendidas · ${dif === 0 ? 'igual' : dif > 0 ? `<b class="sube">▲ ${dif} puntos mejor</b>` : `<b class="baja">▼ ${-dif} puntos menos</b>`}</p>`;
     const kpis = PARTES_LOG.map(x => { const n = cuenta(lista, x.f); return `<div class="lg-g-kpi" style="--c:${x.c}"><b>${n}</b><span>${esc(x.t)}</span><small>${pct(n, total)}%</small></div>`; }).join('');
     const barraTotal = total ? `<div class="lg-g-total" title="Así se reparten las ${total} paradas">${PARTES_LOG.map(x => { const n = cuenta(lista, x.f); return n ? `<i style="flex:${n}; background:${x.c}">${pct(n, total) >= 8 ? pct(n, total) + '%' : ''}</i>` : ''; }).join('')}</div>` : '';
-    const cuerpo = total ? `<div class="lg-g-filas">${filas.map(([k, l]) => `<div class="lg-g-fila"><span class="lg-g-nom">${esc(nombre(k))}</span>
+    const cuerpo = total ? `<div class="lg-g-filas">${filas.map(([k, l]) => `<div class="lg-g-fila${dim === 'tiempo' ? ' enlace' : ''}"${dim === 'tiempo' ? ` role="button" tabindex="0" title="Ir a ${esc(nombre(k))}" onclick="irADiaGrafLog('${porMes ? k + '-01' : k}')" onkeydown="if (event.key === 'Enter') irADiaGrafLog('${porMes ? k + '-01' : k}')"` : ''}><span class="lg-g-nom">${esc(nombre(k))}</span>
             <span class="lg-g-barra">${l.length ? `<span class="lg-g-barra-in" style="width:${Math.max(l.length / max * 100, 6)}%">${PARTES_LOG.map(x => { const n = cuenta(l, x.f); return n ? `<i style="flex:${n}; background:${x.c}" title="${esc(x.t)}: ${n}">${n}</i>` : ''; }).join('')}</span>` : ''}</span>
             <b class="lg-g-n">${l.length}</b><span class="lg-g-p" title="Atendidas">${l.length ? pct(cuenta(l, 'entregado'), l.length) + '%' : '—'}</span></div>`).join('')}</div>
-        <p class="lg-g-ley">${PARTES_LOG.map(x => `<span><i style="background:${x.c}"></i>${esc(x.t)}</span>`).join('')}<span class="lg-g-nota">% = atendidas de cada fila</span></p>`
+        <p class="lg-g-ley">${PARTES_LOG.map(x => `<span><i style="background:${x.c}"></i>${esc(x.t)}</span>`).join('')}<span class="lg-g-nota">${dim === 'tiempo' ? 'Toca una fila para ir a ese ' + (porMes ? 'mes' : 'día') + ' · ' : ''}% = atendidas de cada fila</span></p>`
         : '<p class="ayuda">No hay paradas en este período. Cambia de período o de día.</p>';
     const titulo = { dia: 'Día', semana: 'Semana', mes: mayuscula(nombreMes(mesDe(f)).split(' ')[0]), trimestre: `${Math.floor((Number(mesDe(f).slice(5)) - 1) / 3) + 1}.º trimestre`, ano: 'Año ' + f.slice(0, 4) }[per];
     return `<details class="lg-grafico"${logi.grafAbierto === true ? ' open' : ''} ontoggle="logi.grafAbierto = this.open">
@@ -363,6 +363,14 @@ function graficoLog(todos, f) {
         <div class="lg-g-kpis">${kpis}</div>${barraTotal}${comparacion}
         ${total ? `<div class="lg-tabs">${tabsDim}</div>` : ''}${cuerpo}
     </details>`;
+}
+// Tocar una fila del gráfico lleva a ese día (o al primer día de ese mes): se cierra el gráfico y se ve la lista de paradas
+function irADiaGrafLog(f) {
+    if (!f) return;
+    if (logi.perGraf === 'trimestre' || logi.perGraf === 'ano') logi.perGraf = 'mes';   // las filas eran meses: se ve ese mes
+    logi.fecha = f; logi.filtro = ''; logi.grafAbierto = false;
+    pintarLog();
+    $('logSemana')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 // Tocar una parte (del día, la semana o el mes) muestra esas paradas; tocarla otra vez quita el filtro
 function filtrarLog(k) { logi.filtro = logi.filtro === k ? '' : k; pintarLog(); }
