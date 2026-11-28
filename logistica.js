@@ -329,8 +329,8 @@ function moverGraf(n) {
     ponerAnclaGraf(iso(new Date(y, m - 1 + (per === 'mes' ? n : per === 'trimestre' ? 3 * n : 12 * n), 1)));
 }
 function selectorGraf(per, anc, todos) {
-    if (per === 'dia' || per === 'semana') return `<input type="date" class="lg-g-pick" value="${anc}" aria-label="Elegir ${per === 'dia' ? 'el día' : 'un día de la semana'}" onchange="ponerAnclaGraf(this.value)">`;
-    if (per === 'mes') return `<input type="month" class="lg-g-pick" value="${anc.slice(0, 7)}" aria-label="Elegir el mes" onchange="if (this.value) ponerAnclaGraf(this.value + '-01')">`;
+    if (per === 'dia' || per === 'semana') return `<input type="date" class="lg-g-pick" value="${anc}" aria-label="Elegir ${per === 'dia' ? 'el día' : 'un día de la semana'}" onclick="try { this.showPicker(); } catch (e) {}" onchange="if (this.value) ponerAnclaGraf(this.value)">`;
+    if (per === 'mes') return `<input type="month" class="lg-g-pick" value="${anc.slice(0, 7)}" aria-label="Elegir el mes" onclick="try { this.showPicker(); } catch (e) {}" onchange="if (this.value) ponerAnclaGraf(this.value + '-01')">`;
     const ys = todos.map(r => Number(r.fecha.slice(0, 4))).concat(Number(hoy().slice(0, 4)), Number(anc.slice(0, 4))), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const op = [];
     for (let y = y1; y >= y0; y--) {
@@ -382,8 +382,8 @@ function graficoLog(todos, f) {
     return `<details class="lg-grafico"${logi.grafAbierto === true ? ' open' : ''} ontoggle="logi.grafAbierto = this.open">
         <summary>📊 Gráfico de entregas · ${esc(titulo)} <small>${total} ${total === 1 ? 'parada' : 'paradas'} · ${atendidas} atendidas (${pAct}%)</small></summary>
         <div class="lg-tabs lg-g-per">${tabsPer}</div>
-        <div class="lg-g-nav"><button type="button" onclick="moverGraf(-1)" aria-label="Período anterior" title="Período anterior">◀</button><span class="lg-g-rango">📅 ${esc(rg.t)}</span><button type="button" onclick="moverGraf(1)" aria-label="Período siguiente" title="Período siguiente">▶</button>
-            ${selectorGraf(per, anc, todos)}${manual ? '<button type="button" class="link-mini" onclick="ponerAnclaGraf(null)">Volver al día elegido</button>' : '<small class="lg-g-sub">(según el día elegido)</small>'}</div>
+        <div class="lg-g-nav"><button type="button" onclick="moverGraf(-1)" aria-label="Período anterior" title="Período anterior">◀</button><span class="lg-g-fecha" title="Toca para escoger el ${{ dia: 'día', semana: 'día de la semana', mes: 'mes', trimestre: 'trimestre', ano: 'año' }[per]}"><span class="lg-g-rango">📅 ${esc(rg.t)} ▾</span>${selectorGraf(per, anc, todos)}</span><button type="button" onclick="moverGraf(1)" aria-label="Período siguiente" title="Período siguiente">▶</button>
+            ${manual ? '<button type="button" class="link-mini" onclick="ponerAnclaGraf(null)">Volver al día elegido</button>' : '<small class="lg-g-sub">(según el día elegido)</small>'}</div>
         <div class="lg-g-kpis">${kpis}</div>${barraTotal}${comparacion}
         ${total ? `<div class="lg-tabs">${tabsDim}</div>` : ''}${cuerpo}
     </details>`;
