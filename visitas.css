@@ -2136,3 +2136,10 @@ body.es-consulta #btnLogistica, body.es-consulta #btnCreacion, body.es-consulta 
 .lg-g-fila.enlace { cursor: pointer; border-radius: 8px; padding: 2px 4px; margin: 0 -4px; }
 .lg-g-fila.enlace:hover, .lg-g-fila.enlace:focus-visible { background: #e8f3f1; outline: none; }
 .lg-g-fila.enlace:hover .lg-g-nom { text-decoration: underline; }
+
+.lg-g-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; }
+.lg-g-nav .lg-g-rango { margin: 0; }
+.lg-g-nav > button:not(.link-mini) { border: 1px solid #b9d8d2; background: #fff; color: #0b5c56; border-radius: 8px; width: 30px; height: 30px; font-size: 13px; cursor: pointer; }
+.lg-g-nav > button:not(.link-mini):hover { background: #e3f1ef; }
+.lg-g-pick { border: 1px solid #b9d8d2; border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; color: #0b5c56; background: #fff; }
+.lg-g-sub { color: #64748b; }

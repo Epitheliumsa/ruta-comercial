@@ -318,9 +318,32 @@ function anteriorGraf(per, r) {
     if (per === 'trimestre') { const h = sumarDias(r.d, -1), m2 = mesDe(h), q = Math.floor((Number(m2.slice(5)) - 1) / 3); return { d: `${h.slice(0, 4)}-${String(q * 3 + 1).padStart(2, '0')}-01`, h }; }
     const y = Number(r.d.slice(0, 4)) - 1; return { d: `${y}-01-01`, h: `${y}-12-31` };
 }
+// El gráfico sigue el día elegido, salvo que se escoja otro período con las flechas o el selector (vale mientras no cambie el día elegido)
+const anclaGraf = f => logi.anclaGraf && logi.anclaGraf.base === f ? logi.anclaGraf.f : f;
+function ponerAnclaGraf(a) { logi.anclaGraf = a ? { f: a, base: logi.fecha } : null; pintarLog(); }
+function moverGraf(n) {
+    const per = logi.perGraf || 'mes', a = anclaGraf(logi.fecha);
+    if (per === 'dia') return ponerAnclaGraf(sumarDias(a, n));
+    if (per === 'semana') return ponerAnclaGraf(sumarDias(a, 7 * n));
+    const [y, m] = a.split('-').map(Number);
+    ponerAnclaGraf(iso(new Date(y, m - 1 + (per === 'mes' ? n : per === 'trimestre' ? 3 * n : 12 * n), 1)));
+}
+function selectorGraf(per, anc, todos) {
+    if (per === 'dia' || per === 'semana') return `<input type="date" class="lg-g-pick" value="${anc}" aria-label="Elegir ${per === 'dia' ? 'el día' : 'un día de la semana'}" onchange="ponerAnclaGraf(this.value)">`;
+    if (per === 'mes') return `<input type="month" class="lg-g-pick" value="${anc.slice(0, 7)}" aria-label="Elegir el mes" onchange="if (this.value) ponerAnclaGraf(this.value + '-01')">`;
+    const ys = todos.map(r => Number(r.fecha.slice(0, 4))).concat(Number(hoy().slice(0, 4)), Number(anc.slice(0, 4))), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const op = [];
+    for (let y = y1; y >= y0; y--) {
+        if (per === 'ano') op.push([`${y}-01-01`, `Año ${y}`]);
+        else for (let q = 3; q >= 0; q--) op.push([`${y}-${String(q * 3 + 1).padStart(2, '0')}-01`, `${q + 1}.º trimestre ${y}`]);
+    }
+    const sel = per === 'ano' ? `${anc.slice(0, 4)}-01-01` : `${anc.slice(0, 4)}-${String(Math.floor((Number(anc.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, '0')}-01`;
+    return `<select class="lg-g-pick" aria-label="Elegir ${per === 'ano' ? 'el año' : 'el trimestre'}" onchange="ponerAnclaGraf(this.value)">${op.map(([v, t]) => `<option value="${v}"${v === sel ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+}
 function graficoLog(todos, f) {
     if (!todos.length) return '';
-    const per = logi.perGraf || 'mes', rg = rangoGraf(per, f);
+    const anc = anclaGraf(f), manual = anc !== f;
+    const per = logi.perGraf || 'mes', rg = rangoGraf(per, anc);
     const lista = todos.filter(r => r.fecha >= rg.d && r.fecha <= rg.h);
     // "Por mensajero" es solo para el coordinador de logística (y el administrador)
     const verMens = esCoordLog() || esAdmin();
@@ -355,11 +378,12 @@ function graficoLog(todos, f) {
             <b class="lg-g-n">${l.length}</b><span class="lg-g-p" title="Atendidas">${l.length ? pct(cuenta(l, 'entregado'), l.length) + '%' : '—'}</span></div>`).join('')}</div>
         <p class="lg-g-ley">${PARTES_LOG.map(x => `<span><i style="background:${x.c}"></i>${esc(x.t)}</span>`).join('')}<span class="lg-g-nota">${dim === 'tiempo' ? 'Toca una fila para ir a ese ' + (porMes ? 'mes' : 'día') + ' · ' : ''}% = atendidas de cada fila</span></p>`
         : '<p class="ayuda">No hay paradas en este período. Cambia de período o de día.</p>';
-    const titulo = { dia: 'Día', semana: 'Semana', mes: mayuscula(nombreMes(mesDe(f)).split(' ')[0]), trimestre: `${Math.floor((Number(mesDe(f).slice(5)) - 1) / 3) + 1}.º trimestre`, ano: 'Año ' + f.slice(0, 4) }[per];
+    const titulo = { dia: 'Día', semana: 'Semana', mes: mayuscula(nombreMes(mesDe(anc)).split(' ')[0]), trimestre: `${Math.floor((Number(mesDe(anc).slice(5)) - 1) / 3) + 1}.º trimestre`, ano: 'Año ' + anc.slice(0, 4) }[per];
     return `<details class="lg-grafico"${logi.grafAbierto === true ? ' open' : ''} ontoggle="logi.grafAbierto = this.open">
         <summary>📊 Gráfico de entregas · ${esc(titulo)} <small>${total} ${total === 1 ? 'parada' : 'paradas'} · ${atendidas} atendidas (${pAct}%)</small></summary>
         <div class="lg-tabs lg-g-per">${tabsPer}</div>
-        <p class="lg-g-rango">📅 ${esc(rg.t)} <small>(según el día elegido)</small></p>
+        <div class="lg-g-nav"><button type="button" onclick="moverGraf(-1)" aria-label="Período anterior" title="Período anterior">◀</button><span class="lg-g-rango">📅 ${esc(rg.t)}</span><button type="button" onclick="moverGraf(1)" aria-label="Período siguiente" title="Período siguiente">▶</button>
+            ${selectorGraf(per, anc, todos)}${manual ? '<button type="button" class="link-mini" onclick="ponerAnclaGraf(null)">Volver al día elegido</button>' : '<small class="lg-g-sub">(según el día elegido)</small>'}</div>
         <div class="lg-g-kpis">${kpis}</div>${barraTotal}${comparacion}
         ${total ? `<div class="lg-tabs">${tabsDim}</div>` : ''}${cuerpo}
     </details>`;
@@ -368,7 +392,7 @@ function graficoLog(todos, f) {
 function irADiaGrafLog(f) {
     if (!f) return;
     if (logi.perGraf === 'trimestre' || logi.perGraf === 'ano') logi.perGraf = 'mes';   // las filas eran meses: se ve ese mes
-    logi.fecha = f; logi.filtro = ''; logi.grafAbierto = false;
+    logi.fecha = f; logi.anclaGraf = null; logi.filtro = ''; logi.grafAbierto = false;
     pintarLog();
     $('logSemana')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
