@@ -4846,16 +4846,17 @@ function verAteneo(nombre) {
             ${equipo.length ? `<span class="chip ateneo">Apoyan: ${esc(equipo.map(primerNombre).join(', '))}</span>` : ''}
         </div>
         ${vs.map(x => { const [cls, txt] = sinReporte(x) ? ['no', 'Sin reporte a tiempo'] : est[x.estado] || ['p', x.estado];
-            return `<div class="hist-item ${cls}"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
+            return `<div class="hist-item ${cls}"><div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b>${chipVisita(x, cls, txt)}</div>
                 <p class="meta">${esc([nombresHist(x), comercial(x.vendedor)?.zona, modalidadDe(x)].filter(Boolean).join(' · '))}</p>
-                ${htmlReporteHist(x)}${enlaceVisita(x)}</div>`; }).join('')
+                ${htmlReporteHist(x)}</div>`; }).join('')
             || '<div class="no-results">Todavía no hay visitas a este ateneo.</div>'}
         <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
     </div>`);
 }
 
-// Enlace de una tarjeta del historial a esa visita en la agenda de su día (no para el usuario de consulta, que no tiene agenda)
-const enlaceVisita = x => registros[x.id] && !esSoloLectura() ? `<p class="hist-enlace"><button type="button" class="link-mini" onclick="irAVisita('${esc(x.id)}')">Ver la visita completa del día →</button></p>` : '';
+// El botón de estado de cada tarjeta del historial lleva a esa visita en la agenda de su día (solo si la visita está cargada y el usuario tiene agenda; el de consulta no)
+const chipVisita = (x, cls, txt) => registros[x.id] && !esSoloLectura()
+    ? `<button type="button" class="chip ${cls} chip-enlace" title="Ver la visita completa del día" onclick="irAVisita('${esc(x.id)}')">${txt} ↗</button>` : `<span class="chip ${cls}">${txt}</span>`;
 function verCliente(nombre, vendedor) {
     historial = { nombre, vendedor, f: '', dia: '', sel: { a: [], s: [], t: [], m: [] } };
     MULTI.historial.abierto = null; MULTI.historial.nivel = null;
@@ -4901,9 +4902,9 @@ function pintarHistorial() {
     const filas = vistas.map(x => {
         const [cls, txt] = sinReporte(x) ? ['no', 'Sin reporte a tiempo'] : estadoTxt[x.estado] || ['p', x.estado];
         return `<div class="hist-item ${cls}">
-            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b><span class="chip ${cls}">${txt}</span></div>
+            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(x.fecha)))}</b>${chipVisita(x, cls, txt)}</div>
             <p class="meta"><span class="hist-tag v">Visita</span>${esc([nombreTipo(x), modalidadDe(x), nombresHist(x)].filter(Boolean).join(' · '))}</p>
-            ${htmlReporteHist(x)}${enlaceVisita(x)}
+            ${htmlReporteHist(x)}
         </div>`;
     }).join('');
     abrirModal(`<div class="form-rc ficha historial">

@@ -2107,4 +2107,7 @@ body.es-consulta #btnLogistica, body.es-consulta #btnCreacion, body.es-consulta 
 
 /* Filtro de modalidad (jefes): junto al de orden, a la derecha */
 .ag-modalidad + .ag-orden { margin-left: 8px; }
-.hist-enlace { margin: 6px 0 0; text-align: right; }
+
+/* Botón de estado del historial que lleva a la visita o parada */
+button.chip-enlace { border: 0; cursor: pointer; font: inherit; font-weight: 700; }
+button.chip-enlace:hover { filter: brightness(.95); text-decoration: underline; }

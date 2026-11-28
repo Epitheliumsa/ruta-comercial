@@ -391,7 +391,7 @@ function tarjetaLog(r, n, total) {
     const mover = !logi.soloLectura && !cerrada && !r.hora && sueltas.length > 1 ? `<div class="mover-orden"><span>Orden en la ruta <b>${n}</b> de ${total}</span>
         <button type="button" onclick="moverLog('${r.id}', -1)" ${k === 0 ? 'disabled' : ''}>▲ Subir</button><button type="button" onclick="moverLog('${r.id}', 1)" ${k === sueltas.length - 1 ? 'disabled' : ''}>▼ Bajar</button></div>` : '';
     const meta = [nombreTipos(r), r.zona || '', r.vieneDe ? `reprogramada (era del ${fechaCorta(r.vieneDe)})` : ''].filter(Boolean).join(' · ');
-    return `<div class="producto-card visita-card lg-card ${clase} lg-${r.tipo}">
+    return `<div class="producto-card visita-card lg-card ${clase} lg-${r.tipo}" data-lid="${esc(r.id)}">
         <div class="visita-cab"><div>${r.hora ? `<span class="cita-fija"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hora fija ${esc(horaBonita(r.hora))}</span><br>` : ''}<span class="ordenes"><span class="ord prog">${n}</span></span>${titulo}<br><span class="lg-tipo ${r.tipo}">${esc(tp.corto)}</span>${(r.incluye || []).map(k => `<span class="lg-tipo ${k}">${esc(NOMBRE_INCLUYE[k] || k)}</span>`).join('')}${r.tipo !== 'radicacion' && conRadicacion(r) ? '<span class="lg-tipo radicacion">Radicación</span>' : ''}${r.tipo === 'oficina' ? (r.oficina || []).map(k => `<span class="lg-tipo oficina">${esc(OFICINA_LOG.find(x => x[0] === k)?.[1] || k)}</span>`).join('') : ''}${chipDevLog(r)}${r.proveedorOtro || r.contactoOtro ? '<span class="lg-otro" title="No está en la Maestra">Otros</span>' : ''}${chipsIntentoLog(r)}</div>${chipEstadoLog(r)}</div>
         ${mover}
         <p class="meta">${esc(meta)}</p>
@@ -1682,7 +1682,7 @@ function verProveedor(nombre) {
         <p class="clasif-cliente">Clasificación <b>Proveedor</b>${p.e ? ' · ' + esc(p.e) : ''}</p>
         <p class="grupo-titulo hist-sec l">🚚 Paradas · ${paradas.length}</p>
         ${paradas.map(r => `<div class="hist-item ${r.estado === 'entregado' ? 'ok' : r.estado === 'no_entregado' ? 'no' : 'p'}">
-            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b>${chipEstadoLog(r)}</div>
+            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}</b>${chipParada(r)}</div>
             <p class="meta"><span class="hist-tag l">${esc(TIPOS_LOG[r.tipo]?.corto || '')}</span>${esc([nombreVendedor(r.vendedor), (r.materiales || []).join(', ')].filter(Boolean).join(' · '))}</p>
         </div>`).join('') || '<div class="no-results">Todavía no hay paradas con este proveedor.</div>'}
         <div class="form-botones"><button type="button" class="btn-primario" onclick="cerrarModal()">Cerrar</button></div>
@@ -1701,6 +1701,22 @@ function htmlDirectorioCliente(nombre) {
 // ---------- HISTORIAL DEL CLIENTE (Maestra) ----------
 const entregasCliente = nombre => logVisibles().filter(r => hayTipo(r, 'cliente') && r.contacto && normalizar(r.contacto) === normalizar(nombre))
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || ordenLog(b, a));
+// El botón de estado de la entrega lleva a esa parada en Logística (solo si el usuario la ve en su pantalla de Logística; el de consulta no)
+const puedeIrAParada = r => !esSoloLectura() && !!registros[r.id] && logVisibles().some(x => x.id === r.id);
+const chipParada = r => puedeIrAParada(r) ? chipEstadoLog(r).replace('<span class="chip ', `<button type="button" onclick="irAParada('${esc(r.id)}')" title="Ver la parada completa del día" class="chip chip-enlace `).replace('</span>', ' ↗</button>') : chipEstadoLog(r);
+function irAParada(id) {
+    const r = registros[id];
+    if (!r) return;
+    cerrarModal();
+    Object.assign(logi, { fecha: r.fecha, mensajero: '', filtro: '', busca: '' });
+    abrirLogistica();
+    setTimeout(() => {
+        const t = document.querySelector(`#logScreen [data-lid="${id}"]`);
+        if (!t) return;
+        t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        t.classList.add('resaltada'); setTimeout(() => t.classList.remove('resaltada'), 4000);
+    }, 250);
+}
 function htmlEntregasCliente(nombre, dia = '') {
     const lista = entregasCliente(nombre).filter(r => !dia || r.fecha === dia);
     if (!lista.length) return esLogistica() && !dia ? '<div class="no-results">Todavía no hay entregas registradas para este cliente.</div>' : '';
@@ -1710,7 +1726,7 @@ function htmlEntregasCliente(nombre, dia = '') {
         const det = r.estado === 'entregado' ? [rp.recibio && `${tp.rec}: ${rp.recibio}`, rp.guia && `Guía ${rp.guia}`, rp.radicado && `Radicado ${rp.radicado}`, rp.faltantes?.length && `Sin hacer: ${rp.faltantes.join(' · ')}`, ...(rp.devoluciones || []).map(textoDev), rp.novedad && `Novedad: ${rp.novedad}`] : r.estado === 'no_entregado' ? [rp.motivo, rp.novedad, textoAccionLog(rp)] : ['Pendiente de reportar'];
         const fotos = (r.fotos || []).map((f, i) => `<a class="lg-foto" href="${esc(urlFoto(f))}" target="_blank" rel="noopener"><img src="${esc(miniFoto(f))}" alt="Foto ${i + 1}" loading="lazy"${miniFotoRespaldo(f) ? ` onerror="this.onerror=null; this.src='${esc(miniFotoRespaldo(f))}'"` : ''}></a>`).join('');
         return `<div class="hist-item ${cls}">
-            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : r.hora ? ' · hora fija ' + esc(horaBonita(r.hora)) : ''}</b>${chipEstadoLog(r)}</div>
+            <div class="hist-cab"><b>${esc(mayuscula(fechaLarga(r.fecha)))}${r.registrada ? ' · ' + esc(horaLog(r.registrada)) : r.hora ? ' · hora fija ' + esc(horaBonita(r.hora)) : ''}</b>${chipParada(r)}</div>
             <p class="meta"><span class="hist-tag l">${esc(TIPOS_LOG[repTipoLog(r)]?.corto || 'Entrega')}</span>${esc([nombreTipos(r), nombreVendedor(r.vendedor)].join(' · '))}</p>
             <div class="reporte">${[docs, ...det.filter(Boolean).map(esc)].filter(Boolean).join('<br>')}${fotos ? `<div class="lg-fotos">${fotos}</div>` : ''}</div>
         </div>`;
