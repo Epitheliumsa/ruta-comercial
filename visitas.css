@@ -2111,3 +2111,43 @@ body.es-consulta #btnLogistica, body.es-consulta #btnCreacion, body.es-consulta 
 /* Botón de estado del historial que lleva a la visita o parada */
 button.chip-enlace { border: 0; cursor: pointer; font: inherit; font-weight: 700; }
 button.chip-enlace:hover { filter: brightness(.95); text-decoration: underline; }
+/* Gráfico de entregas por período */
+.lg-g-per { margin-top: 8px; }
+.lg-g-rango { margin: 6px 0 4px; font-weight: 700; color: #0b5c56; font-size: 13px; }
+.lg-g-rango small { font-weight: 500; color: #64748b; }
+.lg-g-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
+.lg-g-kpi { background: #f7fbfa; border-top: 4px solid var(--c); border-radius: 8px; padding: 6px 6px 4px; text-align: center; }
+.lg-g-kpi b { display: block; font-size: 22px; line-height: 1.1; color: var(--c); }
+.lg-g-kpi span { display: block; font-size: 11px; color: #334155; font-weight: 600; }
+.lg-g-kpi small { font-size: 11px; color: #64748b; }
+.lg-g-total { display: flex; height: 22px; border-radius: 8px; overflow: hidden; margin: 4px 0; }
+.lg-g-total i { display: flex; align-items: center; justify-content: center; color: #fff; font-style: normal; font-size: 11px; font-weight: 700; }
+.lg-g-comp { margin: 4px 0 6px; font-size: 12px; color: #475569; }
+.lg-g-comp .sube { color: #15803d; } .lg-g-comp .baja { color: #b91c1c; }
+.lg-g-fila { grid-template-columns: minmax(90px, 30%) 1fr 26px 38px; }
+.lg-g-barra { display: block; background: #f1f5f4; }
+.lg-g-barra-in { display: flex; height: 18px; border-radius: 6px; overflow: hidden; }
+.lg-g-p { text-align: right; color: #475569; font-size: 11.5px; font-weight: 600; }
+.lg-g-nota { margin-left: auto; color: #64748b; }
+@media (max-width: 420px) { .lg-g-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+/* Botones de período y de agrupación del gráfico de entregas: siempre visibles (también en pantalla ancha) */
+.lg-tabs { display: flex; gap: 4px; margin: 8px 0 4px; background: #e3f1ef; border-radius: 10px; padding: 3px; }
+.lg-tabs button { flex: 1; border: 0; background: transparent; padding: 7px 4px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 700; color: #0b5c56; cursor: pointer; }
+.lg-tabs button.activo { background: #0f766e; color: #fff; }
+
+.lg-g-fila.enlace { cursor: pointer; border-radius: 8px; padding: 2px 4px; margin: 0 -4px; }
+.lg-g-fila.enlace:hover, .lg-g-fila.enlace:focus-visible { background: #e8f3f1; outline: none; }
+.lg-g-fila.enlace:hover .lg-g-nom { text-decoration: underline; }
+
+.lg-g-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; }
+.lg-g-nav .lg-g-rango { margin: 0; }
+.lg-g-nav > button:not(.link-mini) { border: 1px solid #b9d8d2; background: #fff; color: #0b5c56; border-radius: 8px; width: 30px; height: 30px; font-size: 13px; cursor: pointer; }
+.lg-g-nav > button:not(.link-mini):hover { background: #e3f1ef; }
+.lg-g-pick { border: 1px solid #b9d8d2; border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; color: #0b5c56; background: #fff; }
+.lg-g-sub { color: #64748b; }
+
+/* La fecha del período es el botón que abre el selector (el campo va encima, transparente) */
+.lg-g-fecha { position: relative; display: inline-flex; align-items: center; cursor: pointer; border-radius: 8px; padding: 4px 8px; background: #f1f8f6; border: 1px solid #cfe5e0; }
+.lg-g-fecha:hover { background: #e3f1ef; }
+.lg-g-fecha .lg-g-pick { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; border: 0; padding: 0; }
