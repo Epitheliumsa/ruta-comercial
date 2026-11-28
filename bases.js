@@ -122,6 +122,10 @@ function contactosDeMaestra(filas) {
     const colPlazo = ['Plazos de Pago', 'Condiciones de pago de cliente'].find(n => n in col);
     const provAnt = {}; Object.values(contactos).flat().forEach(x => { provAnt[x.n] = x.p || ''; });
     const val = (f, n) => (n in col ? (f[col[n]] || '') : '');
+    // "Cliente para Facturar": se acepta con otras mayúsculas, tildes o nombres parecidos
+    const limpio = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const colFac = cab.findIndex(n => ['cliente para facturar', 'cliente para facturacion', 'cliente facturable', 'facturable', 'facturar'].includes(limpio(n)));
+    const esSi = t => ['true', 'si', '1', 'verdadero', 'x', 'yes', 'y'].includes(limpio(t));
     const nuevo = Object.fromEntries(ZONAS_BASE.map(z => [z, []])), sinZona = [];
     filas.slice(1).forEach(f => {
         if (!f.some(Boolean)) return;
@@ -130,7 +134,7 @@ function contactosDeMaestra(filas) {
         const zona = (COMERCIAL_ZONA_BASE.find(([n]) => comercial && comercial.toLowerCase().includes(n.toLowerCase())) || [])[1] || (ZONAS_BASE.includes(equipo) ? equipo : null);
         if (!zona) { sinZona.push(nombre); return; }
         const extra = { t: val(f, 'Título'), p: 'Provincia' in col ? val(f, 'Provincia') : provAnt[nombre] || '',
-            f: ['true', 'sí', 'si', '1'].includes(val(f, 'Cliente para Facturar').toLowerCase()),
+            f: colFac >= 0 && esSi(f[colFac]),
             cl: val(f, 'Categoría de cliente/Clasificación'), ca: val(f, 'Categoría de cliente'), pz: colPlazo ? val(f, colPlazo) : '' };
         const c = { n: nombre, c: val(f, 'Ciudad'), e: val(f, 'Etiquetas') };
         Object.entries(extra).forEach(([k, v]) => { if (v !== '' && v !== false) c[k] = v; });
@@ -138,7 +142,13 @@ function contactosDeMaestra(filas) {
         nuevo[zona].push(c);
     });
     ZONAS_BASE.forEach(z => nuevo[z].sort((a, b) => a.n.toLowerCase().localeCompare(b.n.toLowerCase())));
-    return { nuevo, sinZona };
+    return { nuevo, sinZona, facturables: Object.values(nuevo).flat().filter(c => c.f).length, conColumnaFacturar: colFac >= 0 };
+}
+// Sin ningún "Cliente para Facturar = Sí" los clientes quedan como no facturables y la Maestra los oculta: no se sube
+function avisoSinFacturar(hayColumna) {
+    return dialogo({ titulo: 'No se subió la Maestra', aceptar: 'Entendido',
+        texto: hayColumna ? 'La columna "Cliente para Facturar" viene toda en No/vacía. Si se sube así, la Maestra oculta a los clientes. Revisa el archivo (que la columna traiga Sí/True en los clientes facturables) y vuelve a subirlo.'
+            : 'El archivo no trae la columna "Cliente para Facturar". Si se sube así, la Maestra oculta a los clientes. Expórtala de Odoo con esa columna y vuelve a subirlo.' });
 }
 async function subirContactos() {
     if (!puedeCargarBases()) return;
@@ -146,13 +156,14 @@ async function subirContactos() {
     if (!archivo) return;
     try {
         const wb = await leerLibro(archivo);
-        const { nuevo, sinZona } = contactosDeMaestra(filasHoja(wb.worksheets[0]));
+        const { nuevo, sinZona, facturables, conColumnaFacturar } = contactosDeMaestra(filasHoja(wb.worksheets[0]));
         const antes = {}; Object.entries(contactos).forEach(([z, l]) => l.forEach(x => { antes[x.n] = z; }));
         const despues = {}; Object.entries(nuevo).forEach(([z, l]) => l.forEach(x => { despues[x.n] = z; }));
         const nuevos = Object.keys(despues).filter(n => !(n in antes)).length, retirados = Object.keys(antes).filter(n => !(n in despues)).length;
         const cambios = Object.keys(despues).filter(n => n in antes && antes[n] !== despues[n]).length;
         const total = Object.keys(despues).length;
         if (total < 50) return toast('La maestra trae muy pocos contactos: revisa que sea la Maestra de Contactos de Odoo');
+        if (!facturables) return avisoSinFacturar(conColumnaFacturar);
         const resumen = `${total} contactos en ${ZONAS_BASE.length} zonas`;
         if (!await dialogo({ titulo: 'Maestra de contactos', aceptar: 'Subir', cancelar: 'No subir',
             texto: `${total} contactos (${ZONAS_BASE.map(z => `${z}: ${nuevo[z].length}`).join(' · ')}).\nNuevos: ${nuevos} · Retirados: ${retirados} · Cambian de zona: ${cambios}${sinZona.length ? `\nSin zona (no se suben): ${sinZona.length}` : ''}\nReemplaza la lista de contactos de la app para todos los usuarios.` })) return;
@@ -175,7 +186,7 @@ function filasOdoo(libros) {
         const cab = Object.fromEntries(hoja[0].map((t, i) => [t.trim(), i]));
         // Si alguien escribió sobre el título de la primera columna ("Etiquetas"), pero la columna sí trae las etiquetas, se usa igual: sin ella las direcciones de entrega entrarían como clientes
         if (!('Etiquetas' in cab) && /direcci[oó]n (entrega|personal)/i.test(hoja.slice(1, 400).map(f => f[0]).join('|'))) cab['Etiquetas'] = 0;
-        const col = k => COLUMNAS_ODOO[k].find(x => x in cab);
+        const col = k => COLUMNAS_ODOO[k].find(x => x in cab) || (k === 'fac' ? Object.keys(cab).find(n => ['cliente para facturar', 'cliente para facturacion', 'cliente facturable', 'facturable', 'facturar'].includes(claveOdoo(n).trim())) : undefined);
         if (!col('n') || !col('ciudad') || !col('eq')) throw new Error(`"${nombre}" no parece la Maestra de Contactos de Odoo: faltan las columnas Nombre Público, Ciudad o Equipo de ventas`);
         hoja.slice(1).forEach(f => {
             if (!f.some(Boolean)) return;
@@ -237,6 +248,7 @@ async function subirOdoo() {
             const cab = ['Título', 'Nombre Público', 'Provincia', 'Ciudad', 'Comercial', 'Equipo de ventas', 'Cliente para Facturar', 'Categoría de cliente/Clasificación', 'Categoría de cliente', 'Plazos de Pago', 'Etiquetas'];
             const res = contactosDeMaestra([cab, ...clientes.map(o => [o.tit, o.n, o.prov, o.ciudad, o.com, o.eq, o.fac, o.cl, o.ca, o.pz, o.etq])]);
             nuevo = res.nuevo;
+            if (!res.facturables) { await avisoSinFacturar(res.conColumnaFacturar); return; }
             const total = Object.values(nuevo).reduce((a, l) => a + l.length, 0);
             resumenC = `${total} contactos en ${ZONAS_BASE.length} zonas · ${altas.length} direcciones alternas`;
             const antes = new Set(Object.values(contactos).flat().map(x => x.n)), despues = new Set(Object.values(nuevo).flat().map(x => x.n));
@@ -841,7 +853,7 @@ async function subirHomologos() {
             });
             await llamarApi({ accion: 'guardarBases', bases, borrarPortafolios: false }, 180000);
         } catch (e) { rehechos = 0; motivo = e.message; }
-        if (motivo) await dialogo({ titulo: 'Homólogos guardados, portafolios sin rehacer', aceptar: 'Entendido', cancelar: '',
+        if (motivo) await dialogo({ titulo: 'Homólogos guardados, portafolios sin rehacer', aceptar: 'Entendido',
             texto: `Los ${items.length} homólogos quedaron guardados, pero no pude rehacer los portafolios (${motivo}).\nSube ahora Productos y Vademécum para armarlos con los homólogos guardados.` });
         else toast(`Homólogos actualizados: ${items.length} · ${rehechos} portafolios rehechos`);
     } catch (e) { toast('No se pudo subir los homólogos: ' + e.message); }
